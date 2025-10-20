@@ -96,8 +96,8 @@ passport.use(new GoogleStrategy({
                     user = await User.create({
                         googleId: profile.id,
                         email: profile.emails[0].value,
-                        firstName: profile.name.givenName,
-                        lastName: profile.name.familyName,
+                        firstName: profile.name.givenName || 'Unknown',
+                        lastName: profile.name.familyName || 'User',
                         profilePicture: profile.photos[0].value,
                         role: 'faculty', // Default role for Google OAuth users
                         lastLogin: new Date()

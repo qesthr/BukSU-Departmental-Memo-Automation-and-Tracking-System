@@ -118,21 +118,9 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         if (data.success) {
             showMessage('Login successful! Redirecting...', 'success');
             
-            // Redirect based on user role
+            // Redirect to dashboard for all users
             setTimeout(() => {
-                switch(data.user.role) {
-                    case 'admin':
-                        window.location.href = '/admin/dashboard';
-                        break;
-                    case 'secretary':
-                        window.location.href = '/secretary/dashboard';
-                        break;
-                    case 'faculty':
-                        window.location.href = '/faculty/dashboard';
-                        break;
-                    default:
-                        window.location.href = '/dashboard';
-                }
+                window.location.href = '/dashboard';
             }, 1500);
         } else {
             showMessage(data.message || 'Login failed', 'error');

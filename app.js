@@ -73,6 +73,15 @@ app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
 });
 
+// Dashboard route - protected
+app.get('/dashboard', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render('dashboard', { user: req.user });
+    } else {
+        res.redirect('/');
+    }
+});
+
 // Error handling middleware
 const errorHandler = require('./backend/middleware/errorHandler');
 app.use(errorHandler);
