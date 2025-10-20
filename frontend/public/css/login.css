@@ -12,10 +12,63 @@ body, html {
 
 /* MAIN LAYOUT */
 .container {
-    display: flex;
-    height: 100vh;
-    width: 100%;
-    background-color: #0A0E3F;
+  position: relative;
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: #0A0E3F;
+  overflow: hidden;
+}
+
+/* --- Background Image Layer --- */
+.container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background-image: url("/images/UNI.jpg");
+  background-size: cover;
+  background-position: left center;
+  background-repeat: no-repeat;
+
+  /* 👇 Start hidden and clear */
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity 1.7s ease-in-out,
+    filter 1.7s ease-in-out;
+  z-index: 0;
+}
+
+/* --- Color Overlay Layer --- */
+.container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background-color: rgba(10, 14, 63, .8); /* 👈 change this color + opacity */
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  z-index: 1;
+}
+
+/* --- When Activated --- */
+.container.show-bg::before {
+  opacity: 1; /* fade in image */
+}
+
+.container.show-bg::after {
+  opacity: 1; /* fade in overlay */
+}
+
+/* Keep content above both */
+.container > * {
+  position: relative;
+  z-index: 2;
 }
 
 /* LEFT SIDE */
@@ -201,4 +254,31 @@ body, html {
 
 .google-btn:hover {
     background-color: #f5f5f5;
+}
+
+/* FORGOT PASSWORD LINK */
+.forgot-password {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.forgot-password a {
+  color: #0a73e8;
+  font-size: 14px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.forgot-password a:hover {
+  color: #075bbf;
+  text-decoration: underline;
+}
+
+#recaptcha {
+    margin-top: 15px;
+    width: 100%;
+    padding: 15px 12px 45px;
+    display: flex;
+    justify-content: center;
 }

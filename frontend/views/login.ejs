@@ -1,3 +1,5 @@
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
 <div class="container">
   <!-- LEFT SIDE -->
   <div class="left-panel">
@@ -30,12 +32,14 @@
         </div>
         <button type="submit" class="login-btn">Login</button>
 
+        <div id="recaptcha" class="g-recaptcha" data-sitekey="YOUR_SITE_KEY" data-callback="enableSubmit"></div>
+
         <div class="divider">or</div>
 
         <a href="/auth/google" class="google-btn">
           <img src="/images/google.png" alt="Google Icon">
           Continue with Google
-        </a>
+        </button>
       </form>
     </div>
   </div>
