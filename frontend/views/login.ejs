@@ -1,3 +1,5 @@
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
 <div class="container">
   <!-- LEFT SIDE -->
   <div class="left-panel">
@@ -29,6 +31,8 @@
           <input type="password" placeholder="Password" required>
         </div>
         <button type="submit" class="login-btn">Login</button>
+
+        <div id="recaptcha" class="g-recaptcha" data-sitekey="YOUR_SITE_KEY" data-callback="enableSubmit"></div>
 
         <div class="divider">or</div>
 

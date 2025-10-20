@@ -23,3 +23,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }, layers.length * 600 + 400);
   }, 900);
 });
+
+// Enable submit button when reCAPTCHA is completed
+function enableSubmit(token) {
+    document.getElementById("submitBtn").disabled = false;
+}
+
+// Add form submission handling
+document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) {
+        alert('Please complete the reCAPTCHA');
+        return;
+    }
+    
+    // Continue with form submission
+    // Add your login logic here
+});

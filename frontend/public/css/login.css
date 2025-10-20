@@ -274,3 +274,11 @@ body, html {
   color: #075bbf;
   text-decoration: underline;
 }
+
+#recaptcha {
+    margin-top: 15px;
+    width: 100%;
+    padding: 15px 12px 45px;
+    display: flex;
+    justify-content: center;
+}
