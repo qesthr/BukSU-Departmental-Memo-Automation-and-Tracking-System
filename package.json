@@ -1,0 +1,28 @@
+{
+  "name": "buksu-departmental-memo-automation-and-tracking-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qesthr/BukSU-Departmental-Memo-Automation-and-Tracking-System.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/qesthr/BukSU-Departmental-Memo-Automation-and-Tracking-System/issues"
+  },
+  "homepage": "https://github.com/qesthr/BukSU-Departmental-Memo-Automation-and-Tracking-System#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-ejs-layouts": "^2.5.1"
+  }
+}
