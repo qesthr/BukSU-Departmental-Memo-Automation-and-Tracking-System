@@ -67,4 +67,6 @@ const errorHandler = require('./backend/middleware/errorHandler');
 app.use(errorHandler);
 
 // Start server
-app.listen(port, () => console.info(`App listening on port ${port}`));
+app.listen(port, () => {
+    console.info(`Server is running at http://localhost:${port}`);
+});
