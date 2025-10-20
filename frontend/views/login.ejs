@@ -1,0 +1,46 @@
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+<div class="container">
+  <!-- LEFT SIDE -->
+  <div class="left-panel">
+    <div class="logo">
+      <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
+    </div>
+    <p class="tagline">Educate. Innovate. Lead.</p>
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="right-panel">
+    <div class="layer layer1"></div>
+    <div class="layer layer2"></div>
+    <div class="layer layer3"></div>
+
+    <!-- Login Form Card -->
+    <div class="login-card hidden" id="loginCard">
+      <img src="/images/Screenshot_2025-09-28_142025.png" alt="Logo Icon" class="small-logo">
+      <h2>Login to your Account</h2>
+      <p class="welcome">Welcome back! Please login to continue.</p>
+
+      <form>
+        <div class="input-group">
+          <img src="/images/email.png" alt="Email Icon" class="input-icon">
+          <input type="email" placeholder="Email" required>
+        </div>
+        <div class="input-group">
+          <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
+          <input type="password" placeholder="Password" required>
+        </div>
+        <button type="submit" class="login-btn">Login</button>
+
+        <div id="recaptcha" class="g-recaptcha" data-sitekey="YOUR_SITE_KEY" data-callback="enableSubmit"></div>
+
+        <div class="divider">or</div>
+
+        <a href="/auth/google" class="google-btn">
+          <img src="/images/google.png" alt="Google Icon">
+          Continue with Google
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
