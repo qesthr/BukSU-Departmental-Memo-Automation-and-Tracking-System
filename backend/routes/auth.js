@@ -1,8 +1,15 @@
 const express = require('express');
 const passport = require('passport');
 const router = express.Router();
+const authController = require('../controllers/authController');
 
-// Google Auth Routes
+// Local authentication routes
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+router.get('/current-user', authController.getCurrentUser);
+router.get('/check-auth', authController.checkAuth);
+
+// Google OAuth routes
 router.get('/google',
     passport.authenticate('google', { scope: ['profile', 'email'] })
 );
@@ -10,11 +17,11 @@ router.get('/google',
 router.get('/google/callback', 
     passport.authenticate('google', { 
         failureRedirect: '/login',
-        successRedirect: '/dashboard'  // Change this to your dashboard route
+        successRedirect: '/dashboard'
     })
 );
 
-// Logout route
+// Legacy logout route (for compatibility)
 router.get('/logout', (req, res) => {
     req.logout((err) => {
         if (err) {
