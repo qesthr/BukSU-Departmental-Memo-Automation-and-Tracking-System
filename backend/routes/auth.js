@@ -15,10 +15,11 @@ router.get('/google',
 );
 
 router.get('/google/callback', 
-    passport.authenticate('google', { 
-        failureRedirect: '/login',
-        successRedirect: '/dashboard'
-    })
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res) => {
+        // After successful authentication, check if user needs password setup
+        res.redirect('/auth-success');
+    }
 );
 
 // Legacy logout route (for compatibility)

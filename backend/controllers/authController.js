@@ -34,11 +34,11 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Check if user has a password (not Google OAuth only)
-        if (!user.password && user.googleId) {
+        // Check if user has a password
+        if (!user.password) {
             return res.status(401).json({
                 success: false,
-                message: 'Please use Google login for this account'
+                message: 'This account requires Google login'
             });
         }
 

@@ -8,6 +8,7 @@ const cors = require('cors');
 const connectDB = require('./backend/config/db');
 const passport = require('./backend/config/passport');
 const authRoutes = require('./backend/routes/auth');
+const passwordRoutes = require('./backend/routes/passwordRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -47,7 +48,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Auth routes
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/password', passwordRoutes);
 app.use('/auth', authRoutes);
 
 // Serve static files from frontend/public
@@ -71,6 +74,15 @@ app.use((req, res, next) => {
 // Routes
 app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
+});
+
+// Auth success route
+app.get('/auth-success', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render('auth-success');
+    } else {
+        res.redirect('/');
+    }
 });
 
 // Dashboard route - protected
