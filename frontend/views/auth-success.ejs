@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Success</title>
+    <style>
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Setting up your account...</p>
+    </div>
+
+    <script>
+        // Function to create the password setup modal
+        function createPasswordSetupModal() {
+            const modalHtml = `
+                <div id="setPasswordModal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                    <div style="background-color: white; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px;">
+                        <h2 style="margin-bottom: 20px;">Set Up Password for Manual Login</h2>
+                        <p style="margin-bottom: 20px;">Please set up a password to enable manual login with your email address.</p>
+                        <form id="passwordSetupForm">
+                            <div style="margin-bottom: 15px;">
+                                <label for="password" style="display: block; margin-bottom: 5px;">Password</label>
+                                <input type="password" id="password" required minlength="6" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: #666;">Password must be at least 6 characters long</small>
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <label for="confirmPassword" style="display: block; margin-bottom: 5px;">Confirm Password</label>
+                                <input type="password" id="confirmPassword" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Set Password</button>
+                                <button type="button" onclick="skipPasswordSetup()" style="background-color: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Skip for now</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            document.getElementById('passwordSetupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+
+                try {
+                    const response = await fetch('/api/password/set-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ password, confirmPassword })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('Password set successfully! You can now use manual login.');
+                        window.location.href = '/dashboard';
+                    } else {
+                        alert(data.message || 'Error setting password');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error setting password. Please try again.');
+                }
+            });
+        }
+
+        // Function to skip password setup
+        function skipPasswordSetup() {
+            if (confirm('Are you sure you want to skip password setup? You will only be able to login using Google.')) {
+                window.location.href = '/dashboard';
+            }
+        }
+
+        // Check if user needs password setup when page loads
+        async function checkPasswordSetup() {
+            try {
+                const response = await fetch('/api/password/has-password');
+                const data = await response.json();
+                
+                if (response.ok && !data.hasPassword) {
+                    // Remove loading spinner
+                    document.querySelector('.loading').style.display = 'none';
+                    // Show password setup modal
+                    createPasswordSetupModal();
+                } else {
+                    // If user already has a password, redirect to dashboard
+                    window.location.href = '/dashboard';
+                }
+            } catch (error) {
+                console.error('Error checking password status:', error);
+                alert('Error checking account status. Redirecting to dashboard...');
+                window.location.href = '/dashboard';
+            }
+        }
+
+        // Start the process when page loads
+        window.onload = checkPasswordSetup;
+    </script>
+</body>
+</html>
