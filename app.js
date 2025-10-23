@@ -117,3 +117,8 @@ app.get("/admin-dashboard", (req, res) => {
     adminName: "Queen Niña"
   });
 });
+
+//google calendar
+import calendarRoutes from "./routes/calendar.js";
+app.use("/api/calendar", calendarRoutes);
+

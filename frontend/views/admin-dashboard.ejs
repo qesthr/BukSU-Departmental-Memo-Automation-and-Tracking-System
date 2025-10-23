@@ -6,6 +6,8 @@
     <title>Admin Dashboard | Memofy</title>
     <link rel="stylesheet" href="/css/admin-dash.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
 </head>
 <body>
@@ -100,7 +102,22 @@
         // Start timer
         resetTimer();
 
+        //google calendar icon script
+         document.addEventListener("DOMContentLoaded", async () => {
+            const response = await fetch("/api/calendar/events");
+            const events = await response.json();
 
+            const calendarEl = document.getElementById("calendar");
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: "dayGridMonth",
+            events: events.map(event => ({
+                title: event.summary,
+                start: event.start.dateTime || event.start.date,
+                end: event.end.dateTime || event.end.date,
+            })),
+            });
+            calendar.render();
+        });
 
     </script>
 </body>
