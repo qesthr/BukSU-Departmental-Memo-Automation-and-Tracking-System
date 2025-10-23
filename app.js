@@ -28,6 +28,7 @@ app.use(helmet({
         },
     },
 }));
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -58,12 +59,18 @@ app.use(express.static(path.join(__dirname, 'frontend/public')));
 app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
+app.use(express.static(path.join(__dirname, 'frontend/components')));
 
 // Set up EJS
 app.use(expressLayouts);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'frontend/views'));
 app.set('layout', path.join(__dirname, 'frontend/components/layouts/Loginlayout.ejs'));
+app.set("views", [
+  path.join(__dirname, "frontend", "views"),
+  path.join(__dirname, "frontend", "components")
+]);
+
 
 // Pass environment variables to views
 app.use((req, res, next) => {
@@ -102,3 +109,16 @@ app.use(errorHandler);
 app.listen(port, () => {
     console.info(`Server is running at http://localhost:${port}`);
 });
+
+// temporary route for admin dashboard
+app.get("/admin-dashboard", (req, res) => {
+  res.render("admin-dashboard", {
+    title: "Admin Dashboard",
+    adminName: "Queen Niña"
+  });
+});
+
+//google calendar
+import calendarRoutes from "./routes/calendar.js";
+app.use("/api/calendar", calendarRoutes);
+
