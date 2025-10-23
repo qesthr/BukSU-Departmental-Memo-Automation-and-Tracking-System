@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Memofy</title>
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+<body>
+    <div class="dashboard-container">
+        <%- include('nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+            <h1>Admin Dashboard</h1>
+            <div class="search-section">
+                <input type="text" placeholder="Search...">
+                <i data-lucide="search"></i>
+                <i data-lucide="bell"></i>
+                <img src="/assets/queen.png" alt="Profile" class="avatar">
+            </div>
+            </header>
+
+            <section class="dashboard-grid">
+            <!-- Illustration -->
+            <div class="hero-card">
+                <img src="/assets/illustration.svg" alt="Dashboard Illustration">
+            </div>
+
+            <!-- Calendar -->
+            <div class="calendar-card">
+                <div class="calendar-header">
+                <h4>October 2025</h4>
+                </div>
+                <table class="calendar-table">
+                <thead>
+                    <tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr>
+                </thead>
+                <tbody>
+                    <!-- Calendar rows go here -->
+                </tbody>
+                </table>
+            </div>
+
+            <!-- Recent Memos -->
+            <div class="recent-memos">
+                <h3>Recent Memos</h3>
+                <div class="memo-card blue">
+                <h4>Faculty Meeting Agenda</h4>
+                <p>Information Technology Department</p>
+                <span>October 5, 2025</span>
+                </div>
+                <div class="memo-card orange">
+                <h4>Urgent: Grade Submission Deadline</h4>
+                <p>Information Technology Department</p>
+                <span>October 7, 2025</span>
+                </div>
+                <div class="memo-card purple">
+                <h4>Holiday Schedule Update</h4>
+                <p>Information Technology Department</p>
+                <span>October 24, 2025</span>
+                </div>
+            </div>
+
+            <!-- Stats and Backup -->
+            <div class="stats-card">
+                <p>Total Memos Sent</p>
+                <h1>1,223</h1>
+                <p class="growth">+10% from last month</p>
+            </div>
+
+            <div class="backup-card">
+                <i data-lucide="cloud"></i>
+                <p>Last backup on Google Drive</p>
+                <span>October 6, 2025</span>
+            </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Auto logout after 24 hours of inactivity
+        let logoutTimer;
+
+        function resetTimer() {
+            clearTimeout(logoutTimer);
+            logoutTimer = setTimeout(() => {
+                window.location.href = '/auth/logout';
+            }, 24 * 60 * 60 * 1000); // 24 hours
+        }
+
+        // Reset timer on user activity
+        document.addEventListener('mousemove', resetTimer);
+        document.addEventListener('keypress', resetTimer);
+        document.addEventListener('click', resetTimer);
+
+        // Start timer
+        resetTimer();
+
+
+
+    </script>
+</body>
+</html>
