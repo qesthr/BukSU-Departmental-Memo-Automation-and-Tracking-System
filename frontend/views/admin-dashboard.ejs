@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Memofy</title>
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <%- include('../components/nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-bar">
+                <div class="search-container">
+                    <input type="text" placeholder="Search anything in Memofy..." class="search-input">
+                    <button class="search-btn">
+                        <i data-lucide="search"></i>
+                    </button>
+                </div>
+                <div class="header-actions">
+                    <button class="notification-btn">
+                        <i data-lucide="bell"></i>
+                        <span class="notification-badge"></span>
+                    </button>
+                    <div class="profile-section">
+                        <img src="<%= user.profilePicture || '/images/default-avatar.png' %>" alt="Profile" class="profile-img">
+                        <span class="admin-badge">Admin</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-info">
+                            <h3>Total Memos Sent</h3>
+                            <div class="stat-value">1,223</div>
+                            <div class="stat-change">+10% from last month</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⌛</div>
+                        <div class="stat-info">
+                            <h3>Pending Acknowledgment</h3>
+                            <div class="stat-value">45</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <h3>Overdue Memos</h3>
+                            <div class="stat-value">150</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3>Active Users</h3>
+                            <div class="stat-value">7</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Grid -->
+                <div class="main-grid">
+                    <!-- Recent Memos Section -->
+                    <section class="recent-memos-section">
+                        <h2>Recent Memos</h2>
+                        <div class="memo-list">
+                            <div class="memo-item">
+                                <i data-lucide="file-text" class="memo-icon blue"></i>
+                                <div class="memo-info">
+                                    <h4>Faculty Meeting Agenda</h4>
+                                    <p>Information Technology Department</p>
+                                </div>
+                                <span class="memo-date">October 5, 2025</span>
+                            </div>
+                            <div class="memo-item">
+                                <i data-lucide="alert-triangle" class="memo-icon orange"></i>
+                                <div class="memo-info">
+                                    <h4>Urgent: Grade Submission Deadline</h4>
+                                    <p>Information Technology Department</p>
+                                </div>
+                                <span class="memo-date">October 7, 2025</span>
+                            </div>
+                            <div class="memo-item">
+                                <i data-lucide="calendar" class="memo-icon purple"></i>
+                                <div class="memo-info">
+                                    <h4>Holiday Schedule Update</h4>
+                                    <p>Information Technology Department</p>
+                                </div>
+                                <span class="memo-date">October 24, 2025</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Calendar and Analytics -->
+                    <div class="side-grid">
+                        <div class="calendar-section" id="calendar"></div>
+                        <div class="backup-section">
+                            <i data-lucide="cloud" class="backup-icon"></i>
+                            <div class="backup-info">
+                                <h3>Last backup on Google Drive</h3>
+                                <p>October 6, 2025</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+        </main>
+    </div>
+
+    <script>
+        // Auto logout after 24 hours of inactivity
+        let logoutTimer;
+
+        function resetTimer() {
+            clearTimeout(logoutTimer);
+            logoutTimer = setTimeout(() => {
+                window.location.href = '/auth/logout';
+            }, 24 * 60 * 60 * 1000); // 24 hours
+        }
+
+        // Reset timer on user activity
+        document.addEventListener('mousemove', resetTimer);
+        document.addEventListener('keypress', resetTimer);
+        document.addEventListener('click', resetTimer);
+
+        // Start timer
+        resetTimer();
+
+        //google calendar icon script
+         document.addEventListener("DOMContentLoaded", async () => {
+            const response = await fetch("/api/calendar/events");
+            const events = await response.json();
+
+            const calendarEl = document.getElementById("calendar");
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: "dayGridMonth",
+            events: events.map(event => ({
+                title: event.summary,
+                start: event.start.dateTime || event.start.date,
+                end: event.end.dateTime || event.end.date,
+            })),
+            });
+            calendar.render();
+        });
+
+    </script>
+
+    <!-- Initialize Lucide icons -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

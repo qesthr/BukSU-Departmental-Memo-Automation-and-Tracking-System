@@ -25,9 +25,9 @@ passport.use(new LocalStrategy({
 }, async (email, password, done) => {
     try {
         // Find user by email
-        const user = await User.findOne({ 
+        const user = await User.findOne({
             email: email.toLowerCase().trim(),
-            isActive: true 
+            isActive: true
         });
 
         if (!user) {
@@ -70,51 +70,58 @@ passport.use(new LocalStrategy({
     }
 }));
 
-// Google OAuth Strategy
-passport.use(new GoogleStrategy({
+// Google OAuth Strategy (only initialize if credentials are provided)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback',
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BASE_URL || 'http://localhost:5000'}/auth/google/callback`,
         userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
     },
-    async function(accessToken, refreshToken, profile, cb) {
-        try {
-            // Check if user exists by Google ID
-            let user = await User.findOne({ googleId: profile.id });
+        (async (accessToken, refreshToken, profile, cb) => {
+            try {
+                // Check if user exists by Google ID
+                let user = await User.findOne({ googleId: profile.id });
 
-            if (!user) {
-                // Check if user exists by email
-                user = await User.findOne({ email: profile.emails[0].value });
-                
-                if (user) {
-                    // Update existing user with Google ID
-                    user.googleId = profile.id;
+                if (!user) {
+                    // Check if user exists by email
+                    user = await User.findOne({ email: profile.emails[0].value });
+
+                    if (user) {
+                        // Update existing user with Google ID
+                        user.googleId = profile.id;
+                        user.profilePicture = profile.photos[0].value;
+                        await user.save();
+                    } else {
+                        // Create new user
+                        user = await User.create({
+                            googleId: profile.id,
+                            email: profile.emails[0].value,
+                            firstName: profile.name.givenName || 'Unknown',
+                            lastName: profile.name.familyName || 'User',
+                            profilePicture: profile.photos[0].value,
+                            role: 'faculty', // Default role for Google OAuth users
+                            department: 'General', // Default department for Google OAuth users
+                            lastLogin: new Date()
+                        });
+                    }
+                } else {
+                    // Update last login and profile picture
+                    user.lastLogin = new Date();
                     user.profilePicture = profile.photos[0].value;
                     await user.save();
-                } else {
-                    // Create new user
-                    user = await User.create({
-                        googleId: profile.id,
-                        email: profile.emails[0].value,
-                        firstName: profile.name.givenName || 'Unknown',
-                        lastName: profile.name.familyName || 'User',
-                        profilePicture: profile.photos[0].value,
-                        role: 'faculty', // Default role for Google OAuth users
-                        lastLogin: new Date()
-                    });
                 }
-            } else {
-                // Update last login and profile picture
-                user.lastLogin = new Date();
-                user.profilePicture = profile.photos[0].value;
-                await user.save();
-            }
 
-            return cb(null, user);
-        } catch (error) {
-            return cb(error, null);
-        }
-    }
-));
+                return cb(null, user);
+            } catch (error) {
+                return cb(error, null);
+            }
+        })
+    ));
+} else {
+    // If Google OAuth credentials are not present, skip initializing the strategy.
+    // This allows the application to run in local/dev environments without OAuth setup.
+    console.warn('Google OAuth not configured: GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET missing. Skipping GoogleStrategy.');
+}
 
 module.exports = passport;

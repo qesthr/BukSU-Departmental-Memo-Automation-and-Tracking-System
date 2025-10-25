@@ -1,50 +1,244 @@
 <div class="container">
-  <!-- LEFT SIDE -->
-  <div class="left-panel">
-    <div class="logo">
-      <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
+    <!-- LEFT SIDE -->
+    <div class="left-panel">
+        <div class="logo">
+            <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
+        </div>
+        <p class="tagline">Educate. Innovate. Lead.</p>
     </div>
-    <p class="tagline">Educate. Innovate. Lead.</p>
-  </div>
 
-  <!-- RIGHT SIDE -->
-  <div class="right-panel">
-    <div class="layer layer1"></div>
-    <div class="layer layer2"></div>
-    <div class="layer layer3"></div>
+    <!-- RIGHT SIDE -->
+    <div class="right-panel">
+        <div class="layer layer1"></div>
+        <div class="layer layer2"></div>
+        <div class="layer layer3"></div>
 
-    <!-- Login Form Card -->
-    <div class="login-card hidden" id="loginCard">
-      <img src="/images/Screenshot_2025-09-28_142025.png" alt="Logo Icon" class="small-logo">
-      <h2>Login to your Account</h2>
-      <p class="welcome">Welcome back! Please login to continue.</p>
+        <!-- Login Form Card -->
+        <div class="login-card hidden" id="loginCard">
+            <img src="/images/memofy-logo.png" alt="Logo Icon" class="small-logo">
+            <h2>Login to your Account</h2>
+            <p class="welcome">Welcome back! Please login to continue.</p>
 
-      <form>
-        <div class="input-group">
-          <img src="/images/email.png" alt="Email Icon" class="input-icon">
-          <input type="email" placeholder="Email" required>
+            <form id="loginForm" method="POST" action="/auth/login">
+                <div class="input-group">
+                    <img src="/images/email.png" alt="Email Icon" class="input-icon">
+                    <input type="email" name="email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
+                    <input type="password" name="password" id="passwordInput" placeholder="Password" required>
+                </div>
+                <div id="recaptchaContainer" style="display: none; margin: 15px 0; text-align: center;">
+                    <div id="recaptcha" class="g-recaptcha" data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"
+                        data-callback="enableSubmit" data-theme="light" style="display: inline-block;"></div>
+                </div>
+                <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
+
+                <div class="forgot-password-link">
+                    <a href="/forgot-password" id="forgotPasswordLink">Forgot
+                        Password?</a>
+                </div>
+
+                <div class="divider">or</div>
+            </form>
+
+            <div id="google-signin-button" class="google-signin-container">
+                <!-- Fallback button - will be replaced by JavaScript if GSI loads -->
+                <button type="button" onclick="console.log('Fallback button clicked!'); window.location.href='/auth/google'" style="
+                    width: 100%;
+                    padding: 12px 16px;
+                    background: white;
+                    border: 1px solid #dadce0;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #3c4043;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                ">
+                    <svg width="18" height="18" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Sign in with Google
+                </button>
+            </div>
         </div>
-        <div class="input-group">
-          <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
-          <input type="password" id="passwordInput" placeholder="Password" required>
-        </div>
-        <div id="recaptchaContainer" style="display: none; margin: 15px 0; text-align: center;">
-          <div id="recaptcha" class="g-recaptcha" 
-               data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"
-               data-callback="enableSubmit"
-               data-theme="light"
-               style="display: inline-block;"></div>
-        </div>
-        <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
-
-        <div class="divider">or</div>
-
-        <a href="/auth/google" class="google-btn">
-          <img src="/images/google.png" alt="Google Icon">
-          Continue with Google
-        </a>
-      </form>
     </div>
-  </div>
 </div>
+
+<!-- Forgot Password Modal -->
+<div id="forgotPasswordModal" class="forgot-modal" style="display: none;">
+    <div class="forgot-modal-content">
+        <div class="forgot-modal-header">
+            <div class="forgot-logo-section">
+                <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
+                <span class="forgot-title">Reset Your Password</span>
+            </div>
+            <button id="closeForgotModal" class="close-forgot-modal">&times;</button>
+        </div>
+        <div class="forgot-modal-body">
+            <h2 class="forgot-heading">Reset Your Password</h2>
+            <p class="forgot-subtitle">Enter your email to receive a reset link.</p>
+
+            <form id="forgotForm">
+                <div class="input-group">
+                    <img src="/images/email.png" alt="Email Icon" class="input-icon">
+                    <input type="email" name="email" placeholder="Email" required>
+                </div>
+                <button type="submit" class="login-btn">Send Reset Link</button>
+            </form>
+
+            <div class="forgot-back-link">
+                <a href="javascript:void(0)" onclick="closeForgotPasswordModal()">← Back to Login</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Code Modal -->
+<div id="resetCodeModal" class="forgot-modal" style="display: none;">
+    <div class="forgot-modal-content">
+        <div class="forgot-modal-header">
+            <div class="forgot-logo-section">
+                <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
+                <span class="forgot-title">Enter Reset Code</span>
+            </div>
+            <button id="closeResetCodeModal" class="close-forgot-modal">&times;</button>
+        </div>
+        <div class="forgot-modal-body">
+            <h2 class="forgot-heading">Password Reset Code</h2>
+            <p class="forgot-subtitle">Enter the reset code sent to your email.</p>
+
+            <form id="resetCodeForm">
+                <div class="input-group">
+                    <img src="/images/recycle.png" alt="Code Icon" class="input-icon">
+                    <input type="text" name="resetCode" placeholder="Enter Reset Code" required>
+                </div>
+                <button type="submit" class="login-btn">Verify Code</button>
+            </form>
+
+            <div class="forgot-back-link">
+                <a href="javascript:void(0)" onclick="showForgotPasswordModal()">← Back to Email</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="forgot-modal" style="display: none;">
+    <div class="forgot-modal-content">
+        <div class="forgot-modal-header">
+            <div class="forgot-logo-section">
+                <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
+                <span class="forgot-title">Set New Password</span>
+            </div>
+            <button id="closeResetPasswordModal" class="close-forgot-modal">&times;</button>
+        </div>
+        <div class="forgot-modal-body">
+            <h2 class="forgot-heading">Set New Password</h2>
+            <p class="forgot-subtitle">Enter your new password below.</p>
+
+            <form id="resetPasswordForm">
+                <div class="input-group">
+                    <img src="/images/unlock.png" alt="Password Icon" class="input-icon">
+                    <input type="password" name="newPassword" placeholder="New Password" required>
+                </div>
+                <div class="input-group">
+                    <img src="/images/recycle.png" alt="Confirm Password Icon" class="input-icon">
+                    <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+                </div>
+                <button type="submit" class="login-btn">Reset Password</button>
+            </form>
+
+            <div class="forgot-back-link">
+                <a href="javascript:void(0)" onclick="showResetCodeModal()">← Back to Code</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Lockout Modal -->
+<div id="accountLockoutModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-logo-section">
+                <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                <span class="modal-title">Account Locked</span>
+            </div>
+            <span class="close" id="closeLockoutModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="lockout-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 8H17V6C17 3.24 14.76 1 12 1S7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM12 17C10.9 17 10 16.1 10 15S10.9 13 12 13S14 13.9 14 15S13.1 17 12 17ZM15.1 8H8.9V6C8.9 4.29 10.29 2.9 12 2.9S15.1 4.29 15.1 6V8Z" fill="#ff6b6b"/>
+                </svg>
+            </div>
+            <h2 class="lockout-title">Account Temporarily Locked</h2>
+            <p class="lockout-message" id="lockoutMessage">
+                Account is temporarily locked due to too many failed login attempts.
+            </p>
+            <div class="lockout-timer">
+                <div class="timer-circle">
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="8" fill="none"/>
+                        <circle cx="60" cy="60" r="50" stroke="#1E92F3" stroke-width="8" fill="#1E92F3"
+                                stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(-90 60 60)"/>
+                    </svg>
+                    <div class="timer-text">
+                        <span id="timerMinutes">0</span>
+                        <span class="timer-label">MIN</span>
+                    </div>
+                </div>
+            </div>
+            <p class="lockout-instruction">
+                Please wait for the timer to complete before attempting to login again.
+            </p>
+            <div class="lockout-actions">
+                <button type="button" class="btn-secondary" onclick="closeAccountLockoutModal()">Close</button>
+                <button type="button" class="btn-primary" onclick="window.location.href='/forgot-password'">Forgot Password?</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generic Message Modal -->
+<div id="messageModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-logo-section">
+                <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                <span class="modal-title" id="messageModalTitle">Message</span>
+            </div>
+            <span class="close" id="closeMessageModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="message-icon" id="messageIcon">
+                <!-- Icon will be set dynamically -->
+            </div>
+            <p class="message-text" id="messageText">
+                <!-- Message will be set dynamically -->
+            </p>
+            <div class="message-actions">
+                <button type="button" class="btn-primary" onclick="closeMessageModal()">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="/js/password-setup.js"></script>
+<script src="/js/forgot-password-modal.js"></script>
+<script src="/js/google-auth-modal.js"></script>
+<script src="/js/account-lockout-modal.js"></script>
+<script src="/js/message-modal.js"></script>
+<script src="/js/login-form.js"></script>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>

@@ -5,70 +5,74 @@
     font-family: 'Poppins', sans-serif;
 }
 
-body, html {
+body,
+html {
     height: 100%;
     width: 100%;
 }
 
 /* MAIN LAYOUT */
 .container {
-  position: relative;
-  display: flex;
-  height: 100vh;
-  width: 100%;
-  background-color: #0A0E3F;
-  overflow: hidden;
+    position: relative;
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    background-color: #0A0E3F;
+    overflow: hidden;
 }
 
 /* --- Background Image Layer --- */
 .container::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 60%;
-  height: 100%;
-  background-image: url("/images/UNI.jpg");
-  background-size: cover;
-  background-position: left center;
-  background-repeat: no-repeat;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60%;
+    height: 100%;
+    background-image: url("/images/UNI.jpg");
+    background-size: cover;
+    background-position: left center;
+    background-repeat: no-repeat;
 
-  /* 👇 Start hidden and clear */
-  opacity: 0;
-  filter: blur(2px);
-  transition:
-    opacity 1.7s ease-in-out,
-    filter 1.7s ease-in-out;
-  z-index: 0;
+    /* 👇 Start hidden and clear */
+    opacity: 0;
+    filter: blur(2px);
+    transition:
+        opacity 1.7s ease-in-out,
+        filter 1.7s ease-in-out;
+    z-index: 0;
 }
 
 /* --- Color Overlay Layer --- */
 .container::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 60%;
-  height: 100%;
-  background-color: rgba(10, 14, 63, .8); /* 👈 change this color + opacity */
-  opacity: 0;
-  transition: opacity 1s ease-in-out;
-  z-index: 1;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60%;
+    height: 100%;
+    background-color: rgba(10, 14, 63, .8);
+    /* 👈 change this color + opacity */
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    z-index: 1;
 }
 
 /* --- When Activated --- */
 .container.show-bg::before {
-  opacity: 1; /* fade in image */
+    opacity: 1;
+    /* fade in image */
 }
 
 .container.show-bg::after {
-  opacity: 1; /* fade in overlay */
+    opacity: 1;
+    /* fade in overlay */
 }
 
 /* Keep content above both */
-.container > * {
-  position: relative;
-  z-index: 2;
+.container>* {
+    position: relative;
+    z-index: 2;
 }
 
 /* LEFT SIDE */
@@ -231,6 +235,40 @@ body, html {
     font-size: 14px;
 }
 
+/* LOGIN OPTIONS */
+.login-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* EMAIL LOGIN BUTTON */
+.email-login-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #0a73e8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+
+.email-login-btn img {
+    width: 18px;
+    height: 18px;
+}
+
+.email-login-btn:hover {
+    background-color: #075bbf;
+    transform: translateY(-1px);
+}
+
 /* GOOGLE BUTTON */
 .google-btn {
     width: 100%;
@@ -256,23 +294,339 @@ body, html {
     background-color: #f5f5f5;
 }
 
+/* Ensure Google button is clickable */
+.google-btn {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 10 !important;
+    position: relative !important;
+    display: block !important;
+    text-decoration: none !important;
+}
+
+.google-btn:hover {
+    background-color: #f5f5f5 !important;
+    transform: translateY(-1px);
+}
+
+/* Account Lockout Modal Styles */
+.modal-logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Enhanced Modal Header - Plain White */
+#accountLockoutModal .modal-header {
+    background: white;
+    color: #333;
+    border-radius: 12px 12px 0 0;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#accountLockoutModal .modal-content {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+#accountLockoutModal .close {
+    color: #666;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+#accountLockoutModal .close:hover {
+    opacity: 1;
+}
+
+#accountLockoutModal .modal-body {
+    padding: 30px 24px;
+    text-align: center;
+    background: white;
+}
+
+/* Generic Message Modal Styles - Plain White Header */
+#messageModal .modal-header {
+    background: white;
+    color: #333;
+    border-radius: 12px 12px 0 0;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#messageModal .modal-content {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+#messageModal .close {
+    color: #666;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+#messageModal .close:hover {
+    opacity: 1;
+}
+
+#messageModal .modal-body {
+    padding: 30px 24px;
+    text-align: center;
+    background: white;
+}
+
+.message-icon {
+    margin-bottom: 20px;
+}
+
+.message-icon svg {
+    width: 48px;
+    height: 48px;
+}
+
+.message-text {
+    font-size: 16px;
+    color: #666;
+    margin: 0 0 25px 0;
+    line-height: 1.5;
+}
+
+.message-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.lockout-icon {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.lockout-title {
+    text-align: center;
+    color: #ff6b6b;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 15px 0;
+}
+
+.lockout-message {
+    text-align: center;
+    color: #666;
+    font-size: 16px;
+    margin: 0 0 25px 0;
+    line-height: 1.5;
+}
+
+.lockout-timer {
+    display: flex;
+    justify-content: center;
+    margin: 30px 0;
+}
+
+.timer-circle {
+    position: relative;
+    display: inline-block;
+    width: 120px;
+    height: 120px;
+}
+
+.timer-circle svg {
+    width: 120px;
+    height: 120px;
+    transform: rotate(-90deg);
+}
+
+.timer-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: white;
+}
+
+.timer-text span:first-child {
+    font-size: 36px;
+    font-weight: bold;
+    color: white;
+    display: block;
+    line-height: 1;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.timer-label {
+    font-size: 12px;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.lockout-instruction {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin: 20px 0;
+    font-style: italic;
+}
+
+.lockout-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.btn-secondary {
+    padding: 10px 20px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #666;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: #e9e9e9;
+    border-color: #ccc;
+}
+
+.btn-primary {
+    padding: 10px 20px;
+    background: #4285f4;
+    border: 1px solid #4285f4;
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: #3367d6;
+    border-color: #3367d6;
+}
+
+/* Timer Animation */
+@keyframes timerProgress {
+    from {
+        stroke-dashoffset: 220;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.timer-circle circle:last-child {
+    animation: timerProgress 10s linear forwards;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .lockout-actions {
+        flex-direction: column;
+    }
+
+    .btn-secondary,
+    .btn-primary {
+        width: 100%;
+    }
+
+    .timer-circle svg {
+        width: 60px;
+        height: 60px;
+    }
+
+    .timer-text span:first-child {
+        font-size: 20px;
+    }
+}
+
+/* Google Sign-In Button Container */
+.google-signin-container {
+    width: 100%;
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.google-signin-container iframe {
+    width: 100% !important;
+    height: 50px !important;
+    border: none !important;
+    border-radius: 8px !important;
+}
+
+/* Loading spinner for Google sign-in */
+.google-signin-container .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #4285f4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 /* FORGOT PASSWORD LINK */
 .forgot-password {
-  margin-top: 15px;
-  text-align: center;
+    margin-top: 15px;
+    text-align: center;
 }
 
 .forgot-password a {
-  color: #0a73e8;
-  font-size: 14px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s ease;
+    color: #0a73e8;
+    font-size: 14px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
 }
 
 .forgot-password a:hover {
-  color: #075bbf;
-  text-decoration: underline;
+    color: #075bbf;
+    text-decoration: underline;
 }
 
 #recaptcha {
@@ -282,3 +636,1111 @@ body, html {
     display: flex;
     justify-content: center;
 }
+
+/* Google OAuth Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 0;
+    border-radius: 15px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #4285f4, #34a853);
+    color: white;
+    padding: 20px 25px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Email modal header */
+#emailModal .modal-header {
+    background: linear-gradient(135deg, #0a73e8, #075bbf);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    transition: opacity 0.3s ease;
+}
+
+.close:hover {
+    opacity: 0.7;
+}
+
+.modal-body {
+    padding: 30px 25px;
+}
+
+.google-auth-container {
+    text-align: center;
+}
+
+.google-logo {
+    margin-bottom: 20px;
+}
+
+.google-logo img {
+    width: 60px;
+    height: 60px;
+}
+
+.google-auth-container p {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.btn-cancel,
+.btn-continue {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.btn-cancel {
+    background-color: #f5f5f5;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+.btn-cancel:hover {
+    background-color: #e9e9e9;
+}
+
+.btn-continue {
+    background-color: #4285f4;
+    color: white;
+}
+
+.btn-continue:hover {
+    background-color: #3367d6;
+    transform: translateY(-1px);
+}
+
+/* Forgot Password Link */
+.forgot-password-link {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.forgot-password-link a {
+    color: #666;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.forgot-password-link a:hover {
+    color: #4285f4;
+    text-decoration: underline;
+}
+
+/* Hide Google Sign-In Button in Modal */
+.google-signin-btn {
+    display: none !important;
+}
+
+.google-signin-btn * {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Custom Google Sign-In Button */
+.custom-google-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 280px;
+    height: 50px;
+    background-color: #fff;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    color: #3c4043;
+    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.custom-google-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #dadce0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.custom-google-btn:active {
+    background-color: #f1f3f4;
+    transform: translateY(0);
+}
+
+.custom-google-btn img {
+    width: 20px;
+    height: 20px;
+}
+
+.custom-google-btn span {
+    font-weight: 500;
+}
+
+/* Google Auth Iframe Container */
+.google-auth-iframe-container {
+    width: 100%;
+    height: 500px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+    margin-top: 20px;
+}
+
+.google-auth-iframe-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+}
+
+/* Show iframe container in modal */
+.google-modal-content .google-auth-iframe-container {
+    margin: 0;
+    height: 500px;
+}
+
+.google-auth-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.google-modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+.google-modal-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.google-logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.google-g-logo {
+    width: 24px;
+    height: 24px;
+}
+
+.google-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    margin: 0;
+}
+
+.close-google-modal {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #666;
+    cursor: pointer;
+    padding: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.close-google-modal:hover {
+    background-color: #f5f5f5;
+}
+
+.google-modal-body {
+    padding: 24px;
+}
+
+.google-heading {
+    font-size: 24px;
+    font-weight: 400;
+    color: #333;
+    margin: 0 0 8px 0;
+    text-align: center;
+}
+
+.google-subtitle {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 24px 0;
+    text-align: center;
+}
+
+.google-accounts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.google-account-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.google-account-item:hover {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.account-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-right: 12px;
+    border: 2px solid #e0e0e0;
+}
+
+.account-info {
+    flex: 1;
+}
+
+.account-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.account-email {
+    font-size: 14px;
+    color: #666;
+}
+
+.google-use-another {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 16px;
+}
+
+.use-another-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 14px;
+    color: #333;
+}
+
+.use-another-btn:hover {
+    background-color: #f8f9fa;
+}
+
+.generic-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #666;
+}
+
+.generic-avatar::before {
+    content: "👤";
+}
+
+.loading-account {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 16px;
+}
+
+/* Loading state for Google Sign-In */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+    color: #666;
+    font-weight: 500;
+}
+
+.loading::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #4285f4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Account Selection Styling */
+.account-selection {
+    margin: 20px 0;
+}
+
+.account-selection h4 {
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 16px;
+}
+
+.account-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fff;
+}
+
+.account-item:hover {
+    border-color: #4285f4;
+    background-color: #f8f9ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(66, 133, 244, 0.1);
+}
+
+.account-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 12px;
+    border: 2px solid #e0e0e0;
+}
+
+.account-info {
+    flex: 1;
+}
+
+.account-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.account-email {
+    font-size: 14px;
+    color: #666;
+}
+
+/* Responsive modal */
+@media (max-width: 480px) {
+    .modal-content {
+        width: 95%;
+        margin: 20% auto;
+    }
+
+    .modal-buttons {
+        flex-direction: column;
+    }
+
+    .btn-cancel,
+    .btn-continue {
+        width: 100%;
+    }
+
+    .account-item {
+        padding: 10px;
+    }
+
+    .account-avatar {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Forgot Password Modal Styles */
+.forgot-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999 !important;
+    backdrop-filter: blur(5px);
+}
+
+.forgot-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 450px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.forgot-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.forgot-logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.forgot-small-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+}
+
+.forgot-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.close-forgot-modal {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.close-forgot-modal:hover {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.forgot-modal-body {
+    padding: 25px;
+}
+
+.forgot-heading {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0A0E3F;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.forgot-subtitle {
+    color: #666;
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.forgot-back-link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.forgot-back-link a {
+    color: #666;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.forgot-back-link a:hover {
+    color: #4285f4;
+    text-decoration: underline;
+}
+
+/* Modal Input Groups */
+.forgot-modal-body .input-group {
+    margin-bottom: 20px;
+}
+
+.forgot-modal-body .login-btn {
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Responsive Design for Modals */
+@media (max-width: 768px) {
+    .forgot-modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+
+    .forgot-modal-header {
+        padding: 15px 20px 10px;
+    }
+
+    .forgot-modal-body {
+        padding: 20px;
+    }
+
+    .forgot-heading {
+        font-size: 20px;
+    }
+}
+
+/* Google OAuth Modal Styles */
+.google-auth-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000 !important;
+    backdrop-filter: blur(5px);
+}
+
+.google-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+.google-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.google-logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.google-g-logo {
+    width: 24px;
+    height: 24px;
+}
+
+.google-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.close-google-modal {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.close-google-modal:hover {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.google-modal-body {
+    padding: 25px;
+}
+
+.google-heading {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0A0E3F;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.google-subtitle {
+    color: #666;
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Google Accounts List */
+.google-accounts-list {
+    margin-bottom: 20px;
+}
+
+.google-account-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.google-account-item:hover {
+    background-color: #f8f9fa;
+    border-color: #4285f4;
+}
+
+.account-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 12px;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+.account-info {
+    flex: 1;
+}
+
+.account-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.account-email {
+    font-size: 14px;
+    color: #666;
+}
+
+/* Loading State */
+.loading-accounts {
+    text-align: center;
+    padding: 20px;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #4285f4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Use Another Account Button */
+.google-use-another {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.use-another-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: #333;
+}
+
+.use-another-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #4285f4;
+}
+
+.generic-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    color: #666;
+}
+
+/* Google Auth Iframe */
+.google-auth-iframe-container {
+    width: 100%;
+    height: 500px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+    margin-top: 20px;
+}
+
+.google-auth-iframe-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+}
+
+/* Responsive Design for Google Modal */
+@media (max-width: 768px) {
+    .google-modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+
+    .google-modal-header {
+        padding: 15px 20px 10px;
+    }
+
+    .google-modal-body {
+        padding: 20px;
+    }
+
+    /* Manual Sign-in Option */
+    .manual-signin-option {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .manual-signin-card {
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 30px;
+    }
+
+    .manual-signin-icon {
+        color: #666;
+        margin-bottom: 15px;
+    }
+
+    .manual-signin-card h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+
+    .manual-signin-card p {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .manual-signin-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .manual-signin-btn:hover {
+        background: #f8f9fa;
+        border-color: #4285f4;
+        transform: translateY(-1px);
+    }
+
+    /* Error State */
+    .error-state {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .error-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+
+    .error-state h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f44336;
+        margin-bottom: 8px;
+    }
+
+    .error-state p {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .retry-btn {
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .retry-btn:hover {
+        background: #3367d6;
+        transform: translateY(-1px);
+    }
+
+    /* User Profile Styles */
+    .user-profile {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 400px;
+        z-index: 1000;
+    }
+
+    .profile-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    .profile-header {
+        margin-bottom: 25px;
+    }
+
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        margin: 0 auto 15px;
+        display: block;
+        border: 3px solid #4285f4;
+    }
+
+    .profile-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0A0E3F;
+        margin-bottom: 5px;
+    }
+
+    .profile-email {
+        font-size: 16px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
+    .profile-role {
+        display: inline-block;
+        background-color: #4285f4;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .profile-actions {
+        border-top: 1px solid #e0e0e0;
+        padding-top: 20px;
+    }
+
+    .logout-btn {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+
+    .logout-btn:hover {
+        background-color: #d32f2f;
+        transform: translateY(-1px);
+    }
+
+    /* Responsive Design for Profile */
+    @media (max-width: 768px) {
+        .user-profile {
+            width: 95%;
+        }
+
+        .profile-card {
+            padding: 20px;
+        }
+
+        .profile-name {
+            font-size: 20px;
+        }
+
+        .profile-email {
+            font-size: 14px;
+        }
+    }

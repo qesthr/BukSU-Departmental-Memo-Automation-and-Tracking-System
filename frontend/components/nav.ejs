@@ -1,0 +1,57 @@
+<!-- Sidebar -->
+<aside class="sidebar">
+    <!-- Logo -->
+    <div class="logo">
+        <div class="logo-img">
+            <img src="/images/memofy-logo.png" alt="Memofy Logo">
+        </div>
+        <h2>Memofy</h2>
+    </div>
+
+    <!-- Main Navigation -->
+    <nav class="main-nav">
+        <ul>
+            <li class="<%= path === '/admin-dashboard' ? 'active' : '' %>">
+                <a href="/admin-dashboard">
+                    <i data-lucide="layout-grid"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="<%= path === '/admin/users' ? 'active' : '' %>">
+                <a href="/admin/users">
+                    <i data-lucide="users"></i>
+                    <span>Users</span>
+                </a>
+            </li>
+            <li class="<%= path === '/log' ? 'active' : '' %>">
+                <a href="/log">
+                    <i data-lucide="clipboard-list"></i>
+                    <span>Log</span>
+                </a>
+            </li>
+            <li class="<%= path === '/calendar' ? 'active' : '' %>">
+                <a href="/calendar">
+                    <i data-lucide="calendar"></i>
+                    <span>Calendar</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Bottom Section -->
+    <div class="bottom-nav">
+        <a href="/auth/logout" class="nav-item">
+            <i data-lucide="log-out"></i>
+            <span>Logout</span>
+        </a>
+
+        <!-- Profile Section -->
+        <div class="profile-section">
+            <img src="<%= user.profilePicture || '/images/default-avatar.png' %>" alt="Profile" class="profile-img">
+            <div class="profile-info">
+                <h4 class="profile-name"><%= user.name || 'User' %></h4>
+                <p class="profile-email"><%= user.email || 'email@example.com' %></p>
+            </div>
+        </div>
+    </div>
+</aside>
