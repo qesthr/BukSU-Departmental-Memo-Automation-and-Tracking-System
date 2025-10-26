@@ -1,0 +1,25 @@
+<header class="top-bar">
+
+    <div class="search-container">
+        <button class="search-btn" aria-label="Search">
+            <i data-lucide="search"></i>
+        </button>
+        <input type="text" placeholder="Search anything in Memofy..." class="search-input"
+            aria-label="Search anything in Memofy">
+    </div>
+
+    <div class="header-actions">
+        <!-- Notification Button -->
+        <button class="notification-btn" aria-label="Notifications">
+            <i data-lucide="bell"></i>
+            <span class="notification-badge" aria-hidden="true"></span>
+        </button>
+
+        <!-- Profile Section -->
+        <div class="profile-section">
+            <img src="<%= user.profilePicture || '/images/default-avatar.png' %>" alt="Admin Profile"
+                class="profile-img">
+            <span class="admin-badge">Admin</span>
+        </div>
+    </div>
+</header>

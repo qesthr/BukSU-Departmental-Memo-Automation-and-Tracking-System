@@ -543,6 +543,7 @@ html {
     from {
         stroke-dashoffset: 220;
     }
+
     to {
         stroke-dashoffset: 0;
     }
@@ -1744,3 +1745,4 @@ html {
             font-size: 14px;
         }
     }
+}
