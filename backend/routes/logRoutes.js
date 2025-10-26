@@ -4,6 +4,7 @@ const isAuthenticated = require('../middleware/isAuthenticated');
 const isAdmin = require('../middleware/isAdmin');
 const logController = require('../controllers/logController');
 const dashboardController = require('../controllers/dashboardController');
+const notificationController = require('../controllers/notificationController');
 
 // Get all memos
 router.get('/memos', [isAuthenticated], logController.getAllMemos);
@@ -28,6 +29,10 @@ router.delete('/memos/:id/permanent', [isAuthenticated], logController.permanent
 
 // Dashboard stats (admin only)
 router.get('/dashboard/stats', [isAuthenticated, isAdmin], dashboardController.getDashboardStats);
+
+// Notifications
+router.get('/notifications', [isAuthenticated], notificationController.getNotifications);
+router.put('/notifications/:id/read', [isAuthenticated], notificationController.markAsRead);
 
 module.exports = router;
 

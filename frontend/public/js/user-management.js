@@ -4,10 +4,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const addUserModal = document.getElementById('addUserModal');
     const editUserModal = document.getElementById('editUserModal');
     const deleteModal = document.getElementById('deleteModal');
+    const changeDeptModal = document.getElementById('changeDeptModal');
+    const changeRoleModal = document.getElementById('changeRoleModal');
     const userSearch = document.getElementById('userSearch');
     const roleFilters = document.querySelectorAll('.filter-btn');
     const addUserForm = document.getElementById('addUserForm');
     const editUserForm = document.getElementById('editUserForm');
+    const changeDeptForm = document.getElementById('changeDeptForm');
+    const changeRoleForm = document.getElementById('changeRoleForm');
 
     let users = [];
     let currentFilter = 'all';
@@ -35,12 +39,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render users list
     function renderUsers() {
-        const searchTerm = userSearch.value.toLowerCase();
+        // Get search term from global search input or userSearch if it exists
+        let searchTerm = '';
+        const globalSearchInput = document.getElementById('globalSearchInput');
+        const userSearchInput = document.getElementById('userSearch');
+
+        if (globalSearchInput) {
+            searchTerm = globalSearchInput.value.toLowerCase();
+        } else if (userSearchInput) {
+            searchTerm = userSearchInput.value.toLowerCase();
+        }
+
         const filteredUsers = users.filter(user => {
             const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
             const email = user.email.toLowerCase();
-            const matchesSearch = fullName.includes(searchTerm) ||
-                                email.includes(searchTerm);
+            const department = (user.department || '').toLowerCase();
+            const role = user.role.toLowerCase();
+
+            const matchesSearch = !searchTerm ||
+                                fullName.includes(searchTerm) ||
+                                email.includes(searchTerm) ||
+                                department.includes(searchTerm) ||
+                                role.includes(searchTerm);
             const matchesFilter = currentFilter === 'all' || user.role === currentFilter;
             return matchesSearch && matchesFilter;
         });
@@ -210,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.closest('.change-dept')) {
             e.stopPropagation();
             if (user) {
-                promptChangeDepartment(user);
+                openChangeDepartmentModal(user);
             }
             closeAllMenus();
         }
@@ -219,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.closest('.change-role')) {
             e.stopPropagation();
             if (user) {
-                promptChangeRole(user);
+                openChangeRoleModal(user);
             }
             closeAllMenus();
         }
@@ -264,6 +284,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUser(userId, formData);
     });
 
+    // Change department form handler
+    changeDeptForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const userId = document.getElementById('changeDeptUserId').value;
+        const newDept = document.getElementById('changeDeptNewDept').value;
+        updateUserDepartment(userId, newDept);
+    });
+
+    // Change role form handler
+    changeRoleForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const userId = document.getElementById('changeRoleUserId').value;
+        const newRole = document.getElementById('changeRoleNewRole').value;
+        updateUserRole(userId, newRole);
+    });
+
     document.getElementById('confirmDelete').addEventListener('click', () => {
         if (currentUserId) {
             deleteUser(currentUserId);
@@ -280,7 +316,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    userSearch.addEventListener('input', renderUsers);
+    // Expose to global scope for contextual search
+    window.userManagementLoaded = true;
+    window.renderUsers = renderUsers;
+
+    // Initial fetch
+    fetchUsers();
 
     // Modal helpers
     function openModal(modal) {
@@ -308,21 +349,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Prompt to change department
-    function promptChangeDepartment(user) {
-        const newDept = prompt(`Enter new department for ${user.firstName} ${user.lastName}:\n(Current: ${user.department || 'None'})`);
-
-        if (newDept && newDept.trim() !== '') {
-            updateUserDepartment(user._id, newDept.trim());
-        }
+    // Open change department modal
+    function openChangeDepartmentModal(user) {
+        document.getElementById('changeDeptUserId').value = user._id;
+        document.getElementById('changeDeptUserName').textContent = `Department for ${user.firstName} ${user.lastName} (Current: ${user.department || 'None'})`;
+        document.getElementById('changeDeptNewDept').value = user.department || '';
+        openModal(changeDeptModal);
     }
 
-    // Prompt to change role
-    function promptChangeRole(user) {
-        const newRole = prompt(`Enter new role for ${user.firstName} ${user.lastName}:\n(Options: admin, faculty, secretary)\n(Current: ${user.role})`);
-
-        if (newRole && ['admin', 'faculty', 'secretary'].includes(newRole.toLowerCase())) {
-            updateUserRole(user._id, newRole.toLowerCase());
-        }
+    // Open change role modal
+    function openChangeRoleModal(user) {
+        document.getElementById('changeRoleUserId').value = user._id;
+        document.getElementById('changeRoleUserName').textContent = `Role for ${user.firstName} ${user.lastName} (Current: ${user.role})`;
+        document.getElementById('changeRoleNewRole').value = user.role;
+        openModal(changeRoleModal);
     }
 
     // Update department only
@@ -349,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             showNotification('Department updated successfully', 'success');
+            closeModal(changeDeptModal);
             fetchUsers(currentFilter);
         } catch (error) {
             showNotification(error.message, 'error');
@@ -379,6 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             showNotification('Role updated successfully', 'success');
+            closeModal(changeRoleModal);
             fetchUsers(currentFilter);
         } catch (error) {
             showNotification(error.message, 'error');

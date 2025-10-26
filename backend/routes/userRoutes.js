@@ -20,4 +20,7 @@ router.put('/:id', userController.updateUser);
 // Delete user
 router.delete('/:id', userController.deleteUser);
 
+// Upload profile picture
+router.post('/:id/profile-picture', userController.uploadProfilePicture);
+
 module.exports = router;

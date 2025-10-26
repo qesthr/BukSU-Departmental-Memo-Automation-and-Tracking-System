@@ -30,11 +30,6 @@
                                 </div>
 
                                 <div class="header-actions">
-                                    <div class="search-container">
-                                        <img src="/images/search.png" alt="Search" class="icon-img">
-                                        <input type="text" id="userSearch" placeholder="Search users...">
-                                    </div>
-
                                     <button id="addUserBtn" class="btn btn-primary">
                                         <img src="/images/plus.png" alt="Add user" class="icon-img">
                                         <span>Add user</span>
@@ -184,6 +179,61 @@
                                             <button type="button" class="btn btn-danger"
                                                 id="confirmDelete">Delete</button>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Change Department Modal -->
+                            <div id="changeDeptModal" class="modal">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h2>Change Department</h2>
+                                        <button class="close-modal">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="changeDeptForm">
+                                            <input type="hidden" id="changeDeptUserId">
+                                            <div class="form-group">
+                                                <label id="changeDeptUserName"></label>
+                                                <select id="changeDeptNewDept" required>
+                                                    <option value="">Select Department</option>
+                                                    <option value="IT/EMC">IT/EMC</option>
+                                                    <option value="General">General</option>
+                                                    <!-- Add more departments -->
+                                                </select>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Update Department</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Change Role Modal -->
+                            <div id="changeRoleModal" class="modal">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h2>Change Role</h2>
+                                        <button class="close-modal">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="changeRoleForm">
+                                            <input type="hidden" id="changeRoleUserId">
+                                            <div class="form-group">
+                                                <label id="changeRoleUserName"></label>
+                                                <select id="changeRoleNewRole" required>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="secretary">Secretary</option>
+                                                    <option value="faculty">Faculty</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Update Role</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

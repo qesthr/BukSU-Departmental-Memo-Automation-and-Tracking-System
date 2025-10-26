@@ -146,7 +146,7 @@ exports.deleteUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, role, department } = req.body;
+        const { firstName, lastName, role, department, email, profilePicture } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -154,21 +154,25 @@ exports.updateUser = async (req, res) => {
         }
 
         // Prevent changing role of last admin
-        if (user.role === 'admin' && role !== 'admin') {
+        if (user.role === 'admin' && role && role !== 'admin') {
             const adminCount = await User.countDocuments({ role: 'admin' });
             if (adminCount <= 1) {
                 return res.status(400).json({ message: 'Cannot change role of the last admin' });
             }
         }
 
-        user.firstName = firstName;
-        user.lastName = lastName;
-        user.role = role;
-        user.department = department;
+        // Update fields if provided
+        if (firstName !== undefined) user.firstName = firstName;
+        if (lastName !== undefined) user.lastName = lastName;
+        if (role !== undefined) user.role = role;
+        if (department !== undefined) user.department = department;
+        if (email !== undefined) user.email = email;
+        if (profilePicture !== undefined) user.profilePicture = profilePicture;
 
         await user.save();
 
         res.json({
+            success: true,
             message: 'User updated successfully',
             user: {
                 _id: user._id,
@@ -176,11 +180,36 @@ exports.updateUser = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role,
-                department: user.department
+                department: user.department,
+                profilePicture: user.profilePicture
             }
         });
     } catch (error) {
         console.error('Error updating user:', error);
         res.status(500).json({ message: 'Error updating user' });
+    }
+};
+
+// Upload profile picture
+exports.uploadProfilePicture = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const profilePictureUrl = `/images/uploads/${req.file.filename}`;
+
+        await User.findByIdAndUpdate(id, { profilePicture: profilePictureUrl });
+
+        res.json({
+            success: true,
+            message: 'Profile picture updated successfully',
+            profilePicture: profilePictureUrl
+        });
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        res.status(500).json({ message: 'Error uploading profile picture' });
     }
 };
