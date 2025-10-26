@@ -12,6 +12,7 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/js/admin-dash.js" defer></script>
 </head>
 
 <body>
@@ -93,12 +94,18 @@
 
                             <!-- Calendar and Analytics -->
                             <div class="side-grid">
-                                <div class="calendar-section" id="calendar"></div>
+                                <div class="calendar-section">
+                                    <div style="padding: 20px; background: white; border-radius: 12px; text-align: center;">
+                                        <i data-lucide="calendar" style="width: 48px; height: 48px; color: #6366f1; margin: 0 auto 12px;"></i>
+                                        <h3 style="margin: 0 0 8px; color: #1f2937;">Calendar</h3>
+                                        <p style="margin: 0; color: #6b7280;">Coming soon</p>
+                                    </div>
+                                </div>
                                 <div class="backup-section">
                                     <i data-lucide="cloud" class="backup-icon"></i>
                                     <div class="backup-info">
-                                        <h3>Last backup on Google Drive</h3>
-                                        <p>October 6, 2025</p>
+                                        <h3>System Status</h3>
+                                        <p>All systems operational</p>
                                     </div>
                                 </div>
                             </div>
@@ -127,23 +134,6 @@
 
         // Start timer
         resetTimer();
-
-        //google calendar icon script
-        document.addEventListener("DOMContentLoaded", async () => {
-            const response = await fetch("/api/calendar/events");
-            const events = await response.json();
-
-            const calendarEl = document.getElementById("calendar");
-            const calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: "dayGridMonth",
-                events: events.map(event => ({
-                    title: event.summary,
-                    start: event.start.dateTime || event.start.date,
-                    end: event.end.dateTime || event.end.date,
-                })),
-            });
-            calendar.render();
-        });
 
     </script>
 

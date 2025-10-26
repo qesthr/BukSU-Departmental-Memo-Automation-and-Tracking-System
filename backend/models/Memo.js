@@ -1,0 +1,99 @@
+const mongoose = require('mongoose');
+
+const memoSchema = new mongoose.Schema({
+    sender: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    recipient: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    subject: {
+        type: String,
+        required: [true, 'Subject is required'],
+        trim: true
+    },
+    content: {
+        type: String,
+        required: [true, 'Content is required'],
+        trim: true
+    },
+    department: {
+        type: String,
+        trim: true
+    },
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'urgent'],
+        default: 'medium'
+    },
+    status: {
+        type: String,
+        enum: ['draft', 'sent', 'read', 'archived', 'deleted'],
+        default: 'sent'
+    },
+    activityType: {
+        type: String,
+        enum: ['memo_sent', 'password_reset', 'welcome_email', 'user_activity', 'system_notification', 'user_deleted', null],
+        default: null
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+    },
+    isStarred: {
+        type: Boolean,
+        default: false
+    },
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    attachments: [{
+        filename: String,
+        path: String,
+        size: Number,
+        mimetype: String
+    }],
+    readAt: {
+        type: Date
+    },
+    folder: {
+        type: String,
+        enum: ['inbox', 'sent', 'drafts', 'starred', 'deleted'],
+        default: 'sent'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Update updatedAt before saving
+memoSchema.pre('save', function (next) {
+    this.updatedAt = Date.now();
+    next();
+});
+
+// Create indexes for better query performance
+memoSchema.index({ activityType: 1 });
+memoSchema.index({ sender: 1, activityType: 1 });
+memoSchema.index({ recipient: 1, activityType: 1 });
+
+// Index for faster queries
+memoSchema.index({ sender: 1, folder: 1 });
+memoSchema.index({ recipient: 1, folder: 1 });
+memoSchema.index({ isStarred: 1 });
+memoSchema.index({ status: 1 });
+
+const Memo = mongoose.model('Memo', memoSchema);
+
+module.exports = Memo;
+

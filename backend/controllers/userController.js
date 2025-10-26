@@ -36,25 +36,29 @@ exports.addUser = async (req, res) => {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
-        // Generate a temporary password
-        const tempPassword = Math.random().toString(36).slice(-8);
-
+        // Create user without password (they'll use Google OAuth to login first time)
         const user = new User({
             email,
             firstName,
             lastName,
             role,
-            department,
-            password: tempPassword, // Will be hashed by the User model pre-save hook
-            isTemporaryPassword: true
+            department
+            // No password - user will login with Google OAuth first
         });
 
         await user.save();
 
-        // TODO: Send email with temporary password to user
+        // Send email notification to user
+        try {
+            const emailService = require('../services/emailService');
+            await emailService.sendWelcomeEmail(user.email, user);
+            console.log(`Welcome email sent to ${user.email}`);
+        } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+        }
 
         res.status(201).json({
-            message: 'User created successfully',
+            message: 'User created successfully. They will be assigned the department and role when they login with Google.',
             user: {
                 _id: user._id,
                 email: user.email,
@@ -88,7 +92,49 @@ exports.deleteUser = async (req, res) => {
             }
         }
 
+        // Get user info before deletion
+        const deletedUser = user;
+
+        // Delete the user
         await User.findByIdAndDelete(id);
+
+        // Create log entry for user deletion (non-blocking)
+        try {
+            const Memo = require('../models/Memo');
+            const adminUsers = await User.find({ role: 'admin' }).select('_id');
+
+            if (adminUsers.length > 0) {
+                const logPromises = adminUsers.map(admin => {
+                    return Memo.create({
+                        sender: req.user._id,
+                        recipient: admin._id,
+                        subject: `User Account Deleted`,
+                        content: `User ${deletedUser.email} (${deletedUser.firstName} ${deletedUser.lastName}) has been deleted from the system. Role: ${deletedUser.role}, Department: ${deletedUser.department || 'N/A'}`,
+                        department: 'System',
+                        priority: 'high',
+                        status: 'sent',
+                        folder: 'sent',
+                        activityType: 'user_deleted',
+                        metadata: {
+                            deletedUserEmail: deletedUser.email,
+                            deletedUserRole: deletedUser.role,
+                            deletedUserDepartment: deletedUser.department
+                        }
+                    });
+                });
+
+                // Don't await - just fire and forget
+                Promise.all(logPromises).then(() => {
+                    console.log(`User deletion logged for ${deletedUser.email}`);
+                }).catch(err => {
+                    console.error('Failed to create deletion log:', err);
+                });
+            }
+        } catch (logError) {
+            console.error('Failed to create deletion log:', logError);
+            // Don't fail the deletion if logging fails
+        }
+
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
         console.error('Error deleting user:', error);

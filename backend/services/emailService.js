@@ -63,6 +63,16 @@ class EmailService {
             const result = await this.transporter.sendMail(mailOptions);
             console.log(`Password reset email sent to ${email}:`, result.messageId);
 
+            // Create log entry for admin (non-blocking - don't fail if logging fails)
+            try {
+                const logService = require('./logService');
+                logService.logPasswordReset(user, resetCode).catch(err => {
+                    console.error('Failed to create log entry (non-critical):', err);
+                });
+            } catch (logErr) {
+                console.error('Could not load log service:', logErr.message);
+            }
+
             return {
                 success: true,
                 message: 'Reset code sent to your email',
@@ -262,6 +272,16 @@ class EmailService {
             const result = await this.transporter.sendMail(mailOptions);
             console.log(`Welcome email sent to ${email}:`, result.messageId);
 
+            // Create log entry for admin (non-blocking - don't fail if logging fails)
+            try {
+                const logService = require('./logService');
+                logService.logWelcomeEmail(user).catch(err => {
+                    console.error('Failed to create log entry (non-critical):', err);
+                });
+            } catch (logErr) {
+                console.error('Could not load log service:', logErr.message);
+            }
+
             return {
                 success: true,
                 message: 'Welcome email sent',
@@ -325,6 +345,13 @@ class EmailService {
                         margin: 0;
                         font-weight: 600;
                     }
+                    .user-info {
+                        background-color: #f8f9fa;
+                        border-left: 4px solid #4285f4;
+                        padding: 15px;
+                        margin: 20px 0;
+                        border-radius: 4px;
+                    }
                 </style>
             </head>
             <body>
@@ -336,8 +363,25 @@ class EmailService {
 
                     <div class="content">
                         <p>Hello ${user.firstName},</p>
-                        <p>Welcome to the BukSU Departmental Memo System! Your account has been successfully created.</p>
-                        <p>You can now access the system and start managing departmental memos.</p>
+                        <p>Your account has been created in the BukSU Departmental Memo System! Your admin has assigned you the following details:</p>
+
+                        <div class="user-info">
+                            <p><strong>Role:</strong> ${user.role || 'Faculty'}</p>
+                            <p><strong>Department:</strong> ${user.department || 'General'}</p>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                        </div>
+
+                        <p><strong>To access your account:</strong></p>
+                        <ol>
+                            <li>Go to the login page</li>
+                            <li>Click "Continue with Google"</li>
+                            <li>Use this email: <strong>${user.email}</strong></li>
+                            <li>You'll be automatically assigned to your department and role</li>
+                        </ol>
+
+                        <p>Once logged in, you can start managing departmental memos and communicating with your department.</p>
+
+                        <p>Thank you!</p>
                     </div>
                 </div>
             </body>

@@ -303,6 +303,27 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+/* Scrollbar styling for memo list */
+.memo-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.memo-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.memo-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.memo-list::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
 }
 
 .memo-item {

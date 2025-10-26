@@ -11,6 +11,7 @@ const authRoutes = require('./backend/routes/auth');
 const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
 const forgotPasswordRoutes = require('./backend/routes/forgotPasswordRoutes');
+const logRoutes = require('./backend/routes/logRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -62,6 +63,7 @@ app.use(passport.session());
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/log', logRoutes);
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
@@ -121,6 +123,18 @@ app.get('/admin-dashboard', (req, res) => {
         res.render('admin-dashboard', {
             user: req.user,
             path: '/admin-dashboard'
+        });
+    } else {
+        res.redirect('/');
+    }
+});
+
+// Log route - protected
+app.get('/log', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render('admin/log', {
+            user: req.user,
+            path: '/log'
         });
     } else {
         res.redirect('/');

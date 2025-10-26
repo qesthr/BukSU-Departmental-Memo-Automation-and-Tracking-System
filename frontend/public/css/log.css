@@ -1,0 +1,550 @@
+.log-layout {
+    display: flex;
+    height: calc(100vh - 120px);
+    gap: 0;
+}
+
+/* Sidebar */
+.log-sidebar {
+    width: 200px;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+}
+
+.compose-btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.compose-btn:hover {
+    background: #1d4ed8;
+}
+
+.compose-btn i {
+    width: 20px;
+    height: 20px;
+}
+
+.folders {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+
+.folder-item:hover {
+    background: #f3f4f6;
+    color: #2563eb;
+}
+
+.folder-item.active {
+    background: #dbeafe;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.folder-item i {
+    width: 20px;
+    height: 20px;
+}
+
+/* Memo List Area */
+.memo-list-area {
+    width: 350px;
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+}
+
+.memo-list-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.header-controls {
+    margin-bottom: 12px;
+}
+
+.checkbox-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.checkbox-control input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.icon-btn-sm {
+    background: none;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+
+.icon-btn-sm:hover {
+    background: #f3f4f6;
+    color: #2563eb;
+}
+
+.icon-btn-sm i {
+    width: 18px;
+    height: 18px;
+}
+
+.department-filters {
+    display: flex;
+    gap: 8px;
+}
+
+.dept-filter-btn {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 20px;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dept-filter-btn:hover {
+    background: #d1d5db;
+}
+
+.dept-filter-btn.active {
+    background: #2563eb;
+    color: white;
+}
+
+.memo-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.memo-item {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.memo-item:hover {
+    background: #f3f4f6;
+}
+
+.memo-item.active {
+    background: #dbeafe;
+    border-left: 3px solid #2563eb;
+}
+
+.memo-item-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.memo-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.memo-sender-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.memo-sender-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memo-sender-email {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memo-subject {
+    font-size: 14px;
+    color: #374151;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memo-preview {
+    font-size: 12px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memo-date {
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: right;
+}
+
+/* Memo Viewer Area */
+.memo-viewer-area {
+    flex: 1;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.empty-state-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+}
+
+.empty-state-view i {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    stroke-width: 1;
+}
+
+.empty-state-view p {
+    font-size: 16px;
+}
+
+.memo-viewer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.viewer-header {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    gap: 16px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    background: #f3f4f6;
+    color: #2563eb;
+}
+
+.icon-btn i {
+    width: 20px;
+    height: 20px;
+}
+
+.nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memo-counter {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 8px;
+}
+
+.viewer-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.memo-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.memo-header-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+}
+
+.sender-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.sender-info h3 {
+    font-size: 18px;
+    color: #111827;
+    margin: 0 0 4px 0;
+}
+
+.sender-info p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.memo-body {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-wrap;
+}
+
+.memo-attachments {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.attachment-icon {
+    width: 32px;
+    height: 32px;
+    color: #dc2626;
+}
+
+.attachment-info {
+    flex: 1;
+}
+
+.attachment-filename {
+    font-size: 14px;
+    color: #111827;
+    font-weight: 500;
+}
+
+.attachment-size {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 0;
+    border: none;
+    width: 90%;
+    max-width: 600px;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #111827;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.close-modal:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.form-group textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .memo-list-area {
+        width: 300px;
+    }
+
+    .log-sidebar {
+        width: 180px;
+    }
+}
+
+@media (max-width: 768px) {
+    .log-layout {
+        flex-direction: column;
+    }
+
+    .log-sidebar,
+    .memo-list-area {
+        width: 100%;
+    }
+
+    .memo-viewer-area {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: white;
+    }
+}
+

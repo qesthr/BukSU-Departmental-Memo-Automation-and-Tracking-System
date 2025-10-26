@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/log.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <%- include('../../components/admintopbar') %>
+
+            <div class="log-layout">
+            <!-- Sidebar for compose and folders -->
+            <aside class="log-sidebar">
+                <button class="compose-btn">
+                    <i data-lucide="pen-tool"></i>
+                    <span>Compose</span>
+                </button>
+
+                <div class="folders">
+                    <a href="#" class="folder-item active" data-folder="inbox">
+                        <i data-lucide="inbox"></i>
+                        <span>Inbox</span>
+                    </a>
+                    <a href="#" class="folder-item" data-folder="sent">
+                        <i data-lucide="send"></i>
+                        <span>Sent</span>
+                    </a>
+                    <a href="#" class="folder-item" data-folder="starred">
+                        <i data-lucide="star"></i>
+                        <span>Starred</span>
+                    </a>
+                    <a href="#" class="folder-item" data-folder="activity">
+                        <i data-lucide="activity"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                    <a href="#" class="folder-item" data-folder="deleted">
+                        <i data-lucide="trash-2"></i>
+                        <span>Deleted</span>
+                    </a>
+                </div>
+            </aside>
+
+            <!-- Memo List Area -->
+            <section class="memo-list-area">
+                <div class="memo-list-header">
+                    <div class="header-controls">
+                        <div class="checkbox-control">
+                            <input type="checkbox" id="selectAllMemos">
+                            <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
+                                <i data-lucide="rotate-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="department-filters">
+                        <button class="dept-filter-btn active" data-dept="all">All Departments</button>
+                        <button class="dept-filter-btn" data-dept="IT/EMC">IT/EMC</button>
+                        <button class="dept-filter-btn" data-dept="Food Technology">Food Technology</button>
+                    </div>
+                </div>
+
+                <div id="memoList" class="memo-list">
+                    <!-- Memos will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Memo Viewer Area -->
+            <section class="memo-viewer-area">
+                <!-- Empty State (shown initially) -->
+                <div id="emptyState" class="empty-state-view">
+                    <i data-lucide="inbox"></i>
+                    <p>Select a memo to view</p>
+                </div>
+
+                <!-- Memo Viewer (shown when memo is selected) -->
+                <div id="memoViewer" class="memo-viewer" style="display: none;">
+                    <div class="viewer-header">
+                        <button id="backBtn" class="icon-btn">
+                            <i data-lucide="arrow-left"></i>
+                        </button>
+                        <div class="nav-buttons">
+                            <button id="prevBtn" class="icon-btn">
+                                <i data-lucide="chevron-left"></i>
+                            </button>
+                            <span id="memoCounter" class="memo-counter">0 of 0</span>
+                            <button id="nextBtn" class="icon-btn">
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="viewer-actions">
+                            <button id="starBtn" class="icon-btn" title="Star">
+                                <i data-lucide="bookmark"></i>
+                            </button>
+                            <button id="deleteBtn" class="icon-btn" title="Delete">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="memo-content">
+                        <div class="memo-header-info">
+                            <img id="senderAvatar" src="" alt="Sender" class="sender-avatar">
+                            <div class="sender-info">
+                                <h3 id="senderName"></h3>
+                                <p id="senderTitle"></p>
+                            </div>
+                        </div>
+                        <div class="memo-body">
+                            <div id="memoBodyContent"></div>
+                        </div>
+                        <div id="attachments" class="memo-attachments"></div>
+                    </div>
+                </div>
+            </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Compose Modal -->
+    <div id="composeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Compose Memo</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="composeForm">
+                    <div class="form-group">
+                        <label for="recipientEmail">To</label>
+                        <input type="email" id="recipientEmail" placeholder="Enter recipient email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">Subject</label>
+                        <input type="text" id="subject" placeholder="Enter subject" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="department">Department</label>
+                        <select id="department" required>
+                            <option value="">Select Department</option>
+                            <option value="IT/EMC">IT/EMC</option>
+                            <option value="Food Technology">Food Technology</option>
+                            <!-- Add more departments -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="content">Content</label>
+                        <textarea id="content" rows="10" placeholder="Enter memo content" required></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Send</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logoutTimer;
+
+        function resetTimer() {
+            clearTimeout(logoutTimer);
+            logoutTimer = setTimeout(() => {
+                window.location.href = '/auth/logout';
+            }, 24 * 60 * 60 * 1000);
+        }
+
+        document.addEventListener('mousemove', resetTimer);
+        document.addEventListener('keypress', resetTimer);
+        document.addEventListener('click', resetTimer);
+        resetTimer();
+    </script>
+
+    <script src="/js/log.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
+

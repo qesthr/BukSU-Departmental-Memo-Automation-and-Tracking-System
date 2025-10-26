@@ -88,12 +88,22 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                     user = await User.findOne({ email: profile.emails[0].value });
 
                     if (user) {
-                        // Update existing user with Google ID
+                        // User exists - update with Google ID and preserve admin-set role/department
                         user.googleId = profile.id;
                         user.profilePicture = profile.photos[0].value;
+
+                        // Only set default role/department if not already set by admin
+                        if (!user.role) {
+                            user.role = 'faculty';
+                        }
+                        if (!user.department) {
+                            user.department = 'General';
+                        }
+
+                        user.lastLogin = new Date();
                         await user.save();
                     } else {
-                        // Create new user
+                        // Create new user with defaults
                         user = await User.create({
                             googleId: profile.id,
                             email: profile.emails[0].value,
@@ -106,7 +116,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                         });
                     }
                 } else {
-                    // Update last login and profile picture
+                    // Update last login and profile picture only
                     user.lastLogin = new Date();
                     user.profilePicture = profile.photos[0].value;
                     await user.save();

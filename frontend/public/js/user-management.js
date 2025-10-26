@@ -46,9 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         usersList.innerHTML = filteredUsers.map(user => `
-            <div class="table-row" data-id="${user._id}">
+            <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
                 <div class="checkbox-cell">
-                    <input type="checkbox" class="user-checkbox">
+                    <input type="checkbox" class="user-checkbox" data-id="${user._id}">
                 </div>
                 <div class="name-cell">
                     <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
@@ -64,15 +64,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="role-badge ${user.role}">${user.role}</span>
                 </div>
                 <div class="actions-cell">
-                    <button class="btn-icon edit-user" title="Edit">
-                        <i class="lucide-pencil"></i>
-                    </button>
-                    <button class="btn-icon delete-user" title="Delete">
-                        <i class="lucide-trash-2"></i>
-                    </button>
+                    <div class="user-menu">
+                        <button class="btn-icon user-menu-btn" data-id="${user._id}" title="Actions">
+                            <i data-lucide="more-vertical"></i>
+                        </button>
+                        <div class="user-menu-dropdown" id="menu-${user._id}" style="display: none;">
+                            <button class="menu-item edit-user" data-id="${user._id}">
+                                <i data-lucide="edit-2"></i> <span>Edit All</span>
+                            </button>
+                            <button class="menu-item change-dept" data-id="${user._id}">
+                                <i data-lucide="building"></i> <span>Change Department</span>
+                            </button>
+                            <button class="menu-item change-role" data-id="${user._id}">
+                                <i data-lucide="user-circle"></i> <span>Change Role</span>
+                            </button>
+                            <button class="menu-item delete-user" data-id="${user._id}">
+                                <i data-lucide="trash-2"></i> <span>Delete Account</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `).join('');
+
+        // Reinitialize Lucide icons
+        lucide.createIcons();
     }
 
     // Add user
@@ -151,12 +167,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     usersList.addEventListener('click', (e) => {
         const row = e.target.closest('.table-row');
-        if (!row) {return;}
+        if (!row) return;
 
         const userId = row.dataset.id;
         const user = users.find(u => u._id === userId);
 
+        // Handle menu button click
+        if (e.target.closest('.user-menu-btn')) {
+            e.stopPropagation();
+            const menuBtn = e.target.closest('.user-menu-btn');
+            const menuDropdown = document.getElementById(`menu-${menuBtn.dataset.id}`);
+
+            // Close all other menus
+            document.querySelectorAll('.user-menu-dropdown').forEach(m => {
+                if (m.id !== menuDropdown.id) m.style.display = 'none';
+            });
+
+            // Toggle this menu
+            if (menuDropdown.style.display === 'none' || !menuDropdown.style.display) {
+                menuDropdown.style.display = 'block';
+            } else {
+                menuDropdown.style.display = 'none';
+            }
+            return;
+        }
+
+        // Handle edit button in menu
         if (e.target.closest('.edit-user')) {
+            e.stopPropagation();
             if (user) {
                 document.getElementById('editUserId').value = user._id;
                 document.getElementById('editFirstName').value = user.firstName;
@@ -165,9 +203,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('editRole').value = user.role;
                 openModal(editUserModal);
             }
-        } else if (e.target.closest('.delete-user')) {
+            closeAllMenus();
+        }
+
+        // Handle change department
+        if (e.target.closest('.change-dept')) {
+            e.stopPropagation();
+            if (user) {
+                promptChangeDepartment(user);
+            }
+            closeAllMenus();
+        }
+
+        // Handle change role
+        if (e.target.closest('.change-role')) {
+            e.stopPropagation();
+            if (user) {
+                promptChangeRole(user);
+            }
+            closeAllMenus();
+        }
+
+        // Handle delete
+        if (e.target.closest('.delete-user')) {
+            e.stopPropagation();
             currentUserId = userId;
             openModal(deleteModal);
+            closeAllMenus();
+        }
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.user-menu')) {
+            closeAllMenus();
         }
     });
 
@@ -230,6 +299,91 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Close all menus
+    function closeAllMenus() {
+        document.querySelectorAll('.user-menu-dropdown').forEach(menu => {
+            menu.style.display = 'none';
+        });
+    }
+
+    // Prompt to change department
+    function promptChangeDepartment(user) {
+        const newDept = prompt(`Enter new department for ${user.firstName} ${user.lastName}:\n(Current: ${user.department || 'None'})`);
+
+        if (newDept && newDept.trim() !== '') {
+            updateUserDepartment(user._id, newDept.trim());
+        }
+    }
+
+    // Prompt to change role
+    function promptChangeRole(user) {
+        const newRole = prompt(`Enter new role for ${user.firstName} ${user.lastName}:\n(Options: admin, faculty, secretary)\n(Current: ${user.role})`);
+
+        if (newRole && ['admin', 'faculty', 'secretary'].includes(newRole.toLowerCase())) {
+            updateUserRole(user._id, newRole.toLowerCase());
+        }
+    }
+
+    // Update department only
+    async function updateUserDepartment(userId, department) {
+        try {
+            const user = users.find(u => u._id === userId);
+            if (!user) return;
+
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    role: user.role,
+                    department: department
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Error updating department');
+            }
+
+            showNotification('Department updated successfully', 'success');
+            fetchUsers(currentFilter);
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    // Update role only
+    async function updateUserRole(userId, role) {
+        try {
+            const user = users.find(u => u._id === userId);
+            if (!user) return;
+
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    role: role,
+                    department: user.department
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Error updating role');
+            }
+
+            showNotification('Role updated successfully', 'success');
+            fetchUsers(currentFilter);
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
 
     // Notification helper
     function showNotification(message, type) {

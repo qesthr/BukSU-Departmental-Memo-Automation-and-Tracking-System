@@ -17,9 +17,7 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: function () {
-            return !this.googleId; // Password required only if not using Google OAuth
-        },
+        required: false, // Not required - users can login with Google first
         minlength: [6, 'Password must be at least 6 characters long']
     },
     googleId: {
@@ -140,8 +138,8 @@ userSchema.virtual('isLocked').get(function () {
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
-    // Only hash the password if it has been modified (or is new)
-    if (!this.isModified('password')) { return next(); }
+    // Only hash the password if it exists and has been modified (or is new)
+    if (!this.password || !this.isModified('password')) { return next(); }
 
     try {
         // Hash password with cost of 12

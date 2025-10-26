@@ -28,6 +28,10 @@ router.post('/forgot-password', async (req, res) => {
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         // Save reset code to user
+        // Ensure department exists (set default if missing)
+        if (!user.department) {
+            user.department = 'General';
+        }
         user.resetPasswordCode = resetCode;
         user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
         await user.save();
@@ -144,6 +148,10 @@ router.post('/reset-password', async (req, res) => {
         }
 
         // Update password
+        // Ensure department exists (set default if missing)
+        if (!user.department) {
+            user.department = 'General';
+        }
         user.password = newPassword;
         user.resetPasswordCode = undefined;
         user.resetPasswordExpires = undefined;

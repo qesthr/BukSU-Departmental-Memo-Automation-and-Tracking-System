@@ -45,4 +45,12 @@ router.get('/settings', [isAuthenticated, isAdmin], (req, res) => {
     });
 });
 
+// Log routes (accessible to all authenticated users, not just admins)
+router.get('/log', isAuthenticated, (req, res) => {
+    res.render('admin/log', {
+        user: req.user,
+        path: '/log'
+    });
+});
+
 module.exports = router;

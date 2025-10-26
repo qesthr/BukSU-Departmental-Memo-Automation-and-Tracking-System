@@ -63,12 +63,22 @@ const googleTokenLogin = async (req, res, next) => {
             user = await User.findOne({ email: verifiedEmail });
 
             if (user) {
-                // Update existing user with Google ID
+                // User exists - update with Google ID and preserve admin-set role/department
                 user.googleId = googleId;
                 user.profilePicture = userImage;
+
+                // Only set default role/department if not already set by admin
+                if (!user.role) {
+                    user.role = 'faculty';
+                }
+                if (!user.department) {
+                    user.department = 'General';
+                }
+
+                user.lastLogin = new Date();
                 await user.save();
             } else {
-                // Create new user
+                // Create new user with defaults
                 user = await User.create({
                     googleId: googleId,
                     email: verifiedEmail,
@@ -81,7 +91,7 @@ const googleTokenLogin = async (req, res, next) => {
                 });
             }
         } else {
-            // Update last login and profile picture
+            // Update last login and profile picture only
             user.lastLogin = new Date();
             user.profilePicture = userImage;
             await user.save();
