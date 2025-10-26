@@ -29,10 +29,15 @@
                     <input type="password" name="password" id="passwordInput" placeholder="Password" required>
                 </div>
                 <div id="recaptchaContainer" style="display: none; margin: 15px 0; text-align: center;">
-                    <div id="recaptcha" class="g-recaptcha" data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"
-                        data-callback="enableSubmit" data-theme="light" style="display: inline-block;"></div>
+                    <div id="recaptcha" class="g-recaptcha"
+                        data-sitekey="<%= RECAPTCHA_SITE_KEY %>"
+                        data-callback="enableSubmit"
+                        data-expired-callback="disableSubmit"
+                        data-theme="light"
+                        style="display: inline-block;">
+                    </div>
                 </div>
-                <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
+                <button type="submit" class="login-btn" id="loginButton">Login</button>
 
                 <div class="forgot-password-link">
                     <a href="/forgot-password" id="forgotPasswordLink">Forgot

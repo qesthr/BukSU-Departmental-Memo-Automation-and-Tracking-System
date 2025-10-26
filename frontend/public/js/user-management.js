@@ -51,7 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="checkbox" class="user-checkbox">
                 </div>
                 <div class="name-cell">
-                    <img src="/images/default-avatar.png" class="user-avatar">
+                    <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
+                         alt="${user.firstName} ${user.lastName}"
+                         onerror="this.src='/images/memofy-logo.png'">
                     <div class="user-info">
                         <div class="user-name">${user.firstName} ${user.lastName}</div>
                         <div class="user-email">${user.email}</div>

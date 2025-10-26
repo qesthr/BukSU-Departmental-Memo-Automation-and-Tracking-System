@@ -70,7 +70,7 @@ const userSchema = new mongoose.Schema({
     },
     profilePicture: {
         type: String,
-        default: 'default-avatar.png'
+        default: '/images/memofy-logo.png'
     },
     isActive: {
         type: Boolean,

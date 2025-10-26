@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { OAuth2Client } = require('google-auth-library');
+const axios = require('axios');
 
 // Google OAuth client for token verification
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -121,13 +122,41 @@ const googleTokenLogin = async (req, res, next) => {
 // Login controller with enhanced brute force protection
 const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        // Accept both field names for compatibility
+        const { email, password, recaptchaToken, 'g-recaptcha-response': recaptchaResponse } = req.body;
+        const token = recaptchaToken || recaptchaResponse;
 
         // Validate input
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
                 message: 'Email and password are required'
+            });
+        }
+
+        // Verify reCAPTCHA
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please complete reCAPTCHA verification.'
+            });
+        }
+
+        try {
+            const verifyURL = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET}&response=${token}`;
+            const { data } = await axios.post(verifyURL);
+
+            if (!data.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'reCAPTCHA verification failed. Please verify that you are not a robot.'
+                });
+            }
+        } catch (error) {
+            console.error('reCAPTCHA verification error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error verifying reCAPTCHA. Please try again.'
             });
         }
 
