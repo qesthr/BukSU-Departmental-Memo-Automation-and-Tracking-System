@@ -58,6 +58,10 @@ const memoSchema = new mongoose.Schema({
         size: Number,
         mimetype: String
     }],
+    googleDriveFileId: {
+        type: String,
+        sparse: true
+    },
     readAt: {
         type: Date
     },

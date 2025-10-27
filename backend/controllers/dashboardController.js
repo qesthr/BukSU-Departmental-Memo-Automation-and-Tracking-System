@@ -13,19 +13,27 @@ exports.getDashboardStats = async (req, res) => {
         const facultyUsers = await User.countDocuments({ role: 'faculty' });
         const activeUsers = await User.countDocuments({ lastLogin: { $exists: true } });
 
-        // Get memo stats
-        const totalMemosSent = await Memo.countDocuments({ status: 'sent' });
-        const pendingMemos = await Memo.countDocuments({
+        // Get memo stats - only actual memos (activityType is null or 'memo_sent')
+        const memoFilter = {
             status: 'sent',
+            $or: [
+                { activityType: null },
+                { activityType: 'memo_sent' }
+            ]
+        };
+
+        const totalMemosSent = await Memo.countDocuments(memoFilter);
+        const pendingMemos = await Memo.countDocuments({
+            ...memoFilter,
             isRead: false
         });
         const overdueMemos = await Memo.countDocuments({
-            status: 'sent',
+            ...memoFilter,
             dueDate: { $lt: new Date() }
         });
 
-        // Get recent memos
-        const recentMemos = await Memo.find({ status: 'sent' })
+        // Get recent memos - only actual memos
+        const recentMemos = await Memo.find(memoFilter)
             .populate('sender', 'firstName lastName department profilePicture')
             .populate('recipient', 'firstName lastName department')
             .sort({ createdAt: -1 })

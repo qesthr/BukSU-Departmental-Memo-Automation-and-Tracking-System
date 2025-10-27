@@ -483,6 +483,133 @@
     font-family: inherit;
 }
 
+.form-hint {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.file-preview-container {
+    margin-top: 12px;
+}
+
+.file-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.file-preview-item i {
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+}
+
+.file-name {
+    flex: 1;
+    color: #1e293b;
+}
+
+.file-size {
+    color: #64748b;
+    font-size: 12px;
+}
+
+input[type="file"] {
+    padding: 8px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+input[type="file"]:hover {
+    border-color: #2563eb;
+    background: #f0f7ff;
+}
+
+input[type="file"]::file-selector-button {
+    padding: 6px 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: 12px;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: #1d4ed8;
+}
+
+/* Rich Text Editor */
+.rich-text-editor {
+    min-height: 200px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    overflow-y: auto;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.rich-text-editor:empty:before {
+    content: attr(placeholder);
+    color: #9ca3af;
+}
+
+.rich-text-editor:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.rich-text-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 0.5rem 0;
+    display: block;
+    cursor: pointer;
+}
+
+.insert-image-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-top: 8px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.insert-image-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.insert-image-btn i {
+    width: 16px;
+    height: 16px;
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;

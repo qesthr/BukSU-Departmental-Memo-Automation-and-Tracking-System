@@ -26,6 +26,17 @@ const userSchema = new mongoose.Schema({
         sparse: true,
         index: true
     },
+    googleDriveRefreshToken: {
+        type: String,
+        sparse: true
+    },
+    googleDriveAccessToken: {
+        type: String,
+        sparse: true
+    },
+    googleDriveTokenExpiry: {
+        type: Date
+    },
     role: {
         type: String,
         enum: {

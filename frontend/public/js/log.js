@@ -66,25 +66,96 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Rich text editor with inline image support
+    const contentEditor = document.getElementById('contentEditor');
+    const contentHidden = document.getElementById('content');
+    const insertImageBtn = document.getElementById('insertImageBtn');
+    const imageUpload = document.getElementById('imageUpload');
+    const uploadedImages = []; // Store uploaded images for submission
+
+    // Insert image button handler
+    if (insertImageBtn && imageUpload) {
+        insertImageBtn.addEventListener('click', () => {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                // Create preview
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+
+                    // Insert image at cursor position
+                    if (window.getSelection().rangeCount > 0) {
+                        const range = window.getSelection().getRangeAt(0);
+                        range.insertNode(img);
+                        // Move cursor after image
+                        range.setStartAfter(img);
+                        range.collapse(true);
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                    } else {
+                        contentEditor.appendChild(img);
+                    }
+
+                    // Store for submission
+                    uploadedImages.push(file);
+                    contentHidden.value = 'hasContent'; // Set value so form validates
+                };
+                reader.readAsDataURL(file);
+
+                lucide.createIcons();
+                e.target.value = ''; // Reset input
+            }
+        });
+    }
+
+    // Convert editor content to text when submitting
+    if (contentEditor) {
+        contentEditor.addEventListener('input', () => {
+            // Extract text from editor for hidden input
+            const textContent = contentEditor.innerText;
+            if (textContent.trim()) {
+                contentHidden.value = textContent;
+            } else {
+                contentHidden.value = contentEditor.innerHTML;
+            }
+        });
+    }
+
     // Compose form
     composeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const formData = {
-            recipientEmail: document.getElementById('recipientEmail').value,
-            subject: document.getElementById('subject').value,
-            content: document.getElementById('content').value,
-            department: document.getElementById('department').value,
-            priority: 'medium'
-        };
+        // Extract text content from rich editor
+        const editorContent = contentEditor.innerHTML;
+        const textContent = contentEditor.innerText || editorContent;
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('recipientEmail', document.getElementById('recipientEmail').value);
+        formData.append('subject', document.getElementById('subject').value);
+        formData.append('content', textContent); // Send plain text
+        formData.append('department', document.getElementById('department').value);
+        formData.append('priority', 'medium');
+        formData.append('editorContent', editorContent); // Also send HTML content
+
+        // Add uploaded images as attachments
+        if (uploadedImages.length > 0) {
+            uploadedImages.forEach(file => {
+                formData.append('attachments', file);
+            });
+        }
 
         try {
             const response = await fetch('/api/log/memos', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
+                body: formData
             });
 
             const data = await response.json();
@@ -92,6 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 showNotification('Memo sent successfully', 'success');
                 composeForm.reset();
+                if (contentEditor) contentEditor.innerHTML = '';
+                uploadedImages.length = 0; // Clear uploaded images
                 closeModal(composeModal);
                 fetchMemos();
             } else {
@@ -301,7 +374,53 @@ document.addEventListener('DOMContentLoaded', () => {
         if (senderAvatar) senderAvatar.src = memo.sender?.profilePicture || '/images/memofy-logo.png';
         if (senderName) senderName.textContent = `${memo.sender?.firstName} ${memo.sender?.lastName}`;
         if (senderTitle) senderTitle.textContent = `${memo.sender?.department || ''} SECRETARY`.trim();
-        if (memoBodyContent) memoBodyContent.textContent = memo.content;
+
+        // Display memo content with attachments
+        if (memoBodyContent) {
+            let htmlContent = `<div style="white-space: pre-wrap;">${memo.content}</div>`;
+
+            // Add attachments display if any
+            if (memo.attachments && memo.attachments.length > 0) {
+                htmlContent += '<div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">';
+                htmlContent += '<h4 style="font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">Attachments:</h4>';
+
+                memo.attachments.forEach(attachment => {
+                    const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+                    if (isImage && attachment.path) {
+                        // Get just the filename from the path
+                        const filename = attachment.path.includes('/') ? attachment.path.split('/').pop() : attachment.path.includes('\\') ? attachment.path.split('\\').pop() : attachment.filename;
+
+                        // Display image inline
+                        htmlContent += `
+                            <div style="margin-bottom: 1.5rem;">
+                                <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">${attachment.filename}</p>
+                                <img src="/uploads/${filename}"
+                                     alt="${attachment.filename}"
+                                     style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;"
+                                     onerror="this.style.display='none'; console.error('Image not found: ${filename}');" />
+                            </div>
+                        `;
+                    } else {
+                        // Display as link for non-images
+                        htmlContent += `
+                            <div style="display: flex; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 8px; margin-bottom: 0.75rem;">
+                                <i data-lucide="paperclip" style="width: 16px; height: 16px; margin-right: 0.5rem; color: #6b7280;"></i>
+                                <span style="font-size: 0.875rem; color: #374151;">${attachment.filename}</span>
+                                <span style="font-size: 0.75rem; color: #9ca3af; margin-left: auto;">(${formatFileSize(attachment.size)})</span>
+                            </div>
+                        `;
+                    }
+                });
+
+                htmlContent += '</div>';
+            }
+
+            memoBodyContent.innerHTML = htmlContent;
+
+            // Reinitialize icons for attachment links
+            lucide.createIcons();
+        }
 
         // Update navigation buttons
         if (prevBtn) prevBtn.disabled = index === 0;

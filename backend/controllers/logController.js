@@ -58,6 +58,7 @@ exports.getAllMemos = async (req, res) => {
 
         res.json({ success: true, memos });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching memos:', error);
         res.status(500).json({ success: false, message: 'Error fetching memos' });
     }
@@ -92,6 +93,7 @@ exports.getMemo = async (req, res) => {
 
         res.json({ success: true, memo });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching memo:', error);
         res.status(500).json({ success: false, message: 'Error fetching memo' });
     }
@@ -103,11 +105,52 @@ exports.createMemo = async (req, res) => {
         const userId = req.user._id;
         const { recipientEmail, subject, content, department, priority } = req.body;
 
+        // eslint-disable-next-line no-console
+        console.log('=== MEMO CREATE DEBUG ===');
+        // eslint-disable-next-line no-console
+        console.log('Request body:', { recipientEmail, subject, content, department, priority });
+        // eslint-disable-next-line no-console
+        console.log('req.files exists?', !!req.files);
+        // eslint-disable-next-line no-console
+        console.log('req.files type:', typeof req.files);
+        // eslint-disable-next-line no-console
+        console.log('req.files length:', req.files ? req.files.length : 0);
+        // eslint-disable-next-line no-console
+        console.log('req.files:', req.files);
+        // eslint-disable-next-line no-console
+        console.log('req.file (single):', req.file);
+        // eslint-disable-next-line no-console
+        console.log('========================');
+
         // Find recipient by email
         const recipient = await User.findOne({ email: recipientEmail });
         if (!recipient) {
             return res.status(404).json({ success: false, message: 'Recipient not found' });
         }
+
+        // Handle file uploads
+        const attachments = [];
+        if (req.files && req.files.length > 0) {
+            // eslint-disable-next-line no-console
+            console.log(`Processing ${req.files.length} uploaded file(s)...`);
+            req.files.forEach((file, index) => {
+                const attachment = {
+                    filename: file.originalname,
+                    path: file.path,
+                    size: file.size,
+                    mimetype: file.mimetype
+                };
+                // eslint-disable-next-line no-console
+                console.log(`Attachment ${index + 1}:`, attachment);
+                attachments.push(attachment);
+            });
+        } else {
+            // eslint-disable-next-line no-console
+            console.log('No files detected in req.files');
+        }
+
+        // eslint-disable-next-line no-console
+        console.log(`Total attachments to save: ${attachments.length}`);
 
         const memo = new Memo({
             sender: userId,
@@ -116,27 +159,95 @@ exports.createMemo = async (req, res) => {
             content,
             department,
             priority,
+            attachments: attachments,
             status: 'sent'
+        });
+
+        // eslint-disable-next-line no-console
+        console.log('Memo before save:', {
+            subject: memo.subject,
+            attachmentsCount: memo.attachments.length,
+            attachments: memo.attachments
         });
 
         await memo.save();
 
+        // eslint-disable-next-line no-console
+        console.log('Memo after save - ID:', memo._id);
+        // eslint-disable-next-line no-console
+        console.log('Saved attachments:', memo.attachments);
+
+        // Fetch with attachments included
         const populatedMemo = await Memo.findById(memo._id)
             .populate('sender', 'firstName lastName email profilePicture department')
-            .populate('recipient', 'firstName lastName email profilePicture department');
+            .populate('recipient', 'firstName lastName email profilePicture department')
+            .lean();
+
+        // Explicitly add attachments to populatedMemo
+        populatedMemo.attachments = memo.attachments;
 
         // Create log entry in admin's inbox (non-blocking - don't fail if logging fails)
         try {
             const logService = require('../services/logService');
             logService.logMemoSent(populatedMemo).catch(err => {
+                // eslint-disable-next-line no-console
                 console.error('Failed to create log entry (non-critical):', err);
             });
         } catch (logErr) {
+            // eslint-disable-next-line no-console
             console.error('Could not load log service:', logErr.message);
+        }
+
+        // Auto-save to Google Drive if connected system-wide (non-blocking)
+        try {
+            const googleDriveService = require('../services/googleDriveService');
+            const isConnected = await googleDriveService.isDriveConnected();
+
+            // eslint-disable-next-line no-console
+            console.log(`[Google Drive] Connection status: ${isConnected}`);
+            // eslint-disable-next-line no-console
+            console.log(`[Google Drive] Memo has ${populatedMemo.attachments?.length || 0} attachments`);
+
+            if (isConnected) {
+                // eslint-disable-next-line no-console
+                console.log(`[Google Drive] Attempting to upload memo: ${populatedMemo.subject}`);
+
+                // Pass attachments to the upload function
+                googleDriveService.uploadMemoToDrive(populatedMemo)
+                    .then(fileId => {
+                        // Update the memo document with Google Drive file ID
+                        Memo.findByIdAndUpdate(memo._id, { googleDriveFileId: fileId })
+                            .catch(err => {
+                                // eslint-disable-next-line no-console
+                                console.error('Failed to save Google Drive file ID:', err);
+                            });
+                        // eslint-disable-next-line no-console
+                        console.log(`✓ Memo backed up to Google Drive: ${fileId}`);
+                        // eslint-disable-next-line no-console
+                        console.log(`  Memo: ${populatedMemo.subject}`);
+                    })
+                    .catch(err => {
+                        // eslint-disable-next-line no-console
+                        console.error('✗ Failed to backup memo to Google Drive:', err.message);
+                        // eslint-disable-next-line no-console
+                        console.error('  Error details:', err);
+                    });
+            } else {
+                // eslint-disable-next-line no-console
+                console.log(`[Google Drive] NOT connected - memo will NOT be backed up`);
+                // eslint-disable-next-line no-console
+                console.log(`  To connect: An admin must visit /api/drive/authorize`);
+            }
+        } catch (driveErr) {
+            // eslint-disable-next-line no-console
+            console.error('✗ Error checking Google Drive connection:', driveErr.message);
+            // eslint-disable-next-line no-console
+            console.error('  Error details:', driveErr);
         }
 
         res.status(201).json({ success: true, memo: populatedMemo });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error creating memo:', error);
         res.status(500).json({ success: false, message: 'Error creating memo' });
     }
@@ -161,9 +272,9 @@ exports.updateMemo = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
-        if (isStarred !== undefined) memo.isStarred = isStarred;
-        if (folder) memo.folder = folder;
-        if (status) memo.status = status;
+        if (isStarred !== undefined) {memo.isStarred = isStarred;}
+        if (folder) {memo.folder = folder;}
+        if (status) {memo.status = status;}
 
         await memo.save();
 
@@ -173,6 +284,7 @@ exports.updateMemo = async (req, res) => {
 
         res.json({ success: true, memo: populatedMemo });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error updating memo:', error);
         res.status(500).json({ success: false, message: 'Error updating memo' });
     }
@@ -202,6 +314,7 @@ exports.deleteMemo = async (req, res) => {
 
         res.json({ success: true, message: 'Memo deleted successfully' });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error deleting memo:', error);
         res.status(500).json({ success: false, message: 'Error deleting memo' });
     }
@@ -231,6 +344,7 @@ exports.restoreMemo = async (req, res) => {
 
         res.json({ success: true, message: 'Memo restored successfully' });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error restoring memo:', error);
         res.status(500).json({ success: false, message: 'Error restoring memo' });
     }
@@ -258,6 +372,7 @@ exports.permanentDelete = async (req, res) => {
 
         res.json({ success: true, message: 'Memo permanently deleted' });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error permanently deleting memo:', error);
         res.status(500).json({ success: false, message: 'Error deleting memo' });
     }

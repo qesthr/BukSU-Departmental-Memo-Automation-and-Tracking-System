@@ -12,6 +12,7 @@ const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
 const forgotPasswordRoutes = require('./backend/routes/forgotPasswordRoutes');
 const logRoutes = require('./backend/routes/logRoutes');
+const driveRoutes = require('./backend/routes/driveRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -64,6 +65,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/log', logRoutes);
+app.use('/api/drive', driveRoutes);
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
@@ -73,6 +75,7 @@ app.use(express.static(path.join(__dirname, 'frontend/public')));
 app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Set up EJS
 app.use(expressLayouts);
@@ -152,6 +155,7 @@ const errorHandler = require('./backend/middleware/errorHandler');
 app.use(errorHandler);
 
 // Start server
+
 app.listen(port, () => {
     console.info(`Server is running at http://localhost:${port}`);
 });

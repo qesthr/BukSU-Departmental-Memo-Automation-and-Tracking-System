@@ -5,6 +5,7 @@ const isAdmin = require('../middleware/isAdmin');
 const logController = require('../controllers/logController');
 const dashboardController = require('../controllers/dashboardController');
 const notificationController = require('../controllers/notificationController');
+const upload = require('../middleware/upload');
 
 // Get all memos
 router.get('/memos', [isAuthenticated], logController.getAllMemos);
@@ -12,8 +13,8 @@ router.get('/memos', [isAuthenticated], logController.getAllMemos);
 // Get single memo
 router.get('/memos/:id', [isAuthenticated], logController.getMemo);
 
-// Create memo
-router.post('/memos', [isAuthenticated], logController.createMemo);
+// Create memo (with file upload support)
+router.post('/memos', [isAuthenticated, upload.array('attachments', 10)], logController.createMemo);
 
 // Update memo
 router.put('/memos/:id', [isAuthenticated], logController.updateMemo);
