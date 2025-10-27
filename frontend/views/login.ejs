@@ -36,8 +36,9 @@
                         data-theme="light"
                         style="display: inline-block;">
                     </div>
+                    <p style="color: #666; font-size: 13px; margin-top: 8px;">Please complete the reCAPTCHA to continue</p>
                 </div>
-                <button type="submit" class="login-btn" id="loginButton">Login</button>
+                <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
 
                 <div class="forgot-password-link">
                     <a href="/forgot-password" id="forgotPasswordLink">Forgot
@@ -243,7 +244,100 @@
 <script src="/js/google-auth-modal.js"></script>
 <script src="/js/account-lockout-modal.js"></script>
 <script src="/js/message-modal.js"></script>
+
+<!-- Google reCAPTCHA -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
 <script src="/js/login-form.js"></script>
 
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<!-- Global message listener for Google OAuth popup -->
+<script>
+/**
+ * Global message listener for Google OAuth authentication
+ *
+ * FLOW:
+ * 1. Popup opens for Google authentication
+ * 2. User authenticates with Google
+ * 3. Backend renders google-callback.ejs in popup
+ * 4. Callback sends GOOGLE_AUTH_SUCCESS message via postMessage
+ * 5. Popup closes
+ * 6. This listener receives message and loads dashboard dynamically
+ * 7. Login page is replaced with dashboard content - NO redirect
+ */
+// Global flag to track authentication completion
+window.googleAuthCompleted = false;
+
+window.addEventListener('message', async (event) => {
+    console.log('📨 Message received from:', event.origin);
+    console.log('📨 Message type:', event.data?.type);
+
+    // Security: Only accept messages from same origin
+    if (event.origin !== 'http://localhost:5000') {
+        console.log('⚠️ Ignoring message from different origin');
+        return;
+    }
+
+    // Handle authentication success message from popup
+    if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        console.log('✅ GOOGLE_AUTH_SUCCESS received from popup!');
+        console.log('🚀 Loading dashboard dynamically...');
+
+        // Set completion flag so popup monitor knows auth succeeded
+        window.googleAuthCompleted = true;
+
+        try {
+            // Step 1: Get current user info from backend
+            console.log('📡 Fetching user info from /api/auth/current-user...');
+            const res = await fetch('/api/auth/current-user', {
+                credentials: 'include'
+            });
+
+            if (!res.ok) {
+                throw new Error('Failed to get user info: ' + res.status);
+            }
+
+            const user = await res.json();
+            console.log('✅ User authenticated:', user.user?.email, '| Role:', user.user?.role);
+
+            // Step 2: Determine which dashboard to load based on role
+            let dashboardUrl = '/admin-dashboard';
+            if (user.user?.role === 'admin') {
+                dashboardUrl = '/dashboard';
+            }
+
+            console.log('📊 Fetching dashboard from:', dashboardUrl);
+
+            // Step 3: Fetch dashboard HTML dynamically (AJAX)
+            const dashRes = await fetch(dashboardUrl, {
+                credentials: 'include'
+            });
+
+            if (!dashRes.ok) {
+                throw new Error(`Failed to load dashboard: ${dashRes.status}`);
+            }
+
+            const html = await dashRes.text();
+            console.log('✅ Dashboard HTML received, length:', html.length);
+            console.log('🔄 Replacing login page content with dashboard...');
+
+            // Step 4: Replace entire page content with dashboard
+            // This replaces the login page with dashboard content dynamically
+            document.open();
+            document.write(html);
+            document.close();
+
+            console.log('✅ SUCCESS! Dashboard loaded - NO PAGE RELOAD OR REDIRECT!');
+            console.log('🎉 User is now seeing dashboard without leaving the page');
+
+        } catch (error) {
+            console.error('❌ Error loading dashboard:', error);
+            alert('Failed to load dashboard. Redirecting as fallback...');
+            // Fallback: redirect if dynamic loading fails
+            window.location.href = '/admin-dashboard';
+        }
+    }
+});
+</script>

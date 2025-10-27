@@ -1,145 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Authentication</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: 'Google Sans', Arial, sans-serif;
-            background-color: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .auth-container {
-            background: white;
-            border-radius: 8px;
-            padding: 40px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 100%;
-        }
-
-        .google-logo {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 20px;
-        }
-
-        .status {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .message {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #4285f4;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+    <title>Auth Complete</title>
 </head>
-
 <body>
-    <div class="auth-container">
-        <div class="google-logo">
-            <svg width="60" height="60" viewBox="0 0 24 24">
-                <path fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-        </div>
-        <div class="status">Processing authentication...</div>
-        <div class="message">Please wait while we complete your Google sign-in.</div>
-        <div class="spinner"></div>
+    <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <div style="border: 3px solid #4285f4; border-top: 3px solid transparent; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto;"></div>
+        <p>Completing authentication...</p>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
     </div>
 
     <script>
-        // Extract URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
-        const state = urlParams.get('state');
+        console.log('Callback page loaded');
+        console.log('Window opener:', !!window.opener);
 
-        // Check if we're in an iframe
-        if (window.parent !== window) {
-            // We're in an iframe, communicate with parent
-            if (code) {
-                // Success - send code to parent
-                window.parent.postMessage({
-                    type: 'GOOGLE_AUTH_SUCCESS',
-                    code: code,
-                    state: state
-                }, '*');
-            } else if (error) {
-                // Error - send error to parent
-                window.parent.postMessage({
-                    type: 'GOOGLE_AUTH_ERROR',
-                    error: error
-                }, '*');
-            }
+        // Check if this is a popup or full-page redirect
+        if (window.opener) {
+            // Popup scenario - send message to parent
+            console.log('✅ Popup detected - sending message to parent');
+            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin);
+            console.log('✅ Sent GOOGLE_AUTH_SUCCESS to parent');
+
+            setTimeout(() => {
+                console.log('🔄 Closing popup');
+                window.close();
+            }, 200);
         } else {
-            // We're not in an iframe, redirect normally
-            if (code) {
-                // Process the code and redirect
-                fetch('/auth/google/callback', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        redirect_uri: window.location.origin + '/auth/google/callback'
-                    })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            window.location.href = '/admin-dashboard';
-                        } else {
-                            window.location.href = '/login?error=' + encodeURIComponent(data.message);
+            // Full-page redirect scenario - fetch user info and redirect to appropriate dashboard
+            console.log('✅ Full-page redirect detected - fetching user info...');
+
+            fetch('/auth/current-user', { credentials: 'include' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.user) {
+                        const userRole = data.user.role;
+                        let dashboardUrl = '/admin-dashboard';
+
+                        if (userRole === 'secretary') {
+                            dashboardUrl = '/dashboard';
+                        } else if (userRole === 'faculty') {
+                            dashboardUrl = '/dashboard';
+                        } else if (userRole === 'admin') {
+                            dashboardUrl = '/admin-dashboard';
                         }
-                    })
-                    .catch(error => {
-                        window.location.href = '/login?error=Authentication failed';
-                    });
-            } else if (error) {
-                window.location.href = '/login?error=' + encodeURIComponent(error);
-            }
+
+                        console.log('✅ Redirecting to:', dashboardUrl, 'for role:', userRole);
+                        window.location.href = dashboardUrl;
+                    } else {
+                        console.error('❌ Could not get user info');
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error fetching user info:', error);
+                    window.location.href = '/login';
+                });
         }
     </script>
 </body>
-
 </html>

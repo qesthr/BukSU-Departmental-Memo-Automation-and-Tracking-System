@@ -59,38 +59,33 @@ const googleTokenLogin = async (req, res, next) => {
         let user = await User.findOne({ googleId: googleId });
 
         if (!user) {
-            // Check if user exists by email
-            user = await User.findOne({ email: verifiedEmail });
+            // Check if user exists by email AND is active
+            user = await User.findOne({
+                email: verifiedEmail,
+                isActive: true
+            });
 
             if (user) {
-                // User exists - update with Google ID and preserve admin-set role/department
+                // User exists and is active - update with Google ID and preserve admin-set role/department
                 user.googleId = googleId;
                 user.profilePicture = userImage;
-
-                // Only set default role/department if not already set by admin
-                if (!user.role) {
-                    user.role = 'faculty';
-                }
-                if (!user.department) {
-                    user.department = 'General';
-                }
-
                 user.lastLogin = new Date();
                 await user.save();
             } else {
-                // Create new user with defaults
-                user = await User.create({
-                    googleId: googleId,
-                    email: verifiedEmail,
-                    firstName: userName ? userName.split(' ')[0] : userInfo.given_name || 'Unknown',
-                    lastName: userName ? userName.split(' ').slice(1).join(' ') : userInfo.family_name || 'User',
-                    profilePicture: userImage,
-                    role: 'faculty', // Default role for Google OAuth users
-                    department: 'General', // Default department for Google OAuth users
-                    lastLogin: new Date()
+                // User doesn't exist or is inactive - admin must add them first
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your account has not been added by an administrator. Please contact your administrator to create your account.'
                 });
             }
         } else {
+            // Check if user is active
+            if (!user.isActive) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your account has been deactivated. Please contact your administrator.'
+                });
+            }
             // Update last login and profile picture only
             user.lastLogin = new Date();
             user.profilePicture = userImage;
@@ -153,17 +148,32 @@ const login = async (req, res, next) => {
         }
 
         try {
-            const verifyURL = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET}&response=${token}`;
-            const { data } = await axios.post(verifyURL);
+            // Verify reCAPTCHA token with Google
+            console.log('Verifying reCAPTCHA token...');
 
-            if (!data.success) {
+            const response = await axios({
+                method: 'POST',
+                url: 'https://www.google.com/recaptcha/api/siteverify',
+                params: {
+                    secret: process.env.RECAPTCHA_SECRET,
+                    response: token
+                }
+            });
+
+            console.log('reCAPTCHA verification response:', response.data);
+
+            if (!response.data.success) {
+                console.error('reCAPTCHA verification failed:', response.data['error-codes']);
                 return res.status(400).json({
                     success: false,
-                    message: 'reCAPTCHA verification failed. Please verify that you are not a robot.'
+                    message: 'reCAPTCHA verification failed. Please try again.'
                 });
             }
+
+            console.log('✅ reCAPTCHA verified successfully');
         } catch (error) {
-            console.error('reCAPTCHA verification error:', error);
+            console.error('reCAPTCHA verification error:', error.message);
+            console.error('Error details:', error.response?.data);
             return res.status(500).json({
                 success: false,
                 message: 'Error verifying reCAPTCHA. Please try again.'
@@ -366,10 +376,60 @@ const checkAuth = (req, res) => {
     });
 };
 
+// Verify reCAPTCHA token
+const verifyRecaptcha = async (req, res) => {
+    const { token } = req.body || {};
+
+    if (!token) {
+        return res.status(400).json({
+            success: false,
+            message: 'reCAPTCHA token is required'
+        });
+    }
+
+    try {
+        console.log('Verifying reCAPTCHA token...');
+
+        const response = await axios({
+            method: 'POST',
+            url: 'https://www.google.com/recaptcha/api/siteverify',
+            params: {
+                secret: process.env.RECAPTCHA_SECRET,
+                response: token
+            }
+        });
+
+        console.log('reCAPTCHA verification response:', response.data);
+
+        if (!response.data.success) {
+            console.error('reCAPTCHA verification failed:', response.data['error-codes']);
+            return res.status(400).json({
+                success: false,
+                message: 'reCAPTCHA verification failed',
+                errors: response.data['error-codes'] || []
+            });
+        }
+
+        console.log('✅ reCAPTCHA verified successfully');
+        return res.json({
+            success: true,
+            message: 'reCAPTCHA verified'
+        });
+
+    } catch (error) {
+        console.error('reCAPTCHA verification error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error verifying reCAPTCHA'
+        });
+    }
+};
+
 module.exports = {
     login,
     logout,
     getCurrentUser,
     checkAuth,
-    googleTokenLogin
+    googleTokenLogin,
+    verifyRecaptcha
 };

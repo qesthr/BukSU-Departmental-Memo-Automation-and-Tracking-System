@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Dashboard | Memofy</title>
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <%- include('../components/nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <%- include('../components/admintopbar'); %>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Welcome Section -->
+                <div class="welcome-section" style="margin-bottom: 30px;">
+                    <h1 style="font-size: 28px; color: #1f2937; margin-bottom: 8px;">
+                        Faculty Dashboard
+                    </h1>
+                    <p style="color: #6b7280; font-size: 16px;">
+                        Welcome, <%= user.fullName || user.firstName %>! Stay updated with department memos.
+                    </p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📨</div>
+                        <div class="stat-info">
+                            <h3>Received Memos</h3>
+                            <div class="stat-value">0</div>
+                            <div class="stat-change">Total memos</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3>Acknowledged</h3>
+                            <div class="stat-value">0</div>
+                            <div class="stat-change">Completed tasks</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <h3>Pending</h3>
+                            <div class="stat-value">0</div>
+                            <div class="stat-change">Action required</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏰</div>
+                        <div class="stat-info">
+                            <h3>Overdue</h3>
+                            <div class="stat-value">0</div>
+                            <div class="stat-change">Need attention</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Grid -->
+                <div class="main-grid">
+                    <!-- Recent Memos Section -->
+                    <section class="recent-memos-section">
+                        <h2>Recent Memos</h2>
+                        <div class="memo-list">
+                            <div class="memo-item">
+                                <i data-lucide="mail" class="memo-icon blue"></i>
+                                <div class="memo-info">
+                                    <h4>No memos received yet</h4>
+                                    <p>Memos sent to you will appear here</p>
+                                </div>
+                                <span class="memo-date">--</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Quick Actions -->
+                    <div class="side-grid">
+                        <div style="padding: 20px; background: white; border-radius: 12px;">
+                            <h3 style="margin: 0 0 16px; color: #1f2937; font-size: 18px;">Quick Actions</h3>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <button style="padding: 12px 16px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                                    <i data-lucide="inbox"></i> View Inbox
+                                </button>
+                                <button style="padding: 12px 16px; background: white; color: #6366f1; border: 1px solid #6366f1; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                                    <i data-lucide="check-circle"></i> Pending Tasks
+                                </button>
+                                <button style="padding: 12px 16px; background: white; color: #6366f1; border: 1px solid #6366f1; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                                    <i data-lucide="user"></i> My Profile
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- User Info Card -->
+                        <div style="padding: 20px; background: white; border-radius: 12px;">
+                            <div style="text-align: center; margin-bottom: 16px;">
+                                <img src="<%= user.profilePicture || '/images/default-avatar.png' %>"
+                                     alt="Profile"
+                                     style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #8b5cf6; margin-bottom: 12px;">
+                                <h3 style="margin: 0 0 4px; color: #1f2937;"><%= user.fullName || user.firstName %></h3>
+                                <p style="margin: 0; color: #8b5cf6; font-size: 14px; font-weight: 600;">Faculty</p>
+                            </div>
+                            <div style="border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="color: #6b7280;">Department:</span>
+                                    <span style="color: #1f2937; font-weight: 600;"><%= user.department || 'N/A' %></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #6b7280;">Email:</span>
+                                    <span style="color: #1f2937; font-weight: 600;"><%= user.email %></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Basic logging
+        console.log('Faculty Dashboard loaded');
+        console.log('User:', '<%= user.fullName %>');
+        console.log('Department:', '<%= user.department %>');
+    </script>
+</body>
+
+</html>
+

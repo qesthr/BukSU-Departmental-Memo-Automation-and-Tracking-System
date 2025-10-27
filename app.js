@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const connectDB = require('./backend/config/db');
 const passport = require('./backend/config/passport');
+const isAdmin = require('./backend/middleware/isAdmin');
 const authRoutes = require('./backend/routes/auth');
 const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
@@ -104,13 +105,26 @@ app.get('/auth-success', (req, res) => {
     }
 });
 
-// Dashboard route - protected
+// Dashboard route - protected (for secretary and faculty)
 app.get('/dashboard', (req, res) => {
     if (req.isAuthenticated()) {
         if (req.user && req.user.role === 'admin') {
             res.redirect('/admin-dashboard');
+        } else if (req.user && req.user.role === 'secretary') {
+            // Secretary users see secretary dashboard
+            res.render('secretary-dashboard', {
+                user: req.user,
+                path: '/dashboard'
+            });
+        } else if (req.user && req.user.role === 'faculty') {
+            // Faculty users see faculty dashboard
+            res.render('faculty-dashboard', {
+                user: req.user,
+                path: '/dashboard'
+            });
         } else {
-            res.render('admin-dashboard', {
+            // Fallback for other roles
+            res.render('faculty-dashboard', {
                 user: req.user,
                 path: '/dashboard'
             });
@@ -120,16 +134,12 @@ app.get('/dashboard', (req, res) => {
     }
 });
 
-// Admin Dashboard route - protected
-app.get('/admin-dashboard', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.render('admin-dashboard', {
-            user: req.user,
-            path: '/admin-dashboard'
-        });
-    } else {
-        res.redirect('/');
-    }
+// Admin Dashboard route - ADMIN ONLY
+app.get('/admin-dashboard', isAdmin, (req, res) => {
+    res.render('admin-dashboard', {
+        user: req.user,
+        path: '/admin-dashboard'
+    });
 });
 
 // Log route - protected

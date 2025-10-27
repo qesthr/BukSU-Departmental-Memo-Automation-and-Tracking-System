@@ -5,6 +5,7 @@ const authController = require('../controllers/authController');
 
 // Local authentication routes
 router.post('/login', authController.login);
+router.post('/verify-recaptcha', authController.verifyRecaptcha);
 router.post('/logout', authController.logout);
 router.get('/current-user', authController.getCurrentUser);
 router.get('/check-auth', authController.checkAuth);
@@ -98,18 +99,93 @@ router.get('/google/callback-page', (req, res) => {
     res.render('google-callback');
 });
 
-// Google OAuth routes (legacy redirect-based)
+/**
+ * Google OAuth Authentication Routes
+ *
+ * These routes handle the OAuth 2.0 flow with Google:
+ * 1. /auth/google - Starts the OAuth flow, redirects user to Google
+ * 2. /auth/google/callback - Google redirects here after authentication
+ *
+ * Flow:
+ * - User clicks "Sign in with Google"
+ * - Gets redirected to Google's authorization server
+ * - User selects account and approves
+ * - Google redirects back to /auth/google/callback with authorization code
+ * - Passport.js exchanges code for user info and creates/updates user session
+ * - Session is saved to database
+ * - Callback page is rendered in the popup
+ * - Client-side JavaScript detects popup and sends message to parent
+ * - Parent window loads dashboard content dynamically
+ */
+
+// Route 1: Start Google OAuth flow
+// This redirects the user to Google's authorization page
 router.get('/google',
     passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
+// Route 2: Handle Google OAuth callback
+// Google redirects here after user approves authentication
 router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res, next) => {
+        // STEP 1: Authenticate with Passport.js
+        // This verifies the authorization code and creates/updates the user session
+        // Passport.js handles:
+        // - Verifying the authorization code with Google
+        // - Fetching user profile from Google
+        // - Finding existing user in database (NO AUTO-CREATION)
+        // - Setting up session with user data
+        passport.authenticate('google', {
+            session: true  // Save session to database
+        }, (err, user, info) => {
+            // Handle authentication result
+            if (err) {
+                console.error('❌ Google OAuth error:', err);
+                return res.redirect('/login?error=oauth_error');
+            }
+
+            if (!user) {
+                // User doesn't exist - admin must add them first
+                console.log('❌ Google OAuth failed - user not found or inactive');
+                const errorMsg = info?.message || 'Account not found. Please contact your administrator.';
+                return res.redirect('/login?error=account_not_found&message=' + encodeURIComponent(errorMsg));
+            }
+
+            // Login successful - update session
+            req.login(user, (err) => {
+                if (err) {
+                    console.error('❌ Session error:', err);
+                    return res.redirect('/login?error=session_error');
+                }
+
+                // Continue to render callback page
+                next();
+            });
+        })(req, res, next);
+    },
     (req, res) => {
-        // After successful authentication, redirect to auth-success first
-        res.redirect('/auth-success');
+        // STEP 2: Render the callback page
+        // The callback page will:
+        // - Detect if it's in a popup (via window.opener)
+        // - Send a message to the parent window if in popup
+        // - Close the popup automatically
+        // - Or redirect normally if not in popup
+        console.log('✅ Rendering google-callback page for popup');
+        console.log('User authenticated:', req.user ? req.user.email : 'No user');
+        res.render('google-callback');
     }
 );
+
+// Error handler for popup authentication failures
+router.get('/google/error', (req, res) => {
+    const isPopup = req.session.isPopup;
+    if (isPopup) {
+        delete req.session.isPopup;
+        res.render('google-callback', { error: req.query.error || 'Authentication failed' });
+    } else {
+        res.redirect('/login?error=' + encodeURIComponent(req.query.error || 'Authentication failed'));
+    }
+});
 
 // Legacy logout route (for compatibility)
 router.get('/logout', (req, res) => {

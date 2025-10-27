@@ -4,6 +4,7 @@
 // This version shows Google authentication modal on the login page
 document.addEventListener('DOMContentLoaded', () => {
     console.log('=== GOOGLE OAUTH MODAL SCRIPT LOADED ===');
+    console.log('Current URL:', window.location.href);
 
     // Initialize Google Sign-In with modal approach
     function initializeGoogleSignIn() {
@@ -70,25 +71,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         handleCredentialResponse(response);
                     },
                     auto_select: false,
-                    cancel_on_tap_outside: false,
+                    cancel_on_tap_outside: true,
                     ux_mode: 'popup',
                     context: 'signin',
                     use_fedcm_for_prompt: false,
-                    itp_support: false
+                    itp_support: false,
+                    prompt_parent_id: 'google-signin-button'
                 });
 
-                // Render the Google sign-in button
-                google.accounts.id.renderButton(container, {
-                    theme: 'outline',
-                    size: 'large',
-                    text: 'signin_with',
-                    shape: 'rectangular',
-                    logo_alignment: 'left',
-                    width: '100%',
-                    type: 'standard'
+                // Prompt user to select account
+                google.accounts.id.prompt((notification) => {
+                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                        // If prompt is not shown, render button as fallback
+                        console.log('Prompt not shown, rendering button...');
+                        google.accounts.id.renderButton(container, {
+                            theme: 'outline',
+                            size: 'large',
+                            text: 'signin_with',
+                            shape: 'rectangular',
+                            logo_alignment: 'left',
+                            width: '100%',
+                            type: 'standard'
+                        });
+                    }
                 });
 
-                console.log('Google Identity Services button rendered successfully');
+                console.log('Google Identity Services initialized successfully');
                 // Clear the timeout since GSI initialized successfully
                 clearTimeout(gsiTimeout);
             } catch (error) {
@@ -106,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initialize with fallback button (traditional OAuth)
+    // Initialize with fallback button (popup OAuth - no redirect)
     function initializeWithFallback() {
         const container = document.getElementById('google-signin-button');
         console.log('Creating fallback button in container:', container);
@@ -118,8 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = document.createElement('button');
         button.type = 'button';
         button.onclick = function() {
-            console.log('Fallback button clicked! Redirecting to /auth/google');
-            window.location.href = '/auth/google';
+            console.log('Fallback button clicked! Opening Google OAuth in popup...');
+            openGoogleOAuthPopup();
         };
         button.style.cssText = `
             width: 100%;
@@ -181,6 +189,89 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Google Sign-In button created with fallback method');
     }
 
+    /**
+     * Open Google OAuth authentication in a popup window
+     *
+     * This function:
+     * 1. Opens a modal popup window for Google OAuth (500x600px, centered)
+     * 2. Shows loading state in the parent window
+     * 3. Listens for messages from the popup via postMessage API
+     * 4. When authentication succeeds, calls loadDashboardContent() to fetch and render dashboard
+     *
+     * Flow:
+     * - User clicks "Sign in with Google" → popup opens
+     * - Popup goes through Google OAuth flow (/auth/google → Google → /auth/google/callback)
+     * - Callback page detects it's in a popup and sends message to parent
+     * - Parent receives message and loads dashboard content dynamically
+     * - Popup closes automatically
+     * - User sees dashboard without leaving the login page
+     */
+    function openGoogleOAuthPopup() {
+        console.log('🚀 Opening Google OAuth popup...');
+        console.log('Parent window URL:', window.location.href);
+
+        // Calculate popup window position (centered on screen)
+        // This ensures the popup appears in the middle of the user's screen
+        const width = 500;
+        const height = 600;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+
+        // Show loading state in parent window while popup is open
+        // This provides visual feedback that authentication is in progress
+        const container = document.getElementById('google-signin-button');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px;"><div style="border: 3px solid #f3f3f3; border-top: 3px solid #4285f4; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;"></div><p>Opening sign-in...</p></div>';
+        }
+
+        // Open popup window
+        // window.open() creates a new browser window/tab with specified parameters
+        // The popup will navigate to /auth/google which triggers Passport.js OAuth flow
+        console.log('📂 Opening popup window to /auth/google');
+        const popup = window.open(
+            '/auth/google',
+            'google-auth',
+            `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,directories=no,status=no,noopener,noreferrer`
+        );
+        console.log('Popup window opened:', !!popup);
+        console.log('Popup closed:', popup?.closed);
+
+        // Initialize global auth completion flag
+        window.googleAuthCompleted = false;
+
+        // Monitor popup closure - global message listener will handle auth success
+        console.log('📝 Popup opened, monitoring for close...');
+
+        // Check if popup was blocked
+        if (!popup || popup.closed) {
+            console.log('⚠️ Popup was blocked - falling back to full page redirect');
+            // Fallback: redirect the entire page if popup is blocked
+            window.location.href = '/auth/google';
+            return;
+        }
+
+        // Monitor popup window to detect manual close by user
+        // The global listener in login.ejs will set window.googleAuthCompleted = true
+        let popupCheckCount = 0;
+        const checkPopupInterval = setInterval(() => {
+            popupCheckCount++;
+
+            if (popup.closed) {
+                console.log('🔍 Popup closed detected (check #' + popupCheckCount + ')');
+
+                clearInterval(checkPopupInterval);
+
+                // Reset login button if user closed popup before auth completed
+                if (!window.googleAuthCompleted) {
+                    console.log('⚠️ Popup closed by user before authentication completed');
+                    initializeGoogleSignIn();
+                } else {
+                    console.log('✅ Popup closed after successful authentication');
+                }
+            }
+        }, 100);
+    }
+
     // Handle Google credential response (for GSI modal)
     function handleCredentialResponse(response) {
         console.log('=== GOOGLE CREDENTIAL RECEIVED ===');
@@ -232,9 +323,9 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(authTimeout);
 
             if (data.success) {
-                console.log('Login successful! Redirecting to auth-success...');
-                // Redirect to auth-success for proper role handling
-                window.location.href = '/auth-success';
+                console.log('Login successful! Verifying and redirecting to dashboard...');
+                // Verify email and redirect based on role
+                checkAuthAndRedirect();
             } else {
                 console.error('Login failed:', data.message);
                 alert('Login failed: ' + data.message);
@@ -249,6 +340,131 @@ document.addEventListener('DOMContentLoaded', () => {
             // Re-initialize button
             initializeGoogleSignIn();
         });
+    }
+
+    /**
+     * Load dashboard content dynamically without full page reload
+     *
+     * This function:
+     * 1. Verifies user authentication via /api/auth/current-user
+     * 2. Determines user role (admin, secretary, faculty)
+     * 3. Fetches the appropriate dashboard HTML (admin-dashboard or dashboard)
+     * 4. Replaces the current page content with dashboard HTML
+     * 5. Executes dashboard scripts automatically
+     *
+     * Note: This approach keeps the user in the same browser tab/window,
+     * providing a seamless experience without page refreshes.
+     */
+    window.loadDashboardContent = async function() {
+        console.log('📥 loadDashboardContent() called - fetching dashboard without reload');
+        console.log('Current URL:', window.location.href);
+
+        try {
+            // STEP 1: Verify the user is authenticated and get their role
+            // This ensures the session was properly established during OAuth
+            console.log('🔍 Step 1: Verifying authentication...');
+            const userResponse = await fetch('/api/auth/current-user', {
+                credentials: 'include'  // CRITICAL: Send cookies/session
+            });
+            const userData = await userResponse.json();
+
+            console.log('📥 User verification response:', userData);
+
+            if (!userResponse.ok || !userData || !userData.success) {
+                console.error('❌ User not authenticated');
+                alert('Authentication failed. Please try again.');
+                return;
+            }
+
+            // STEP 2: Get user role from the authenticated session
+            const userRole = userData.user?.role;
+            console.log('👤 Step 2: User role detected:', userRole);
+
+            // STEP 3: Determine which dashboard to load based on user role
+            // Admin users get /admin-dashboard, others get /dashboard
+            let dashboardUrl = '/admin-dashboard';
+            if (userRole === 'secretary' || userRole === 'faculty') {
+                dashboardUrl = '/dashboard';
+            } else if (userRole !== 'admin') {
+                console.error('❌ Invalid user role:', userRole);
+                alert('You do not have access to the dashboard.');
+                return;
+            }
+
+            console.log('📊 Step 3: Fetching dashboard from:', dashboardUrl);
+
+            // STEP 4: Fetch the dashboard HTML content using AJAX
+            // This gets the full HTML of the dashboard page without redirecting
+            const dashboardResponse = await fetch(dashboardUrl, {
+                credentials: 'include'  // CRITICAL: Send cookies/session
+            });
+            if (!dashboardResponse.ok) {
+                throw new Error(`Failed to load dashboard: ${dashboardResponse.status}`);
+            }
+
+            const dashboardHtml = await dashboardResponse.text();
+            console.log('✅ Step 4: Dashboard HTML received, length:', dashboardHtml.length);
+
+            // STEP 5: Replace the entire page content with dashboard HTML
+            // This replaces the login page with the dashboard content
+            // document.open/write/close pattern is used to replace entire page while executing scripts
+            document.open();
+            document.write(dashboardHtml);
+            document.close();
+
+            console.log('✅ Step 5: Dashboard loaded successfully');
+            console.log('📝 Dashboard scripts are executing...');
+
+            // STEP 6: Trigger custom event to notify that dashboard is loaded
+            // This allows other scripts to react to the dashboard load if needed
+            window.dispatchEvent(new Event('dashboardLoaded'));
+
+        } catch (error) {
+            // Error handling: If anything fails, fallback to traditional redirect
+            console.error('❌ Error loading dashboard:', error);
+            alert('Failed to load dashboard. Redirecting...');
+            // Fallback to full page redirect
+            window.location.href = '/admin-dashboard';
+        }
+    };
+
+    // Legacy function for redirect-based flow (kept for reference)
+    async function checkAuthAndRedirect() {
+        console.log('🔍 checkAuthAndRedirect() called');
+        console.log('Current window URL:', window.location.href);
+
+        try {
+            console.log('📡 Fetching current user info from /api/auth/current-user...');
+            const response = await fetch('/api/auth/current-user', {
+                credentials: 'include'
+            });
+            const data = await response.json();
+
+            console.log('📥 Response status:', response.ok);
+            console.log('📥 Response data:', data);
+
+            if (!response.ok || !data || !data.success) {
+                throw new Error('Failed to get user info');
+            }
+
+            console.log('👤 User data received:', data.user);
+            console.log('👤 User role:', data.user?.role);
+
+            // Redirect based on role
+            if (data.user && data.user.role === 'admin') {
+                console.log('✅ User is admin, redirecting to admin dashboard...');
+                window.location.href = '/admin-dashboard';
+            } else if (data.user && (data.user.role === 'secretary' || data.user.role === 'faculty')) {
+                console.log('✅ User is ' + data.user.role + ', redirecting to user dashboard...');
+                window.location.href = '/dashboard';
+            } else {
+                console.error('❌ Invalid role:', data.user?.role);
+                window.location.href = '/?error=invalid_role';
+            }
+        } catch (error) {
+            console.error('❌ Error checking auth status:', error);
+            window.location.href = '/auth-success';
+        }
     }
 
     // Add global error handler for Google Identity Services
