@@ -12,8 +12,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 16px;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    padding-right: 1rem;
 }
+
 
 .compose-btn {
     background: #2563eb;
@@ -301,6 +304,18 @@
     color: #6b7280;
     margin: 0 8px;
 }
+
+.log-sidebar-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+    border: 1px solid var(--border); /* adds a subtle border */
+    border-radius: 8px; /* rounded edges */
+    box-sizing: border-box;
+}
+
+
 
 .viewer-actions {
     margin-left: auto;

@@ -105,34 +105,21 @@ app.get('/auth-success', (req, res) => {
     }
 });
 
-// Dashboard route - protected (for secretary and faculty)
-app.get('/dashboard', (req, res) => {
-    if (req.isAuthenticated()) {
-        if (req.user && req.user.role === 'admin') {
-            res.redirect('/admin-dashboard');
-        } else if (req.user && req.user.role === 'secretary') {
-            // Secretary users see secretary dashboard
-            res.render('secretary-dashboard', {
-                user: req.user,
-                path: '/dashboard'
-            });
-        } else if (req.user && req.user.role === 'faculty') {
-            // Faculty users see faculty dashboard
-            res.render('faculty-dashboard', {
-                user: req.user,
-                path: '/dashboard'
-            });
-        } else {
-            // Fallback for other roles
-            res.render('faculty-dashboard', {
-                user: req.user,
-                path: '/dashboard'
-            });
-        }
-    } else {
-        res.redirect('/');
-    }
-});
+// Dashboard route - protected
+// app.get('/dashboard', (req, res) => {
+//     if (req.isAuthenticated()) {
+//         if (req.user && req.user.role === 'admin') {
+//             res.redirect('/admin-dashboard');
+//         } else {
+//             res.render('admin-dashboard', {
+//                 user: req.user,
+//                 path: '/dashboard'
+//             });
+//         }
+//     } else {
+//         res.redirect('/');
+//     }
+// });
 
 // Admin Dashboard route - ADMIN ONLY
 app.get('/admin-dashboard', isAdmin, (req, res) => {

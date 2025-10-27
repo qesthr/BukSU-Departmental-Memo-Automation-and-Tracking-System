@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | Memofy</title>
     <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Google APIs -->
@@ -64,33 +65,36 @@
                             <!-- Recent Memos Section -->
                             <section class="recent-memos-section">
                                 <h2>Recent Memos</h2>
-                                <div class="memo-list">
-                                    <div class="memo-item">
-                                        <i data-lucide="file-text" class="memo-icon blue"></i>
-                                        <div class="memo-info">
-                                            <h4>Faculty Meeting Agenda</h4>
-                                            <p>Information Technology Department</p>
+                                <div class="memo-container">
+                                    <div class="memo-list">
+                                        <div class="memo-item">
+                                            <i data-lucide="file-text" class="memo-icon blue"></i>
+                                            <div class="memo-info">
+                                                <h4>Faculty Meeting Agenda</h4>
+                                                <p>Information Technology Department</p>
+                                            </div>
+                                            <span class="memo-date">October 5, 2025</span>
                                         </div>
-                                        <span class="memo-date">October 5, 2025</span>
-                                    </div>
-                                    <div class="memo-item">
-                                        <i data-lucide="alert-triangle" class="memo-icon orange"></i>
-                                        <div class="memo-info">
-                                            <h4>Urgent: Grade Submission Deadline</h4>
-                                            <p>Information Technology Department</p>
+                                        <div class="memo-item">
+                                            <i data-lucide="alert-triangle" class="memo-icon orange"></i>
+                                            <div class="memo-info">
+                                                <h4>Urgent: Grade Submission Deadline</h4>
+                                                <p>Information Technology Department</p>
+                                            </div>
+                                            <span class="memo-date">October 7, 2025</span>
                                         </div>
-                                        <span class="memo-date">October 7, 2025</span>
-                                    </div>
-                                    <div class="memo-item">
-                                        <i data-lucide="calendar" class="memo-icon purple"></i>
-                                        <div class="memo-info">
-                                            <h4>Holiday Schedule Update</h4>
-                                            <p>Information Technology Department</p>
+                                        <div class="memo-item">
+                                            <i data-lucide="calendar" class="memo-icon purple"></i>
+                                            <div class="memo-info">
+                                                <h4>Holiday Schedule Update</h4>
+                                                <p>Information Technology Department</p>
+                                            </div>
+                                            <span class="memo-date">October 24, 2025</span>
                                         </div>
-                                        <span class="memo-date">October 24, 2025</span>
                                     </div>
                                 </div>
                             </section>
+
 
                             <!-- Calendar and Analytics -->
                             <div class="side-grid">
@@ -142,6 +146,7 @@
         // Initialize Lucide icons
         lucide.createIcons();
     </script>
+    <script src="/js/freezeZoom.js"></script>
 </body>
 
 </html>
