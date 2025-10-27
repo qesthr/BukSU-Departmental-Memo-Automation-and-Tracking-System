@@ -7,6 +7,7 @@
     <title>Log | Memofy</title>
     <link rel="icon" type="image/png" href="/images/memofy-logo.png">
     <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/log-sidebar.css">
     <link rel="stylesheet" href="/css/log.css">
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,42 +17,14 @@
 <body>
     <div class="dashboard-container">
         <%- include('../../components/nav'); %>
+        <%- include('../../components/logsidebar') %>
 
         <!-- Main Content -->
         <main class="main-content">
             <%- include('../../components/admintopbar') %>
 
             <div class="log-layout">
-            <!-- Sidebar for compose and folders -->
-            <aside class="log-sidebar">
-                <button class="compose-btn">
-                    <i data-lucide="pen-tool"></i>
-                    <span>Compose</span>
-                </button>
 
-                <div class="folders">
-                    <a href="#" class="folder-item active" data-folder="inbox">
-                        <i data-lucide="inbox"></i>
-                        <span>Inbox</span>
-                    </a>
-                    <a href="#" class="folder-item" data-folder="sent">
-                        <i data-lucide="send"></i>
-                        <span>Sent</span>
-                    </a>
-                    <a href="#" class="folder-item" data-folder="starred">
-                        <i data-lucide="star"></i>
-                        <span>Starred</span>
-                    </a>
-                    <a href="#" class="folder-item" data-folder="activity">
-                        <i data-lucide="activity"></i>
-                        <span>Activity Logs</span>
-                    </a>
-                    <a href="#" class="folder-item" data-folder="deleted">
-                        <i data-lucide="trash-2"></i>
-                        <span>Deleted</span>
-                    </a>
-                </div>
-            </aside>
 
             <!-- Memo List Area -->
             <section class="memo-list-area">
