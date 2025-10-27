@@ -105,20 +105,20 @@ app.get('/auth-success', (req, res) => {
 });
 
 // Dashboard route - protected
-app.get('/dashboard', (req, res) => {
-    if (req.isAuthenticated()) {
-        if (req.user && req.user.role === 'admin') {
-            res.redirect('/admin-dashboard');
-        } else {
-            res.render('admin-dashboard', {
-                user: req.user,
-                path: '/dashboard'
-            });
-        }
-    } else {
-        res.redirect('/');
-    }
-});
+// app.get('/dashboard', (req, res) => {
+//     if (req.isAuthenticated()) {
+//         if (req.user && req.user.role === 'admin') {
+//             res.redirect('/admin-dashboard');
+//         } else {
+//             res.render('admin-dashboard', {
+//                 user: req.user,
+//                 path: '/dashboard'
+//             });
+//         }
+//     } else {
+//         res.redirect('/');
+//     }
+// });
 
 // Admin Dashboard route - protected
 app.get('/admin-dashboard', (req, res) => {
