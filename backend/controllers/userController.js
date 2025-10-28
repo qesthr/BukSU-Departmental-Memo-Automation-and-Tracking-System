@@ -14,6 +14,7 @@ exports.getAllUsers = async (req, res) => {
 
         const userStats = {
             total: await User.countDocuments(),
+            admin: await User.countDocuments({ role: 'admin' }),
             secretary: await User.countDocuments({ role: 'secretary' }),
             faculty: await User.countDocuments({ role: 'faculty' })
         };
@@ -162,12 +163,12 @@ exports.updateUser = async (req, res) => {
         }
 
         // Update fields if provided
-        if (firstName !== undefined) user.firstName = firstName;
-        if (lastName !== undefined) user.lastName = lastName;
-        if (role !== undefined) user.role = role;
-        if (department !== undefined) user.department = department;
-        if (email !== undefined) user.email = email;
-        if (profilePicture !== undefined) user.profilePicture = profilePicture;
+        if (firstName !== undefined) {user.firstName = firstName;}
+        if (lastName !== undefined) {user.lastName = lastName;}
+        if (role !== undefined) {user.role = role;}
+        if (department !== undefined) {user.department = department;}
+        if (email !== undefined) {user.email = email;}
+        if (profilePicture !== undefined) {user.profilePicture = profilePicture;}
 
         await user.save();
 

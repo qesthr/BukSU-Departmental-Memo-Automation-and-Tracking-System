@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
+const inviteController = require('../controllers/inviteController');
 const isAdmin = require('../middleware/isAdmin');
 const isAuthenticated = require('../middleware/isAuthenticated');
 
@@ -22,5 +23,10 @@ router.delete('/:id', userController.deleteUser);
 
 // Upload profile picture
 router.post('/:id/profile-picture', userController.uploadProfilePicture);
+
+// Invitations
+router.post('/invite', inviteController.inviteUser);
+router.get('/invite/:token', inviteController.renderInvitePage);
+router.post('/invite/complete', inviteController.completeInvite);
 
 module.exports = router;

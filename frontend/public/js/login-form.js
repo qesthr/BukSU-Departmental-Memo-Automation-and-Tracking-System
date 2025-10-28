@@ -164,44 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loginButton.disabled = true;
         loginButton.textContent = 'Verifying...';
 
-        // FIRST: Verify reCAPTCHA token on server
-        try {
-            // eslint-disable-next-line no-console
-            console.log(' Info: Verifying reCAPTCHA token on server...');
-            const verifyRes = await fetch('/auth/verify-recaptcha', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ token: recaptchaToken })
-            });
-
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok || !verifyData.success) {
-                // eslint-disable-next-line no-console
-                console.error(' Error: reCAPTCHA verification failed');
-                showMessageModal('reCAPTCHA Verification Failed', 'Please verify the reCAPTCHA again.', 'error');
-                window.grecaptcha.reset();
-                loginButton.disabled = false;
-                loginButton.textContent = 'Login';
-                return;
-            }
-
-            // eslint-disable-next-line no-console
-            console.log(' Success: reCAPTCHA verified on server, proceeding with login...');
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error(' Error: verifying reCAPTCHA:', error);
-            showMessageModal('reCAPTCHA Verification Error', 'Please try again.', 'error');
-            window.grecaptcha.reset();
-            loginButton.disabled = false;
-            loginButton.textContent = 'Login';
-            return;
-        }
+        // Note: backend verifies reCAPTCHA with the token in the same /auth/login request.
 
         // Update button text
         loginButton.textContent = 'Logging in...';
 
-        let loginSuccessful = false;
+        let loginSuccessful = true;
 
         try {
             // eslint-disable-next-line no-console
@@ -212,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({ email, password, recaptchaToken })
             });
 
@@ -222,24 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMessageModal('Login Successful', data.message, 'success');
                 loginButton.textContent = 'Success! Redirecting...';
 
-                // Redirect based on user role
+                // Redirect based on role
                 const userRole = data.user?.role;
-                let redirectUrl = '/admin-dashboard'; // Default for admin
-
-                if (userRole === 'secretary') {
-                    redirectUrl = '/dashboard'; // Secretary goes to secretary-dashboard
-                } else if (userRole === 'faculty') {
-                    redirectUrl = '/dashboard'; // Faculty goes to faculty-dashboard
-                } else if (userRole === 'admin') {
-                    redirectUrl = '/admin-dashboard'; // Admin goes to admin-dashboard
+                let redirectUrl = '/admin-dashboard';
+                if (userRole === 'secretary' || userRole === 'faculty') {
+                    redirectUrl = '/dashboard';
                 }
 
                 // eslint-disable-next-line no-console
                 console.log(' Info: Redirecting to:', redirectUrl, 'for role:', userRole);
 
-                setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 2000);
+                window.location.href = redirectUrl;
             } else {
                 // Handle different types of errors
                 if (response.status === 423) {

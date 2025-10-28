@@ -86,6 +86,24 @@ const userSchema = new mongoose.Schema({
         default: true,
         required: true
     },
+    status: {
+        type: String,
+        enum: ['active', 'pending', 'disabled'],
+        default: 'active',
+        index: true
+    },
+    inviteToken: {
+        type: String,
+        sparse: true,
+        index: true
+    },
+    inviteTokenExpires: {
+        type: Date
+    },
+    inviteTokenUsed: {
+        type: Boolean,
+        default: false
+    },
     isTemporaryPassword: {
         type: Boolean,
         default: false

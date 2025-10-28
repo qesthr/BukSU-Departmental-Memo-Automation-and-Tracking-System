@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invalid or Expired Invitation | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+    <div class="container">
+        <div class="right-panel" style="width: 100%; max-width: 520px; margin: 0 auto;">
+            <div class="login-card" style="display:block;">
+                <img src="/images/memofy-logo.png" alt="Logo Icon" class="small-logo">
+                <h2>Invitation Link Error</h2>
+                <p class="welcome"><%= typeof message !== 'undefined' ? message : 'This invitation link is invalid or has expired.' %></p>
+                <div style="margin-top:12px; text-align:center;">
+                    <a href="/" class="login-btn" style="display:inline-block; text-decoration:none;">Go to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

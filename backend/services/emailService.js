@@ -6,24 +6,71 @@ class EmailService {
         this.initializeTransporter();
     }
 
+    async sendInvitationEmail(email, context) {
+        if (!this.transporter) {
+            console.log(`Email service not available. Invitation link for ${email}: ${context.link}`);
+            return { success: false, message: 'Email service not configured', link: context.link };
+        }
+
+        const mailOptions = {
+            from: process.env.MAIL_FROM || {
+                name: 'Memofy',
+                address: process.env.SMTP_USER
+            },
+            to: email,
+            subject: "You've been invited to join Memofy",
+            html: this.generateInvitationEmailHTML(context)
+        };
+
+        const result = await this.transporter.sendMail(mailOptions);
+        return { success: true, messageId: result.messageId };
+    }
+
+    generateInvitationEmailHTML({ firstName, lastName, link }) {
+        return `
+        <div style="font-family:Segoe UI,Arial,sans-serif;max-width:640px;margin:auto;padding:24px;background:#fff;border:1px solid #eee;border-radius:8px;">
+            <h2 style="margin:0 0 12px;color:#1e293b;">You've been invited to Memofy</h2>
+            <p>Hi ${firstName || ''} ${lastName || ''},</p>
+            <p>Your administrator has created an account for you. Click the button below to complete your registration. This link expires in 24 hours and can be used only once.</p>
+            <p style="margin:24px 0;">
+                <a href="${link}" style="background:#1C89E3;color:#fff;text-decoration:none;padding:12px 18px;border-radius:6px;">Accept Invitation</a>
+            </p>
+            <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+            <p style="word-break:break-all;color:#334155;">${link}</p>
+            <hr style="margin:24px 0;border:none;border-top:1px solid #eee;"/>
+            <p style="color:#64748b;font-size:13px;">Memofy • BukSU</p>
+        </div>`;
+    }
+
     initializeTransporter() {
         try {
-            // Check if email credentials are configured
-            if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-                console.warn('SMTP credentials not configured. Email functionality will be disabled.');
-                console.warn('Please set SMTP_USER and SMTP_PASS in your .env file');
+            // Prefer Gmail OAuth2 if configured
+            if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN && process.env.SMTP_USER) {
+                this.transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        type: 'OAuth2',
+                        user: process.env.SMTP_USER,
+                        clientId: process.env.GMAIL_CLIENT_ID,
+                        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+                        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+                    }
+                });
+            } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+                // Fallback to basic SMTP
+                this.transporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                    port: process.env.SMTP_PORT || 587,
+                    secure: false, // true for 465, false for other ports
+                    auth: {
+                        user: process.env.SMTP_USER,
+                        pass: process.env.SMTP_PASS
+                    }
+                });
+            } else {
+                console.warn('Email credentials not configured. Email functionality will be disabled.');
                 return;
             }
-
-            this.transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: process.env.SMTP_PORT || 587,
-                secure: false, // true for 465, false for other ports
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            });
 
             // Verify transporter configuration
             this.transporter.verify((error, success) => {

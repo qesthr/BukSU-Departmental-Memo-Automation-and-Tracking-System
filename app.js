@@ -65,6 +65,9 @@ app.use(passport.session());
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/users', userRoutes);
+// Public invite routes (render and completion)
+app.get('/invite/:token', require('./backend/controllers/inviteController').renderInvitePage);
+app.post('/invite/complete', require('./backend/controllers/inviteController').completeInvite);
 app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/auth', authRoutes);

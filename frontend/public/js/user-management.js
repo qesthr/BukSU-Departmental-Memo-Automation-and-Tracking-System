@@ -32,9 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update user counts in filter buttons
     function updateUserCounts(stats) {
-        document.getElementById('totalCount').textContent = stats.total;
-        document.getElementById('secretaryCount').textContent = stats.secretary;
-        document.getElementById('facultyCount').textContent = stats.faculty;
+        const total = document.getElementById('totalCount');
+        const admin = document.getElementById('adminCount');
+        const secretary = document.getElementById('secretaryCount');
+        const faculty = document.getElementById('facultyCount');
+        if (total) { total.textContent = stats.total; }
+        if (admin) { admin.textContent = (typeof stats.admin === 'number') ? stats.admin : ((stats.total || 0) - (stats.secretary || 0) - (stats.faculty || 0)); }
+        if (secretary) { secretary.textContent = stats.secretary || 0; }
+        if (faculty) { faculty.textContent = stats.faculty || 0; }
     }
 
     // Render users list
@@ -107,14 +112,23 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
 
-        // Reinitialize Lucide icons
-        lucide.createIcons();
+        // Reinitialize Lucide icons if available
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     }
 
     // Add user
     async function addUser(formData) {
         try {
-            const response = await fetch('/api/users', {
+            // Validate domain before sending
+            const email = String(formData.email || '').toLowerCase();
+            if (!(email.endsWith('@buksu.edu.ph') || email.endsWith('@student.buksu.edu.ph'))) {
+                throw new Error('Email must be @buksu.edu.ph or @student.buksu.edu.ph');
+            }
+
+            // Send invite instead of direct creation
+            const response = await fetch('/api/users/invite', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -129,9 +143,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await fetchUsers(currentFilter);
             closeModal(addUserModal);
-            showNotification('User added successfully', 'success');
+            if (window.showMessageModal) {
+                window.showMessageModal('User Invited', 'Invitation sent successfully.', 'success');
+            } else {
+                alert('Invitation sent successfully');
+            }
         } catch (error) {
-            showNotification(error.message, 'error');
+            if (window.showMessageModal) {
+                window.showMessageModal('Error', error.message || 'Failed to send invitation', 'error');
+            } else {
+                alert(error.message || 'Failed to send invitation');
+            }
         }
     }
 
@@ -182,12 +204,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     document.getElementById('addUserBtn').addEventListener('click', () => {
         addUserForm.reset();
+        // Set sensible defaults
+        const dept = document.getElementById('department');
+        const role = document.getElementById('role');
+        if (dept && !dept.value) { dept.value = ''; }
+        if (role && !role.value) { role.value = 'faculty'; }
         openModal(addUserModal);
     });
 
     usersList.addEventListener('click', (e) => {
         const row = e.target.closest('.table-row');
-        if (!row) return;
+        if (!row) {return;}
 
         const userId = row.dataset.id;
         const user = users.find(u => u._id === userId);
@@ -200,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Close all other menus
             document.querySelectorAll('.user-menu-dropdown').forEach(m => {
-                if (m.id !== menuDropdown.id) m.style.display = 'none';
+                if (m.id !== menuDropdown.id) {m.style.display = 'none';}
             });
 
             // Toggle this menu
@@ -369,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateUserDepartment(userId, department) {
         try {
             const user = users.find(u => u._id === userId);
-            if (!user) return;
+            if (!user) {return;}
 
             const response = await fetch(`/api/users/${userId}`, {
                 method: 'PUT',
@@ -400,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateUserRole(userId, role) {
         try {
             const user = users.find(u => u._id === userId);
-            if (!user) return;
+            if (!user) {return;}
 
             const response = await fetch(`/api/users/${userId}`, {
                 method: 'PUT',
