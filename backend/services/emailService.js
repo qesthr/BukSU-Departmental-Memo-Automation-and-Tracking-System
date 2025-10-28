@@ -1,12 +1,38 @@
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
+const { OAuth2 } = google.auth;
 
 class EmailService {
     constructor() {
         this.transporter = null;
+        this.gmailClient = null; // googleapis Gmail client for API sends
         this.initializeTransporter();
     }
 
     async sendInvitationEmail(email, context) {
+        // Prefer Gmail API if configured
+        if (this.gmailClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : `Memofy <${process.env.SMTP_USER}>`;
+                const raw = this.buildRawEmail({
+                    from,
+                    to: email,
+                    subject: "You've been invited to join Memofy",
+                    html: this.generateInvitationEmailHTML(context)
+                });
+                const res = await this.gmailClient.users.messages.send({
+                    userId: 'me',
+                    requestBody: { raw }
+                });
+                return { success: true, messageId: res.data.id, transport: 'gmail_api' };
+            } catch (err) {
+                console.error('Gmail API send failed, falling back to transporter:', err.message);
+                // fall through to transporter if available
+            }
+        }
+
         if (!this.transporter) {
             console.log(`Email service not available. Invitation link for ${email}: ${context.link}`);
             return { success: false, message: 'Email service not configured', link: context.link };
@@ -23,7 +49,7 @@ class EmailService {
         };
 
         const result = await this.transporter.sendMail(mailOptions);
-        return { success: true, messageId: result.messageId };
+        return { success: true, messageId: result.messageId, transport: 'smtp' };
     }
 
     generateInvitationEmailHTML({ firstName, lastName, link }) {
@@ -44,8 +70,16 @@ class EmailService {
 
     initializeTransporter() {
         try {
-            // Prefer Gmail OAuth2 if configured
+            // Initialize Gmail API client if credentials provided
             if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN && process.env.SMTP_USER) {
+                const oAuth2Client = new OAuth2(
+                    process.env.GMAIL_CLIENT_ID,
+                    process.env.GMAIL_CLIENT_SECRET
+                );
+                oAuth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+                this.gmailClient = google.gmail({ version: 'v1', auth: oAuth2Client });
+
+                // Also initialize Nodemailer OAuth2 transporter as secondary fallback
                 this.transporter = nodemailer.createTransport({
                     service: 'gmail',
                     auth: {
@@ -72,18 +106,53 @@ class EmailService {
                 return;
             }
 
-            // Verify transporter configuration
-            this.transporter.verify((error, success) => {
-                if (error) {
-                    console.error('Email transporter verification failed:', error);
-                } else {
-                    console.log('Email transporter ready to send emails');
-                }
-            });
+            // Verify transporter configuration when available
+            if (this.transporter) {
+                this.transporter.verify((error, success) => {
+                    if (error) {
+                        console.error('Email transporter verification failed:', error);
+                    } else {
+                        console.log('Email transporter ready to send emails');
+                    }
+                });
+            }
 
         } catch (error) {
             console.error('Failed to initialize email transporter:', error);
         }
+    }
+
+    // Build a RFC 2822 raw email and return base64url encoded string for Gmail API
+    buildRawEmail({ from, to, subject, html }) {
+        const boundary = 'memofy-boundary';
+        const lines = [];
+        lines.push(`From: ${from}`);
+        lines.push(`To: ${to}`);
+        lines.push(`Subject: ${subject}`);
+        lines.push('MIME-Version: 1.0');
+        lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+        lines.push('');
+        lines.push(`--${boundary}`);
+        lines.push('Content-Type: text/plain; charset=UTF-8');
+        lines.push('Content-Transfer-Encoding: 7bit');
+        lines.push('');
+        // Very simple text fallback
+        lines.push(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+        lines.push('');
+        lines.push(`--${boundary}`);
+        lines.push('Content-Type: text/html; charset=UTF-8');
+        lines.push('Content-Transfer-Encoding: 7bit');
+        lines.push('');
+        lines.push(html);
+        lines.push('');
+        lines.push(`--${boundary}--`);
+
+        const raw = Buffer.from(lines.join('\r\n'))
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+        return raw;
     }
 
     async sendPasswordResetCode(email, resetCode, user) {

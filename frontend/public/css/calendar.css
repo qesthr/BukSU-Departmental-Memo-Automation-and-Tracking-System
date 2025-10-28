@@ -1,0 +1,27 @@
+.calendar-page { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; height: calc(100vh - 100px); }
+.calendar-sidebar { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; overflow: auto; }
+.calendar-main { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; }
+.sidebar-section { margin-bottom: 1rem; }
+.sidebar-section h3 { margin: 0 0 .5rem; font-size: .9rem; color: #334155; }
+.category-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: .5rem; }
+.cat-today { background: #22c55e; }
+.cat-urgent { background: #ef4444; }
+.cat-standard { background: #3b82f6; }
+.calendar-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+.view-toggle button { padding: .4rem .6rem; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; border-radius: 6px; margin-left: .25rem; }
+.view-toggle button.active { background: #1C89E3; color: #fff; border-color: #1C89E3; }
+.add-btn { padding: .5rem .8rem; background: #1C89E3; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+.fc .fc-day-today { background: rgba(28,137,227,0.08) !important; }
+.profile-card { display: flex; gap: .75rem; align-items: center; padding: .5rem; border: 1px solid #e2e8f0; border-radius: 8px; }
+.profile-card img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(2,6,23,.5); place-items: center; }
+.modal-content { background: #fff; width: 520px; max-width: calc(100% - 2rem); border-radius: 10px; overflow: hidden; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+.modal-body { padding: 1rem; }
+.form-group { margin-bottom: .75rem; }
+.form-group label { display:block; font-size: .9rem; color:#334155; margin-bottom:.25rem; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: .6rem .7rem; border:1px solid #e2e8f0; border-radius:6px; }
+.form-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem; }
+.btn-secondary { padding:.5rem .8rem; border:1px solid #e2e8f0; background:#fff; border-radius:6px; cursor:pointer; }
+.btn-primary { padding:.5rem .8rem; background:#1C89E3; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+

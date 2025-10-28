@@ -23,6 +23,29 @@ exports.inviteUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email must be @buksu.edu.ph or @student.buksu.edu.ph' });
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+
+    // Abstract Email validation - BEFORE database check
+    try {
+      const { validateEmailDeliverability } = require('../services/emailValidationService');
+      const validation = await validateEmailDeliverability(email.toLowerCase());
+      console.log('[INVITE CONTROLLER] Validation result:', { email, usable: validation.usable, reason: validation.reason });
+      if (!validation.usable) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email appears undeliverable. Please verify address.',
+          validationReason: validation.reason
+        });
+      }
+    } catch (e) {
+      console.error('Email validation service error:', e.message);
+      // Continue on validation errors - let it through with warning
+    }
+
     let user = await User.findOne({ email: email.toLowerCase() });
     if (user && user.status === 'active') {
       return res.status(409).json({ success: false, message: 'User already exists and is active' });
@@ -60,20 +83,37 @@ exports.inviteUser = async (req, res) => {
     const link = `${baseUrl}/invite/${inviteToken}`;
 
     // Send invite email
+    let emailSent = false;
     try {
       if (emailService.sendInvitationEmail) {
-        await emailService.sendInvitationEmail(user.email, {
+        const emailResult = await emailService.sendInvitationEmail(user.email, {
           firstName: user.firstName,
           lastName: user.lastName,
           link
         });
+        emailSent = emailResult && emailResult.success !== false;
+        if (!emailSent) {
+          console.warn('Invitation email may have failed:', emailResult);
+        }
       }
     } catch (e) {
-      // Non-fatal; still return success so admin flow continues
       console.error('Failed to send invitation email:', e);
+      // Still return success with warning - email might bounce later
+      return res.json({
+        success: true,
+        message: 'User created but email delivery may have failed. Check server logs.',
+        inviteLink: link,
+        userId: user._id,
+        emailWarning: true
+      });
     }
 
-    return res.json({ success: true, message: 'Invitation sent', inviteLink: link, userId: user._id });
+    return res.json({
+      success: true,
+      message: emailSent ? 'Invitation sent successfully' : 'Invitation created but email may not have been delivered',
+      inviteLink: link,
+      userId: user._id
+    });
   } catch (err) {
     console.error('inviteUser error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });

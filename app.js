@@ -14,6 +14,7 @@ const userRoutes = require('./backend/routes/userRoutes');
 const forgotPasswordRoutes = require('./backend/routes/forgotPasswordRoutes');
 const logRoutes = require('./backend/routes/logRoutes');
 const driveRoutes = require('./backend/routes/driveRoutes');
+const calendarRoutes = require('./backend/routes/calendarRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -70,6 +71,7 @@ app.get('/invite/:token', require('./backend/controllers/inviteController').rend
 app.post('/invite/complete', require('./backend/controllers/inviteController').completeInvite);
 app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
+app.use('/api/calendar', calendarRoutes);
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
