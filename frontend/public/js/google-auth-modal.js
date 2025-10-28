@@ -5,14 +5,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('=== GOOGLE OAUTH MODAL SCRIPT LOADED ===');
     console.log('Current URL:', window.location.href);
-
+    //
     // Initialize Google Sign-In with modal approach
     function initializeGoogleSignIn() {
         console.log('Initializing Google Sign-In with modal approach...');
         console.log('Google object available:', typeof google !== 'undefined');
         console.log('Google accounts available:', typeof google !== 'undefined' && google.accounts);
         console.log('Google accounts.id available:', typeof google !== 'undefined' && google.accounts && google.accounts.id);
-
+    //
         const container = document.getElementById('google-signin-button');
         console.log('Container found:', !!container);
         console.log('Container element:', container);
@@ -23,29 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Check if GSI is disabled due to previous errors
-        if (window.gsiDisabled) {
-            console.log('GSI is disabled due to previous errors, using fallback...');
-            initializeWithFallback();
-            return;
-        }
-
-        // Try Google Identity Services first (if available)
-        if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-            console.log('Google Identity Services available, trying modal approach...');
-            // Set a timeout for GSI initialization
-            const gsiTimeout = setTimeout(() => {
-                console.log('GSI initialization timeout reached, falling back to traditional OAuth...');
-                window.gsiDisabled = true; // Disable GSI after timeout
-                initializeWithFallback();
-            }, 10000); // 10 seconds timeout
-
-            initializeWithGSI(gsiTimeout);
-        } else {
-            console.log('Google Identity Services not available, using fallback button...');
-            console.log('Creating fallback button immediately...');
-            initializeWithFallback();
-        }
+        // Enforce fallback so we can guard with reCAPTCHA before any Google modal appears
+        console.log('Forcing fallback flow to apply pre-auth reCAPTCHA');
+        initializeWithFallback();
+        return;
     }
 
     // Initialize with Google Identity Services (modal approach)
@@ -122,12 +103,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear any existing content
         container.innerHTML = '';
 
-        // Create the fallback button
+        // Create the fallback button (guarded by v2 Checkbox reCAPTCHA)
         const button = document.createElement('button');
         button.type = 'button';
-        button.onclick = function() {
-            console.log('Fallback button clicked! Opening Google OAuth in popup...');
-            openGoogleOAuthPopup();
+        button.onclick = async function() {
+            console.log('Fallback button clicked! Ensuring reCAPTCHA checkbox is completed...');
+            try {
+                const token = await ensureCheckboxRecaptcha();
+                console.log('Checkbox reCAPTCHA token obtained:', !!token);
+                const ok = await verifyRecaptchaServer(token);
+                if (!ok) {
+                    alert('reCAPTCHA verification failed. Please try again.');
+                    return;
+                }
+                openGoogleOAuthPopup();
+            } catch (err) {
+                console.error('reCAPTCHA error:', err);
+                alert('Unable to verify. Please try again.');
+            }
         };
         button.style.cssText = `
             width: 100%;
@@ -189,6 +182,77 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Google Sign-In button created with fallback method');
     }
 
+    // Ensure v2 Checkbox reCAPTCHA is rendered and completed
+    async function ensureCheckboxRecaptcha() {
+        // Ensure widget exists
+        const existing = document.getElementById('googleRecaptchaWidget');
+        let widgetId = existing ? existing.getAttribute('data-widget-id') : null;
+
+        if (!widgetId) {
+            const container = document.getElementById('googleRecaptchaContainer');
+            if (!container) {
+                throw new Error('Invisible reCAPTCHA container missing');
+            }
+            const div = document.createElement('div');
+            div.id = 'googleRecaptchaWidget';
+            container.appendChild(div);
+
+            // Wait for grecaptcha to be available (retry up to ~3s)
+            let tries = 0;
+            while ((!window.grecaptcha || typeof window.grecaptcha.render !== 'function') && tries < 10) {
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                tries++;
+            }
+
+            const sitekey = container.getAttribute('data-sitekey');
+            if (!sitekey) {
+                throw new Error('Missing reCAPTCHA sitekey');
+            }
+
+            widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
+                sitekey: sitekey,
+                size: 'normal'
+            });
+            document.getElementById('googleRecaptchaWidget').setAttribute('data-widget-id', widgetId);
+        }
+
+        // If user hasn't checked it yet, prompt them
+        const token = window.grecaptcha.getResponse(widgetId);
+        if (token && token.length > 0) {
+            return token;
+        }
+        // Provide a hint and focus the widget; wait for change
+        const hint = document.getElementById('googleRecaptchaHint');
+        if (hint) { hint.style.display = 'block'; hint.textContent = 'Please check the box to continue'; }
+        document.getElementById('googleRecaptchaWidget').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        return await new Promise((resolve) => {
+            const checkInterval = setInterval(() => {
+                const t = window.grecaptcha.getResponse(widgetId);
+                if (t && t.length > 0) {
+                    clearInterval(checkInterval);
+                    resolve(t);
+                }
+            }, 300);
+        });
+    }
+
+    // Verify token on server
+    async function verifyRecaptchaServer(token) {
+        try {
+            const res = await fetch('/auth/verify-recaptcha', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token })
+            });
+            const data = await res.json();
+            return res.ok && data && data.success;
+        } catch {
+            return false;
+        }
+    }
+
     /**
      * Open Google OAuth authentication in a popup window
      *
@@ -231,10 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const popup = window.open(
             '/auth/google',
             'google-auth',
-            `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,directories=no,status=no,noopener,noreferrer`
+            `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,directories=no,status=no`
         );
         console.log('Popup window opened:', !!popup);
         console.log('Popup closed:', popup?.closed);
+
+        // Expose popup globally so parent can close it upon success
+        try { window.authPopup = popup; } catch { /* ignore */ }
 
         // Initialize global auth completion flag
         window.googleAuthCompleted = false;
@@ -244,9 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check if popup was blocked
         if (!popup || popup.closed) {
-            console.log('⚠️ Popup was blocked - falling back to full page redirect');
-            // Fallback: redirect the entire page if popup is blocked
-            window.location.href = '/auth/google';
+            console.log('⚠️ Popup was blocked - staying on page and showing inline button');
+            if (container) {
+                initializeWithFallback();
+            }
             return;
         }
 

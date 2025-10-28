@@ -21,47 +21,33 @@
         console.log('Window opener:', !!window.opener);
 
         // Check if this is a popup or full-page redirect
+        // Always signal parent and attempt to close; NEVER redirect to dashboard here
         if (window.opener) {
-            // Popup scenario - send message to parent
             console.log('✅ Popup detected - sending message to parent');
-            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin);
-            console.log('✅ Sent GOOGLE_AUTH_SUCCESS to parent');
-
-            setTimeout(() => {
-                console.log('🔄 Closing popup');
-                window.close();
-            }, 200);
-        } else {
-            // Full-page redirect scenario - fetch user info and redirect to appropriate dashboard
-            console.log('✅ Full-page redirect detected - fetching user info...');
-
-            fetch('/auth/current-user', { credentials: 'include' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.user) {
-                        const userRole = data.user.role;
-                        let dashboardUrl = '/admin-dashboard';
-
-                        if (userRole === 'secretary') {
-                            dashboardUrl = '/dashboard';
-                        } else if (userRole === 'faculty') {
-                            dashboardUrl = '/dashboard';
-                        } else if (userRole === 'admin') {
-                            dashboardUrl = '/admin-dashboard';
-                        }
-
-                        console.log('✅ Redirecting to:', dashboardUrl, 'for role:', userRole);
-                        window.location.href = dashboardUrl;
-                    } else {
-                        console.error('❌ Could not get user info');
-                        window.location.href = '/login';
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Error fetching user info:', error);
-                    window.location.href = '/login';
-                });
+            try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin); } catch (e) {}
         }
+
+        // Storage fallback so parent can detect success even if opener is missing
+        try { localStorage.setItem('GOOGLE_AUTH_SUCCESS', '1'); } catch (e) {}
+
+        // Try to close the popup (multiple techniques for Edge)
+        setTimeout(() => {
+            console.log('🔄 Attempting to close popup');
+            try { window.focus(); } catch (e) {}
+            try { window.close(); } catch (e) {}
+            try { window.open('', '_self'); } catch (e) {}
+            try { window.close(); } catch (e) {}
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                if (attempts > 10) {
+                    clearInterval(interval);
+                }
+                try { window.focus(); } catch (e) {}
+                try { window.open('', '_self'); } catch (e) {}
+                try { window.close(); } catch (e) {}
+            }, 100);
+        }, 200);
     </script>
 </body>
 </html>
