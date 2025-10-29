@@ -433,3 +433,39 @@ module.exports = {
     googleTokenLogin,
     verifyRecaptcha
 };
+
+// Self profile update (for non-admin users)
+module.exports.updateMe = async (req, res) => {
+    try {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ success: false, message: 'Not authenticated' });
+        }
+        const updates = {};
+        const allowed = ['firstName', 'lastName', 'email'];
+        allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+        const User = require('../models/User');
+        const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+        return res.json({ success: true, message: 'Profile updated successfully', user });
+    } catch (e) {
+        console.error('updateMe error:', e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+module.exports.uploadMyProfilePicture = async (req, res) => {
+    try {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ success: false, message: 'Not authenticated' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+        const User = require('../models/User');
+        const pictureUrl = `/uploads/${req.file.filename}`;
+        await User.findByIdAndUpdate(req.user._id, { profilePicture: pictureUrl });
+        return res.json({ success: true, profilePicture: pictureUrl });
+    } catch (e) {
+        console.error('uploadMyProfilePicture error:', e);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

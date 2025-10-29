@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize
     fetchMemos();
+    loadDepartments();
 
     // Compose button
     composeBtn.addEventListener('click', () => {
@@ -175,6 +176,28 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Error sending memo', 'error');
         }
     });
+
+    // Load departments dynamically from server (combines IT/EMC)
+    async function loadDepartments(){
+        try{
+            const res = await fetch('/api/users/departments');
+            const data = await res.json();
+            const select = document.getElementById('department');
+            if(!select) return;
+            select.innerHTML = '<option value="">Select Department</option>';
+            (data.departments||[]).forEach(d=>{
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }catch(e){
+            const select = document.getElementById('department');
+            if(select){
+                select.innerHTML = '<option value="IT/EMC">IT/EMC</option>';
+            }
+        }
+    }
 
     // Back button
     backBtn.addEventListener('click', () => {

@@ -152,6 +152,7 @@ exports.createMemo = async (req, res) => {
         // eslint-disable-next-line no-console
         console.log(`Total attachments to save: ${attachments.length}`);
 
+        const isSecretary = (req.user?.role === 'secretary');
         const memo = new Memo({
             sender: userId,
             recipient: recipient._id,
@@ -159,8 +160,11 @@ exports.createMemo = async (req, res) => {
             content,
             department,
             priority,
+            createdBy: userId,
+            role: isSecretary ? 'secretary' : 'admin',
             attachments: attachments,
-            status: 'sent'
+            status: isSecretary ? 'pending' : 'sent',
+            folder: isSecretary ? 'drafts' : 'sent'
         });
 
         // eslint-disable-next-line no-console
@@ -177,6 +181,22 @@ exports.createMemo = async (req, res) => {
         // eslint-disable-next-line no-console
         console.log('Saved attachments:', memo.attachments);
 
+        if (isSecretary) {
+            // Notify admins of pending memo
+            try {
+                const { createSystemLog } = require('../services/logService');
+                await createSystemLog({
+                    activityType: 'pending_memo',
+                    user: { _id: userId, email: req.user.email, firstName: req.user.firstName, lastName: req.user.lastName, department: req.user.department },
+                    subject: `Memo Pending Approval: ${subject}`,
+                    content: `A memo from ${req.user.email} is awaiting approval. Subject: ${subject}`,
+                    department
+                });
+            } catch (e) {
+                console.error('Failed to create pending memo log:', e.message);
+            }
+        }
+
         // Fetch with attachments included
         const populatedMemo = await Memo.findById(memo._id)
             .populate('sender', 'firstName lastName email profilePicture department')
@@ -186,66 +206,26 @@ exports.createMemo = async (req, res) => {
         // Explicitly add attachments to populatedMemo
         populatedMemo.attachments = memo.attachments;
 
-        // Create log entry in admin's inbox (non-blocking - don't fail if logging fails)
-        try {
-            const logService = require('../services/logService');
-            logService.logMemoSent(populatedMemo).catch(err => {
-                // eslint-disable-next-line no-console
-                console.error('Failed to create log entry (non-critical):', err);
-            });
-        } catch (logErr) {
-            // eslint-disable-next-line no-console
-            console.error('Could not load log service:', logErr.message);
-        }
-
-        // Auto-save to Google Drive if connected system-wide (non-blocking)
-        try {
-            const googleDriveService = require('../services/googleDriveService');
-            const isConnected = await googleDriveService.isDriveConnected();
-
-            // eslint-disable-next-line no-console
-            console.log(`[Google Drive] Connection status: ${isConnected}`);
-            // eslint-disable-next-line no-console
-            console.log(`[Google Drive] Memo has ${populatedMemo.attachments?.length || 0} attachments`);
-
-            if (isConnected) {
-                // eslint-disable-next-line no-console
-                console.log(`[Google Drive] Attempting to upload memo: ${populatedMemo.subject}`);
-
-                // Pass attachments to the upload function
-                googleDriveService.uploadMemoToDrive(populatedMemo)
-                    .then(fileId => {
-                        // Update the memo document with Google Drive file ID
-                        Memo.findByIdAndUpdate(memo._id, { googleDriveFileId: fileId })
-                            .catch(err => {
-                                // eslint-disable-next-line no-console
-                                console.error('Failed to save Google Drive file ID:', err);
-                            });
-                        // eslint-disable-next-line no-console
-                        console.log(`✓ Memo backed up to Google Drive: ${fileId}`);
-                        // eslint-disable-next-line no-console
-                        console.log(`  Memo: ${populatedMemo.subject}`);
-                    })
-                    .catch(err => {
-                        // eslint-disable-next-line no-console
-                        console.error('✗ Failed to backup memo to Google Drive:', err.message);
-                        // eslint-disable-next-line no-console
-                        console.error('  Error details:', err);
-                    });
-            } else {
-                // eslint-disable-next-line no-console
-                console.log(`[Google Drive] NOT connected - memo will NOT be backed up`);
-                // eslint-disable-next-line no-console
-                console.log(`  To connect: An admin must visit /api/drive/authorize`);
+        // If admin sent the memo, create a recipient notification
+        if (!isSecretary) {
+            try {
+                await Memo.create({
+                    sender: userId,
+                    recipient: recipient._id,
+                    subject: `New Memo: ${subject}`,
+                    content: `You received a memo from ${req.user.email}.`,
+                    department,
+                    priority: 'medium',
+                    status: 'sent',
+                    folder: 'sent',
+                    activityType: 'memo_received'
+                });
+            } catch (e) {
+                console.error('Failed to create recipient notification:', e.message);
             }
-        } catch (driveErr) {
-            // eslint-disable-next-line no-console
-            console.error('✗ Error checking Google Drive connection:', driveErr.message);
-            // eslint-disable-next-line no-console
-            console.error('  Error details:', driveErr);
         }
 
-        res.status(201).json({ success: true, memo: populatedMemo });
+        res.status(201).json({ success: true, memo: populatedMemo, message: isSecretary ? 'Your memo is pending for admin approval.' : 'Memo sent successfully.' });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error creating memo:', error);
@@ -375,6 +355,163 @@ exports.permanentDelete = async (req, res) => {
         // eslint-disable-next-line no-console
         console.error('Error permanently deleting memo:', error);
         res.status(500).json({ success: false, message: 'Error deleting memo' });
+    }
+};
+
+// Department users (for secretary search)
+exports.getDepartmentUsers = async (req, res) => {
+    try {
+        const department = req.user.department;
+        if (!department) {
+            return res.json({ success: true, users: [] });
+        }
+        const User = require('../models/User');
+        const users = await User.find({ department, role: { $ne: 'admin' } })
+            .select('_id email firstName lastName role department')
+            .sort({ firstName: 1, lastName: 1 });
+        res.json({ success: true, users });
+    } catch (e) {
+        console.error('Error fetching department users:', e);
+        res.status(500).json({ success: false, message: 'Error fetching department users' });
+    }
+};
+
+// Distribute memo to multiple recipients within department (secretary)
+exports.distributeMemo = async (req, res) => {
+    try {
+        const { subject, message, recipients } = req.body || {};
+        if (!subject || !message || !Array.isArray(recipients) || recipients.length === 0) {
+            return res.status(400).json({ success: false, message: 'Subject, message, and recipients are required' });
+        }
+        const department = req.user.department;
+        const User = require('../models/User');
+
+        // Validate recipients belong to same department
+        const users = await User.find({ _id: { $in: recipients } }).select('_id department email');
+        if (!users || users.length === 0) {
+            return res.status(404).json({ success: false, message: 'No valid recipients found in your department' });
+        }
+        const normalizeDept = (d) => String(d || '')
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/\s+/g, '')
+            .replace(/[-_]/g, '')
+            .replace(/department$/g, '')
+            .replace(/itandemc|itemc/g, 'itemc') // unify it/emc variants
+            .replace(/\//g, '');
+        const target = normalizeDept(department);
+        const invalid = users.some(u => normalizeDept(u.department) !== target);
+        if (invalid) {
+            return res.status(403).json({ success: false, message: 'Recipients must belong to your department' });
+        }
+
+        // Create pending memos per recipient
+        const createOps = users.map(u => ({
+            sender: req.user._id,
+            recipient: u._id,
+            subject,
+            content: message,
+            department,
+            priority: 'medium',
+            createdBy: req.user._id,
+            role: 'secretary',
+            status: 'pending',
+            folder: 'drafts'
+        }));
+
+        let inserted;
+        try {
+            inserted = await require('../models/Memo').insertMany(createOps);
+        } catch (e) {
+            console.error('insertMany error (distributeMemo):', e);
+            return res.status(500).json({ success: false, message: 'Failed to save memos', detail: e.message });
+        }
+
+        // Notify admins about pending memo(s)
+        try {
+            const { createSystemLog } = require('../services/logService');
+            await createSystemLog({
+                activityType: 'pending_memo',
+                user: req.user,
+                subject: `Memo Pending Approval: ${subject}`,
+                content: `A memo from ${req.user.email} to ${users.length} recipient(s) is awaiting approval.`,
+                department
+            });
+        } catch (e) {
+            console.error('Failed to create pending memo log:', e.message);
+        }
+
+        res.json({ success: true, count: inserted.length, message: 'Memo submitted successfully and is pending admin approval.' });
+        } catch (error) {
+        console.error('Error distributing memo:', error);
+        res.status(500).json({ success: false, message: 'Error distributing memo', detail: error.message });
+    }
+};
+// Admin: approve a pending memo
+exports.approveMemo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const memo = await Memo.findById(id);
+        if (!memo) {
+            return res.status(404).json({ success: false, message: 'Memo not found' });
+        }
+        memo.status = 'sent'; // treat approved as sent
+        memo.folder = 'sent';
+        await memo.save();
+
+        // Notify secretary (creator)
+        try {
+            const { createSystemLog } = require('../services/logService');
+            const creator = await require('../models/User').findById(memo.createdBy).select('email firstName lastName department');
+            await createSystemLog({
+                activityType: 'memo_approved',
+                user: creator || { _id: memo.createdBy },
+                subject: `Memo Approved: ${memo.subject}`,
+                content: 'Your memo has been approved by admin and sent to recipients.',
+                department: memo.department
+            });
+        } catch (e) {
+            console.error('Failed to log approval notification:', e.message);
+        }
+
+        res.json({ success: true, message: 'Memo approved and sent.' });
+    } catch (error) {
+        console.error('Error approving memo:', error);
+        res.status(500).json({ success: false, message: 'Error approving memo' });
+    }
+};
+
+// Admin: reject a pending memo
+exports.rejectMemo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const memo = await Memo.findById(id);
+        if (!memo) {
+            return res.status(404).json({ success: false, message: 'Memo not found' });
+        }
+        memo.status = 'rejected';
+        memo.folder = 'deleted';
+        await memo.save();
+
+        // Notify secretary (creator)
+        try {
+            const { createSystemLog } = require('../services/logService');
+            const creator = await require('../models/User').findById(memo.createdBy).select('email firstName lastName department');
+            await createSystemLog({
+                activityType: 'memo_rejected',
+                user: creator || { _id: memo.createdBy },
+                subject: `Memo Rejected: ${memo.subject}`,
+                content: 'Your memo has been rejected or removed by the admin.',
+                department: memo.department
+            });
+        } catch (e) {
+            console.error('Failed to log rejection notification:', e.message);
+        }
+
+        res.json({ success: true, message: 'Memo rejected.' });
+    } catch (error) {
+        console.error('Error rejecting memo:', error);
+        res.status(500).json({ success: false, message: 'Error rejecting memo' });
     }
 };
 

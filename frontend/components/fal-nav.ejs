@@ -1,0 +1,50 @@
+<!-- Sidebar (Faculty) -->
+<aside class="sidebar">
+	<div class="sidebar-container">
+		<div class="logo-wrapper">
+			<div class="logo">
+				<div class="logo-img">
+					<img src="/images/memofy-logo.png" alt="Memofy Logo" />
+				</div>
+				<h2>Memofy</h2>
+			</div>
+		</div>
+
+		<nav class="main-nav">
+			<ul>
+				<li class="<%= path === '/dashboard' ? 'active' : '' %>">
+					<a href="/dashboard">
+						<img src="<%= path === '/dashboard' ? '/images/dashboards.png' : '/images/dashboards-in.png' %>" alt="Dashboard" class="nav-icon">
+						<span>Dashboard</span>
+					</a>
+				</li>
+				<li class="<%= path === '/log' ? 'active' : '' %>">
+					<a href="/log">
+						<img src="<%= path === '/log' ? '/images/clipboard.png' : '/images/clipboard-in.png' %>" alt="Memos" class="nav-icon">
+						<span>Memos</span>
+					</a>
+				</li>
+			</ul>
+		</nav>
+
+		<div class="bottom-nav">
+			<a href="#" class="nav-item" id="logoutBtn">
+				<i data-lucide="log-out"></i>
+				<span>Logout</span>
+			</a>
+			<div class="profile-section" id="profileSection" style="cursor: pointer;">
+				<img src="<%= user.profilePicture || '/images/memofy-logo.png' %>" alt="Profile" class="profile-img">
+				<div class="profile-info">
+					<h4 class="profile-name"><%= user.fullName || user.firstName || 'User' %></h4>
+					<p class="profile-email"><%= user.email %></p>
+				</div>
+			</div>
+		</div>
+	</div>
+</aside>
+
+<script src="/js/sidebar-hover.js"></script>
+<script src="/js/profile-modal.js"></script>
+<script src="/js/logout-modal.js"></script>
+
+

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | Memofy</title>
-    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admin-dashboard.css">
     <link rel="stylesheet" href="/css/sidebar.css">
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -65,34 +65,32 @@
                             <!-- Recent Memos Section -->
                             <section class="recent-memos-section">
                                 <h2>Recent Memos</h2>
-                                <div class="memo-container">
-                                    <div class="memo-list">
-                                        <div class="memo-item">
-                                            <i data-lucide="file-text" class="memo-icon blue"></i>
-                                            <div class="memo-info">
-                                                <h4>Faculty Meeting Agenda</h4>
-                                                <p>Information Technology Department</p>
-                                            </div>
-                                            <span class="memo-date">October 5, 2025</span>
+                        <div class="memo-container">
+                            <div class="memo-list">
+                                <% (allMemos || []).filter(m => m.status === 'pending').forEach(function(memo){ %>
+                                    <div class="memo-item">
+                                        <i data-lucide="alert-triangle" class="memo-icon orange"></i>
+                                        <div class="memo-info">
+                                            <h4><%= memo.subject %></h4>
+                                            <p>From: <%= memo.sender ? (memo.sender.firstName + ' ' + (memo.sender.lastName || '')) : 'Unknown' %></p>
                                         </div>
-                                        <div class="memo-item">
-                                            <i data-lucide="alert-triangle" class="memo-icon orange"></i>
-                                            <div class="memo-info">
-                                                <h4>Urgent: Grade Submission Deadline</h4>
-                                                <p>Information Technology Department</p>
-                                            </div>
-                                            <span class="memo-date">October 7, 2025</span>
-                                        </div>
-                                        <div class="memo-item">
-                                            <i data-lucide="calendar" class="memo-icon purple"></i>
-                                            <div class="memo-info">
-                                                <h4>Holiday Schedule Update</h4>
-                                                <p>Information Technology Department</p>
-                                            </div>
-                                            <span class="memo-date">October 24, 2025</span>
+                                        <div style="display:flex; gap:8px; align-items:center;">
+                                            <button class="btn-primary" onclick="approveMemo('<%= memo._id %>')">Approve</button>
+                                            <button class="btn-secondary" onclick="rejectMemo('<%= memo._id %>')">Reject</button>
                                         </div>
                                     </div>
-                                </div>
+                                <% }); %>
+                                <% if (!(allMemos||[]).some(m=>m.status==='pending')) { %>
+                                    <div class="memo-item">
+                                        <i data-lucide="inbox" class="memo-icon"></i>
+                                        <div class="memo-info">
+                                            <h4>No pending memos</h4>
+                                            <p>New submissions will appear here for approval</p>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
                             </section>
 
 
@@ -145,6 +143,23 @@
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
+
+		async function approveMemo(id){
+			try{
+				const res = await fetch(`/api/log/memos/${id}/approve`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+				const data = await res.json();
+				alert(data.message || 'Approved');
+				location.reload();
+			}catch(e){ alert('Failed to approve'); }
+		}
+		async function rejectMemo(id){
+			try{
+				const res = await fetch(`/api/log/memos/${id}/reject`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+				const data = await res.json();
+				alert(data.message || 'Rejected');
+				location.reload();
+			}catch(e){ alert('Failed to reject'); }
+		}
     </script>
     <script src="/js/freezeZoom.js"></script>
 </body>

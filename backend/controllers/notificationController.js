@@ -6,13 +6,7 @@ exports.getNotifications = async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // Check if user is admin
-        const user = await User.findById(userId);
-        if (user.role !== 'admin') {
-            return res.json({ success: true, notifications: [], unreadCount: 0 });
-        }
-
-        // Get recent activity logs (from Memo collection)
+        // Get recent activity logs (from Memo collection) for any user
         const notifications = await Memo.find({
             recipient: userId,
             activityType: { $ne: null },

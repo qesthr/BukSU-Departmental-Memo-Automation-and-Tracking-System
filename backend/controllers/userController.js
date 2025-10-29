@@ -214,3 +214,25 @@ exports.uploadProfilePicture = async (req, res) => {
         res.status(500).json({ message: 'Error uploading profile picture' });
     }
 };
+
+// Get distinct departments (normalized; IT/EMC combined)
+exports.getDepartments = async (req, res) => {
+    try {
+        const raw = await User.distinct('department');
+        const normalized = (raw || [])
+            .filter(Boolean)
+            .map(d => String(d).trim())
+            .map(d => {
+                const lower = d.toLowerCase();
+                if (lower === 'it' || lower === 'emc' || lower === 'it/emc' || lower === 'it - emc' || lower === 'it & emc') {
+                    return 'IT/EMC';
+                }
+                return d;
+            });
+        const unique = Array.from(new Set(normalized)).sort((a, b) => a.localeCompare(b));
+        res.json({ success: true, departments: unique });
+    } catch (error) {
+        console.error('Error fetching departments:', error);
+        res.status(500).json({ success: false, message: 'Error fetching departments' });
+    }
+};

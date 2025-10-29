@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('editProfileEmail').value;
 
         try {
-            const response = await fetch(`/api/users/${userId}`, {
+            // Use self-update endpoint for non-admins
+            const response = await fetch(`/api/auth/me`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -128,10 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('profilePicture', file);
 
         try {
-            const response = await fetch(`/api/users/${userId}/profile-picture`, {
-                method: 'POST',
-                body: formData
-            });
+                const response = await fetch(`/api/auth/me/profile-picture`, { method: 'POST', body: formData });
 
             if (response.ok) {
                 const data = await response.json();

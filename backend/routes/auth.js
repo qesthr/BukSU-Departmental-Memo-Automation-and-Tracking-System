@@ -2,6 +2,8 @@ const express = require('express');
 const passport = require('passport');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const isAuthenticated = require('../middleware/isAuthenticated');
+const upload = require('../middleware/upload');
 
 // Local authentication routes
 router.post('/login', authController.login);
@@ -9,6 +11,10 @@ router.post('/verify-recaptcha', authController.verifyRecaptcha);
 router.post('/logout', authController.logout);
 router.get('/current-user', authController.getCurrentUser);
 router.get('/check-auth', authController.checkAuth);
+
+// Self profile endpoints
+router.put('/me', isAuthenticated, authController.updateMe);
+router.post('/me/profile-picture', isAuthenticated, upload.single('profilePicture'), authController.uploadMyProfilePicture);
 
 // Forgot Password System Test Page
 router.get('/forgot-password-system-test', (req, res) => {

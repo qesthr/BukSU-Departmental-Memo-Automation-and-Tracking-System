@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const memoSchema = new mongoose.Schema({
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        index: true
+    },
     sender: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -32,12 +37,24 @@ const memoSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'sent', 'read', 'archived', 'deleted'],
+        enum: ['draft', 'pending', 'sent', 'read', 'archived', 'deleted'],
         default: 'sent'
     },
     activityType: {
         type: String,
-        enum: ['memo_sent', 'password_reset', 'welcome_email', 'user_activity', 'system_notification', 'user_deleted', null],
+        enum: [
+            'memo_sent',
+            'memo_received',
+            'pending_memo',
+            'memo_approved',
+            'memo_rejected',
+            'password_reset',
+            'welcome_email',
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            null
+        ],
         default: null
     },
     metadata: {
@@ -96,6 +113,7 @@ memoSchema.index({ sender: 1, folder: 1 });
 memoSchema.index({ recipient: 1, folder: 1 });
 memoSchema.index({ isStarred: 1 });
 memoSchema.index({ status: 1 });
+memoSchema.index({ createdBy: 1, createdAt: -1 });
 
 const Memo = mongoose.model('Memo', memoSchema);
 

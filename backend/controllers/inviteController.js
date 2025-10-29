@@ -125,12 +125,22 @@ exports.renderInvitePage = async (req, res) => {
     const { token } = req.params;
     const user = await User.findOne({ inviteToken: token, inviteTokenUsed: { $ne: true } });
     if (!user || !user.inviteTokenExpires || user.inviteTokenExpires < new Date()) {
-      return res.status(400).render('invalid-invite', { message: 'Invalid or expired invitation link', layout: false });
+      return res.status(400).render('login', {
+        showMessageModal: true,
+        modalTitle: 'Invalid Link',
+        modalMessage: 'Link is not valid any more',
+        modalType: 'error'
+      });
     }
     return res.render('invite-register', { user, token, layout: false });
   } catch (err) {
     console.error('renderInvitePage error:', err);
-    return res.status(500).render('invalid-invite', { message: 'Server error', layout: false });
+    return res.status(500).render('login', {
+      showMessageModal: true,
+      modalTitle: 'Server Error',
+      modalMessage: 'Unable to process the invitation link. Please try again later.',
+      modalType: 'error'
+    });
   }
 };
 
@@ -147,7 +157,12 @@ exports.completeInvite = async (req, res) => {
 
     const user = await User.findOne({ inviteToken: token, inviteTokenUsed: { $ne: true } });
     if (!user || !user.inviteTokenExpires || user.inviteTokenExpires < new Date()) {
-      return res.status(400).render('invalid-invite', { message: 'Invalid or expired invitation link', layout: false });
+      return res.status(400).render('login', {
+        showMessageModal: true,
+        modalTitle: 'Invalid Link',
+        modalMessage: 'Link is not valid any more',
+        modalType: 'error'
+      });
     }
 
     user.password = await bcrypt.hash(password, 12);
@@ -161,7 +176,12 @@ exports.completeInvite = async (req, res) => {
     return res.redirect('/?invited=1');
   } catch (err) {
     console.error('completeInvite error:', err);
-    return res.status(500).render('invalid-invite', { message: 'Server error', layout: false });
+    return res.status(500).render('login', {
+      showMessageModal: true,
+      modalTitle: 'Server Error',
+      modalMessage: 'Unable to complete registration. Please try again later.',
+      modalType: 'error'
+    });
   }
 };
 

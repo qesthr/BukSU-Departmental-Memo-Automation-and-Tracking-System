@@ -8,6 +8,8 @@ const cors = require('cors');
 const connectDB = require('./backend/config/db');
 const passport = require('./backend/config/passport');
 const isAdmin = require('./backend/middleware/isAdmin');
+const isAuthenticated = require('./backend/middleware/isAuthenticated');
+const Memo = require('./backend/models/Memo');
 const authRoutes = require('./backend/routes/auth');
 const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
@@ -101,6 +103,29 @@ app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
 });
 
+// Admin Calendar
+app.get('/calendar', isAuthenticated, (req, res) => {
+    const role = req.user?.role;
+    if (role === 'admin') {
+        return res.render('admin/calendar', { user: req.user, path: '/calendar' });
+    }
+    if (role === 'secretary') {
+        return res.redirect('/secretary/calendar');
+    }
+    return res.redirect('/dashboard');
+});
+
+// Secretary Calendar (duplicate layout using secretary components)
+app.get('/secretary/calendar', isAuthenticated, (req, res) => {
+    const role = req.user?.role;
+    if (role === 'secretary') {
+        return res.render('secretary-calendar', { user: req.user, path: '/calendar' });
+    }
+    return res.redirect('/calendar');
+});
+
+
+
 // Auth success route
 app.get('/auth-success', (req, res) => {
     if (req.isAuthenticated()) {
@@ -127,11 +152,57 @@ app.get('/auth-success', (req, res) => {
 // });
 
 // Admin Dashboard route - ADMIN ONLY
-app.get('/admin-dashboard', isAdmin, (req, res) => {
-    res.render('admin-dashboard', {
-        user: req.user,
-        path: '/admin-dashboard'
-    });
+app.get('/admin-dashboard', isAdmin, async (req, res) => {
+    try {
+        const allMemos = await Memo.find({}).sort({ createdAt: -1 }).limit(50)
+            .populate('sender', 'firstName lastName email')
+            .populate('recipient', 'firstName lastName email');
+        res.render('admin-dashboard', {
+            user: req.user,
+            path: '/admin-dashboard',
+            allMemos
+        });
+    } catch (e) {
+        res.render('admin-dashboard', { user: req.user, path: '/admin-dashboard', allMemos: [] });
+    }
+});
+
+// Unified dashboard route for non-admin roles
+app.get('/dashboard', async (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/');
+    }
+    const role = (req.user && req.user.role) || '';
+    if (role === 'secretary') {
+        try {
+            const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
+                .populate('recipient', 'firstName lastName email');
+            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos });
+        } catch (e) {
+            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos: [] });
+        }
+    }
+    if (role === 'faculty') {
+        return res.render('faculty-dashboard', { user: req.user, path: '/dashboard' });
+    }
+    // Fallback for any other roles
+    return res.redirect('/admin-dashboard');
+});
+
+// Secretary memos page - only for secretaries
+app.get('/secretary/memos', async (req, res) => {
+    if (!req.isAuthenticated()) { return res.redirect('/'); }
+    if (!req.user || req.user.role !== 'secretary') { return res.redirect('/admin-dashboard'); }
+    try {
+        const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
+            .populate('recipient', 'firstName lastName email');
+        const received = await Memo.find({ recipient: req.user._id, status: { $ne: 'deleted' }, activityType: { $ne: 'pending_memo' } })
+            .sort({ createdAt: -1 })
+            .populate('sender', 'firstName lastName email');
+        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos, received });
+    } catch (e) {
+        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos: [], received: [] });
+    }
 });
 
 // Log route - protected

@@ -413,3 +413,16 @@ setInterval(() => {
     }
 }, 500);
 </script>
+
+<!-- Trigger message modal for invalid or expired links -->
+<% if (typeof showMessageModal !== 'undefined' && showMessageModal) { %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	if (window.showMessageModal) {
+		window.showMessageModal('<%= modalTitle || "Invalid Link" %>', '<%= modalMessage || "Link is not valid any more" %>', '<%= modalType || "error" %>');
+	} else {
+		alert('<%= modalMessage || "Link is not valid any more" %>');
+	}
+});
+</script>
+<% } %>
