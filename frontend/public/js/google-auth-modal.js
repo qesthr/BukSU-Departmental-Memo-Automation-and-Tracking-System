@@ -48,13 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Checkbox reCAPTCHA token obtained:', !!token);
                 const ok = await verifyRecaptchaServer(token);
                 if (!ok) {
-                    alert('reCAPTCHA verification failed. Please try again.');
+                    if (typeof window.showRecaptchaErrorModal === 'function') {
+                        window.showRecaptchaErrorModal();
+                    } else {
+                        alert('reCAPTCHA verification failed. Please try again.');
+                    }
                     return;
                 }
                 openGoogleOAuthPopup();
             } catch (err) {
                 console.error('reCAPTCHA error:', err);
-                alert('Unable to verify. Please try again.');
+                if (typeof window.showRecaptchaErrorModal === 'function') {
+                    window.showRecaptchaErrorModal();
+                } else {
+                    alert('Unable to verify. Please try again.');
+                }
             }
         };
         button.style.cssText = `

@@ -1,8 +1,68 @@
+<% if (typeof showMinimalMessageModal !== 'undefined' && showMinimalMessageModal) { %>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notice</title>
+    <style>
+        body { background: #fff; margin: 0; height:100vh; font-family: 'Inter', Arial, sans-serif; }
+        /* Modal info styles reused */
+        .modal { display:block !important; position:fixed; z-index:1010; left:0; top:0; width:100vw; height:100vh; background:rgba(33,150,243,0.06); }
+        .modal-content { background:#2196f3;color:#fff;border-radius:13px;margin:160px auto 0 auto;padding:30px 27px;max-width:370px;box-shadow:0 4px 24px 0 rgba(33,150,243,0.23);font-size:18px;position:relative; text-align:center;}
+        .modal-header { display:flex;align-items:center;justify-content:center;margin-bottom:10px; }
+        .modal-title { font-size:1.35rem;font-weight:700;color:#fff;width:100%;text-align:center;margin-bottom:10px; }
+        .message-text { font-size:1.13rem; font-weight:500; text-align:center; color:#fff; margin:14px 0 2px 0; }
+        .message-icon { display:block; margin: 0 auto 8px auto; }
+        .btn-primary { background: #fff; color: #2196f3; font-weight: bold; border: none; border-radius: 6px; padding: 6px 22px; font-size: 16px; cursor:pointer; transition:all .14s; margin-top:13px; }
+        .btn-primary:hover { background: #f5f8fa; }
+    </style>
+</head>
+<body>
+    <div id="messageModal" class="modal modal-info" style="display:block">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title"><%= modalTitle || 'Notice' %></span>
+            </div>
+            <div class="message-icon">
+                <!-- SVG exclamation --><svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="22" cy="22" r="22" fill="#2196f3"/><text x="50%" y="56%" text-anchor="middle" fill="#fff" font-size="28" font-family="Arial" dy=".3em">!</text></svg>
+            </div>
+            <div class="message-text" id="messageText"><%= modalMessage || '' %></div>
+            <div class="modal-actions">
+               <button type="button" class="btn-primary" id="minimalOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function(){
+            function notifyAndReloadOpener() {
+                try { localStorage.setItem('GOOGLE_AUTH_DISMISSED', '1'); } catch(e) {}
+                try { if (window.opener && !window.opener.closed) { window.opener.postMessage({ type: 'GOOGLE_AUTH_DISMISSED' }, window.location.origin); } } catch(e) {}
+                try { if (window.opener && !window.opener.closed) { window.opener.location.replace('/'); } } catch(e) {}
+                try { if (window.opener && !window.opener.closed) { window.opener.focus(); } } catch(e) {}
+            }
+            function closePopup() {
+                try { window.close(); } catch(e) {}
+            }
+            function handleOkClose(){
+                notifyAndReloadOpener();
+                setTimeout(function(){
+                    // If popup did not close, redirect self as fallback
+                    try { if (!window.closed) { window.location.replace('/'); } } catch(e) { window.location.replace('/'); }
+                    closePopup();
+                }, 120);
+            }
+            document.getElementById('minimalOkBtn').addEventListener('click', handleOkClose);
+        })();
+    </script>
+</body>
+</html>
+<% } else { %>
 <div class="container">
     <!-- LEFT SIDE -->
     <div class="left-panel">
         <div class="logo">
-            <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
+            <img src="/images/BukSU-Logo.png" alt="BukSU Logo">
         </div>
         <p class="tagline">Educate. Innovate. Lead.</p>
     </div>
@@ -221,6 +281,55 @@
     </div>
 </div>
 
+<!-- reCAPTCHA Error Modal -->
+<div id="recaptchaErrorModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width:420px; text-align:center;">
+        <div class="modal-header">
+            <div class="modal-logo-section">
+                <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                <span class="modal-title">reCAPTCHA Verification Failed</span>
+            </div>
+            <span class="close" id="closeRecaptchaErrorModal" style="display:none">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="message-icon" id="recaptchaErrorIcon">
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="22" cy="22" r="22" fill="#1E92F3"/><text x="50%" y="56%" text-anchor="middle" fill="#fff" font-size="28" font-family="Arial" dy=".3em">!</text></svg>
+            </div>
+            <p class="message-text" style="margin:10px 0 16px 0;">reCAPTCHA verification failed. Please reload the login page to try again.</p>
+            <div class="message-actions" style="display:flex; justify-content:center; margin-top:8px;">
+                <button type="button" class="btn-primary" id="reloadBtn" style="background:#1E92F3; color:#fff; border:none; padding:7px 25px; border-radius:7px; font-size:17px; font-weight:600; cursor:pointer;">Reload Page</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-info {
+  background: #2196f3 !important;
+  color: #fff !important;
+}
+#messageModal.modal-info .modal-content {
+  background: #2196f3 !important;
+  color: #fff !important;
+  box-shadow: 0 8px 32px 0 rgba(33,150,243,0.23);
+}
+#messageModal .message-icon svg,
+#messageModal .message-icon {
+  display: block;
+  margin: 0 auto 12px auto;
+}
+#messageModal .message-text {
+  text-align: center !important;
+  font-size: 1.13rem;
+  font-weight: bold;
+  margin-top: 10px;
+  color: #fff;
+}
+#messageModal.modal-info .modal-title {
+  color: #fff;
+}
+</style>
+
 <script src="/js/password-setup.js"></script>
 <script src="/js/forgot-password-modal.js"></script>
 <script src="/js/google-auth-modal.js"></script>
@@ -426,3 +535,77 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <% } %>
+<% } %>
+
+<script>
+// Helper to reset and hide all captcha widgets and UI
+function resetCaptchaUI() {
+    try {
+        // Reset default widget (markup-rendered g-recaptcha in #recaptcha)
+        if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+            try { window.grecaptcha.reset(); } catch (_) {}
+        }
+        // Reset programmatically rendered Google button guard, if present
+        var googleWidget = document.getElementById('googleRecaptchaWidget');
+        if (googleWidget) {
+            var wid = googleWidget.getAttribute('data-widget-id');
+            if (wid && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+                try { window.grecaptcha.reset(parseInt(wid, 10)); } catch (_) {}
+            }
+            // Remove widget markup to fully reset
+            try { googleWidget.removeAttribute('data-widget-id'); } catch(_) {}
+            try { googleWidget.parentNode && (googleWidget.parentNode.innerHTML = ''); } catch(_) {}
+        }
+        // Hide containers until next interaction
+        var recaptchaContainer = document.getElementById('recaptchaContainer');
+        if (recaptchaContainer) { recaptchaContainer.style.display = 'none'; }
+        var googleRecaptchaSection = document.getElementById('googleRecaptchaSection');
+        if (googleRecaptchaSection) { googleRecaptchaSection.style.display = 'none'; }
+        var googleRecaptchaContainer = document.getElementById('googleRecaptchaContainer');
+        if (googleRecaptchaContainer) { googleRecaptchaContainer.style.display = 'none'; googleRecaptchaContainer.innerHTML=''; }
+        var googleRecaptchaHint = document.getElementById('googleRecaptchaHint');
+        if (googleRecaptchaHint) { googleRecaptchaHint.style.display = 'none'; }
+        // Optionally disable login button until next interaction
+        var loginBtn = document.getElementById('loginButton');
+        if (loginBtn) { try { loginBtn.disabled = true; } catch(_) {}
+        }
+    } catch (_) { /* ignore */ }
+}
+
+// Listener to refresh login and reset reCAPTCHA when popup reports dismissal
+window.addEventListener('message', function(ev){
+    try {
+        if (ev.origin !== window.location.origin) return;
+        if (ev.data && ev.data.type === 'GOOGLE_AUTH_DISMISSED') {
+            resetCaptchaUI();
+            // As a safety, ensure full refresh (keeps behavior consistent)
+            try { window.location.replace('/'); } catch(e) { window.location.href = '/'; }
+        }
+    } catch (e) { /* ignore */ }
+});
+
+// Storage listener as additional fallback from popup
+window.addEventListener('storage', function(e) {
+    try {
+        if (e.key === 'GOOGLE_AUTH_DISMISSED' && e.newValue === '1') {
+            try { localStorage.removeItem('GOOGLE_AUTH_DISMISSED'); } catch(_) {}
+            resetCaptchaUI();
+            try { window.location.replace('/'); } catch(_) { window.location.href = '/'; }
+        }
+    } catch(_) { /* ignore */ }
+});
+</script>
+
+<script>
+// Custom modal to replace alert for reCAPTCHA errors in Google sign-in fallback
+window.showRecaptchaErrorModal = function() {
+    try { resetCaptchaUI(); } catch(_) {}
+    var modal = document.getElementById('recaptchaErrorModal');
+    var reloadBtn = document.getElementById('reloadBtn');
+    if (!modal) return;
+    modal.style.display = 'block';
+    reloadBtn.onclick = function() {
+        try { window.location.reload(); } catch(_) { window.location.href = '/'; }
+    };
+};
+</script>

@@ -103,6 +103,28 @@ app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
 });
 
+// Explicit login route to handle redirects with error messages
+app.get('/login', (req, res) => {
+    const { error, message } = req.query || {};
+    if (error === 'account_not_found') {
+        return res.render('login', {
+            showMinimalMessageModal: true,
+            modalTitle: 'Account Not Found',
+            modalMessage: message || 'Your account has not been added by an administrator. Please contact your administrator to create your account.',
+            modalType: 'error'
+        });
+    }
+    if (error || message) {
+        return res.render('login', {
+            showMessageModal: true,
+            modalTitle: error ? 'Login Error' : 'Message',
+            modalMessage: message || 'Authentication failed. Please try again.',
+            modalType: 'error'
+        });
+    }
+    return res.render('login');
+});
+
 // Admin Calendar
 app.get('/calendar', isAuthenticated, (req, res) => {
     const role = req.user?.role;

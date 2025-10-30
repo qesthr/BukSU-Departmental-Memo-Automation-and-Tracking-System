@@ -42,6 +42,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (faculty) { faculty.textContent = stats.faculty || 0; }
     }
 
+    // Normalize department (long form only for IT/EMC/EMC/IT variations):
+function normalizeDepartment(dept) {
+        if (!dept) return '';
+        const d = String(dept).trim().toLowerCase();
+    if (
+        d === 'it' ||
+        d === 'emc' ||
+        d === 'it/emc' ||
+        d === 'it - emc' ||
+        d === 'it & emc' ||
+        (d.includes('information tech') && d.includes('multimedia')) ||
+        (d.includes('entertainment') && d.includes('comput'))
+    ) {
+        return 'Information Technology and Entertainment Multimedia Computing';
+        }
+        if (d === 'ft' || d === 'food tech' || d === 'food technology') return 'Food Technology';
+        if (d === 'et' || d === 'electronics tech' || d === 'electronics technology') return 'Electronics Technology';
+        if (d === 'at' || d === 'automotive tech' || d === 'automotive technology') return 'Automotive Technology';
+        return dept;
+    }
+
     // Render users list
     function renderUsers() {
         // Get search term from global search input or userSearch if it exists
@@ -84,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="user-email">${user.email}</div>
                     </div>
                 </div>
-                <div class="department-cell">${user.department || '-'}</div>
+                <div class="department-cell">${normalizeDepartment(user.department) || '-'}</div>
                 <div class="role-cell">
                     <span class="role-badge ${user.role}">${user.role}</span>
                 </div>
@@ -293,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             firstName: document.getElementById('firstName').value,
             lastName: document.getElementById('lastName').value,
             email: document.getElementById('email').value,
-            department: document.getElementById('department').value,
+            department: normalizeDepartment(document.getElementById('department').value),
             role: document.getElementById('role').value
         };
         addUser(formData);
@@ -305,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = {
             firstName: document.getElementById('editFirstName').value,
             lastName: document.getElementById('editLastName').value,
-            department: document.getElementById('editDepartment').value,
+            department: normalizeDepartment(document.getElementById('editDepartment').value),
             role: document.getElementById('editRole').value
         };
         updateUser(userId, formData);
@@ -316,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const userId = document.getElementById('changeDeptUserId').value;
         const newDept = document.getElementById('changeDeptNewDept').value;
-        updateUserDepartment(userId, newDept);
+        updateUserDepartment(userId, normalizeDepartment(newDept));
     });
 
     // Change role form handler

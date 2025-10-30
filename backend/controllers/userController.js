@@ -215,7 +215,7 @@ exports.uploadProfilePicture = async (req, res) => {
     }
 };
 
-// Get distinct departments (normalized; IT/EMC combined)
+// Get distinct departments (normalized; IT + EMC combined)
 exports.getDepartments = async (req, res) => {
     try {
         const raw = await User.distinct('department');
@@ -224,8 +224,16 @@ exports.getDepartments = async (req, res) => {
             .map(d => String(d).trim())
             .map(d => {
                 const lower = d.toLowerCase();
-                if (lower === 'it' || lower === 'emc' || lower === 'it/emc' || lower === 'it - emc' || lower === 'it & emc') {
-                    return 'IT/EMC';
+                if (
+                    lower === 'it' ||
+                    lower === 'emc' ||
+                    lower === 'it/emc' ||
+                    lower === 'it - emc' ||
+                    lower === 'it & emc' ||
+                    lower.includes('information tech') && lower.includes('multimedia') ||
+                    lower.includes('entertainment') && lower.includes('comput')
+                ) {
+                    return 'Information Technology and Entertainment Multimedia Computing';
                 }
                 return d;
             });
