@@ -93,9 +93,6 @@ function normalizeDepartment(dept) {
 
         usersList.innerHTML = filteredUsers.map(user => `
             <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
-                <div class="checkbox-cell">
-                    <input type="checkbox" class="user-checkbox" data-id="${user._id}">
-                </div>
                 <div class="name-cell">
                     <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
                          alt="${user.firstName} ${user.lastName}"
@@ -105,30 +102,17 @@ function normalizeDepartment(dept) {
                         <div class="user-email">${user.email}</div>
                     </div>
                 </div>
-                <div class="department-cell">${normalizeDepartment(user.department) || '-'}</div>
+                <div class="department-cell">${user.department || '-'}</div>
                 <div class="role-cell">
                     <span class="role-badge ${user.role}">${user.role}</span>
                 </div>
                 <div class="actions-cell">
-                    <div class="user-menu">
-                        <button class="btn-icon user-menu-btn" data-id="${user._id}" title="Actions">
-                            <i data-lucide="more-vertical"></i>
-                        </button>
-                        <div class="user-menu-dropdown" id="menu-${user._id}" style="display: none;">
-                            <button class="menu-item edit-user" data-id="${user._id}">
-                                <i data-lucide="edit-2"></i> <span>Edit All</span>
-                            </button>
-                            <button class="menu-item change-dept" data-id="${user._id}">
-                                <i data-lucide="building"></i> <span>Change Department</span>
-                            </button>
-                            <button class="menu-item change-role" data-id="${user._id}">
-                                <i data-lucide="user-circle"></i> <span>Change Role</span>
-                            </button>
-                            <button class="menu-item delete-user" data-id="${user._id}">
-                                <i data-lucide="trash-2"></i> <span>Delete Account</span>
-                            </button>
-                        </div>
-                    </div>
+                    <button class="btn-icon edit-user" data-id="${user._id}" title="Edit">
+                        <i data-lucide="edit-2"></i>
+                    </button>
+                    <button class="btn-icon delete-user" data-id="${user._id}" title="Delete">
+                        <i data-lucide="trash-2"></i>
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -144,8 +128,8 @@ function normalizeDepartment(dept) {
         try {
             // Validate domain before sending
             const email = String(formData.email || '').toLowerCase();
-            if (!(email.endsWith('@buksu.edu.ph') || email.endsWith('@student.buksu.edu.ph'))) {
-                throw new Error('Email must be @buksu.edu.ph or @student.buksu.edu.ph');
+            if (!email.endsWith('@buksu.edu.ph')) {
+                throw new Error('Email must be @buksu.edu.ph');
             }
 
             // Send invite instead of direct creation
@@ -230,6 +214,44 @@ function normalizeDepartment(dept) {
         const role = document.getElementById('role');
         if (dept && !dept.value) { dept.value = ''; }
         if (role && !role.value) { role.value = 'faculty'; }
+        // Email hint behavior
+        const emailInputEl = document.getElementById('email');
+        const emailHintEl = document.getElementById('emailHint');
+        if (emailInputEl && emailHintEl) {
+            const setState = (valid) => {
+                if (valid) {
+                    emailHintEl.style.display = 'none';
+                    emailInputEl.classList.remove('input-error');
+                } else {
+                    emailHintEl.style.display = 'block';
+                    emailInputEl.classList.add('input-error');
+                }
+            };
+            // initial state hidden until focus
+            emailHintEl.style.display = 'none';
+            emailInputEl.classList.remove('input-error');
+
+            const evaluate = () => {
+                emailInputEl.value = (emailInputEl.value || '').toLowerCase();
+                const v = emailInputEl.value;
+                const valid = v.endsWith('@buksu.edu.ph');
+                setState(valid);
+            };
+
+            emailInputEl.addEventListener('focus', () => {
+                // On focus, show hint unless already valid
+                evaluate();
+                if (!emailInputEl.value.endsWith('@buksu.edu.ph')) {
+                    emailHintEl.style.display = 'block';
+                }
+            });
+            emailInputEl.addEventListener('input', evaluate);
+            emailInputEl.addEventListener('blur', () => {
+                // On blur, keep visible if invalid; hide if valid
+                const valid = (emailInputEl.value || '').toLowerCase().endsWith('@buksu.edu.ph');
+                setState(valid);
+            });
+        }
         openModal(addUserModal);
     });
 
@@ -240,27 +262,7 @@ function normalizeDepartment(dept) {
         const userId = row.dataset.id;
         const user = users.find(u => u._id === userId);
 
-        // Handle menu button click
-        if (e.target.closest('.user-menu-btn')) {
-            e.stopPropagation();
-            const menuBtn = e.target.closest('.user-menu-btn');
-            const menuDropdown = document.getElementById(`menu-${menuBtn.dataset.id}`);
-
-            // Close all other menus
-            document.querySelectorAll('.user-menu-dropdown').forEach(m => {
-                if (m.id !== menuDropdown.id) {m.style.display = 'none';}
-            });
-
-            // Toggle this menu
-            if (menuDropdown.style.display === 'none' || !menuDropdown.style.display) {
-                menuDropdown.style.display = 'block';
-            } else {
-                menuDropdown.style.display = 'none';
-            }
-            return;
-        }
-
-        // Handle edit button in menu
+        // Handle edit
         if (e.target.closest('.edit-user')) {
             e.stopPropagation();
             if (user) {
@@ -271,25 +273,7 @@ function normalizeDepartment(dept) {
                 document.getElementById('editRole').value = user.role;
                 openModal(editUserModal);
             }
-            closeAllMenus();
-        }
-
-        // Handle change department
-        if (e.target.closest('.change-dept')) {
-            e.stopPropagation();
-            if (user) {
-                openChangeDepartmentModal(user);
-            }
-            closeAllMenus();
-        }
-
-        // Handle change role
-        if (e.target.closest('.change-role')) {
-            e.stopPropagation();
-            if (user) {
-                openChangeRoleModal(user);
-            }
-            closeAllMenus();
+            return;
         }
 
         // Handle delete
@@ -297,16 +281,14 @@ function normalizeDepartment(dept) {
             e.stopPropagation();
             currentUserId = userId;
             openModal(deleteModal);
-            closeAllMenus();
+            return;
         }
+
+        // Inline quick actions removed: no menu dropdowns
     });
 
     // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.user-menu')) {
-            closeAllMenus();
-        }
-    });
+    // document.addEventListener('click', (e) => { ... })
 
     addUserForm.addEventListener('submit', (e) => {
         e.preventDefault();

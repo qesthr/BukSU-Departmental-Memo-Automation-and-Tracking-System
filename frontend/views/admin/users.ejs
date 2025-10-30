@@ -64,13 +64,10 @@
                             <div class="table-container">
                                 <div class="users-table">
                                     <div class="table-header">
-                                        <div class="checkbox-cell">
-                                            <input type="checkbox" id="selectAll">
-                                        </div>
                                         <div class="name-cell">Name</div>
                                         <div class="department-cell">Department</div>
                                         <div class="role-cell">Role</div>
-                                        <div class="actions-cell"></div>
+                                        <div class="actions-cell">Actions</div>
                                     </div>
 
                                     <div id="usersList" class="table-body">
@@ -100,8 +97,9 @@
                                             <div class="form-group">
                                                 <label for="email">Email</label>
                                                 <input type="email" id="email" required
-                                                       pattern="^[A-Za-z0-9._%+-]+@(buksu\.edu\.ph|student\.buksu\.edu\.ph)$"
-                                                       title="Use an institutional email: @buksu.edu.ph or @student.buksu.edu.ph">
+                                                       pattern="^[A-Za-z0-9._%+-]+@buksu\.edu\.ph$"
+                                                       title="Use an institutional email: @buksu.edu.ph">
+                                                <div id="emailHint" class="input-hint error" style="display:none;">Use an institutional email: @buksu.edu.ph</div>
                                             </div>
                                             <div class="form-group">
                                                 <label for="department">Department</label>
@@ -152,7 +150,6 @@
                                             <div class="form-group">
                                                 <label for="editDepartment">Department</label>
                                                 <select id="editDepartment" required>
-                                                    <option value="">Select Department</option>
                                                     <option value="Food Technology">Food Technology</option>
                                                     <option value="Electronics Technology">Electronics Technology</option>
                                                     <option value="Automotive Technology">Automotive Technology</option>
