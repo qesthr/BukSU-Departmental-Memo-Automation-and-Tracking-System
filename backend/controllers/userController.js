@@ -1,56 +1,81 @@
 const User = require('../models/User');
-// Simple in-memory lock store for 2PL
-const userEditLocks = Object.create(null);
 const LOCK_TTL_MS = 30000; // 30 seconds
+const UserLock = require('../models/UserLock');
 
-function isLockActive(lock) {
-    if (!lock) { return false; }
-    return (Date.now() - lock.lockTime) < LOCK_TTL_MS;
-}
-
-exports.acquireUserLock = (req, res) => {
-    const userId = String(req.params.id);
-    const current = userEditLocks[userId];
-    if (current && isLockActive(current) && String(current.lockedBy) !== String(req.user._id)) {
-        return res.status(423).json({ locked: true, remaining: Math.ceil((LOCK_TTL_MS - (Date.now() - current.lockTime)) / 1000) });
+exports.acquireUserLock = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        // Cleanup any expired lock for this user
+        const now = Date.now();
+        const existing = await UserLock.findOne({ userId });
+        if (existing && existing.expiresAt && existing.expiresAt.getTime() > now) {
+            if (String(existing.lockedBy) !== String(req.user._id)) {
+                return res.status(423).json({ locked: true, remaining: Math.ceil((existing.expiresAt.getTime() - now) / 1000) });
+            }
+            // If same owner, extend
+            existing.lockTime = new Date();
+            existing.expiresAt = new Date(Date.now() + LOCK_TTL_MS);
+            await existing.save();
+            return res.json({ ok: true, ttl: 30 });
+        }
+        // Create or replace lock
+        await UserLock.findOneAndUpdate(
+            { userId },
+            { lockedBy: req.user._id, lockTime: new Date(), expiresAt: new Date(Date.now() + LOCK_TTL_MS) },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        return res.json({ ok: true, ttl: 30 });
+    } catch (e) {
+        return res.status(500).json({ message: 'Failed to acquire lock' });
     }
-    userEditLocks[userId] = { lockedBy: String(req.user._id), lockTime: Date.now() };
-    return res.json({ ok: true, ttl: 30 });
 };
 
-exports.refreshUserLock = (req, res) => {
-    const userId = String(req.params.id);
-    const current = userEditLocks[userId];
-    if (!current || !isLockActive(current)) {
-        return res.status(409).json({ expired: true });
-    }
-    if (String(current.lockedBy) !== String(req.user._id)) {
-        return res.status(423).json({ locked: true });
-    }
-    current.lockTime = Date.now();
-    return res.json({ ok: true, ttl: 30 });
-};
-
-exports.releaseUserLock = (req, res) => {
-    const userId = String(req.params.id);
-    const current = userEditLocks[userId];
-    if (current && String(current.lockedBy) !== String(req.user._id)) {
-        // Non-owner can still release if expired
-        if (isLockActive(current)) {
+exports.refreshUserLock = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const lock = await UserLock.findOne({ userId });
+        if (!lock || (lock.expiresAt && lock.expiresAt.getTime() <= Date.now())) {
+            return res.status(409).json({ expired: true });
+        }
+        if (String(lock.lockedBy) !== String(req.user._id)) {
             return res.status(423).json({ locked: true });
         }
+        lock.lockTime = new Date();
+        lock.expiresAt = new Date(Date.now() + LOCK_TTL_MS);
+        await lock.save();
+        return res.json({ ok: true, ttl: 30 });
+    } catch (e) {
+        return res.status(500).json({ message: 'Failed to refresh lock' });
     }
-    delete userEditLocks[userId];
-    return res.json({ ok: true });
 };
 
-exports.lockStatus = (req, res) => {
-    const userId = String(req.params.id);
-    const current = userEditLocks[userId];
-    if (current && isLockActive(current)) {
-        return res.json({ locked: true, lockedBy: current.lockedBy, remaining: Math.ceil((LOCK_TTL_MS - (Date.now() - current.lockTime)) / 1000) });
+exports.releaseUserLock = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const lock = await UserLock.findOne({ userId });
+        if (lock && String(lock.lockedBy) !== String(req.user._id) && lock.expiresAt && lock.expiresAt.getTime() > Date.now()) {
+            return res.status(423).json({ locked: true });
+        }
+        await UserLock.deleteOne({ userId });
+        return res.json({ ok: true });
+    } catch (e) {
+        return res.status(500).json({ message: 'Failed to release lock' });
     }
-    return res.json({ locked: false });
+};
+
+exports.lockStatus = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const lock = await UserLock.findOne({ userId }).populate('lockedBy', 'firstName lastName email');
+        if (lock && lock.expiresAt && lock.expiresAt.getTime() > Date.now()) {
+            const remaining = Math.ceil((lock.expiresAt.getTime() - Date.now()) / 1000);
+            const name = lock.lockedBy ? (lock.lockedBy.firstName + ' ' + lock.lockedBy.lastName) : undefined;
+            return res.json({ locked: true, lockedBy: lock.lockedBy?._id, locked_by_name: name, remaining });
+        }
+        return res.json({ locked: false });
+    } catch (e) {
+        return res.status(500).json({ message: 'Failed to get lock status' });
+    }
 };
 
 // Get all users with optional filtering
