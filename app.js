@@ -75,6 +75,28 @@ app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
+
+// --- Simple SSE event bus for admin notifications ---
+const sseClients = new Set();
+app.get('/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders && res.flushHeaders();
+    sseClients.add(res);
+    req.on('close', () => {
+        sseClients.delete(res);
+    });
+});
+
+function broadcastEvent(event, data) {
+    const payload = `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
+    for (const res of sseClients) {
+        try { res.write(payload); } catch (e) { /* ignore */ }
+    }
+}
+
+app.locals.broadcastEvent = broadcastEvent;
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));

@@ -601,7 +601,7 @@ function normalizeDepartment(dept) {
             const res = await fetch(`/api/users/lock-user/${userId}`, { method: 'POST' });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                showLockBusyModal((data && data.remaining) || 30);
+                showLockBusyModal((data && data.remaining) || 30, userId);
                 return false;
             }
             startEditTimers(userId);
@@ -620,14 +620,24 @@ function normalizeDepartment(dept) {
             secondsRemaining -= 1;
             if (secondsRemaining <= 0) {
                 clearInterval(editCountdownTimer);
-                autoCloseEdit(userId, 'Session expired — no activity detected.');
+                // Only expire if user actually interacted
+                if (window.__editArmed) { autoCloseEdit(userId, 'Session expired — no activity detected.'); }
+                else { secondsRemaining = 30; }
             } else {
                 badge.textContent = `Editing lock: ${secondsRemaining}s`;
             }
         }, 1000);
 
-        resetInactivity(userId);
-        editUserForm.addEventListener('input', () => resetInactivity(userId), { passive: true });
+        // Arm inactivity only after first interaction
+        window.__editArmed = false;
+        const arm = () => { window.__editArmed = true; resetInactivity(userId); };
+        ['input','keydown','click','mousemove'].forEach(evt => {
+            editUserForm.addEventListener(evt, arm, { passive: true, once: true });
+        });
+        // Keep-alive on continued interactions
+        ['input','keydown','click','mousemove'].forEach(evt => {
+            editUserForm.addEventListener(evt, () => { if (window.__editArmed) { resetInactivity(userId); } }, { passive: true });
+        });
     }
 
     function resetInactivity(userId) {
@@ -654,10 +664,10 @@ function normalizeDepartment(dept) {
     async function autoCloseEdit(userId, message) {
         try { await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST' }); } catch {}
         closeModal(editUserModal);
-        alert(message);
+        showToast(message || 'Session ended');
     }
 
-    function showLockBusyModal(seconds) {
+    function showLockBusyModal(seconds, userId) {
         ensureConflictModal();
         const overlay = document.getElementById('conflictModalOverlay');
         const cd = document.getElementById('conflictCountdown');
@@ -665,14 +675,21 @@ function normalizeDepartment(dept) {
         let remaining = Math.max(1, seconds || 30);
         retry.disabled = true;
         cd.textContent = String(remaining);
-        const t = setInterval(() => {
-            remaining -= 1;
-            cd.textContent = String(remaining);
-            if (remaining <= 0) {
-                clearInterval(t);
-                retry.disabled = false;
-            }
-        }, 1000);
+        // Poll lock state from server every 2s to sync countdown
+        const poll = setInterval(async () => {
+            try {
+                const r = await fetch(`/api/users/locks/${userId}/state`);
+                const j = await r.json();
+                if (j && j.locked) {
+                    remaining = j.remaining_seconds || j.remaining || remaining;
+                    cd.textContent = String(Math.max(0, remaining));
+                } else {
+                    clearInterval(poll);
+                    overlay.classList.remove('open');
+                    retry.disabled = false;
+                }
+            } catch {}
+        }, 2000);
         retry.onclick = () => { overlay.classList.remove('open'); };
         requestAnimationFrame(() => overlay.classList.add('open'));
     }
@@ -696,6 +713,41 @@ function normalizeDepartment(dept) {
         const lu = document.getElementById('editLastUpdatedAt');
         if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
         openModal(editUserModal);
+    }
+
+    // Subscribe to SSE notifications for toasts
+    (function initSSE(){
+        try {
+            const es = new EventSource('/events');
+            es.addEventListener('edit_success', (ev) => {
+                try { const d = JSON.parse(ev.data); showToast(`${d.editorName || 'An admin'} updated ${d.name || 'a user'}`); fetchUsers(currentFilter); } catch {}
+            });
+            es.addEventListener('lock_released', (ev) => {
+                try { const d = JSON.parse(ev.data); /* could update lock UI */ } catch {}
+            });
+        } catch {}
+    })();
+
+    // Simple toast
+    function showToast(msg){
+        let el = document.getElementById('globalToast');
+        if (!el){
+            el = document.createElement('div');
+            el.id = 'globalToast';
+            el.style.position = 'fixed';
+            el.style.right = '16px';
+            el.style.bottom = '16px';
+            el.style.background = '#0f172a';
+            el.style.color = '#fff';
+            el.style.padding = '10px 14px';
+            el.style.borderRadius = '8px';
+            el.style.boxShadow = '0 10px 30px rgba(2,6,23,.2)';
+            el.style.zIndex = '10001';
+            document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.opacity = '1';
+        setTimeout(() => { el.style.opacity = '0'; }, 3000);
     }
 
     // Pre-locking removed; both admins can open the edit modal freely

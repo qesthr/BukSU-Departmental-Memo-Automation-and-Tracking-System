@@ -24,6 +24,8 @@ exports.acquireUserLock = async (req, res) => {
             { lockedBy: req.user._id, lockTime: new Date(), expiresAt: new Date(Date.now() + LOCK_TTL_MS) },
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
+        // Notify others a lock has been acquired
+        try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_acquired', { userId, lockedBy: req.user._id, name: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() }); } catch (e) {}
         return res.json({ ok: true, ttl: 30 });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to acquire lock' });
@@ -57,6 +59,7 @@ exports.releaseUserLock = async (req, res) => {
             return res.status(423).json({ locked: true });
         }
         await UserLock.deleteOne({ userId });
+        try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_released', { userId }); } catch (e) {}
         return res.json({ ok: true });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to release lock' });
@@ -137,6 +140,29 @@ exports.addUser = async (req, res) => {
         });
 
         await user.save();
+        // Release any lock and notify success
+        try {
+            await UserLock.deleteOne({ userId: id });
+            req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('edit_success', {
+                userId: id,
+                editorId: req.user._id,
+                editorName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+                email: user.email,
+                name: `${user.firstName} ${user.lastName}`
+            });
+            req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_released', { userId: id });
+            // Email notify all admins except the editor
+            try {
+                const emailService = require('../services/emailService');
+                const admins = await User.find({ role: { $in: ['admin', 'superadmin'] }, isActive: true }).select('email').lean();
+                const toList = (admins || []).map(a => a.email).filter(e => e && e !== req.user.email);
+                if (emailService && toList.length) {
+                    const subject = `User updated: ${user.firstName} ${user.lastName}`;
+                    const body = `${req.user.firstName || 'An admin'} ${req.user.lastName || ''} updated ${user.firstName} ${user.lastName}.`;
+                    await Promise.allSettled(toList.map(to => emailService.sendMail({ to, subject, text: body })));
+                }
+            } catch (e) { /* ignore email errors */ }
+        } catch (e) {}
 
         // Send email notification to user
         try {
