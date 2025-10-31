@@ -17,6 +17,89 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'all';
     let currentUserId = null;
 
+    // Invitation Modal (vanilla JS): spinner -> success checkmark
+    function ensureInviteModal() {
+        if (document.getElementById('inviteModalOverlay')) { return; }
+        const style = document.createElement('style');
+        style.id = 'inviteModalStyles';
+        style.textContent = `
+        #inviteModalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:9999;opacity:0;transition:opacity .2s ease}
+        #inviteModalOverlay.open{display:flex;opacity:1}
+        #inviteModal{background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.2);width:100%;max-width:420px;padding:24px;text-align:center}
+        #inviteModal h3{margin:12px 0 6px 0;color:#0f172a;font-weight:600;font-size:20px}
+        #inviteModal p{margin:0;color:#475569}
+        .invite-spinner{width:54px;height:54px;border:4px solid #e2e8f0;border-top-color:#1c89e3;border-radius:50%;margin:0 auto 10px auto;animation:spin 1s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .check-wrap{width:64px;height:64px;border-radius:50%;background:#e8f5e9;margin:0 auto 8px auto;display:flex;align-items:center;justify-content:center}
+        .check{stroke:#22c55e;stroke-width:6;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:draw .5s ease forwards}
+        @keyframes draw{to{stroke-dashoffset:0}}
+        #inviteDoneBtn{margin-top:14px;background:#1c89e3;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer}
+        #inviteDoneBtn:active{transform:translateY(1px)}
+        `;
+        document.head.appendChild(style);
+
+        const overlay = document.createElement('div');
+        overlay.id = 'inviteModalOverlay';
+        overlay.innerHTML = `
+            <div id="inviteModal" role="dialog" aria-modal="true">
+                <div id="inviteState"></div>
+                <h3 id="inviteTitle">Sending invitation…</h3>
+                <p id="inviteMessage">Please wait while we send the invitation.</p>
+                <button id="inviteDoneBtn" style="display:none">Done</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('inviteDoneBtn').addEventListener('click', () => closeInviteModal());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) { closeInviteModal(); } });
+    }
+
+    function openInviteLoading() {
+        ensureInviteModal();
+        const overlay = document.getElementById('inviteModalOverlay');
+        const state = document.getElementById('inviteState');
+        const title = document.getElementById('inviteTitle');
+        const msg = document.getElementById('inviteMessage');
+        const btn = document.getElementById('inviteDoneBtn');
+        state.innerHTML = '<div class="invite-spinner"></div>';
+        title.textContent = 'Sending invitation…';
+        msg.textContent = 'Please wait while we send the invitation.';
+        btn.style.display = 'none';
+        requestAnimationFrame(() => overlay.classList.add('open'));
+    }
+
+    function showInviteSuccess() {
+        const state = document.getElementById('inviteState');
+        const title = document.getElementById('inviteTitle');
+        const msg = document.getElementById('inviteMessage');
+        const btn = document.getElementById('inviteDoneBtn');
+        state.innerHTML = '<div class="check-wrap"><svg width="40" height="40" viewBox="0 0 24 24"><path class="check" d="M6 12l4 4 8-8" /></svg></div>';
+        title.textContent = 'Invitation sent successfully';
+        msg.textContent = '';
+        btn.textContent = 'Done';
+        btn.style.display = 'inline-block';
+    }
+
+    function showInviteError(message) {
+        const state = document.getElementById('inviteState');
+        const title = document.getElementById('inviteTitle');
+        const msg = document.getElementById('inviteMessage');
+        const btn = document.getElementById('inviteDoneBtn');
+        state.innerHTML = '<div class="check-wrap" style="background:#fee2e2"><svg width="40" height="40" viewBox="0 0 24 24"><path d="M15 9l-6 6M9 9l6 6" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+        title.textContent = 'Failed to send invitation';
+        msg.textContent = message || 'Please try again or check the user details.';
+        btn.textContent = 'Done';
+        btn.style.display = 'inline-block';
+    }
+
+    function closeInviteModal() {
+        const overlay = document.getElementById('inviteModalOverlay');
+        if (!overlay) { return; }
+        overlay.classList.remove('open');
+        // allow fade-out to finish
+        setTimeout(() => { overlay.style.display = 'none'; }, 200);
+    }
+
     // Fetch and render users
     async function fetchUsers(role = 'all') {
         try {
@@ -44,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Normalize department (long form only for IT/EMC/EMC/IT variations):
 function normalizeDepartment(dept) {
-        if (!dept) return '';
+        if (!dept) {return '';}
         const d = String(dept).trim().toLowerCase();
     if (
         d === 'it' ||
@@ -57,9 +140,9 @@ function normalizeDepartment(dept) {
     ) {
         return 'Information Technology and Entertainment Multimedia Computing';
         }
-        if (d === 'ft' || d === 'food tech' || d === 'food technology') return 'Food Technology';
-        if (d === 'et' || d === 'electronics tech' || d === 'electronics technology') return 'Electronics Technology';
-        if (d === 'at' || d === 'automotive tech' || d === 'automotive technology') return 'Automotive Technology';
+        if (d === 'ft' || d === 'food tech' || d === 'food technology') {return 'Food Technology';}
+        if (d === 'et' || d === 'electronics tech' || d === 'electronics technology') {return 'Electronics Technology';}
+        if (d === 'at' || d === 'automotive tech' || d === 'automotive technology') {return 'Automotive Technology';}
         return dept;
     }
 
@@ -126,11 +209,16 @@ function normalizeDepartment(dept) {
     // Add user
     async function addUser(formData) {
         try {
-            // Validate domain before sending
+            // Validate domain before sending (allow instructor and student domains)
             const email = String(formData.email || '').toLowerCase();
-            if (!email.endsWith('@buksu.edu.ph')) {
-                throw new Error('Email must be @buksu.edu.ph');
+            const isInstructor = email.endsWith('@buksu.edu.ph');
+            const isStudent = email.endsWith('@student.buksu.edu.ph');
+            if (!isInstructor && !isStudent) {
+                throw new Error('Email must be @buksu.edu.ph or @student.buksu.edu.ph');
             }
+
+            // Show custom loading modal while sending
+            openInviteLoading();
 
             // Send invite instead of direct creation
             const response = await fetch('/api/users/invite', {
@@ -148,17 +236,11 @@ function normalizeDepartment(dept) {
 
             await fetchUsers(currentFilter);
             closeModal(addUserModal);
-            if (window.showMessageModal) {
-                window.showMessageModal('User Invited', 'Invitation sent successfully.', 'success');
-            } else {
-                alert('Invitation sent successfully');
-            }
+            // Switch to success state in modal
+            showInviteSuccess();
         } catch (error) {
-            if (window.showMessageModal) {
-                window.showMessageModal('Error', error.message || 'Failed to send invitation', 'error');
-            } else {
-                alert(error.message || 'Failed to send invitation');
-            }
+            // Show error in the same modal so flow is consistent for all roles
+            showInviteError(error && error.message);
         }
     }
 
@@ -186,24 +268,15 @@ function normalizeDepartment(dept) {
         }
     }
 
-    // Delete user
+    // Delete user (API only). UI feedback handled by runDeleteFlow
     async function deleteUser(userId) {
-        try {
-            const response = await fetch(`/api/users/${userId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Error deleting user');
-            }
-
-            await fetchUsers(currentFilter);
-            closeModal(deleteModal);
-            showNotification('User deleted successfully', 'success');
-        } catch (error) {
-            showNotification(error.message, 'error');
+        const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+        if (!response.ok) {
+            let message = 'Error deleting user';
+            try { const e = await response.json(); message = e.message || message; } catch (_) {}
+            throw new Error(message);
         }
+        return true;
     }
 
     // Event Listeners
@@ -234,21 +307,23 @@ function normalizeDepartment(dept) {
             const evaluate = () => {
                 emailInputEl.value = (emailInputEl.value || '').toLowerCase();
                 const v = emailInputEl.value;
-                const valid = v.endsWith('@buksu.edu.ph');
+                const valid = v.endsWith('@buksu.edu.ph') || v.endsWith('@student.buksu.edu.ph');
                 setState(valid);
             };
 
             emailInputEl.addEventListener('focus', () => {
                 // On focus, show hint unless already valid
                 evaluate();
-                if (!emailInputEl.value.endsWith('@buksu.edu.ph')) {
+                const v = (emailInputEl.value || '').toLowerCase();
+                if (!(v.endsWith('@buksu.edu.ph') || v.endsWith('@student.buksu.edu.ph'))) {
                     emailHintEl.style.display = 'block';
                 }
             });
             emailInputEl.addEventListener('input', evaluate);
             emailInputEl.addEventListener('blur', () => {
                 // On blur, keep visible if invalid; hide if valid
-                const valid = (emailInputEl.value || '').toLowerCase().endsWith('@buksu.edu.ph');
+                const v = (emailInputEl.value || '').toLowerCase();
+                const valid = v.endsWith('@buksu.edu.ph') || v.endsWith('@student.buksu.edu.ph');
                 setState(valid);
             });
         }
@@ -280,11 +355,25 @@ function normalizeDepartment(dept) {
         if (e.target.closest('.delete-user')) {
             e.stopPropagation();
             currentUserId = userId;
+            resetDeleteModal();
             openModal(deleteModal);
+            trapFocus(deleteModal, ['cancelDelete','confirmDelete']);
             return;
         }
 
         // Inline quick actions removed: no menu dropdowns
+    });
+
+    // Fallback global delegation in case icon click misses row handler
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.delete-user');
+        if (!btn) { return; }
+        const row = btn.closest('.table-row');
+        if (!row) { return; }
+        currentUserId = row.dataset.id;
+        resetDeleteModal();
+        openModal(deleteModal);
+        trapFocus(deleteModal, ['cancelDelete','confirmDelete']);
     });
 
     // Close menu when clicking outside
@@ -331,11 +420,78 @@ function normalizeDepartment(dept) {
     });
 
     document.getElementById('confirmDelete').addEventListener('click', () => {
-        if (currentUserId) {
-            deleteUser(currentUserId);
-            currentUserId = null;
-        }
+        if (!currentUserId) {return;}
+        runDeleteFlow(currentUserId);
     });
+
+    function resetDeleteModal() {
+        const msg = document.getElementById('deleteMessage');
+        const state = document.getElementById('deleteState');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const deleteBtn = document.getElementById('confirmDelete');
+        msg.textContent = 'Are you sure you want to delete this user? This action cannot be undone.';
+        state.innerHTML = '';
+        cancelBtn.disabled = false;
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = 'Delete';
+        // focus primary action
+        setTimeout(() => deleteBtn.focus(), 0);
+    }
+
+    function showDeletingState() {
+        const msg = document.getElementById('deleteMessage');
+        const state = document.getElementById('deleteState');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const deleteBtn = document.getElementById('confirmDelete');
+        cancelBtn.disabled = true;
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:#ef4444;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:6px;animation:spin .9s linear infinite"></span>Deleting…';
+        state.innerHTML = '<span class="spinner"></span>';
+        msg.textContent = 'Deleting user… please wait';
+    }
+
+    function showDeleteSuccess() {
+        const msg = document.getElementById('deleteMessage');
+        const state = document.getElementById('deleteState');
+        state.innerHTML = '<span class="checkwrap"><svg width="24" height="24" viewBox="0 0 24 24"><path class="check" d="M6 12l4 4 8-8"/></svg></span>';
+        msg.textContent = 'User deleted successfully!';
+    }
+
+    async function runDeleteFlow(userId) {
+        showDeletingState();
+        try {
+            await deleteUser(userId);
+            showDeleteSuccess();
+            // close after short delay and refresh list
+            setTimeout(() => {
+                closeModal(deleteModal);
+                currentUserId = null;
+                fetchUsers(currentFilter);
+            }, 1600);
+        } catch (err) {
+            // revert minimal UI and show message
+            const msg = document.getElementById('deleteMessage');
+            msg.textContent = (err && err.message) ? err.message : 'Failed to delete user';
+            const cancelBtn = document.getElementById('cancelDelete');
+            const deleteBtn = document.getElementById('confirmDelete');
+            cancelBtn.disabled = false;
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = 'Delete';
+        }
+    }
+
+    function trapFocus(container, ids) {
+        const focusables = ids.map(id => document.getElementById(id)).filter(Boolean);
+        if (focusables.length === 0) {return;}
+        function onKey(e){
+            if (e.key !== 'Tab') {return;}
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+        container.addEventListener('keydown', onKey, { once: true, capture: true });
+    }
 
     roleFilters.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -355,11 +511,15 @@ function normalizeDepartment(dept) {
 
     // Modal helpers
     function openModal(modal) {
+        if (!modal) { return; }
         modal.style.display = 'block';
+        modal.classList.add('open');
     }
 
     function closeModal(modal) {
-        modal.style.display = 'none';
+        if (!modal) { return; }
+        modal.classList.remove('open');
+        setTimeout(() => { modal.style.display = 'none'; }, 200);
     }
 
     // Close modals when clicking outside or on close button
