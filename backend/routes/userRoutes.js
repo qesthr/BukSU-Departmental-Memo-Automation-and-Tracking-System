@@ -28,6 +28,12 @@ router.delete('/:id', userController.deleteUser);
 // Upload profile picture
 router.post('/:id/profile-picture', userController.uploadProfilePicture);
 
+// 2PL edit lock endpoints
+router.post('/lock-user/:id', userController.acquireUserLock);
+router.post('/lock-user/:id/refresh', userController.refreshUserLock);
+router.post('/unlock-user/:id', userController.releaseUserLock);
+router.get('/lock-status/:id', userController.lockStatus);
+
 // Invitations
 router.post('/invite', inviteController.inviteUser);
 router.get('/invite/:token', inviteController.renderInvitePage);

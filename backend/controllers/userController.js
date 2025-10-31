@@ -1,4 +1,57 @@
 const User = require('../models/User');
+// Simple in-memory lock store for 2PL
+const userEditLocks = Object.create(null);
+const LOCK_TTL_MS = 30000; // 30 seconds
+
+function isLockActive(lock) {
+    if (!lock) { return false; }
+    return (Date.now() - lock.lockTime) < LOCK_TTL_MS;
+}
+
+exports.acquireUserLock = (req, res) => {
+    const userId = String(req.params.id);
+    const current = userEditLocks[userId];
+    if (current && isLockActive(current) && String(current.lockedBy) !== String(req.user._id)) {
+        return res.status(423).json({ locked: true, remaining: Math.ceil((LOCK_TTL_MS - (Date.now() - current.lockTime)) / 1000) });
+    }
+    userEditLocks[userId] = { lockedBy: String(req.user._id), lockTime: Date.now() };
+    return res.json({ ok: true, ttl: 30 });
+};
+
+exports.refreshUserLock = (req, res) => {
+    const userId = String(req.params.id);
+    const current = userEditLocks[userId];
+    if (!current || !isLockActive(current)) {
+        return res.status(409).json({ expired: true });
+    }
+    if (String(current.lockedBy) !== String(req.user._id)) {
+        return res.status(423).json({ locked: true });
+    }
+    current.lockTime = Date.now();
+    return res.json({ ok: true, ttl: 30 });
+};
+
+exports.releaseUserLock = (req, res) => {
+    const userId = String(req.params.id);
+    const current = userEditLocks[userId];
+    if (current && String(current.lockedBy) !== String(req.user._id)) {
+        // Non-owner can still release if expired
+        if (isLockActive(current)) {
+            return res.status(423).json({ locked: true });
+        }
+    }
+    delete userEditLocks[userId];
+    return res.json({ ok: true });
+};
+
+exports.lockStatus = (req, res) => {
+    const userId = String(req.params.id);
+    const current = userEditLocks[userId];
+    if (current && isLockActive(current)) {
+        return res.json({ locked: true, lockedBy: current.lockedBy, remaining: Math.ceil((LOCK_TTL_MS - (Date.now() - current.lockTime)) / 1000) });
+    }
+    return res.json({ locked: false });
+};
 
 // Get all users with optional filtering
 exports.getAllUsers = async (req, res) => {

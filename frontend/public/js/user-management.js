@@ -287,6 +287,8 @@ function normalizeDepartment(dept) {
             }
 
             await fetchUsers(currentFilter);
+            const id = document.getElementById('editUserId').value;
+            try { if (id) { await fetch(`/api/users/unlock-user/${id}`, { method: 'POST' }); } } catch {}
             closeModal(editUserModal);
             showInviteSuccess('User updated successfully', '', 'Done');
         } catch (error) {
@@ -308,7 +310,9 @@ function normalizeDepartment(dept) {
             }
             setFormDisabled(editUserForm, false);
             closeInviteModal();
-            // no pre-locking; nothing to release
+            // ensure lock release on error as well
+            const id = document.getElementById('editUserId').value;
+            try { if (id) { await fetch(`/api/users/unlock-user/${id}`, { method: 'POST' }); } } catch {}
         }
     }
 
@@ -385,25 +389,9 @@ function normalizeDepartment(dept) {
         if (e.target.closest('.edit-user')) {
             e.stopPropagation();
             if (user) {
-                document.getElementById('editUserId').value = user._id;
-                document.getElementById('editFirstName').value = user.firstName;
-                document.getElementById('editLastName').value = user.lastName;
-                document.getElementById('editDepartment').value = user.department || '';
-                const roleSel = document.getElementById('editRole');
-                roleSel.value = user.role;
-                // If editing own profile, disable role and show note
-                const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
-                const note = document.getElementById('selfEditNote');
-                if (isSelf) {
-                    roleSel.disabled = true;
-                    if (note) { note.style.display = 'block'; }
-                } else {
-                    roleSel.disabled = false;
-                    if (note) { note.style.display = 'none'; }
-                }
-                const lu = document.getElementById('editLastUpdatedAt');
-                if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
-                openModal(editUserModal);
+                const acquired = await acquireEditLock(user._id);
+                if (!acquired) { return; }
+                populateAndOpenEdit(user);
             }
             return;
         }
@@ -601,6 +589,113 @@ function normalizeDepartment(dept) {
     function setFormDisabled(form, disabled) {
         if (!form) { return; }
         Array.from(form.elements || []).forEach(el => { el.disabled = !!disabled; });
+    }
+
+    // --- 2PL Locking Frontend Helpers ---
+    let editInactivityTimer;
+    let editCountdownTimer;
+    let secondsRemaining = 30;
+
+    async function acquireEditLock(userId) {
+        try {
+            const res = await fetch(`/api/users/lock-user/${userId}`, { method: 'POST' });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                showLockBusyModal((data && data.remaining) || 30);
+                return false;
+            }
+            startEditTimers(userId);
+            return true;
+        } catch {
+            return true; // fail-open
+        }
+    }
+
+    function startEditTimers(userId) {
+        secondsRemaining = 30;
+        const badge = ensureEditCountdownBadge();
+        badge.textContent = `Editing lock: ${secondsRemaining}s`;
+        if (editCountdownTimer) {clearInterval(editCountdownTimer);}
+        editCountdownTimer = setInterval(() => {
+            secondsRemaining -= 1;
+            if (secondsRemaining <= 0) {
+                clearInterval(editCountdownTimer);
+                autoCloseEdit(userId, 'Session expired — no activity detected.');
+            } else {
+                badge.textContent = `Editing lock: ${secondsRemaining}s`;
+            }
+        }, 1000);
+
+        resetInactivity(userId);
+        editUserForm.addEventListener('input', () => resetInactivity(userId), { passive: true });
+    }
+
+    function resetInactivity(userId) {
+        if (editInactivityTimer) {clearTimeout(editInactivityTimer);}
+        secondsRemaining = 30;
+        fetch(`/api/users/lock-user/${userId}/refresh`, { method: 'POST' }).catch(() => {});
+        editInactivityTimer = setTimeout(() => autoCloseEdit(userId, 'Session expired — no activity detected.'), 30000);
+    }
+
+    function ensureEditCountdownBadge() {
+        let badge = document.getElementById('editLockCountdown');
+        if (!badge) {
+            const header = editUserModal.querySelector('.modal-header');
+            badge = document.createElement('div');
+            badge.id = 'editLockCountdown';
+            badge.style.marginLeft = 'auto';
+            badge.style.fontSize = '.85rem';
+            badge.style.color = '#64748b';
+            header && header.appendChild(badge);
+        }
+        return badge;
+    }
+
+    async function autoCloseEdit(userId, message) {
+        try { await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST' }); } catch {}
+        closeModal(editUserModal);
+        alert(message);
+    }
+
+    function showLockBusyModal(seconds) {
+        ensureConflictModal();
+        const overlay = document.getElementById('conflictModalOverlay');
+        const cd = document.getElementById('conflictCountdown');
+        const retry = document.getElementById('retryConflict');
+        let remaining = Math.max(1, seconds || 30);
+        retry.disabled = true;
+        cd.textContent = String(remaining);
+        const t = setInterval(() => {
+            remaining -= 1;
+            cd.textContent = String(remaining);
+            if (remaining <= 0) {
+                clearInterval(t);
+                retry.disabled = false;
+            }
+        }, 1000);
+        retry.onclick = () => { overlay.classList.remove('open'); };
+        requestAnimationFrame(() => overlay.classList.add('open'));
+    }
+
+    function populateAndOpenEdit(user) {
+        document.getElementById('editUserId').value = user._id;
+        document.getElementById('editFirstName').value = user.firstName;
+        document.getElementById('editLastName').value = user.lastName;
+        document.getElementById('editDepartment').value = user.department || '';
+        const roleSel = document.getElementById('editRole');
+        roleSel.value = user.role;
+        const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
+        const note = document.getElementById('selfEditNote');
+        if (isSelf) {
+            roleSel.disabled = true;
+            if (note) { note.style.display = 'block'; }
+        } else {
+            roleSel.disabled = false;
+            if (note) { note.style.display = 'none'; }
+        }
+        const lu = document.getElementById('editLastUpdatedAt');
+        if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
+        openModal(editUserModal);
     }
 
     // Pre-locking removed; both admins can open the edit modal freely
