@@ -26,6 +26,17 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
+// Get single user by id
+exports.getUser = async (req, res) => {
+    try {
+        const u = await User.findById(req.params.id).select('-password -googleId');
+        if (!u) { return res.status(404).json({ message: 'User not found' }); }
+        return res.json({ user: u });
+    } catch (e) {
+        return res.status(500).json({ message: 'Error fetching user' });
+    }
+};
+
 // Add new user
 exports.addUser = async (req, res) => {
     try {
@@ -147,11 +158,20 @@ exports.deleteUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, role, department, email, profilePicture } = req.body;
+        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Optimistic locking: if client provided lastUpdatedAt, ensure it matches
+        if (lastUpdatedAt) {
+            const clientTs = new Date(lastUpdatedAt).getTime();
+            const serverTs = new Date(user.lastUpdatedAt || user.updatedAt || 0).getTime();
+            if (clientTs && serverTs && clientTs < serverTs) {
+                return res.status(409).json({ conflict: true, updated_at: user.lastUpdatedAt || user.updatedAt, updated_by: user.locked_by || undefined, wait: 30 });
+            }
         }
 
         // Prevent changing role of last admin
@@ -190,6 +210,8 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({ message: 'Error updating user' });
     }
 };
+
+// Pre-edit locking removed; optimistic concurrency only
 
 // Upload profile picture
 exports.uploadProfilePicture = async (req, res) => {

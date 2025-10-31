@@ -74,6 +74,7 @@ app.post('/invite/complete', require('./backend/controllers/inviteController').c
 app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));

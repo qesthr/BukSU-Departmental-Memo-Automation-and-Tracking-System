@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/calendar.css">
+    <!-- Google OAuth handled server-side; no client secret exposed -->
 </head>
 <body>
     <div class="dashboard-container">
@@ -20,8 +21,14 @@
             <div class="calendar-page">
                 <aside class="calendar-sidebar">
                     <div class="sidebar-section">
-                        <h3>Mini Calendar</h3>
-                        <input type="date" id="miniCalendar" style="width:100%; padding:.5rem; border:1px solid #e2e8f0; border-radius:6px;" />
+                        <div class="mini-cal-header">
+                            <h3 id="miniCalMonth">Mini Calendar</h3>
+                            <div class="mini-cal-nav">
+                                <button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
+                                <button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
+                            </div>
+                        </div>
+                        <div id="miniCalendar" class="mini-calendar"></div>
                     </div>
                     <div class="sidebar-section">
                         <h3>My Calendars</h3>
@@ -49,7 +56,18 @@
 
                 <section class="calendar-main">
                     <div class="calendar-toolbar">
-                        <button id="addMemoBtn" class="add-btn">Add Memo</button>
+                        <div style="display:flex; gap:.5rem; align-items:center;">
+                            <% if (!(user.calendarAccessToken || user.calendarRefreshToken)) { %>
+                                <a href="/calendar/auth" class="btn-secondary" id="connectCalendarBtn">Connect Google Calendar</a>
+                            <% } else { %>
+                                <button id="addMemoBtn" class="add-btn">Add Memo</button>
+                            <% } %>
+                        </div>
+                        <div class="nav-toggle" style="display:flex; gap:.5rem; align-items:center;">
+                            <button id="prevBtn" class="btn-secondary" aria-label="Previous">&#8249;</button>
+                            <button id="todayBtn" class="btn-secondary">Today</button>
+                            <button id="nextBtn" class="btn-secondary" aria-label="Next">&#8250;</button>
+                        </div>
                         <div class="view-toggle">
                             <button data-view="dayGridMonth" class="active">Month</button>
                             <button data-view="timeGridWeek">Week</button>
@@ -72,6 +90,8 @@
             </div>
             <div class="modal-body">
                 <form id="memoForm">
+                    <input type="hidden" id="memoEditingSource" value="" />
+                    <input type="hidden" id="memoEditingId" value="" />
                     <div class="form-group">
                         <label for="memoTitle">Title of Memo</label>
                         <input type="text" id="memoTitle" required />
@@ -110,6 +130,7 @@
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" id="cancelMemo">Cancel</button>
+                        <button type="button" class="btn-secondary" id="deleteMemo" style="margin-left:auto">Delete</button>
                         <button type="submit" class="btn-primary">Save</button>
                     </div>
                 </form>

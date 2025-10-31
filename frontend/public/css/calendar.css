@@ -1,6 +1,9 @@
 .calendar-page { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; height: calc(100vh - 100px); }
 .calendar-sidebar { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; overflow: auto; }
 .calendar-main { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; }
+.calendar-main #calendar { min-height: 640px; width: 100%; }
+.fc { font-family: inherit; }
+.fc .fc-view-harness { min-height: 600px; }
 .sidebar-section { margin-bottom: 1rem; }
 .sidebar-section h3 { margin: 0 0 .5rem; font-size: .9rem; color: #334155; }
 .category-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: .5rem; }
@@ -24,4 +27,28 @@
 .form-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem; }
 .btn-secondary { padding:.5rem .8rem; border:1px solid #e2e8f0; background:#fff; border-radius:6px; cursor:pointer; }
 .btn-primary { padding:.5rem .8rem; background:#1C89E3; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+
+/* Subtle shadows and borders */
+.calendar-sidebar, .calendar-main, .modal-content { box-shadow: 0 8px 20px rgba(2,6,23,0.06); }
+
+/* FullCalendar event styling for rounded blocks */
+.fc .fc-event { border-radius: 8px; padding: 2px 4px; }
+.fc .fc-toolbar-title { font-weight: 600; }
+
+/* Mini calendar */
+.mini-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem; }
+.mini-cal-nav .btn-icon { border:1px solid #e2e8f0; background:#fff; border-radius:6px; padding:.15rem .4rem; cursor:pointer; }
+.mini-calendar { display:grid; grid-template-columns: repeat(7, 1fr); gap:.25rem; border:1px solid #e2e8f0; border-radius:8px; padding:.5rem; }
+.mini-calendar .mini-dow { text-align:center; font-size:.7rem; color:#64748b; }
+.mini-calendar .mini-day { text-align:center; padding:.35rem 0; border-radius:6px; cursor:pointer; }
+.mini-calendar .mini-day:hover { background:#f1f5f9; }
+.mini-calendar .mini-today { outline:2px solid #1C89E3; }
+.mini-calendar .mini-selected { background:#e0f2fe; }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .calendar-page { grid-template-columns: 1fr; height: auto; }
+  .calendar-sidebar { order: 2; }
+  .calendar-main { order: 1; }
+}
 

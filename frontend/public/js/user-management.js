@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.addEventListener('click', (e) => { if (e.target === overlay) { closeInviteModal(); } });
     }
 
-    function openInviteLoading() {
+    function openInviteLoading(titleText, messageText) {
         ensureInviteModal();
         const overlay = document.getElementById('inviteModalOverlay');
         const state = document.getElementById('inviteState');
@@ -62,21 +62,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg = document.getElementById('inviteMessage');
         const btn = document.getElementById('inviteDoneBtn');
         state.innerHTML = '<div class="invite-spinner"></div>';
-        title.textContent = 'Sending invitation…';
-        msg.textContent = 'Please wait while we send the invitation.';
+        title.textContent = titleText || 'Processing…';
+        msg.textContent = messageText || 'Please wait while we process your request.';
         btn.style.display = 'none';
         requestAnimationFrame(() => overlay.classList.add('open'));
     }
 
-    function showInviteSuccess() {
+    function showInviteSuccess(successTitle, successMessage, doneText) {
         const state = document.getElementById('inviteState');
         const title = document.getElementById('inviteTitle');
         const msg = document.getElementById('inviteMessage');
         const btn = document.getElementById('inviteDoneBtn');
         state.innerHTML = '<div class="check-wrap"><svg width="40" height="40" viewBox="0 0 24 24"><path class="check" d="M6 12l4 4 8-8" /></svg></div>';
-        title.textContent = 'Invitation sent successfully';
-        msg.textContent = '';
-        btn.textContent = 'Done';
+        title.textContent = successTitle || 'Success';
+        msg.textContent = successMessage || '';
+        btn.textContent = doneText || 'Done';
         btn.style.display = 'inline-block';
     }
 
@@ -247,6 +247,9 @@ function normalizeDepartment(dept) {
     // Update user
     async function updateUser(userId, formData) {
         try {
+            // disable edit form and show loading overlay
+            setFormDisabled(editUserForm, true);
+            openInviteLoading('Updating user information…', 'Please wait while we update this user.');
             const response = await fetch(`/api/users/${userId}`, {
                 method: 'PUT',
                 headers: {
@@ -256,15 +259,56 @@ function normalizeDepartment(dept) {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Error updating user');
+                if (response.status === 409) {
+                    const data = await response.json().catch(() => ({}));
+                    showConflictModal(data && data.wait ? data.wait : 30, async () => {
+                        // Refresh user data then reopen modal
+                        try {
+                            const r = await fetch(`/api/users/${userId}`);
+                            const j = await r.json();
+                            const u = j && j.user ? j.user : null;
+                            if (u) {
+                                document.getElementById('editUserId').value = u._id;
+                                document.getElementById('editFirstName').value = u.firstName;
+                                document.getElementById('editLastName').value = u.lastName;
+                                document.getElementById('editDepartment').value = u.department || '';
+                                document.getElementById('editRole').value = u.role;
+                                const lu = document.getElementById('editLastUpdatedAt');
+                                if (lu) { lu.value = u.lastUpdatedAt || u.updatedAt || ''; }
+                                openModal(editUserModal);
+                            }
+                        } catch (e) { /* ignore */ }
+                    });
+                    throw new Error('Conflict');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Error updating user');
+                }
             }
 
             await fetchUsers(currentFilter);
             closeModal(editUserModal);
-            showNotification('User updated successfully', 'success');
+            showInviteSuccess('User updated successfully', '', 'Done');
         } catch (error) {
-            showNotification(error.message, 'error');
+            // show inline error on edit modal and re-enable form
+            const errElId = 'editErrorMsg';
+            let errEl = document.getElementById(errElId);
+            if (!errEl) {
+                errEl = document.createElement('div');
+                errEl.id = errElId;
+                errEl.style.color = '#ef4444';
+                errEl.style.fontSize = '.85rem';
+                errEl.style.marginTop = '6px';
+                editUserForm.appendChild(errEl);
+            }
+            if (error && error.message === 'Conflict') {
+                errEl.textContent = 'Another admin just updated this user.';
+            } else {
+                errEl.textContent = error && error.message ? error.message : 'Failed to update user. Please try again.';
+            }
+            setFormDisabled(editUserForm, false);
+            closeInviteModal();
+            // no pre-locking; nothing to release
         }
     }
 
@@ -273,7 +317,7 @@ function normalizeDepartment(dept) {
         const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
         if (!response.ok) {
             let message = 'Error deleting user';
-            try { const e = await response.json(); message = e.message || message; } catch (_) {}
+            try { const e = await response.json(); message = e.message || message; } catch (err) { /* ignore */ }
             throw new Error(message);
         }
         return true;
@@ -330,7 +374,7 @@ function normalizeDepartment(dept) {
         openModal(addUserModal);
     });
 
-    usersList.addEventListener('click', (e) => {
+    usersList.addEventListener('click', async (e) => {
         const row = e.target.closest('.table-row');
         if (!row) {return;}
 
@@ -346,6 +390,8 @@ function normalizeDepartment(dept) {
                 document.getElementById('editLastName').value = user.lastName;
                 document.getElementById('editDepartment').value = user.department || '';
                 document.getElementById('editRole').value = user.role;
+                const lu = document.getElementById('editLastUpdatedAt');
+                if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
                 openModal(editUserModal);
             }
             return;
@@ -398,8 +444,11 @@ function normalizeDepartment(dept) {
             firstName: document.getElementById('editFirstName').value,
             lastName: document.getElementById('editLastName').value,
             department: normalizeDepartment(document.getElementById('editDepartment').value),
-            role: document.getElementById('editRole').value
+            role: document.getElementById('editRole').value,
+            lastUpdatedAt: document.getElementById('editLastUpdatedAt').value
         };
+        const errEl = document.getElementById('editErrorMsg');
+        if (errEl) { errEl.textContent = ''; }
         updateUser(userId, formData);
     });
 
@@ -536,6 +585,46 @@ function normalizeDepartment(dept) {
         document.querySelectorAll('.user-menu-dropdown').forEach(menu => {
             menu.style.display = 'none';
         });
+    }
+
+    function setFormDisabled(form, disabled) {
+        if (!form) { return; }
+        Array.from(form.elements || []).forEach(el => { el.disabled = !!disabled; });
+    }
+
+    // Pre-locking removed; both admins can open the edit modal freely
+
+    // Conflict modal
+    function ensureConflictModal() {
+        if (document.getElementById('conflictModalOverlay')) { return; }
+        const style = document.createElement('style');
+        style.textContent = `#conflictModalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:10000;opacity:0;transition:opacity .2s ease}#conflictModalOverlay.open{display:flex;opacity:1}#conflictModal{background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.2);width:100%;max-width:480px;padding:24px;text-align:center}#conflictModal h3{margin:12px 0 6px 0;color:#0f172a;font-weight:600;font-size:20px}#conflictModal p{margin:0;color:#475569}.conflict-actions{margin-top:12px;display:flex;gap:8px;justify-content:center}#retryConflict{background:#1c89e3;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer}#closeConflict{background:#e2e8f0;border:1px solid #cbd5e1;border-radius:8px;padding:8px 14px;cursor:pointer}`;
+        document.head.appendChild(style);
+        const overlay = document.createElement('div');
+        overlay.id = 'conflictModalOverlay';
+        overlay.innerHTML = `<div id="conflictModal" role="dialog" aria-modal="true"><div class="warn"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><h3>Update Conflict Detected</h3><p id="conflictMsg">Another admin has just updated this user’s information. Please wait <span id='conflictCountdown'>30</span>s before trying again.</p><div class="conflict-actions"><button id="closeConflict">Close</button><button id="retryConflict" disabled>Retry</button></div></div>`;
+        document.body.appendChild(overlay);
+        document.getElementById('closeConflict').onclick = () => overlay.classList.remove('open');
+    }
+
+    function showConflictModal(seconds, onRetry) {
+        ensureConflictModal();
+        const overlay = document.getElementById('conflictModalOverlay');
+        const cd = document.getElementById('conflictCountdown');
+        const retry = document.getElementById('retryConflict');
+        let remaining = Math.max(1, seconds || 30);
+        retry.disabled = true;
+        cd.textContent = String(remaining);
+        const t = setInterval(() => {
+            remaining -= 1;
+            cd.textContent = String(remaining);
+            if (remaining <= 0) {
+                clearInterval(t);
+                retry.disabled = false;
+            }
+        }, 1000);
+        retry.onclick = () => { overlay.classList.remove('open'); if (onRetry) { onRetry(); } };
+        requestAnimationFrame(() => overlay.classList.add('open'));
     }
 
     // Prompt to change department

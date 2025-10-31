@@ -12,12 +12,15 @@ router.use(isAdmin);
 
 // Get all users
 router.get('/', userController.getAllUsers);
+router.get('/:id', userController.getUser);
 
 // Add new user
 router.post('/', userController.addUser);
 
 // Update user
 router.put('/:id', userController.updateUser);
+
+// Concurrency lock routes removed (optimistic locking only)
 
 // Delete user
 router.delete('/:id', userController.deleteUser);

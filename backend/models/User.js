@@ -37,6 +37,39 @@ const userSchema = new mongoose.Schema({
     googleDriveTokenExpiry: {
         type: Date
     },
+    // Google OAuth tokens for Calendar and profile scopes
+    googleAccessToken: {
+        type: String,
+        sparse: true
+    },
+    googleRefreshToken: {
+        type: String,
+        sparse: true
+    },
+    googleTokenExpiry: {
+        type: Date
+    },
+    // Edit locking fields for concurrency control
+    locked_by: {
+        type: String,
+        default: null
+    },
+    locked_at: {
+        type: Date,
+        default: null
+    },
+    // Separate Google Calendar OAuth (independent from login)
+    calendarAccessToken: {
+        type: String,
+        sparse: true
+    },
+    calendarRefreshToken: {
+        type: String,
+        sparse: true
+    },
+    calendarTokenExpiry: {
+        type: Date
+    },
     role: {
         type: String,
         enum: {
@@ -152,6 +185,10 @@ const userSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
+    },
+    lastUpdatedAt: {
+        type: Date,
+        default: Date.now
     }
 });
 
@@ -183,6 +220,7 @@ userSchema.pre('save', async function (next) {
 // Update updatedAt field before saving
 userSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
+    this.lastUpdatedAt = new Date();
     next();
 });
 

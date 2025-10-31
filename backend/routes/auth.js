@@ -194,7 +194,7 @@ router.get('/google/error', (req, res) => {
 });
 
 // Legacy logout route (for compatibility)
-router.get('/logout', (req, res) => {
+router.get('/logout', (req, res, next) => {
     req.logout((err) => {
         if (err) {
             return next(err);
