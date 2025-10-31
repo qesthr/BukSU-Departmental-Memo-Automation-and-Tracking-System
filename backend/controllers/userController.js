@@ -91,6 +91,11 @@ exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Prevent self-deletion
+        if (String(req.user._id) === String(id)) {
+            return res.status(403).json({ error: 'You cannot delete your own account.' });
+        }
+
         const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -172,6 +177,11 @@ exports.updateUser = async (req, res) => {
             if (clientTs && serverTs && clientTs < serverTs) {
                 return res.status(409).json({ conflict: true, updated_at: user.lastUpdatedAt || user.updatedAt, updated_by: user.locked_by || undefined, wait: 30 });
             }
+        }
+
+        // Prevent changing own role/permissions
+        if (String(req.user._id) === String(id) && role && role !== user.role) {
+            return res.status(403).json({ message: 'You cannot change your own role or permissions.' });
         }
 
         // Prevent changing role of last admin

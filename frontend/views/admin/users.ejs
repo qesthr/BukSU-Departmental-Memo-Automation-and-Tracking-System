@@ -165,6 +165,7 @@
                                                     <option value="faculty">Faculty</option>
                                                 </select>
                                             </div>
+                                            <div id="selfEditNote" style="display:none;color:#ef4444;font-size:.85rem;margin:.25rem 0 .5rem 0;">You are editing your own profile. Role and permissions cannot be changed.</div>
                                             <div class="form-actions">
                                                 <button type="button"
                                                     class="btn btn-secondary close-modal">Cancel</button>
@@ -283,6 +284,9 @@
     </script>
 
     <!-- Include needed JS -->
+    <script>
+        window.currentUserId = '<%= user && user._id ? user._id : "" %>';
+    </script>
     <script src="/js/user-management.js"></script>
 
     <!-- Initialize Lucide icons -->

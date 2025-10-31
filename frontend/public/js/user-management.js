@@ -193,9 +193,9 @@ function normalizeDepartment(dept) {
                     <button class="btn-icon edit-user" data-id="${user._id}" title="Edit">
                         <i data-lucide="edit-2"></i>
                     </button>
-                    <button class="btn-icon delete-user" data-id="${user._id}" title="Delete">
-                        <i data-lucide="trash-2"></i>
-                    </button>
+                    ${ (window.currentUserId && String(window.currentUserId) === String(user._id))
+                        ? `<button class="btn-icon" title="You cannot delete your own account" disabled style="opacity:.5;cursor:not-allowed"><i data-lucide="trash-2"></i></button>`
+                        : `<button class="btn-icon delete-user" data-id="${user._id}" title="Delete"><i data-lucide="trash-2"></i></button>` }
                 </div>
             </div>
         `).join('');
@@ -389,7 +389,18 @@ function normalizeDepartment(dept) {
                 document.getElementById('editFirstName').value = user.firstName;
                 document.getElementById('editLastName').value = user.lastName;
                 document.getElementById('editDepartment').value = user.department || '';
-                document.getElementById('editRole').value = user.role;
+                const roleSel = document.getElementById('editRole');
+                roleSel.value = user.role;
+                // If editing own profile, disable role and show note
+                const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
+                const note = document.getElementById('selfEditNote');
+                if (isSelf) {
+                    roleSel.disabled = true;
+                    if (note) { note.style.display = 'block'; }
+                } else {
+                    roleSel.disabled = false;
+                    if (note) { note.style.display = 'none'; }
+                }
                 const lu = document.getElementById('editLastUpdatedAt');
                 if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
                 openModal(editUserModal);
