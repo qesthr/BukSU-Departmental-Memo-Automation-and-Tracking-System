@@ -138,33 +138,46 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+}
+
+.department-dropdown-wrapper {
+    flex: 1;
+    max-width: 300px;
+}
+
+.dept-filter-dropdown {
+    width: 100%;
+    padding: 8px 12px;
+    padding-right: 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+}
+
+.dept-filter-dropdown:hover {
+    border-color: #9ca3af;
+}
+
+.dept-filter-dropdown:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .compose-control {
     margin-left: auto;
     /* Ensures button goes to the far right */
-}
-
-.dept-filter-btn {
-    padding: 6px 16px;
-    border: none;
-    border-radius: 20px;
-    background: #e5e7eb;
-    color: #6b7280;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.dept-filter-btn:hover {
-    background: #d1d5db;
-}
-
-.dept-filter-btn.active {
-    background: #2563eb;
-    color: white;
 }
 
 .memo-list {
@@ -431,17 +444,26 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .modal-content {
     background-color: #fff;
-    margin: 5% auto;
+    margin: 20px auto;
     padding: 0;
     border: none;
     width: 90%;
     max-width: 600px;
+    height: 80vh;
+    max-height: 80vh;
     border-radius: 12px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden; /* Prevent modal expansion */
 }
 
 .modal-header {
@@ -450,6 +472,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -480,11 +503,524 @@
 }
 
 .modal-body {
-    padding: 24px;
+    padding: 0;
+    overflow: hidden; /* No internal scrollbar - prevent expansion */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
-.form-group {
-    margin-bottom: 20px;
+.modal-body form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Gmail-style compact header fields */
+.compose-header-fields {
+    padding: 8px 16px 0;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.compose-field {
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-bottom: 1px solid transparent;
+    font-size: 14px;
+    background: transparent;
+    color: #111827;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.compose-field:focus {
+    outline: none;
+    border-bottom-color: #2563eb;
+}
+
+.compose-field::placeholder {
+    color: #9ca3af;
+}
+
+.compose-field-dropdown {
+    position: relative;
+}
+
+.compose-field-dropdown .dept-dropdown-btn {
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    text-align: left;
+    font-size: 14px;
+    color: #111827;
+    transition: border-color 0.2s;
+    cursor: pointer;
+}
+
+.compose-field-dropdown .dept-dropdown-btn:focus,
+.compose-field-dropdown .dept-dropdown-btn:hover {
+    outline: none;
+    border-bottom-color: #2563eb;
+}
+
+.compose-field-dropdown .dept-dropdown-btn::after {
+    display: none; /* Remove default arrow */
+}
+
+.dept-placeholder {
+    color: #9ca3af;
+}
+
+.custom-dropdown.open .dept-dropdown-btn .dept-placeholder,
+.dept-dropdown-btn:not(.empty) .dept-placeholder {
+    color: #111827;
+}
+
+/* Content area - takes most space */
+.compose-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 16px;
+    overflow: hidden;
+}
+
+
+/* Remove old form-group styles - now using Gmail-style compose fields */
+
+/* Attachments preview - Gmail style above Send button */
+.attachments-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 16px;
+    max-height: 150px; /* Fixed max height to prevent expansion */
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.attachment-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f3f4f6;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    gap: 8px;
+}
+
+.attachment-preview-item .preview-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-preview-item .preview-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.attachment-preview-item .preview-icon.file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-size: 18px;
+}
+
+.attachment-preview-item .preview-filename {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #374151;
+}
+
+.attachment-preview-item .remove-preview {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.attachment-preview-item .remove-preview:hover {
+    background: #fee2e2;
+}
+
+/* Upload status indicator */
+.upload-status {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.upload-status.show {
+    display: flex;
+}
+
+.upload-status .upload-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #d1d5db;
+    border-top: 2px solid #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    flex-shrink: 0;
+}
+
+.upload-status .upload-text {
+    flex: 1;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.form-group:has(.rich-text-editor) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Form group styling for content textarea */
+
+/* Content textarea - Gmail style */
+.compose-textarea {
+    width: 100%;
+    padding: 12px 0;
+    border: none;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    flex: 1;
+    min-height: 200px;
+    overflow-y: auto;
+    line-height: 1.5;
+    box-sizing: border-box;
+    background: transparent;
+    color: #111827;
+}
+
+.compose-textarea:focus {
+    outline: none;
+}
+
+.compose-textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* Compose toolbar (attachment buttons) */
+.compose-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    flex-shrink: 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Custom Department Dropdown */
+.custom-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.dept-dropdown-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.dept-dropdown-btn:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.dept-dropdown-btn:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.dept-dropdown-btn::after {
+    content: '▼';
+    font-size: 10px;
+    margin-left: 8px;
+    transition: transform 0.2s;
+}
+
+.custom-dropdown.open .dept-dropdown-btn::after {
+    transform: rotate(180deg);
+}
+
+.dept-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    margin-top: 4px;
+    padding: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.custom-dropdown.open .dept-dropdown-menu {
+    display: block;
+}
+
+.dept-checkbox-label {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.dept-checkbox-label:hover {
+    background: #f3f4f6;
+}
+
+.dept-checkbox-label input[type="checkbox"] {
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.dept-checkbox-label span {
+    font-size: 14px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.dept-dropdown-hr {
+    margin: 8px 0;
+    border: none;
+    border-top: 1px solid #e5e7eb;
+}
+
+#deptCheckboxesContainer .dept-checkbox-label {
+    font-weight: 400;
+}
+
+/* Sending Modal */
+.sending-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.sending-modal-content {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.sending-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.sending-modal-content p {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Button Loading State */
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-loading .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.select-all-btn {
+    padding: 4px 10px;
+    margin-left: 8px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #374151;
+    transition: all 0.2s;
+}
+
+.select-all-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.optional-label {
+    color: #6b7280;
+    font-weight: normal;
+    font-size: 12px;
+}
+
+/* Attachment buttons */
+.attachment-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.attachment-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.attachment-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.attachment-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.attachment-preview {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.file-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 6px;
+}
+
+.file-preview-item:last-child {
+    margin-bottom: 0;
+}
+
+.file-preview-item .remove-file {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.file-preview-item .remove-file:hover {
+    background: #fee2e2;
+}
+
+/* Additional Quill editor styling */
+.ql-snow .ql-tooltip {
+    z-index: 10001;
 }
 
 .form-group label {
@@ -585,39 +1121,7 @@ input[type="file"]::file-selector-button:hover {
     background: #1d4ed8;
 }
 
-/* Rich Text Editor */
-.rich-text-editor {
-    min-height: 200px;
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-    font-family: inherit;
-    background: white;
-    overflow-y: auto;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.rich-text-editor:empty:before {
-    content: attr(placeholder);
-    color: #9ca3af;
-}
-
-.rich-text-editor:focus {
-    outline: none;
-    border-color: #2563eb;
-}
-
-.rich-text-editor img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 6px;
-    margin: 0.5rem 0;
-    display: block;
-    cursor: pointer;
-}
+/* Quill styles removed - using plain textarea now */
 
 .insert-image-btn {
     display: inline-flex;
@@ -649,7 +1153,10 @@ input[type="file"]::file-selector-button:hover {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    margin-top: 24px;
+    padding: 12px 16px;
+    flex-shrink: 0;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
 }
 
 .btn {
@@ -677,6 +1184,70 @@ input[type="file"]::file-selector-button:hover {
 
 .btn-secondary:hover {
     background: #e5e7eb;
+}
+
+/* Responsive Modal Styles */
+@media (max-height: 700px) {
+    .modal {
+        padding: 10px;
+    }
+
+    .modal-content {
+        margin: 10px auto;
+        /* No max-height - modal shows fully */
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    /* Reduce textarea height on smaller screens */
+    #content {
+        height: 200px;
+        min-height: 200px;
+        max-height: 200px;
+    }
+
+    /* Compact attachment preview on small screens */
+    .attachments-preview {
+        max-height: 100px;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        max-width: none;
+        margin: 10px auto;
+    }
+
+    .modal-header {
+        padding: 16px 20px;
+    }
+
+    .modal-header h2 {
+        font-size: 18px;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    /* Adjust modal for mobile */
+    .modal-content {
+        height: 90vh;
+        max-height: 90vh;
+        width: 95%;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+        gap: 8px;
+    }
+
+    .btn {
+        width: 100%;
+    }
 }
 
 /* Responsive */
@@ -730,17 +1301,7 @@ input[type="file"]::file-selector-button:hover {
     transition: all 0.4s ease;
 }
 
-/* Modal show effect */
-.modal {
-    display: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.modal.show {
-    display: block;
-    opacity: 1;
-}
+/* Modal show effect - handled by base .modal styles above */
 
 
 /* Make sure the list and header adapt */

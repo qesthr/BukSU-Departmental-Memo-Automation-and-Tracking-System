@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter - only allow images, PDFs, and documents
+// File filter - allow images, PDFs, and office documents
 const fileFilter = (req, file, cb) => {
     // Allowed file types
     const allowedMimes = [
@@ -28,6 +28,11 @@ const fileFilter = (req, file, cb) => {
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/csv',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'text/plain'
     ];
 

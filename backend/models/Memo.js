@@ -30,6 +30,17 @@ const memoSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    departments: [{
+        type: String,
+        trim: true
+    }],
+    recipients: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    htmlContent: {
+        type: String
+    },
     priority: {
         type: String,
         enum: ['low', 'medium', 'high', 'urgent'],
@@ -72,6 +83,7 @@ const memoSchema = new mongoose.Schema({
     attachments: [{
         filename: String,
         path: String,
+        url: String, // Direct URL to access the file
         size: Number,
         mimetype: String
     }],

@@ -170,6 +170,10 @@ const userSchema = new mongoose.Schema({
             default: false
         }
     },
+    canCrossSend: {
+        type: Boolean,
+        default: false
+    },
     resetPasswordCode: {
         type: String,
         sparse: true

@@ -99,87 +99,127 @@ exports.getMemo = async (req, res) => {
     }
 };
 
+// Basic HTML sanitization function
+function sanitizeHTML(html) {
+    if (!html) return '';
+    // Remove script tags and dangerous event handlers
+    return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/javascript:/gi, '')
+        .replace(/<iframe/gi, '&lt;iframe');
+}
+
 // Create a new memo
 exports.createMemo = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { recipientEmail, subject, content, department, priority } = req.body;
+        const user = await User.findById(userId);
+        const { recipientEmail, subject, content, departments, priority, attachments } = req.body;
 
-        // eslint-disable-next-line no-console
-        console.log('=== MEMO CREATE DEBUG ===');
-        // eslint-disable-next-line no-console
-        console.log('Request body:', { recipientEmail, subject, content, department, priority });
-        // eslint-disable-next-line no-console
-        console.log('req.files exists?', !!req.files);
-        // eslint-disable-next-line no-console
-        console.log('req.files type:', typeof req.files);
-        // eslint-disable-next-line no-console
-        console.log('req.files length:', req.files ? req.files.length : 0);
-        // eslint-disable-next-line no-console
-        console.log('req.files:', req.files);
-        // eslint-disable-next-line no-console
-        console.log('req.file (single):', req.file);
-        // eslint-disable-next-line no-console
-        console.log('========================');
+        // Validation: At least one recipient or department required
+        const recipientEmailValue = recipientEmail ? recipientEmail.trim() : '';
+        const departmentsArray = Array.isArray(departments) ? departments.filter(d => d) :
+                               (departments ? [departments] : []);
 
-        // Find recipient by email
-        const recipient = await User.findOne({ email: recipientEmail });
-        if (!recipient) {
-            return res.status(404).json({ success: false, message: 'Recipient not found' });
-        }
-
-        // Handle file uploads
-        const attachments = [];
-        if (req.files && req.files.length > 0) {
-            // eslint-disable-next-line no-console
-            console.log(`Processing ${req.files.length} uploaded file(s)...`);
-            req.files.forEach((file, index) => {
-                const attachment = {
-                    filename: file.originalname,
-                    path: file.path,
-                    size: file.size,
-                    mimetype: file.mimetype
-                };
-                // eslint-disable-next-line no-console
-                console.log(`Attachment ${index + 1}:`, attachment);
-                attachments.push(attachment);
+        if (!recipientEmailValue && departmentsArray.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please specify at least one recipient or department.'
             });
-        } else {
-            // eslint-disable-next-line no-console
-            console.log('No files detected in req.files');
         }
 
-        // eslint-disable-next-line no-console
-        console.log(`Total attachments to save: ${attachments.length}`);
+        if (!subject || !subject.trim()) {
+            return res.status(400).json({ success: false, message: 'Subject is required.' });
+        }
 
-        const isSecretary = (req.user?.role === 'secretary');
-        const memo = new Memo({
-            sender: userId,
-            recipient: recipient._id,
-            subject,
-            content,
-            department,
-            priority,
-            createdBy: userId,
-            role: isSecretary ? 'secretary' : 'admin',
-            attachments: attachments,
-            status: isSecretary ? 'pending' : 'sent',
-            folder: isSecretary ? 'drafts' : 'sent'
+        // Content is optional (can be empty)
+        const textContent = content ? content.trim() : '';
+
+        // Role-based permission check
+        if (user.role === 'secretary' && !user.canCrossSend) {
+            // Secretary can only send to their own department
+            const userDept = user.department;
+            const invalidDepartments = departmentsArray.filter(dept => dept !== userDept);
+            if (invalidDepartments.length > 0) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have permission to send memos to other departments.'
+                });
+            }
+        }
+
+        // Handle attachments - received as URLs array from frontend
+        // Attachments are already uploaded via /api/log/upload-file and /api/log/upload-image
+        const attachmentUrls = Array.isArray(attachments) ? attachments.filter(url => url) : [];
+
+        // Process attachments: extract filename from URL and create attachment objects
+        const processedAttachments = attachmentUrls.map(url => {
+            // Extract filename from URL (e.g., /uploads/1234567890-filename.pdf)
+            const filename = url.split('/').pop() || 'attachment';
+            // Determine type from filename extension
+            const ext = filename.split('.').pop()?.toLowerCase() || '';
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+            return {
+                filename: filename,
+                path: url,
+                url: url, // Store URL for direct access
+                mimetype: isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : `application/${ext}`,
+                size: 0 // Size not available from URL
+            };
         });
 
-        // eslint-disable-next-line no-console
-        console.log('Memo before save:', {
-            subject: memo.subject,
-            attachmentsCount: memo.attachments.length,
-            attachments: memo.attachments
+        // Determine recipients
+        const recipientIds = [];
+        if (recipientEmailValue) {
+            const recipient = await User.findOne({ email: recipientEmailValue.toLowerCase() });
+            if (recipient) {
+                recipientIds.push(recipient._id);
+            }
+        }
+
+        // Get all users from selected departments
+        if (departmentsArray.length > 0) {
+            const departmentUsers = await User.find({
+                department: { $in: departmentsArray },
+                role: { $ne: 'admin' } // Don't send to admins unless explicitly specified
+            }).select('_id');
+            departmentUsers.forEach(user => {
+                if (!recipientIds.find(id => id.toString() === user._id.toString())) {
+                    recipientIds.push(user._id);
+                }
+            });
+        }
+
+        if (recipientIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No valid recipients found.'
+            });
+        }
+
+        const isSecretary = (user.role === 'secretary');
+
+        // Create memos for all recipients
+        const memoPromises = recipientIds.map(async (recipientId) => {
+            const memo = new Memo({
+                sender: userId,
+                recipient: recipientId,
+                subject: subject.trim(),
+                content: textContent,
+                department: departmentsArray[0] || user.department, // Primary department
+                departments: departmentsArray,
+                recipients: recipientIds,
+                priority: priority || 'medium',
+                createdBy: userId,
+                attachments: processedAttachments,
+                status: isSecretary ? 'pending' : 'sent',
+                folder: isSecretary ? 'drafts' : 'sent'
+            });
+            return await memo.save();
         });
 
-        await memo.save();
-
-        // eslint-disable-next-line no-console
-        console.log('Memo after save - ID:', memo._id);
-        // eslint-disable-next-line no-console
-        console.log('Saved attachments:', memo.attachments);
+        const createdMemos = await Promise.all(memoPromises);
 
         if (isSecretary) {
             // Notify admins of pending memo
@@ -187,45 +227,38 @@ exports.createMemo = async (req, res) => {
                 const { createSystemLog } = require('../services/logService');
                 await createSystemLog({
                     activityType: 'pending_memo',
-                    user: { _id: userId, email: req.user.email, firstName: req.user.firstName, lastName: req.user.lastName, department: req.user.department },
+                    user: {
+                        _id: userId,
+                        email: user.email,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        department: user.department
+                    },
                     subject: `Memo Pending Approval: ${subject}`,
-                    content: `A memo from ${req.user.email} is awaiting approval. Subject: ${subject}`,
-                    department
+                    content: `A memo from ${user.email} is awaiting approval. Subject: ${subject}`,
+                    department: departmentsArray[0] || user.department
                 });
             } catch (e) {
                 console.error('Failed to create pending memo log:', e.message);
             }
         }
 
-        // Fetch with attachments included
-        const populatedMemo = await Memo.findById(memo._id)
+        // Fetch first memo with attachments included for response
+        const populatedMemo = await Memo.findById(createdMemos[0]._id)
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department')
             .lean();
 
-        // Explicitly add attachments to populatedMemo
-        populatedMemo.attachments = memo.attachments;
+        populatedMemo.attachments = createdMemos[0].attachments;
 
-        // If admin sent the memo, create a recipient notification
-        if (!isSecretary) {
-            try {
-                await Memo.create({
-                    sender: userId,
-                    recipient: recipient._id,
-                    subject: `New Memo: ${subject}`,
-                    content: `You received a memo from ${req.user.email}.`,
-                    department,
-                    priority: 'medium',
-                    status: 'sent',
-                    folder: 'sent',
-                    activityType: 'memo_received'
-                });
-            } catch (e) {
-                console.error('Failed to create recipient notification:', e.message);
-            }
-        }
-
-        res.status(201).json({ success: true, memo: populatedMemo, message: isSecretary ? 'Your memo is pending for admin approval.' : 'Memo sent successfully.' });
+        res.status(201).json({
+            success: true,
+            memo: populatedMemo,
+            count: createdMemos.length,
+            message: isSecretary
+                ? `Your memo is pending for admin approval. It will be sent to ${createdMemos.length} recipient(s) once approved.`
+                : `Memo sent successfully to ${createdMemos.length} recipient(s).`
+        });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error creating memo:', error);
@@ -445,6 +478,76 @@ exports.distributeMemo = async (req, res) => {
         } catch (error) {
         console.error('Error distributing memo:', error);
         res.status(500).json({ success: false, message: 'Error distributing memo', detail: error.message });
+    }
+}
+
+// Upload file for inline embedding
+exports.uploadFile = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        // Validate file size
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (req.file.size > MAX_FILE_SIZE) {
+            return res.status(400).json({
+                success: false,
+                message: `File ${req.file.originalname} exceeds 10MB limit.`
+            });
+        }
+
+        // Return file URL
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({
+            success: true,
+            url: fileUrl,
+            filename: req.file.originalname,
+            size: req.file.size
+        });
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error uploading file:', error);
+        res.status(500).json({ success: false, message: 'Error uploading file' });
+    }
+};
+
+// Upload image for inline embedding
+exports.uploadImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image uploaded' });
+        }
+
+        // Validate file size
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (req.file.size > MAX_FILE_SIZE) {
+            return res.status(400).json({
+                success: false,
+                message: `Image ${req.file.originalname} exceeds 10MB limit.`
+            });
+        }
+
+        // Validate image type
+        if (!req.file.mimetype.startsWith('image/')) {
+            return res.status(400).json({
+                success: false,
+                message: 'File is not a valid image'
+            });
+        }
+
+        // Return image URL
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({
+            success: true,
+            url: imageUrl,
+            filename: req.file.originalname,
+            size: req.file.size
+        });
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error uploading image:', error);
+        res.status(500).json({ success: false, message: 'Error uploading image' });
     }
 };
 // Admin: approve a pending memo

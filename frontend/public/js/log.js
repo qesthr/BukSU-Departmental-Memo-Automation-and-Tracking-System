@@ -14,10 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const memoCounter = document.getElementById('memoCounter');
     const refreshBtn = document.getElementById('refreshBtn');
     const selectAllMemos = document.getElementById('selectAllMemos');
-    const deptFilterBtns = document.querySelectorAll('.dept-filter-btn');
+    const deptFilterDropdown = document.getElementById('deptFilterDropdown');
+    const globalSearchInput = document.getElementById('globalSearchInput');
 
     let currentFolder = 'inbox';
     let currentDeptFilter = 'all';
+    let currentSearchTerm = '';
     let memos = [];
     let filteredMemos = [];
     let currentMemoIndex = -1;
@@ -28,9 +30,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDepartments();
 
     // Compose button
-    composeBtn.addEventListener('click', () => {
-        openModal(composeModal);
-    });
+    if (composeBtn && composeModal) {
+        composeBtn.addEventListener('click', () => {
+            openModal(composeModal);
+            // Reinitialize Lucide icons
+            if (typeof lucide !== 'undefined') {
+                // eslint-disable-next-line no-undef
+                lucide.createIcons();
+            }
+        });
+    }
 
     // Folder switching
     folderItems.forEach(item => {
@@ -39,19 +48,30 @@ document.addEventListener('DOMContentLoaded', () => {
             folderItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
             currentFolder = item.dataset.folder;
+            // Reset search when switching folders
+            if (globalSearchInput) {
+                globalSearchInput.value = '';
+                currentSearchTerm = '';
+            }
             fetchMemos();
         });
     });
 
-    // Department filtering
-    deptFilterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            deptFilterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentDeptFilter = btn.dataset.dept;
+    // Department filtering via dropdown
+    if (deptFilterDropdown) {
+        deptFilterDropdown.addEventListener('change', (e) => {
+            currentDeptFilter = e.target.value;
             applyFilters();
         });
-    });
+    }
+
+    // Search functionality
+    if (globalSearchInput) {
+        globalSearchInput.addEventListener('input', (e) => {
+            currentSearchTerm = e.target.value.toLowerCase().trim();
+            applyFilters();
+        });
+    }
 
     // Refresh button
     refreshBtn.addEventListener('click', () => {
@@ -67,135 +87,720 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Rich text editor with inline image support
-    const contentEditor = document.getElementById('contentEditor');
-    const contentHidden = document.getElementById('content');
+    // Simple textarea for content - no rich text editor
+    const contentTextarea = document.getElementById('content');
     const insertImageBtn = document.getElementById('insertImageBtn');
+    const attachFileBtn = document.getElementById('attachFileBtn');
     const imageUpload = document.getElementById('imageUpload');
-    const uploadedImages = []; // Store uploaded images for submission
+    const fileUpload = document.getElementById('fileUpload');
+    const attachmentsPreview = document.getElementById('attachmentsPreview');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadText = uploadStatus ? uploadStatus.querySelector('.upload-text') : null;
+    const sendMemoBtn = document.getElementById('sendMemoBtn');
 
-    // Insert image button handler
+    // Store uploaded attachments (URLs/filenames)
+    const uploadedAttachments = [];
+
+    // Track upload state
+    let activeUploads = 0;
+
+    // File upload handler
+    if (attachFileBtn && fileUpload) {
+        attachFileBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileUpload.click();
+        });
+
+        fileUpload.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) {return;}
+
+            files.forEach(file => {
+                // Validate file size
+                if (file.size > 10 * 1024 * 1024) {
+                    showNotification(`File "${file.name}" exceeds 10MB limit`, 'error');
+                    return;
+                }
+                // Validate file type
+                const allowedTypes = [
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'text/csv',
+                    'application/vnd.ms-powerpoint',
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                ];
+                if (!allowedTypes.includes(file.type)) {
+                    showNotification(`File type "${file.type}" not supported. Please use PDF, Word, Excel, PowerPoint, or CSV files.`, 'error');
+                    return;
+                }
+                // Upload and add to attachments list (async)
+                handleFileUpload(file).catch(err => {
+                    // eslint-disable-next-line no-console
+                    console.error('File upload error:', err);
+                });
+            });
+            e.target.value = ''; // Reset input
+        });
+    }
+
+    // Image upload handler
     if (insertImageBtn && imageUpload) {
-        insertImageBtn.addEventListener('click', () => {
+        insertImageBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             imageUpload.click();
         });
 
         imageUpload.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                // Create preview
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const img = document.createElement('img');
-                    img.src = event.target.result;
-                    img.style.maxWidth = '100%';
-                    img.style.height = 'auto';
+            const files = Array.from(e.target.files);
+            if (files.length === 0) {return;}
 
-                    // Insert image at cursor position
-                    if (window.getSelection().rangeCount > 0) {
-                        const range = window.getSelection().getRangeAt(0);
-                        range.insertNode(img);
-                        // Move cursor after image
-                        range.setStartAfter(img);
-                        range.collapse(true);
-                        window.getSelection().removeAllRanges();
-                        window.getSelection().addRange(range);
-                    } else {
-                        contentEditor.appendChild(img);
-                    }
-
-                    // Store for submission
-                    uploadedImages.push(file);
-                    contentHidden.value = 'hasContent'; // Set value so form validates
-                };
-                reader.readAsDataURL(file);
-
-                lucide.createIcons();
-                e.target.value = ''; // Reset input
-            }
-        });
-    }
-
-    // Convert editor content to text when submitting
-    if (contentEditor) {
-        contentEditor.addEventListener('input', () => {
-            // Extract text from editor for hidden input
-            const textContent = contentEditor.innerText;
-            if (textContent.trim()) {
-                contentHidden.value = textContent;
-            } else {
-                contentHidden.value = contentEditor.innerHTML;
-            }
-        });
-    }
-
-    // Compose form
-    composeForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // Extract text content from rich editor
-        const editorContent = contentEditor.innerHTML;
-        const textContent = contentEditor.innerText || editorContent;
-
-        // Create FormData
-        const formData = new FormData();
-        formData.append('recipientEmail', document.getElementById('recipientEmail').value);
-        formData.append('subject', document.getElementById('subject').value);
-        formData.append('content', textContent); // Send plain text
-        formData.append('department', document.getElementById('department').value);
-        formData.append('priority', 'medium');
-        formData.append('editorContent', editorContent); // Also send HTML content
-
-        // Add uploaded images as attachments
-        if (uploadedImages.length > 0) {
-            uploadedImages.forEach(file => {
-                formData.append('attachments', file);
+            files.forEach(file => {
+                // Validate file size
+                if (file.size > 10 * 1024 * 1024) {
+                    showNotification(`Image "${file.name}" exceeds 10MB limit`, 'error');
+                    return;
+                }
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showNotification(`"${file.name}" is not a valid image file`, 'error');
+                    return;
+                }
+                // Upload and add to attachments list (async)
+                handleImageUpload(file).catch(err => {
+                    // eslint-disable-next-line no-console
+                    console.error('Image upload error:', err);
+                });
             });
-        }
+            e.target.value = ''; // Reset input
+        });
+    }
+
+    // Handle file upload - upload and add to attachments list
+    async function handleFileUpload(file) {
+        // Increment active uploads and show status
+        activeUploads++;
+        updateUploadStatus();
+        disableSendButton();
+
+        // Upload file to server
+        const formData = new FormData();
+        formData.append('file', file);
 
         try {
-            const response = await fetch('/api/log/memos', {
+            const response = await fetch('/api/log/upload-file', {
                 method: 'POST',
                 body: formData
             });
 
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
             const data = await response.json();
 
-            if (data.success) {
-                showNotification('Memo sent successfully', 'success');
-                composeForm.reset();
-                if (contentEditor) contentEditor.innerHTML = '';
-                uploadedImages.length = 0; // Clear uploaded images
-                closeModal(composeModal);
-                fetchMemos();
-            } else {
-                showNotification(data.message || 'Error sending memo', 'error');
+            if (!data.success || !data.url) {
+                throw new Error(data.message || 'Upload failed');
             }
+
+            // Add to uploaded attachments array
+            uploadedAttachments.push({
+                url: data.url,
+                filename: data.filename,
+                type: 'file'
+            });
+
+            // Add preview item
+            addAttachmentPreview({
+                url: data.url,
+                filename: data.filename,
+                type: 'file'
+            });
         } catch (error) {
-            console.error('Error:', error);
-            showNotification('Error sending memo', 'error');
+            // eslint-disable-next-line no-console
+            console.error('Error uploading file:', error);
+            showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
+        } finally {
+            // Decrement active uploads and update status
+            activeUploads = Math.max(0, activeUploads - 1);
+            updateUploadStatus();
+            if (activeUploads === 0) {
+                enableSendButton();
+            }
         }
-    });
+    }
+
+    // Handle image upload - upload and add to attachments list
+    async function handleImageUpload(file) {
+        // Validate image file
+        if (!file.type.startsWith('image/')) {
+            showNotification(`"${file.name}" is not a valid image file`, 'error');
+            return;
+        }
+
+        // Increment active uploads and show status
+        activeUploads++;
+        updateUploadStatus();
+        disableSendButton();
+
+        // Upload image to server
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await fetch('/api/log/upload-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success || !data.url) {
+                throw new Error(data.message || 'Upload failed');
+            }
+
+            // Add to uploaded attachments array
+            uploadedAttachments.push({
+                url: data.url,
+                filename: data.filename,
+                type: 'image'
+            });
+
+            // Add preview item with thumbnail
+            addAttachmentPreview({
+                url: data.url,
+                filename: data.filename,
+                type: 'image'
+            });
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Error uploading image:', error);
+            showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
+        } finally {
+            // Decrement active uploads and update status
+            activeUploads = Math.max(0, activeUploads - 1);
+            updateUploadStatus();
+            if (activeUploads === 0) {
+                enableSendButton();
+            }
+        }
+    }
+
+    // Update upload status indicator
+    function updateUploadStatus() {
+        if (!uploadStatus) {return;}
+
+        if (activeUploads > 0) {
+            uploadStatus.classList.add('show');
+            if (uploadText) {
+                uploadText.textContent = 'Uploading…';
+            }
+        } else {
+            uploadStatus.classList.remove('show');
+            if (uploadText) {
+                uploadText.textContent = '';
+            }
+        }
+    }
+
+    // Disable send button during uploads
+    function disableSendButton() {
+        if (sendMemoBtn) {
+            sendMemoBtn.disabled = true;
+            sendMemoBtn.style.opacity = '0.6';
+            sendMemoBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    // Enable send button when uploads complete
+    function enableSendButton() {
+        if (sendMemoBtn) {
+            sendMemoBtn.disabled = false;
+            sendMemoBtn.style.opacity = '1';
+            sendMemoBtn.style.cursor = 'pointer';
+        }
+    }
+
+    // Add attachment preview item
+    function addAttachmentPreview(attachment) {
+        if (!attachmentsPreview) {return;}
+
+        const previewItem = document.createElement('div');
+        previewItem.className = 'attachment-preview-item';
+        previewItem.dataset.url = attachment.url;
+
+        const isImage = attachment.type === 'image';
+        const iconHtml = isImage
+            ? `<img src="${attachment.url}" alt="${attachment.filename}" class="preview-icon" onerror="this.onerror=null; this.className='preview-icon file-icon'; this.textContent='🖼';" />`
+            : `<div class="preview-icon file-icon">📎</div>`;
+
+        previewItem.innerHTML = `
+            <div class="preview-content">
+                ${iconHtml}
+                <span class="preview-filename">${attachment.filename}</span>
+            </div>
+            <button type="button" class="remove-preview" data-url="${attachment.url}" title="Remove">✕</button>
+        `;
+
+        // Add remove handler
+        const removeBtn = previewItem.querySelector('.remove-preview');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                removeAttachment(attachment.url);
+                previewItem.remove();
+                updateAttachmentsPreviewVisibility();
+            });
+        }
+
+        attachmentsPreview.appendChild(previewItem);
+        attachmentsPreview.style.display = 'flex';
+    }
+
+    // Update attachments preview visibility
+    function updateAttachmentsPreviewVisibility() {
+        if (!attachmentsPreview) {return;}
+
+        if (attachmentsPreview.children.length === 0) {
+            attachmentsPreview.style.display = 'none';
+        }
+    }
+
+    // Remove attachment from list
+    function removeAttachment(url) {
+        const index = uploadedAttachments.findIndex(att => att.url === url);
+        if (index > -1) {
+            uploadedAttachments.splice(index, 1);
+        }
+
+        // Remove preview item if exists
+        const previewItem = attachmentsPreview ? attachmentsPreview.querySelector(`[data-url="${url}"]`) : null;
+        if (previewItem) {
+            previewItem.remove();
+            updateAttachmentsPreviewVisibility();
+        }
+    }
+
+
+    // Compose form
+    if (composeForm) {
+        composeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validation
+            const recipientEmail = document.getElementById('recipientEmail').value.trim();
+            const selectedDepartments = Array.from(document.querySelectorAll('.dept-option:checked'))
+                .map(cb => cb.value);
+
+            // Handle "Select All" for admins
+            const selectAll = document.getElementById('selectAllDepts');
+            if (selectAll && selectAll.checked) {
+                selectedDepartments.length = 0;
+                document.querySelectorAll('.dept-option').forEach(cb => {
+                    if (cb.value) {
+                        selectedDepartments.push(cb.value);
+                    }
+                });
+            }
+
+            // Validate at least one recipient or department
+            if (!recipientEmail && selectedDepartments.length === 0) {
+                showNotification('Please specify at least one recipient or department.', 'error');
+                return;
+            }
+
+            // Validate subject and content
+            const subject = document.getElementById('subject').value.trim();
+            if (!subject) {
+                showNotification('Subject is required', 'error');
+                return;
+            }
+
+            // Get content from textarea (optional)
+            const content = contentTextarea ? contentTextarea.value.trim() : '';
+
+            // Create FormData
+            const formData = new FormData();
+
+            // Optional recipient email
+            if (recipientEmail) {
+                formData.append('recipientEmail', recipientEmail);
+            }
+
+            formData.append('subject', subject);
+            formData.append('content', content);
+
+            // Multiple departments - send as array
+            if (selectedDepartments.length > 0) {
+                selectedDepartments.forEach(dept => {
+                    formData.append('departments', dept);
+                });
+            }
+
+            formData.append('priority', 'medium');
+
+            // Add uploaded attachments URLs
+            uploadedAttachments.forEach(att => {
+                formData.append('attachments[]', att.url);
+            });
+
+            // Show loading state
+            const sendBtn = document.getElementById('sendMemoBtn');
+            const btnText = sendBtn ? sendBtn.querySelector('.btn-text') : null;
+            const btnLoading = sendBtn ? sendBtn.querySelector('.btn-loading') : null;
+            const sendingModal = document.getElementById('sendingModal');
+
+            if (sendBtn) {
+                sendBtn.disabled = true;
+                if (btnText) {btnText.style.display = 'none';}
+                if (btnLoading) {btnLoading.style.display = 'inline-flex';}
+            }
+
+            if (sendingModal) {
+                sendingModal.style.display = 'flex';
+            }
+
+            try {
+                const response = await fetch('/api/log/memos', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Hide sending modal
+                    if (sendingModal) {
+                        sendingModal.style.display = 'none';
+                    }
+
+                    showNotification(data.message || 'Memo sent successfully', 'success');
+
+                    // Reset form
+                    composeForm.reset();
+                    if (contentTextarea) {
+                        contentTextarea.value = '';
+                    }
+
+                    // Clear attachments
+                    uploadedAttachments.length = 0;
+                    if (attachmentsPreview) {
+                        attachmentsPreview.innerHTML = '';
+                        attachmentsPreview.style.display = 'none';
+                    }
+
+                    // Reset department selections
+                    document.querySelectorAll('.dept-option').forEach(cb => {
+                        cb.checked = false;
+                    });
+                    const selectAll = document.getElementById('selectAllDepts');
+                    if (selectAll) {selectAll.checked = false;}
+                    const dropdownBtn = document.getElementById('deptDropdownBtn');
+                    if (dropdownBtn) {dropdownBtn.textContent = 'Select Department(s)...';}
+
+                    // Reset button state
+                    if (sendBtn) {
+                        sendBtn.disabled = false;
+                        if (btnText) {btnText.style.display = 'inline';}
+                        if (btnLoading) {btnLoading.style.display = 'none';}
+                    }
+
+                    // Close modal after a short delay
+                    setTimeout(() => {
+                        closeModal(composeModal);
+                        fetchMemos();
+                    }, 1500);
+                } else {
+                    // Hide sending modal
+                    if (sendingModal) {
+                        sendingModal.style.display = 'none';
+                    }
+
+                    showNotification(data.message || 'Error sending memo', 'error');
+                    if (sendBtn) {
+                        sendBtn.disabled = false;
+                        if (btnText) {btnText.style.display = 'inline';}
+                        if (btnLoading) {btnLoading.style.display = 'none';}
+                    }
+                }
+            } catch (error) {
+                // Hide sending modal
+                if (sendingModal) {
+                    sendingModal.style.display = 'none';
+                }
+
+                // eslint-disable-next-line no-console
+                console.error('Error:', error);
+                showNotification(`Error sending memo: ${error.message}`, 'error');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                    if (btnText) {btnText.style.display = 'inline';}
+                    if (btnLoading) {btnLoading.style.display = 'none';}
+                }
+            }
+        });
+    }
 
     // Load departments dynamically from server (combines IT/EMC)
     async function loadDepartments(){
         try{
             const res = await fetch('/api/users/departments');
             const data = await res.json();
-            const select = document.getElementById('department');
-            if(!select) return;
-            select.innerHTML = '<option value="">Select Department</option>';
-            (data.departments||[]).forEach(d=>{
-                const opt = document.createElement('option');
-                opt.value = d;
-                opt.textContent = d;
-                select.appendChild(opt);
-            });
-        }catch(e){
-            const select = document.getElementById('department');
-            if(select){
-                select.innerHTML = '<option value="IT/EMC">IT/EMC</option>';
+            const container = document.getElementById('deptCheckboxesContainer');
+            const dropdownBtn = document.getElementById('deptDropdownBtn');
+            const dropdown = document.querySelector('.custom-dropdown');
+
+            if (!container || !dropdownBtn || !dropdown) {return;}
+
+            const userRole = window.currentUser?.role || 'faculty';
+            const userDepartment = window.currentUser?.department || '';
+            const canCrossSend = window.currentUser?.canCrossSend || false;
+
+            container.innerHTML = '';
+            const departments = data.departments || [];
+
+            // Filter departments based on role
+            let availableDepartments = departments;
+            if (userRole === 'secretary' && !canCrossSend) {
+                availableDepartments = departments.filter(d => d === userDepartment);
             }
+
+            // Show "Select All" only for admins
+            const selectAllCheckbox = document.getElementById('selectAllDepts');
+            if (selectAllCheckbox) {
+                if (userRole === 'admin') {
+                    selectAllCheckbox.parentElement.style.display = 'block';
+                    const hr = document.querySelector('.dept-dropdown-hr');
+                    if (hr) {hr.style.display = 'block';}
+                } else {
+                    selectAllCheckbox.parentElement.style.display = 'none';
+                    const hr = document.querySelector('.dept-dropdown-hr');
+                    if (hr) {hr.style.display = 'none';}
+                }
+            }
+
+            // Add department checkboxes
+            availableDepartments.forEach(dept => {
+                const label = document.createElement('label');
+                label.className = 'dept-checkbox-label';
+                label.innerHTML = `
+                    <input type="checkbox" class="dept-checkbox dept-option" value="${dept}">
+                    <span>${dept}</span>
+                `;
+                container.appendChild(label);
+            });
+
+            // Update label
+            if (userRole === 'admin' || (userRole === 'secretary' && canCrossSend)) {
+                document.getElementById('multiSelectLabel').style.display = 'inline';
+            }
+
+            // Initialize dropdown functionality
+            initCustomDepartmentDropdown();
+        }catch(e){
+            // eslint-disable-next-line no-console
+            console.error('Error loading departments:', e);
+        }
+    }
+
+    // Initialize custom department dropdown
+    function initCustomDepartmentDropdown() {
+        const dropdown = document.querySelector('.custom-dropdown');
+        const dropdownBtn = document.getElementById('deptDropdownBtn');
+        const dropdownMenu = document.getElementById('deptDropdownMenu');
+        const selectAll = document.getElementById('selectAllDepts');
+        let deptOptions = document.querySelectorAll('.dept-option');
+
+        if (!dropdown || !dropdownBtn || !dropdownMenu) {return;}
+
+        // Toggle dropdown on button click
+        dropdownBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+
+        // Select All functionality
+        if (selectAll) {
+            selectAll.addEventListener('change', () => {
+                deptOptions = document.querySelectorAll('.dept-option'); // Refresh
+                deptOptions.forEach(cb => {
+                    cb.checked = selectAll.checked;
+                });
+                updateDeptButtonLabel();
+            });
+        }
+
+        // Individual department checkboxes
+        function attachCheckboxListeners() {
+            deptOptions = document.querySelectorAll('.dept-option'); // Refresh
+            deptOptions.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    if (selectAll && !cb.checked) {
+                        selectAll.checked = false;
+                    }
+                    // Check if all are selected
+                    if (selectAll) {
+                        const allChecked = Array.from(deptOptions).every(opt => opt.checked);
+                        selectAll.checked = allChecked;
+                    }
+                    updateDeptButtonLabel();
+                });
+            });
+        }
+
+        attachCheckboxListeners();
+
+        // Update button label
+        function updateDeptButtonLabel() {
+            deptOptions = document.querySelectorAll('.dept-option'); // Refresh
+            const selected = Array.from(document.querySelectorAll('.dept-option:checked'))
+                .map(cb => cb.value);
+            const total = deptOptions.length;
+            const placeholder = dropdownBtn.querySelector('.dept-placeholder');
+
+            if (selected.length === 0) {
+                if (placeholder) {
+                    placeholder.textContent = 'Department(s)';
+                } else {
+                    dropdownBtn.textContent = 'Department(s)';
+                }
+                dropdownBtn.classList.add('empty');
+            } else {
+                dropdownBtn.classList.remove('empty');
+                if (placeholder) {
+                    if (selected.length === total && selectAll) {
+                        placeholder.textContent = 'All Departments';
+                    } else if (selected.length === 1) {
+                        placeholder.textContent = selected[0];
+                    } else {
+                        placeholder.textContent = `${selected.length} departments selected`;
+                    }
+                } else {
+                    if (selected.length === total && selectAll) {
+                        dropdownBtn.textContent = 'All Departments';
+                    } else if (selected.length === 1) {
+                        dropdownBtn.textContent = selected[0];
+                    } else {
+                        dropdownBtn.textContent = `${selected.length} departments selected`;
+                    }
+                }
+            }
+        }
+
+        // Expose update function for external use
+        window.updateDeptButtonLabel = updateDeptButtonLabel;
+    }
+
+    // Initialize multi-select department UI
+    function initDepartmentMultiSelect() {
+        const select = document.getElementById('departmentSelect');
+        const display = document.getElementById('selectedDepartmentsDisplay');
+        if (!select || !display) {return;}
+
+        // Handle "Select All" option
+        select.addEventListener('change', () => {
+            const selectedOptions = Array.from(select.selectedOptions);
+            const allOption = selectedOptions.find(opt => opt.value === '__all__');
+
+            if (allOption && allOption.selected) {
+                // Select all departments except "All Departments" option
+                Array.from(select.options).forEach(opt => {
+                    if (opt.value && opt.value !== '__all__') {
+                        opt.selected = true;
+                    }
+                });
+                allOption.selected = false;
+            }
+            updateDepartmentDisplay();
+        });
+
+        function updateDepartmentDisplay() {
+            const selected = Array.from(select.selectedOptions)
+                .filter(opt => opt.value && opt.value !== '__all__');
+
+            if (selected.length === 0) {
+                display.innerHTML = '';
+                display.style.display = 'none';
+            } else {
+                display.style.display = 'flex';
+                display.innerHTML = selected.map(opt =>
+                    `<span class="dept-tag-inline">${opt.textContent}<button type="button" class="remove-dept-inline" data-value="${opt.value}" title="Remove">&times;</button></span>`
+                ).join('');
+
+                // Add remove handlers
+                display.querySelectorAll('.remove-dept-inline').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const value = e.target.closest('.remove-dept-inline').dataset.value;
+                        const option = Array.from(select.options).find(opt => opt.value === value);
+                        if (option) {
+                            option.selected = false;
+                        }
+                        updateDepartmentDisplay();
+                        // Trigger change event to update select
+                        select.dispatchEvent(new Event('change'));
+                    });
+                });
+            }
+        }
+
+        // Initial display update
+        updateDepartmentDisplay();
+    }
+
+    // Removed - now using custom dropdown
+    // eslint-disable-next-line no-unused-vars
+    function initDepartmentSingleSelect() {
+        const select = document.getElementById('departmentSelect');
+        const display = document.getElementById('selectedDepartmentsDisplay');
+        if (!select || !display) {return;}
+
+        // Pre-select user's department
+        const userDepartment = window.currentUser?.department || '';
+        if (userDepartment && select.options.length > 0) {
+            const deptOption = Array.from(select.options).find(opt => opt.value === userDepartment);
+            if (deptOption) {
+                select.value = userDepartment;
+            }
+        }
+
+        select.addEventListener('change', () => {
+            if (select.value) {
+                display.style.display = 'flex';
+                display.innerHTML = `<span class="dept-tag-inline">${select.selectedOptions[0].textContent}</span>`;
+            } else {
+                display.innerHTML = '';
+                display.style.display = 'none';
+            }
+        });
+
+        // Initial display
+        if (select.value) {
+            display.style.display = 'flex';
+            display.innerHTML = `<span class="dept-tag-inline">${select.selectedOptions[0].textContent}</span>`;
+        } else {
+            display.style.display = 'none';
         }
     }
 
@@ -221,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Star button
     starBtn.addEventListener('click', async () => {
-        if (!currentMemoId) return;
+        if (!currentMemoId) {return;}
 
         const memo = filteredMemos[currentMemoIndex];
         const newStarState = !memo.isStarred;
@@ -250,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Delete button
     deleteBtn.addEventListener('click', async () => {
-        if (!currentMemoId) return;
+        if (!currentMemoId) {return;}
 
         // Store the memo for potential undo
         const memoToDelete = filteredMemos[currentMemoIndex];
@@ -309,11 +914,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Apply filters (department and search)
     function applyFilters() {
+        // Start with all memos
+        filteredMemos = [...memos];
+
         // Filter by department
-        filteredMemos = memos.filter(memo => {
-            if (currentDeptFilter === 'all') return true;
-            return memo.department === currentDeptFilter || memo.sender?.department === currentDeptFilter;
-        });
+        if (currentDeptFilter !== 'all') {
+            filteredMemos = filteredMemos.filter(memo => {
+                return memo.department === currentDeptFilter ||
+                       memo.sender?.department === currentDeptFilter ||
+                       memo.recipient?.department === currentDeptFilter;
+            });
+        }
+
+        // Filter by search term
+        if (currentSearchTerm) {
+            filteredMemos = filteredMemos.filter(memo => {
+                const searchLower = currentSearchTerm.toLowerCase();
+                const subject = (memo.subject || '').toLowerCase();
+                const content = (memo.content || '').toLowerCase();
+                const senderName = `${memo.sender?.firstName || ''} ${memo.sender?.lastName || ''}`.toLowerCase();
+                const senderEmail = (memo.sender?.email || '').toLowerCase();
+                const activityType = (memo.activityType || '').toLowerCase();
+
+                return subject.includes(searchLower) ||
+                       content.includes(searchLower) ||
+                       senderName.includes(searchLower) ||
+                       senderEmail.includes(searchLower) ||
+                       activityType.includes(searchLower);
+            });
+        }
 
         renderMemoList();
     }
@@ -355,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.memo-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 // Don't trigger if clicking on checkbox
-                if (e.target.type === 'checkbox') return;
+                if (e.target.type === 'checkbox') {return;}
                 const index = parseInt(item.dataset.index);
                 selectMemo(index);
             });
@@ -394,9 +1023,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log('Elements found:', { senderAvatar, senderName, senderTitle, memoBodyContent, attachmentsDiv });
 
-        if (senderAvatar) senderAvatar.src = memo.sender?.profilePicture || '/images/memofy-logo.png';
-        if (senderName) senderName.textContent = `${memo.sender?.firstName} ${memo.sender?.lastName}`;
-        if (senderTitle) senderTitle.textContent = `${memo.sender?.department || ''} SECRETARY`.trim();
+        if (senderAvatar) {senderAvatar.src = memo.sender?.profilePicture || '/images/memofy-logo.png';}
+        if (senderName) {senderName.textContent = `${memo.sender?.firstName} ${memo.sender?.lastName}`;}
+        if (senderTitle) {senderTitle.textContent = `${memo.sender?.department || ''} SECRETARY`.trim();}
 
         // Display memo content with attachments
         if (memoBodyContent) {
@@ -446,9 +1075,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Update navigation buttons
-        if (prevBtn) prevBtn.disabled = index === 0;
-        if (nextBtn) nextBtn.disabled = index === filteredMemos.length - 1;
-        if (memoCounter) memoCounter.textContent = `${index + 1} of ${filteredMemos.length}`;
+        if (prevBtn) {prevBtn.disabled = index === 0;}
+        if (nextBtn) {nextBtn.disabled = index === filteredMemos.length - 1;}
+        if (memoCounter) {memoCounter.textContent = `${index + 1} of ${filteredMemos.length}`;}
 
         // Update star button
         updateStarButton(memo.isStarred);
@@ -474,14 +1103,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show memo viewer
     function showMemoViewer() {
-        if (emptyState) emptyState.style.display = 'none';
-        if (memoViewer) memoViewer.style.display = 'flex';
+        if (emptyState) {emptyState.style.display = 'none';}
+        if (memoViewer) {memoViewer.style.display = 'flex';}
     }
 
     // Show default empty view
     function showDefaultView() {
-        if (emptyState) emptyState.style.display = 'flex';
-        if (memoViewer) memoViewer.style.display = 'none';
+        if (emptyState) {emptyState.style.display = 'flex';}
+        if (memoViewer) {memoViewer.style.display = 'none';}
         currentMemoIndex = -1;
         currentMemoId = null;
     }
@@ -517,8 +1146,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Format file size
     function formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1024) {return bytes + ' B';}
+        if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB';}
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
@@ -538,10 +1167,112 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Notification helper
-    function showNotification(message, type) {
-        console.log(`${type}: ${message}`);
-        // You can implement a toast notification here
+    // Notification helper with toast implementation
+    function showNotification(message, type = 'info') {
+        // Remove existing notifications
+        const existing = document.querySelectorAll('.toast-notification');
+        existing.forEach(n => n.remove());
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `toast-notification toast-${type}`;
+        notification.innerHTML = `
+            <div class="toast-content">
+                <span class="toast-message">${message}</span>
+                <button class="toast-close">&times;</button>
+            </div>
+        `;
+
+        // Add styles if not already added
+        if (!document.getElementById('toast-styles')) {
+            const style = document.createElement('style');
+            style.id = 'toast-styles';
+            style.textContent = `
+                .toast-notification {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    min-width: 300px;
+                    max-width: 500px;
+                    padding: 16px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 10002;
+                    animation: slideInRight 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                }
+                .toast-success {
+                    background: #10b981;
+                    color: white;
+                }
+                .toast-error {
+                    background: #ef4444;
+                    color: white;
+                }
+                .toast-info {
+                    background: #3b82f6;
+                    color: white;
+                }
+                .toast-content {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    width: 100%;
+                    gap: 12px;
+                }
+                .toast-message {
+                    flex: 1;
+                    font-size: 14px;
+                    font-weight: 500;
+                }
+                .toast-close {
+                    background: none;
+                    border: none;
+                    color: white;
+                    font-size: 20px;
+                    cursor: pointer;
+                    padding: 0;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0.8;
+                }
+                .toast-close:hover {
+                    opacity: 1;
+                }
+                @keyframes slideInRight {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Add to body
+        document.body.appendChild(notification);
+
+        // Close button handler
+        notification.querySelector('.toast-close').addEventListener('click', () => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        });
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 5000);
     }
 
     // Undo Delete function

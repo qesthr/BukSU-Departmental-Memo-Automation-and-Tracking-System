@@ -46,14 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function searchLogs(searchTerm) {
-        // Check if log JS is loaded
-        if (window.logLoaded) {
-            // Trigger search in log.js
-            const logSearch = document.getElementById('logSearch');
-            if (logSearch) {
-                logSearch.value = searchTerm;
-                logSearch.dispatchEvent(new Event('input'));
-            }
+        // The search input is already connected to log.js via the globalSearchInput
+        // Since log.js listens to the globalSearchInput directly, we just need to ensure
+        // the value is synced (though it should already be since they're the same element)
+        // This function is mainly for compatibility
+        const globalSearchInput = document.getElementById('globalSearchInput');
+        if (globalSearchInput && globalSearchInput.value !== searchTerm) {
+            // Update the value to trigger the input event listener in log.js
+            globalSearchInput.value = searchTerm;
+            // Dispatch input event to ensure log.js picks it up
+            globalSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }
 
