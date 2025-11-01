@@ -291,7 +291,7 @@ body {
 /* Recent Memos Section */
 .recent-memos-section {
     background: white;
-    padding: 1.7rem;
+    padding: 1.65rem;
     border-radius: 0.75rem;
     border: 1px solid var(--border);
 }
