@@ -274,6 +274,15 @@ app.use(errorHandler);
 
 // Start server
 
-app.listen(port, () => {
+// Listen on all network interfaces (0.0.0.0) to allow remote access
+// For localhost-only access, use: app.listen(port, 'localhost', ...)
+app.listen(port, '0.0.0.0', () => {
+    const localIP = require('os').networkInterfaces();
+    const ipv4 = Object.values(localIP)
+        .flat()
+        .find(i => i.family === 'IPv4' && !i.internal)?.address;
     console.info(`Server is running at http://localhost:${port}`);
+    if (ipv4) {
+        console.info(`Server also accessible at http://${ipv4}:${port}`);
+    }
 });
