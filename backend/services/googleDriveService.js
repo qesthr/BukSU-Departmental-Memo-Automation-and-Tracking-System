@@ -227,6 +227,82 @@ async function uploadMemoToDrive(memo) {
             pdfDoc.fontSize(11).text('(No content)', { align: 'left', italic: true });
         }
 
+        // First, upload all attachment files to Google Drive and get their shareable links
+        const attachmentDriveUrls = {};
+        if (memo.attachments && memo.attachments.length > 0) {
+            // eslint-disable-next-line no-console
+            console.log(`  📎 Uploading ${memo.attachments.length} attachment(s) to Google Drive...`);
+
+            for (const attachment of memo.attachments) {
+                // Try multiple possible paths for the file
+                let filePath = attachment.path;
+                if (!filePath || !fs.existsSync(filePath)) {
+                    filePath = path.join(__dirname, '../../uploads', attachment.filename);
+                }
+                // Also try with just the filename in uploads
+                if (!fs.existsSync(filePath)) {
+                    filePath = path.join(__dirname, '../../uploads', path.basename(attachment.filename));
+                }
+
+                if (fs.existsSync(filePath)) {
+                    try {
+                        // Sanitize filename for Google Drive
+                        const sanitizedFilename = attachment.filename
+                            .replace(/[<>:"/\\|?*]/g, '_')
+                            .trim()
+                            .substring(0, 200);
+
+                        // Upload attachment file to Google Drive
+                        const attachmentFileMetadata = {
+                            name: sanitizedFilename,
+                            parents: [folderId]
+                        };
+
+                        const attachmentFile = await drive.files.create({
+                            resource: attachmentFileMetadata,
+                            media: {
+                                mimeType: attachment.mimetype || 'application/octet-stream',
+                                body: fs.createReadStream(filePath)
+                            },
+                            fields: 'id, webViewLink, webContentLink'
+                        });
+
+                        // Make file publicly viewable
+                        try {
+                            await drive.permissions.create({
+                                fileId: attachmentFile.data.id,
+                                requestBody: {
+                                    role: 'reader',
+                                    type: 'anyone'
+                                }
+                            });
+                        } catch (permError) {
+                            // eslint-disable-next-line no-console
+                            console.warn(`  ⚠️ Could not set permissions for ${attachment.filename}:`, permError.message);
+                        }
+
+                        // Store the Google Drive link
+                        attachmentDriveUrls[attachment.filename] = attachmentFile.data.webViewLink || attachmentFile.data.webContentLink;
+
+                        // eslint-disable-next-line no-console
+                        console.log(`  ✅ Uploaded attachment to Drive: ${attachment.filename} -> ${attachmentFile.data.id}`);
+                    } catch (uploadError) {
+                        // eslint-disable-next-line no-console
+                        console.error(`  ⚠️ Failed to upload attachment ${attachment.filename}:`, uploadError.message);
+                        // Use fallback URL if upload fails
+                        const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+                        attachmentDriveUrls[attachment.filename] = attachment.url || `${baseUrl}/uploads/${encodeURIComponent(attachment.filename)}`;
+                    }
+                } else {
+                    // eslint-disable-next-line no-console
+                    console.warn(`  ⚠️ Attachment file not found: ${filePath}`);
+                    // Use fallback URL
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+                    attachmentDriveUrls[attachment.filename] = attachment.url || `${baseUrl}/uploads/${encodeURIComponent(attachment.filename)}`;
+                }
+            }
+        }
+
         // Add images if attachments exist
         if (memo.attachments && memo.attachments.length > 0) {
             pdfDoc.moveDown(2);
@@ -234,37 +310,140 @@ async function uploadMemoToDrive(memo) {
             pdfDoc.moveDown(1);
 
             for (const attachment of memo.attachments) {
-                const filePath = attachment.path || path.join(__dirname, '../../uploads', attachment.filename);
+                // Try multiple possible paths for the file
+                let filePath = attachment.path;
+                if (!filePath || !fs.existsSync(filePath)) {
+                    filePath = path.join(__dirname, '../../uploads', attachment.filename);
+                }
+                // Also try with just the filename in uploads
+                if (!fs.existsSync(filePath)) {
+                    filePath = path.join(__dirname, '../../uploads', path.basename(attachment.filename));
+                }
+
+                // Use Google Drive URL if available, otherwise fallback to local URL
+                const attachmentUrl = attachmentDriveUrls[attachment.filename] ||
+                    attachment.url ||
+                    `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${encodeURIComponent(attachment.filename)}`;
 
                 if (fs.existsSync(filePath)) {
-                    // Check if it's an image
+                    // Check if it's an image (original) or a PDF that was converted from an image
                     const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+                    const isPDF = attachment.mimetype === 'application/pdf';
 
-                    if (isImage) {
+                    // Check if PDF was converted from an image by looking at the original filename
+                    // If the original filename had image extension but now it's PDF, it was converted
+                    const originalExt = path.extname(attachment.filename).toLowerCase();
+                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                    const wasImage = imageExtensions.includes(originalExt) && isPDF;
+
+                    // eslint-disable-next-line no-console
+                    console.log(`  📎 Processing attachment: ${attachment.filename} (isImage: ${isImage}, isPDF: ${isPDF}, wasImage: ${wasImage})`);
+
+                    if (isImage || wasImage) {
                         pdfDoc.moveDown(1);
-                        pdfDoc.fontSize(10).text(`• ${attachment.filename}`, { indent: 20 });
+                        const linkStartY = pdfDoc.y;
+
+                        // Create clickable filename link (blue, underlined)
+                        pdfDoc.fontSize(10);
+                        pdfDoc.fillColor('#0066cc');
+                        pdfDoc.text(`• `, { indent: 20 });
+                        const filenameX = 70; // Position after bullet and indent
+                        const filenameY = pdfDoc.y;
+                        const filenameText = attachment.filename;
+                        const filenameWidth = pdfDoc.widthOfString(filenameText);
+                        const filenameHeight = 12;
+
+                        // Draw the clickable filename
+                        pdfDoc.text(filenameText, {
+                            indent: 20,
+                            underline: true,
+                            link: attachmentUrl
+                        });
 
                         try {
-                            // Calculate image dimensions to fit page
-                            const imageWidth = 450; // Max width
-                            const xPosition = 50;
+                            if (wasImage && isPDF) {
+                                // This shouldn't happen anymore since we keep images as images
+                                // But if it does (old memos), just show a note
+                                pdfDoc.moveDown(0.5);
+                                pdfDoc.fontSize(9);
+                                pdfDoc.fillColor('#666');
+                                pdfDoc.text('   (Click filename above to view PDF)', { indent: 40 });
+                                pdfDoc.moveDown(0.5);
+                            } else if (isImage) {
+                                // For original images, embed them directly in the PDF so they're visible immediately
+                                pdfDoc.moveDown(0.5);
+                                const imageY = pdfDoc.y;
+                                const imageWidth = 450; // Max width
+                                const xPosition = 50;
 
-                            // Embed image in PDF
-                            pdfDoc.image(filePath, xPosition, pdfDoc.y, { fit: [imageWidth, 600] });
+                                // Embed image in PDF - this makes it visible inline, no clicking needed!
+                                pdfDoc.image(filePath, xPosition, imageY, { fit: [imageWidth, 600] });
 
-                            pdfDoc.moveDown(1);
+                                // Make the entire image area clickable too (opens full size in Google Drive)
+                                // Estimate image height for clickable area
+                                const imageHeight = Math.min(600, imageWidth * 0.75); // Rough estimate
+                                pdfDoc.link(xPosition, imageY, imageWidth, imageHeight, attachmentUrl);
+
+                                pdfDoc.moveDown(1);
+
+                                // eslint-disable-next-line no-console
+                                console.log(`  ✅ Embedded image inline in PDF: ${attachment.filename}`);
+                            }
                         } catch (imgError) {
                             // eslint-disable-next-line no-console
-                            console.error(`  Could not embed image ${attachment.filename}:`, imgError.message);
-                            pdfDoc.text('  (Image could not be embedded)', { indent: 20 });
+                            console.error(`  ⚠️ Could not embed image ${attachment.filename}:`, imgError.message);
+                            pdfDoc.fontSize(9);
+                            pdfDoc.fillColor('#999');
+                            pdfDoc.text('   (Click filename above to view)', { indent: 40 });
                         }
+
+                        // Reset color
+                        pdfDoc.fillColor('#000');
                     } else {
-                        pdfDoc.fontSize(10).text(`• ${attachment.filename} (${attachment.mimetype || 'file'})`, { indent: 20 });
+                        // For non-image files (PDFs, docs, etc.), create clickable link
+                        pdfDoc.moveDown(1);
+                        pdfDoc.fontSize(10);
+
+                        // Draw bullet point
+                        pdfDoc.text(`• `, { indent: 20 });
+
+                        // Create clickable link for the filename (blue, underlined)
+                        pdfDoc.fillColor('#0066cc');
+                        pdfDoc.text(attachment.filename, {
+                            indent: 20,
+                            link: attachmentUrl,
+                            underline: true
+                        });
+
+                        // Add file type info (gray, not clickable)
+                        pdfDoc.fontSize(9);
+                        pdfDoc.fillColor('#666');
+                        pdfDoc.text(` (${attachment.mimetype || 'file'})`, {
+                            link: null // Don't make the type clickable
+                        });
+
+                        // Reset color
+                        pdfDoc.fillColor('#000');
                     }
                 } else {
                     // eslint-disable-next-line no-console
                     console.warn(`  ⚠️ Attachment file not found: ${filePath}`);
-                    pdfDoc.fontSize(10).text(`• ${attachment.filename} (file not found on server)`, { indent: 20 });
+
+                    // Still create clickable link even if file not found locally
+                    pdfDoc.moveDown(1);
+                    pdfDoc.fontSize(10);
+                    pdfDoc.text(`• `, { indent: 20 });
+                    pdfDoc.text(attachment.filename, {
+                        indent: 20,
+                        link: attachmentUrl,
+                        underline: true,
+                        color: '#0066cc'
+                    });
+                    pdfDoc.fontSize(9).text(' (file not found on server - link may work)', {
+                        indent: 40,
+                        color: '#999',
+                        link: null
+                    });
                 }
             }
         }

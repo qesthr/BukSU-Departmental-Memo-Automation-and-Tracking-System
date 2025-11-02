@@ -163,52 +163,16 @@ exports.createMemo = async (req, res) => {
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 if (file.mimetype.startsWith('image/')) {
-                    // Convert image to PDF
-                    try {
-                        // Generate PDF filename: replace extension with .pdf
-                        const pdfFilename = file.filename.replace(/\.[^/.]+$/, '.pdf');
-                        const pdfPath = path.join(path.dirname(file.path), pdfFilename);
-                        const doc = new PDFDocument({ margin: 50 });
-                        const stream = fs.createWriteStream(pdfPath);
-
-                        doc.pipe(stream);
-                        doc.image(file.path, {
-                            fit: [500, 700],
-                            align: 'center',
-                            valign: 'center'
-                        });
-                        doc.end();
-
-                        await new Promise((resolve, reject) => {
-                            stream.on('finish', resolve);
-                            stream.on('error', reject);
-                        });
-
-                        // Delete original image file
-                        try {
-                            fs.unlinkSync(file.path);
-                        } catch (unlinkError) {
-                            console.error('Error deleting original image:', unlinkError);
-                        }
-
-                        processedAttachments.push({
-                            filename: pdfFilename,
-                            path: pdfPath,
-                            url: `/uploads/${pdfFilename}`,
-                            size: fs.statSync(pdfPath).size,
-                            mimetype: 'application/pdf'
-                        });
-                    } catch (error) {
-                        console.error('Error converting image to PDF:', error);
-                        // Fallback: keep original image if PDF conversion fails
-                        processedAttachments.push({
-                            filename: file.originalname,
-                            path: file.path,
-                            url: `/uploads/${file.filename}`,
-                            size: file.size,
-                            mimetype: file.mimetype
-                        });
-                    }
+                    // Keep images as images (don't convert to PDF)
+                    // This allows images to be embedded directly in memo PDFs for Google Drive backup
+                    // Images can be viewed directly in the app without needing to download
+                    processedAttachments.push({
+                        filename: file.originalname || file.filename,
+                        path: file.path,
+                        url: `/uploads/${file.filename}`,
+                        size: file.size,
+                        mimetype: file.mimetype
+                    });
                 } else {
                     // Non-image files: keep as-is
                     processedAttachments.push({
