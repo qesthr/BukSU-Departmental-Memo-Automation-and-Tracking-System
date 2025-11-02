@@ -251,30 +251,39 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = notifications.map(notif => {
             // Determine icon based on activity type
             let iconName = 'bell';
-            if (notif.type === 'memo_sent') {
+            if (notif.type === 'memo_sent' || notif.type === 'memo_received') {
                 iconName = 'file-text';
-            }
-            if (notif.type === 'user_deleted') {
+            } else if (notif.type === 'user_deleted') {
                 iconName = 'user-minus';
-            }
-            if (notif.type === 'password_reset') {
+            } else if (notif.type === 'password_reset') {
                 iconName = 'key';
-            }
-            if (notif.type === 'welcome_email') {
+            } else if (notif.type === 'welcome_email') {
                 iconName = 'mail';
+            } else if (notif.type === 'pending_memo') {
+                iconName = 'clock';
+            } else if (notif.type === 'memo_approved') {
+                iconName = 'check-circle';
+            } else if (notif.type === 'memo_rejected') {
+                iconName = 'x-circle';
             }
 
+            // Determine click action based on notification type
+            const clickAction = notif.type === 'memo_received' || notif.type === 'memo_sent'
+                ? `window.location.href='/admin/log?memo=${notif.id}'`
+                : `window.location.href='/admin/log'`;
+
             return `
-                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" onclick="window.location.href='/admin/log'">
+                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" onclick="${clickAction}">
                     <div class="notification-icon">
                         <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${notif.title}</div>
-                        <div class="notification-message">${notif.message}</div>
+                        <div class="notification-title">${notif.title || 'Notification'}</div>
+                        <div class="notification-message">${notif.message || ''}</div>
                         <div class="notification-meta">
                             ${notif.sender ? `<span>From: ${notif.sender.name}</span>` : ''}
-                            <span>•</span>
+                            ${notif.hasAttachments ? `<span>📎 Attachment</span>` : ''}
+                            ${notif.sender || notif.hasAttachments ? '<span>•</span>' : ''}
                             <span class="notification-time">${formatTime(notif.timestamp)}</span>
                         </div>
                     </div>

@@ -133,11 +133,20 @@
                 <form id="composeForm">
                     <!-- Gmail-style compact header fields -->
                     <div class="compose-header-fields">
-                        <input type="email" id="recipientEmail" class="compose-field" placeholder="Recipients (optional)" multiple>
-                        <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
+                        <div class="recipient-input-container">
+                            <label class="recipient-label">To</label>
+                            <div class="recipient-input-wrapper">
+                                <div id="recipient-chips" class="recipient-chips-wrapper"></div>
+                                <input type="text" id="recipients" name="recipients" class="recipient-input" placeholder="">
+                            </div>
+                        </div>
+                        <div class="compose-field-wrapper">
+                            <label class="compose-field-label" style="display: none;">Subject</label>
+                            <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
+                        </div>
                         <div class="custom-dropdown compose-field-dropdown">
                             <button id="deptDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
-                                <span class="dept-placeholder">Department(s)</span>
+                                <span class="dept-placeholder">Department</span>
                             </button>
                             <div id="deptDropdownMenu" class="dept-dropdown-menu">
                                 <label class="dept-checkbox-label">
@@ -153,34 +162,21 @@
                         <input type="hidden" id="selectedDepartments" name="departments">
                     </div>
 
-                    <!-- Content area with attachment buttons -->
-                    <div class="compose-content-area">
+                    <!-- Content area with drag-and-drop support -->
+                    <div class="compose-content-area" id="composeContentArea">
                         <textarea id="content" name="content" class="compose-textarea" placeholder="Enter memo content (plain text)..."></textarea>
-                        <div class="compose-toolbar">
-                            <div class="attachment-buttons">
-                                <button type="button" id="attachFileBtn" class="attachment-btn" title="Attach File">
-                                    <i data-lucide="paperclip"></i> Attach File
-                                </button>
-                                <button type="button" id="insertImageBtn" class="attachment-btn" title="Insert Image">
-                                    <i data-lucide="image"></i> Insert Image
-                                </button>
-                            </div>
-                            <div id="uploadStatus" class="upload-status">
-                                <span class="upload-spinner"></span>
-                                <span class="upload-text">Uploading…</span>
-                            </div>
+                        <!-- Attachments preview (Gmail style - inline below text, no separator) -->
+                        <div id="attachment-preview" class="attachment-preview-container" style="display: none;">
+                            <!-- Attachment preview items will be inserted here -->
                         </div>
-                        <input type="file" id="fileUpload" accept=".pdf,.docx,.xlsx,.csv,.pptx,.doc,.xls,.ppt" style="display: none;" multiple>
-                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" multiple>
                     </div>
 
-                    <!-- Attachments preview (Gmail style - above Send button) -->
-                    <div id="attachmentsPreview" class="attachments-preview" style="display: none;">
-                        <!-- Attachment preview items will be inserted here -->
-                    </div>
-
-                    <!-- Fixed action buttons at bottom -->
+                    <!-- Fixed action buttons at bottom (Attach | Cancel | Send) -->
                     <div class="form-actions">
+                        <button type="button" class="btn btn-attach" id="attachBtn" title="Attach File or Image">
+                            <i data-lucide="paperclip"></i>
+                        </button>
+                        <input type="file" id="attachments" name="attachments" style="display: none;" multiple>
                         <button type="button" class="btn btn-secondary close-modal">Cancel</button>
                         <button type="submit" class="btn btn-primary" id="sendMemoBtn">
                             <span class="btn-text">Send</span>

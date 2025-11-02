@@ -38,6 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // eslint-disable-next-line no-undef
                 lucide.createIcons();
             }
+            // Ensure attachment handlers are initialized when modal opens
+            setTimeout(() => {
+                setupAttachmentHandlers();
+                // Ensure department dropdown is initialized when modal opens
+                const modal = document.getElementById('composeModal');
+                if (modal) {
+                    initCustomDepartmentDropdown(modal);
+                }
+            }, 200);
         });
     }
 
@@ -89,321 +98,369 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Simple textarea for content - no rich text editor
     const contentTextarea = document.getElementById('content');
-    const insertImageBtn = document.getElementById('insertImageBtn');
-    const attachFileBtn = document.getElementById('attachFileBtn');
-    const imageUpload = document.getElementById('imageUpload');
-    const fileUpload = document.getElementById('fileUpload');
-    const attachmentsPreview = document.getElementById('attachmentsPreview');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const uploadText = uploadStatus ? uploadStatus.querySelector('.upload-text') : null;
+    const attachmentsInput = document.getElementById('attachments');
+    const attachmentPreview = document.getElementById('attachment-preview');
     const sendMemoBtn = document.getElementById('sendMemoBtn');
 
-    // Store uploaded attachments (URLs/filenames)
-    const uploadedAttachments = [];
+    // Store selected files (not uploaded yet - will be sent with form)
+    const selectedFiles = [];
 
-    // Track upload state
-    let activeUploads = 0;
+    // Registered users for recipient validation (full user data)
+    let registeredUsers = [];
+    const MAX_VISIBLE_CHIPS = 5; // Show max 5 chips, then "+N more"
 
-    // File upload handler
-    if (attachFileBtn && fileUpload) {
-        attachFileBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileUpload.click();
+    // Load registered users on page load
+    fetch('/api/users/emails')
+        .then(res => res.json())
+        .then(data => {
+            registeredUsers = Array.isArray(data) ? data : [];
+            // Create email lookup map for quick validation
+            window.registeredUsersMap = new Map(registeredUsers.map(u => [u.email.toLowerCase(), u]));
+        })
+        .catch(err => {
+            console.error('Error loading registered users:', err);
         });
 
-        fileUpload.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) {return;}
+    // Recipient chips handling (Gmail-style with collapsible "+N more")
+    const recipientsInput = document.getElementById('recipients');
+    const recipientChipsContainer = document.getElementById('recipient-chips');
+    const recipientData = []; // Store full user data, not just emails
 
-            files.forEach(file => {
-                // Validate file size
-                if (file.size > 10 * 1024 * 1024) {
-                    showNotification(`File "${file.name}" exceeds 10MB limit`, 'error');
-                    return;
-                }
-                // Validate file type
-                const allowedTypes = [
-                    'application/pdf',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/vnd.ms-excel',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'text/csv',
-                    'application/vnd.ms-powerpoint',
-                    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-                ];
-                if (!allowedTypes.includes(file.type)) {
-                    showNotification(`File type "${file.type}" not supported. Please use PDF, Word, Excel, PowerPoint, or CSV files.`, 'error');
-                    return;
-                }
-                // Upload and add to attachments list (async)
-                handleFileUpload(file).catch(err => {
-                    // eslint-disable-next-line no-console
-                    console.error('File upload error:', err);
-                });
+    function renderRecipientChips() {
+        if (!recipientChipsContainer) {return;}
+
+        recipientChipsContainer.innerHTML = '';
+
+        const totalRecipients = recipientData.length;
+        const visibleCount = Math.min(totalRecipients, MAX_VISIBLE_CHIPS);
+        const hiddenCount = totalRecipients - visibleCount;
+
+        // Show visible chips
+        for (let i = 0; i < visibleCount; i++) {
+            const user = recipientData[i];
+            recipientChipsContainer.appendChild(createRecipientChip(user, i));
+        }
+
+        // Show "+N more" chip if there are hidden recipients
+        if (hiddenCount > 0) {
+            const moreChip = document.createElement('span');
+            moreChip.className = 'recipient-chip more-chip';
+            moreChip.innerHTML = `
+                <span class="more-text">+${hiddenCount} more</span>
+            `;
+            moreChip.addEventListener('click', () => {
+                expandRecipientChips();
             });
-            e.target.value = ''; // Reset input
-        });
-    }
-
-    // Image upload handler
-    if (insertImageBtn && imageUpload) {
-        insertImageBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            imageUpload.click();
-        });
-
-        imageUpload.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) {return;}
-
-            files.forEach(file => {
-                // Validate file size
-                if (file.size > 10 * 1024 * 1024) {
-                    showNotification(`Image "${file.name}" exceeds 10MB limit`, 'error');
-                    return;
-                }
-                // Validate file type
-                if (!file.type.startsWith('image/')) {
-                    showNotification(`"${file.name}" is not a valid image file`, 'error');
-                    return;
-                }
-                // Upload and add to attachments list (async)
-                handleImageUpload(file).catch(err => {
-                    // eslint-disable-next-line no-console
-                    console.error('Image upload error:', err);
-                });
-            });
-            e.target.value = ''; // Reset input
-        });
-    }
-
-    // Handle file upload - upload and add to attachments list
-    async function handleFileUpload(file) {
-        // Increment active uploads and show status
-        activeUploads++;
-        updateUploadStatus();
-        disableSendButton();
-
-        // Upload file to server
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const response = await fetch('/api/log/upload-file', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.success || !data.url) {
-                throw new Error(data.message || 'Upload failed');
-            }
-
-            // Add to uploaded attachments array
-            uploadedAttachments.push({
-                url: data.url,
-                filename: data.filename,
-                type: 'file'
-            });
-
-            // Add preview item
-            addAttachmentPreview({
-                url: data.url,
-                filename: data.filename,
-                type: 'file'
-            });
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Error uploading file:', error);
-            showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
-        } finally {
-            // Decrement active uploads and update status
-            activeUploads = Math.max(0, activeUploads - 1);
-            updateUploadStatus();
-            if (activeUploads === 0) {
-                enableSendButton();
-            }
+            recipientChipsContainer.appendChild(moreChip);
         }
     }
 
-    // Handle image upload - upload and add to attachments list
-    async function handleImageUpload(file) {
-        // Validate image file
-        if (!file.type.startsWith('image/')) {
-            showNotification(`"${file.name}" is not a valid image file`, 'error');
+    function expandRecipientChips() {
+        if (!recipientChipsContainer) {return;}
+        recipientChipsContainer.innerHTML = '';
+        recipientData.forEach((user, index) => {
+            recipientChipsContainer.appendChild(createRecipientChip(user, index));
+        });
+    }
+
+    function createRecipientChip(user, index) {
+        const chip = document.createElement('span');
+        chip.className = 'recipient-chip';
+        chip.dataset.email = user.email;
+        chip.innerHTML = `
+            <img src="${user.profilePicture}" alt="${user.fullName}" class="chip-avatar" onerror="this.src='/images/memofy-logo.png'">
+            <span class="chip-name">${user.fullName || user.email}</span>
+            <button type="button" class="chip-remove" aria-label="Remove ${user.email}">×</button>
+        `;
+
+        const removeBtn = chip.querySelector('.chip-remove');
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const email = user.email.toLowerCase();
+            const dataIndex = recipientData.findIndex(u => u.email.toLowerCase() === email);
+            if (dataIndex > -1) {
+                recipientData.splice(dataIndex, 1);
+            }
+            renderRecipientChips();
+        });
+
+        return chip;
+    }
+
+    if (recipientsInput && recipientChipsContainer) {
+        recipientsInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const email = recipientsInput.value.trim().toLowerCase();
+
+                if (!email) {return;}
+
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showNotification('Please enter a valid email address.', 'error');
+                    return;
+                }
+
+                // Validate against registered users
+                const user = window.registeredUsersMap?.get(email);
+                if (!user) {
+                    showNotification(`Email "${email}" is not registered.`, 'error');
+                    return;
+                }
+
+                // Check if already added
+                if (recipientData.find(u => u.email.toLowerCase() === email)) {
+                    showNotification(`Email "${email}" is already added.`, 'error');
+                    recipientsInput.value = '';
+                    return;
+                }
+
+                // Add to recipient list
+                recipientData.push(user);
+                recipientsInput.value = '';
+                renderRecipientChips();
+            }
+        });
+
+        // Handle paste events for comma-separated emails
+        recipientsInput.addEventListener('paste', (e) => {
+            setTimeout(() => {
+                const pastedText = recipientsInput.value.trim();
+                const emails = pastedText.split(/[,\s]+/).filter(e => e.trim());
+
+                if (emails.length > 1) {
+                    recipientsInput.value = '';
+                    emails.forEach(email => {
+                        const user = window.registeredUsersMap?.get(email.toLowerCase());
+                        if (user && !recipientData.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+                            recipientData.push(user);
+                        }
+                    });
+                    renderRecipientChips();
+                }
+            }, 0);
+        });
+    }
+
+    // Handle file addition (used by both click and drag-drop)
+    function handleFiles(files) {
+        const fileArray = Array.from(files);
+        if (fileArray.length === 0) {return;}
+
+        fileArray.forEach(file => {
+            // Validate file size
+            if (file.size > 10 * 1024 * 1024) {
+                showNotification(`File "${file.name}" exceeds 10MB limit`, 'error');
+                return;
+            }
+
+            // Check if already added
+            if (selectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                showNotification(`File "${file.name}" is already added.`, 'error');
+                return;
+            }
+
+            // Add to selected files
+            selectedFiles.push(file);
+            addAttachmentPreview(file);
+        });
+
+        updateAttachmentPreviewVisibility();
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) {return bytes + ' B';}
+        if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB';}
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function addAttachmentPreview(file) {
+        if (!attachmentPreview) {return;}
+
+        const chip = document.createElement('div');
+        chip.className = 'attachment-preview-chip';
+        chip.dataset.filename = file.name;
+
+        const isImage = file.type.startsWith('image/');
+        const isPDF = file.type === 'application/pdf';
+        const iconHtml = isImage
+            ? `<i data-lucide="image" style="width: 16px; height: 16px;"></i>`
+            : isPDF
+            ? `<i data-lucide="file-text" style="width: 16px; height: 16px;"></i>`
+            : `<i data-lucide="file" style="width: 16px; height: 16px;"></i>`;
+
+        // Create preview URL for images/PDFs
+        const previewUrl = (isImage || isPDF) ? URL.createObjectURL(file) : null;
+
+        chip.innerHTML = `
+            ${iconHtml}
+            <span class="attachment-name" ${previewUrl ? `onclick="window.open('${previewUrl}', '_blank')"` : ''}>${file.name}</span>
+            <span class="attachment-size">${formatFileSize(file.size)}</span>
+            <button type="button" class="attachment-remove" aria-label="Remove ${file.name}">×</button>
+        `;
+
+        // Make filename clickable if it's a previewable file
+        if (previewUrl) {
+            const nameSpan = chip.querySelector('.attachment-name');
+            nameSpan.style.cursor = 'pointer';
+            nameSpan.style.textDecoration = 'underline';
+            nameSpan.title = 'Click to preview';
+        }
+
+        const removeBtn = chip.querySelector('.attachment-remove');
+        removeBtn.addEventListener('click', () => {
+            const index = selectedFiles.findIndex(f => f === file);
+            if (index > -1) {
+                selectedFiles.splice(index, 1);
+            }
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+            }
+            chip.remove();
+            updateAttachmentPreviewVisibility();
+            lucide.createIcons();
+        });
+
+        attachmentPreview.appendChild(chip);
+        updateAttachmentPreviewVisibility();
+        lucide.createIcons();
+    }
+
+    // Attachment handling - single attach button for all files/images
+    // Function to setup attachment handlers
+    function setupAttachmentHandlers() {
+        const composeModal = document.getElementById('composeModal');
+        if (!composeModal) {return;}
+
+        const attachmentsInput = composeModal.querySelector('#attachments');
+        const attachmentPreview = composeModal.querySelector('#attachment-preview');
+        const attachBtn = composeModal.querySelector('#attachBtn');
+
+        if (!attachmentsInput || !attachmentPreview || !attachBtn) {
+            // eslint-disable-next-line no-console
+            console.log('Attachment elements not found:', {attachmentsInput, attachmentPreview, attachBtn});
             return;
         }
 
-        // Increment active uploads and show status
-        activeUploads++;
-        updateUploadStatus();
-        disableSendButton();
+        // Remove existing listeners by cloning
+        const newAttachBtn = attachBtn.cloneNode(true);
+        attachBtn.parentNode.replaceChild(newAttachBtn, attachBtn);
+        const freshAttachBtn = composeModal.querySelector('#attachBtn');
 
-        // Upload image to server
-        const formData = new FormData();
-        formData.append('image', file);
+        // Setup file input change handler - remove old and add new
+        const newInput = attachmentsInput.cloneNode();
+        attachmentsInput.parentNode.replaceChild(newInput, attachmentsInput);
+        const freshInput = composeModal.querySelector('#attachments');
 
-        try {
-            const response = await fetch('/api/log/upload-image', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
+        freshInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                e.target.value = ''; // Reset to allow selecting same file again
             }
+        });
 
-            const data = await response.json();
-
-            if (!data.success || !data.url) {
-                throw new Error(data.message || 'Upload failed');
+        // Ensure attach button click triggers file input
+        freshAttachBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = composeModal.querySelector('#attachments');
+            if (input) {
+                // Force click on the hidden file input
+                input.focus();
+                input.click();
+            } else {
+                // eslint-disable-next-line no-console
+                console.error('File input not found');
             }
+        }, false);
 
-            // Add to uploaded attachments array
-            uploadedAttachments.push({
-                url: data.url,
-                filename: data.filename,
-                type: 'image'
-            });
+        // Also handle clicks on the icon itself
+        const icon = freshAttachBtn.querySelector('i[data-lucide="paperclip"]');
+        if (icon) {
+            icon.style.pointerEvents = 'none'; // Let clicks pass through to button
+        }
 
-            // Add preview item with thumbnail
-            addAttachmentPreview({
-                url: data.url,
-                filename: data.filename,
-                type: 'image'
-            });
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Error uploading image:', error);
-            showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
-        } finally {
-            // Decrement active uploads and update status
-            activeUploads = Math.max(0, activeUploads - 1);
-            updateUploadStatus();
-            if (activeUploads === 0) {
-                enableSendButton();
-            }
+        // Reinitialize Lucide icons for the button
+        if (typeof lucide !== 'undefined') {
+            // eslint-disable-next-line no-undef
+            lucide.createIcons();
         }
     }
 
-    // Update upload status indicator
-    function updateUploadStatus() {
-        if (!uploadStatus) {return;}
+    // Initialize attachment handlers on page load
+    setupAttachmentHandlers();
 
-        if (activeUploads > 0) {
-            uploadStatus.classList.add('show');
-            if (uploadText) {
-                uploadText.textContent = 'Uploading…';
+    // Drag-and-drop support - append files, don't replace
+    const composeContentArea = document.getElementById('composeContentArea');
+    if (composeContentArea) {
+        let dragCounter = 0;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            composeContentArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        composeContentArea.addEventListener('dragenter', (e) => {
+            dragCounter++;
+            composeContentArea.classList.add('drag-over');
+        });
+
+        composeContentArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            composeContentArea.classList.add('drag-over');
+        });
+
+        composeContentArea.addEventListener('dragleave', (e) => {
+            dragCounter--;
+            if (dragCounter === 0) {
+                composeContentArea.classList.remove('drag-over');
             }
+        });
+
+        composeContentArea.addEventListener('drop', (e) => {
+            dragCounter = 0;
+            composeContentArea.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                // Append files to existing list (don't replace)
+                handleFiles(files);
+            }
+        });
+    }
+
+    function updateAttachmentPreviewVisibility() {
+        if (!attachmentPreview) {return;}
+        if (selectedFiles.length === 0) {
+            attachmentPreview.style.display = 'none';
         } else {
-            uploadStatus.classList.remove('show');
-            if (uploadText) {
-                uploadText.textContent = '';
-            }
-        }
-    }
-
-    // Disable send button during uploads
-    function disableSendButton() {
-        if (sendMemoBtn) {
-            sendMemoBtn.disabled = true;
-            sendMemoBtn.style.opacity = '0.6';
-            sendMemoBtn.style.cursor = 'not-allowed';
-        }
-    }
-
-    // Enable send button when uploads complete
-    function enableSendButton() {
-        if (sendMemoBtn) {
-            sendMemoBtn.disabled = false;
-            sendMemoBtn.style.opacity = '1';
-            sendMemoBtn.style.cursor = 'pointer';
-        }
-    }
-
-    // Add attachment preview item
-    function addAttachmentPreview(attachment) {
-        if (!attachmentsPreview) {return;}
-
-        const previewItem = document.createElement('div');
-        previewItem.className = 'attachment-preview-item';
-        previewItem.dataset.url = attachment.url;
-
-        const isImage = attachment.type === 'image';
-        const iconHtml = isImage
-            ? `<img src="${attachment.url}" alt="${attachment.filename}" class="preview-icon" onerror="this.onerror=null; this.className='preview-icon file-icon'; this.textContent='🖼';" />`
-            : `<div class="preview-icon file-icon">📎</div>`;
-
-        previewItem.innerHTML = `
-            <div class="preview-content">
-                ${iconHtml}
-                <span class="preview-filename">${attachment.filename}</span>
-            </div>
-            <button type="button" class="remove-preview" data-url="${attachment.url}" title="Remove">✕</button>
-        `;
-
-        // Add remove handler
-        const removeBtn = previewItem.querySelector('.remove-preview');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-                removeAttachment(attachment.url);
-                previewItem.remove();
-                updateAttachmentsPreviewVisibility();
-            });
-        }
-
-        attachmentsPreview.appendChild(previewItem);
-        attachmentsPreview.style.display = 'flex';
-    }
-
-    // Update attachments preview visibility
-    function updateAttachmentsPreviewVisibility() {
-        if (!attachmentsPreview) {return;}
-
-        if (attachmentsPreview.children.length === 0) {
-            attachmentsPreview.style.display = 'none';
-        }
-    }
-
-    // Remove attachment from list
-    function removeAttachment(url) {
-        const index = uploadedAttachments.findIndex(att => att.url === url);
-        if (index > -1) {
-            uploadedAttachments.splice(index, 1);
-        }
-
-        // Remove preview item if exists
-        const previewItem = attachmentsPreview ? attachmentsPreview.querySelector(`[data-url="${url}"]`) : null;
-        if (previewItem) {
-            previewItem.remove();
-            updateAttachmentsPreviewVisibility();
+            attachmentPreview.style.display = 'flex';
         }
     }
 
 
-    // Compose form
+    // Compose form - scoped to compose modal only
     if (composeForm) {
         composeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Validation
-            const recipientEmail = document.getElementById('recipientEmail').value.trim();
-            const selectedDepartments = Array.from(document.querySelectorAll('.dept-option:checked'))
+            // Scope all queries to compose modal only
+            const composeModal = document.getElementById('composeModal');
+            if (!composeModal) {return;}
+
+            // Validation - get recipient emails from chips
+            const selectedDepartments = Array.from(composeModal.querySelectorAll('.dept-option:checked'))
                 .map(cb => cb.value);
 
             // Handle "Select All" for admins
-            const selectAll = document.getElementById('selectAllDepts');
+            const selectAll = composeModal.querySelector('#selectAllDepts');
             if (selectAll && selectAll.checked) {
                 selectedDepartments.length = 0;
-                document.querySelectorAll('.dept-option').forEach(cb => {
+                composeModal.querySelectorAll('.dept-option').forEach(cb => {
                     if (cb.value) {
                         selectedDepartments.push(cb.value);
                     }
@@ -411,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Validate at least one recipient or department
-            if (!recipientEmail && selectedDepartments.length === 0) {
+            if (recipientData.length === 0 && selectedDepartments.length === 0) {
                 showNotification('Please specify at least one recipient or department.', 'error');
                 return;
             }
@@ -429,9 +486,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Create FormData
             const formData = new FormData();
 
-            // Optional recipient email
-            if (recipientEmail) {
-                formData.append('recipientEmail', recipientEmail);
+            // Add recipient emails (comma-separated if multiple)
+            if (recipientData.length > 0) {
+                const emails = recipientData.map(u => u.email).join(',');
+                formData.append('recipientEmail', emails);
             }
 
             formData.append('subject', subject);
@@ -446,9 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             formData.append('priority', 'medium');
 
-            // Add uploaded attachments URLs
-            uploadedAttachments.forEach(att => {
-                formData.append('attachments[]', att.url);
+            // Add files directly (not pre-uploaded URLs)
+            selectedFiles.forEach(file => {
+                formData.append('attachments', file);
             });
 
             // Show loading state
@@ -494,21 +552,48 @@ document.addEventListener('DOMContentLoaded', () => {
                         contentTextarea.value = '';
                     }
 
-                    // Clear attachments
-                    uploadedAttachments.length = 0;
-                    if (attachmentsPreview) {
-                        attachmentsPreview.innerHTML = '';
-                        attachmentsPreview.style.display = 'none';
+                    // Clear recipient chips
+                    recipientData.length = 0;
+                    if (recipientChipsContainer) {
+                        recipientChipsContainer.innerHTML = '';
+                    }
+                    if (recipientsInput) {
+                        recipientsInput.value = '';
                     }
 
-                    // Reset department selections
-                    document.querySelectorAll('.dept-option').forEach(cb => {
-                        cb.checked = false;
-                    });
-                    const selectAll = document.getElementById('selectAllDepts');
-                    if (selectAll) {selectAll.checked = false;}
-                    const dropdownBtn = document.getElementById('deptDropdownBtn');
-                    if (dropdownBtn) {dropdownBtn.textContent = 'Select Department(s)...';}
+                    // Clear attachments
+                    selectedFiles.length = 0;
+                    if (attachmentPreview) {
+                        attachmentPreview.innerHTML = '';
+                        attachmentPreview.style.display = 'none';
+                    }
+                    if (attachmentsInput) {
+                        attachmentsInput.value = '';
+                    }
+
+                    // Reset department selections - scoped to compose modal only
+                    const composeModal = document.getElementById('composeModal');
+                    if (composeModal) {
+                        composeModal.querySelectorAll('.dept-option').forEach(cb => {
+                            cb.checked = false;
+                        });
+                        const selectAll = composeModal.querySelector('#selectAllDepts');
+                        if (selectAll) {selectAll.checked = false;}
+                        const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+                        if (dropdownBtn) {
+                            const placeholder = dropdownBtn.querySelector('.dept-placeholder');
+                            if (placeholder) {
+                                placeholder.textContent = 'Department';
+                            } else {
+                                dropdownBtn.textContent = 'Department';
+                            }
+                        }
+                        // Close dropdown if open
+                        const dropdown = composeModal.querySelector('.custom-dropdown');
+                        if (dropdown) {
+                            dropdown.classList.remove('open');
+                        }
+                    }
 
                     // Reset button state
                     if (sendBtn) {
@@ -554,13 +639,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Load departments dynamically from server (combines IT/EMC)
+    // Scoped to compose modal only
     async function loadDepartments(){
         try{
+            const composeModal = document.getElementById('composeModal');
+            if (!composeModal) {return;} // Only work if compose modal exists
+
             const res = await fetch('/api/users/departments');
             const data = await res.json();
-            const container = document.getElementById('deptCheckboxesContainer');
-            const dropdownBtn = document.getElementById('deptDropdownBtn');
-            const dropdown = document.querySelector('.custom-dropdown');
+
+            // Scope to compose modal only
+            const container = composeModal.querySelector('#deptCheckboxesContainer');
+            const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+            const dropdown = composeModal.querySelector('.custom-dropdown');
 
             if (!container || !dropdownBtn || !dropdown) {return;}
 
@@ -578,15 +669,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Show "Select All" only for admins
-            const selectAllCheckbox = document.getElementById('selectAllDepts');
+            const selectAllCheckbox = composeModal.querySelector('#selectAllDepts');
             if (selectAllCheckbox) {
                 if (userRole === 'admin') {
                     selectAllCheckbox.parentElement.style.display = 'block';
-                    const hr = document.querySelector('.dept-dropdown-hr');
+                    const hr = composeModal.querySelector('.dept-dropdown-hr');
                     if (hr) {hr.style.display = 'block';}
                 } else {
                     selectAllCheckbox.parentElement.style.display = 'none';
-                    const hr = document.querySelector('.dept-dropdown-hr');
+                    const hr = composeModal.querySelector('.dept-dropdown-hr');
                     if (hr) {hr.style.display = 'none';}
                 }
             }
@@ -607,8 +698,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('multiSelectLabel').style.display = 'inline';
             }
 
-            // Initialize dropdown functionality
-            initCustomDepartmentDropdown();
+            // Initialize dropdown functionality (pass composeModal for scoping)
+            // Wait a bit to ensure DOM is ready
+            setTimeout(() => {
+                initCustomDepartmentDropdown(composeModal);
+            }, 100);
         }catch(e){
             // eslint-disable-next-line no-console
             console.error('Error loading departments:', e);
@@ -616,33 +710,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize custom department dropdown
-    function initCustomDepartmentDropdown() {
-        const dropdown = document.querySelector('.custom-dropdown');
-        const dropdownBtn = document.getElementById('deptDropdownBtn');
-        const dropdownMenu = document.getElementById('deptDropdownMenu');
-        const selectAll = document.getElementById('selectAllDepts');
-        let deptOptions = document.querySelectorAll('.dept-option');
+    // Scoped to compose modal only to avoid conflicts with other dropdowns
+    function initCustomDepartmentDropdown(composeModal) {
+        if (!composeModal) {
+            // Fallback: try to find compose modal
+            composeModal = document.getElementById('composeModal');
+            if (!composeModal) {return;}
+        }
 
-        if (!dropdown || !dropdownBtn || !dropdownMenu) {return;}
+        const dropdown = composeModal.querySelector('.custom-dropdown');
+        const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+        const dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+        const selectAll = composeModal.querySelector('#selectAllDepts');
+        let deptOptions = composeModal.querySelectorAll('.dept-option');
+
+        if (!dropdown || !dropdownBtn || !dropdownMenu) {
+            return;
+        }
+
+        // Remove any existing click handlers to prevent duplicates
+        const newBtn = dropdownBtn.cloneNode(true);
+        dropdownBtn.parentNode.replaceChild(newBtn, dropdownBtn);
+        const freshBtn = composeModal.querySelector('#deptDropdownBtn');
 
         // Toggle dropdown on button click
-        dropdownBtn.addEventListener('click', (e) => {
+        freshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropdown.classList.toggle('open');
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target)) {
-                dropdown.classList.remove('open');
+            const currentDropdown = composeModal.querySelector('.custom-dropdown');
+            if (currentDropdown) {
+                currentDropdown.classList.toggle('open');
             }
         });
+
+        // Also handle clicks on the placeholder text - ensure clicks pass through
+        const placeholder = freshBtn.querySelector('.dept-placeholder');
+        if (placeholder) {
+            placeholder.style.pointerEvents = 'none';
+        }
+
+        // Close dropdown when clicking outside
+        const handleOutsideClick = (e) => {
+            const currentDropdown = composeModal.querySelector('.custom-dropdown');
+            if (currentDropdown && !currentDropdown.contains(e.target)) {
+                currentDropdown.classList.remove('open');
+            }
+        };
+
+        // Use capture phase for outside clicks
+        document.addEventListener('click', handleOutsideClick, true);
+
+        // Store handler for cleanup if needed
+        if (dropdown) {
+            dropdown._outsideClickHandler = handleOutsideClick;
+        }
 
         // Select All functionality
         if (selectAll) {
             selectAll.addEventListener('change', () => {
-                deptOptions = document.querySelectorAll('.dept-option'); // Refresh
+                deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
                 deptOptions.forEach(cb => {
                     cb.checked = selectAll.checked;
                 });
@@ -652,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Individual department checkboxes
         function attachCheckboxListeners() {
-            deptOptions = document.querySelectorAll('.dept-option'); // Refresh
+            deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
             deptOptions.forEach(cb => {
                 cb.addEventListener('change', () => {
                     if (selectAll && !cb.checked) {
@@ -670,19 +796,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachCheckboxListeners();
 
-        // Update button label
+        // Update button label - scoped to compose modal
         function updateDeptButtonLabel() {
-            deptOptions = document.querySelectorAll('.dept-option'); // Refresh
-            const selected = Array.from(document.querySelectorAll('.dept-option:checked'))
+            deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
+            const selected = Array.from(composeModal.querySelectorAll('.dept-option:checked'))
                 .map(cb => cb.value);
             const total = deptOptions.length;
             const placeholder = dropdownBtn.querySelector('.dept-placeholder');
 
             if (selected.length === 0) {
                 if (placeholder) {
-                    placeholder.textContent = 'Department(s)';
+                    placeholder.textContent = 'Department';
                 } else {
-                    dropdownBtn.textContent = 'Department(s)';
+                    dropdownBtn.textContent = 'Department';
                 }
                 dropdownBtn.classList.add('empty');
             } else {
@@ -954,25 +1080,52 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        memoList.innerHTML = filteredMemos.map((memo, index) => `
+        // Determine if we're viewing sent or received memos
+        const isSentFolder = currentFolder === 'sent';
+
+        memoList.innerHTML = filteredMemos.map((memo, index) => {
+            // For sent folder: show recipient info and "Sent:" prefix
+            // For inbox/other folders: show sender info (default)
+            let displayUser, displayLabel, subjectPrefix;
+
+            if (isSentFolder) {
+                // Sent folder: show recipient (who we sent it to)
+                displayUser = memo.recipient;
+                displayLabel = 'To';
+                subjectPrefix = 'Sent: ';
+            } else {
+                // Inbox/Received: show sender (who sent it to us)
+                displayUser = memo.sender;
+                displayLabel = 'From';
+                subjectPrefix = '';
+            }
+
+            const displayName = displayUser ? `${displayUser.firstName || ''} ${displayUser.lastName || ''}`.trim() : 'Unknown';
+            const displayEmail = displayUser?.email || 'N/A';
+            const avatarSrc = displayUser?.profilePicture || '/images/memofy-logo.png';
+            const subject = subjectPrefix + (memo.subject || '(No subject)');
+            const contentPreview = memo.content ? `- ${memo.content.substring(0, 50)}${memo.content.length > 50 ? '...' : ''}` : '- (No content)';
+
+            return `
             <div class="memo-item ${index === currentMemoIndex ? 'active' : ''}"
                  data-id="${memo._id}"
                  data-index="${index}">
                 <div class="memo-item-header">
-                    <img src="${memo.sender?.profilePicture || '/images/memofy-logo.png'}"
-                         alt="${memo.sender?.firstName} ${memo.sender?.lastName}"
+                    <img src="${avatarSrc}"
+                         alt="${displayName}"
                          class="memo-avatar">
                     <div class="memo-sender-info">
-                        <div class="memo-sender-name">${memo.sender?.firstName} ${memo.sender?.lastName}</div>
-                        <div class="memo-sender-email">${memo.sender?.email}</div>
+                        <div class="memo-sender-name">${displayLabel}: ${displayName}</div>
+                        <div class="memo-sender-email">${displayEmail}</div>
                     </div>
                     ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
                 </div>
-                <div class="memo-subject">${memo.subject}</div>
-                <div class="memo-preview">- ${memo.content.substring(0, 50)}${memo.content.length > 50 ? '...' : ''}</div>
+                <div class="memo-subject">${subject}</div>
+                <div class="memo-preview">${contentPreview}</div>
                 <div class="memo-date">${formatDate(memo.createdAt)}</div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         // Reset select all checkbox
         selectAllMemos.checked = false;
@@ -1004,11 +1157,226 @@ document.addEventListener('DOMContentLoaded', () => {
         displayMemo(index);
     }
 
+    // Attachment Viewer Modal Functions
+    function createAttachmentModal() {
+        // Check if modal already exists
+        if (document.getElementById('attachmentViewerModal')) {
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'attachmentViewerModal';
+        modal.className = 'modal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
+        modal.innerHTML = `
+            <div class="attachment-modal-content" style="position: relative; background-color: #fff; margin: 2% auto; padding: 0; width: 90%; max-width: 1200px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column;">
+                <div class="attachment-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                    <div style="flex: 1;">
+                        <h3 id="attachmentFileName" style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #111827;"></h3>
+                        <p id="attachmentFileSize" style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;"></p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="attachmentPrevBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Previous">
+                            <i data-lucide="chevron-left" style="width: 20px; height: 20px;"></i>
+                        </button>
+                        <button id="attachmentNextBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Next">
+                            <i data-lucide="chevron-right" style="width: 20px; height: 20px;"></i>
+                        </button>
+                        <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;" title="Download">
+                            <i data-lucide="download" style="width: 20px; height: 20px; color: #374151;"></i>
+                        </a>
+                        <button id="attachmentCloseBtn" style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; font-size: 1.5rem; line-height: 1; color: #6b7280;" title="Close">×</button>
+                    </div>
+                </div>
+                <div id="attachmentViewerBody" style="flex: 1; overflow: auto; padding: 1.5rem; display: flex; align-items: center; justify-content: center; min-height: 400px; background: #f9fafb;">
+                    <div id="attachmentViewerContent" style="width: 100%; text-align: center;"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Add event listeners
+        const closeBtn = document.getElementById('attachmentCloseBtn');
+        const prevBtn = document.getElementById('attachmentPrevBtn');
+        const nextBtn = document.getElementById('attachmentNextBtn');
+        const downloadBtn = document.getElementById('attachmentDownloadBtn');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeAttachmentModal);
+        }
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeAttachmentModal();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.style.display !== 'none') {
+                closeAttachmentModal();
+            }
+        });
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => showPreviousAttachment());
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => showNextAttachment());
+        }
+
+        if (typeof lucide !== 'undefined') {
+            // eslint-disable-next-line no-undef
+            lucide.createIcons();
+        }
+    }
+
+    let currentAttachments = [];
+    let currentAttachmentIndex = 0;
+
+    function openAttachmentModal(attachments, index) {
+        currentAttachments = attachments;
+        currentAttachmentIndex = index;
+        createAttachmentModal();
+        showAttachment(currentAttachmentIndex);
+        const modal = document.getElementById('attachmentViewerModal');
+        if (modal) {
+            modal.style.display = 'block';
+        }
+    }
+
+    function closeAttachmentModal() {
+        const modal = document.getElementById('attachmentViewerModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        currentAttachments = [];
+        currentAttachmentIndex = 0;
+    }
+
+    function showAttachment(index) {
+        if (!currentAttachments || currentAttachments.length === 0 || index < 0 || index >= currentAttachments.length) {
+            return;
+        }
+
+        const attachment = currentAttachments[index];
+        const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+        const isPDF = attachment.mimetype === 'application/pdf';
+        const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+        const fileNameEl = document.getElementById('attachmentFileName');
+        const fileSizeEl = document.getElementById('attachmentFileSize');
+        const contentEl = document.getElementById('attachmentViewerContent');
+        const downloadBtn = document.getElementById('attachmentDownloadBtn');
+        const prevBtn = document.getElementById('attachmentPrevBtn');
+        const nextBtn = document.getElementById('attachmentNextBtn');
+
+        if (fileNameEl) {
+            fileNameEl.textContent = attachment.filename || 'Attachment';
+        }
+        if (fileSizeEl) {
+            fileSizeEl.textContent = `${formatFileSize(attachment.size || 0)} • ${index + 1} of ${currentAttachments.length}`;
+        }
+        if (downloadBtn) {
+            downloadBtn.href = attachmentUrl;
+            downloadBtn.download = attachment.filename;
+        }
+
+        // Show/hide navigation buttons
+        if (prevBtn) {
+            prevBtn.style.display = currentAttachments.length > 1 ? 'block' : 'none';
+        }
+        if (nextBtn) {
+            nextBtn.style.display = currentAttachments.length > 1 ? 'block' : 'none';
+        }
+
+        // Display content
+        if (contentEl) {
+            if (isImage) {
+                contentEl.innerHTML = `<img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: calc(90vh - 200px); height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />`;
+            } else if (isPDF) {
+                contentEl.innerHTML = `<iframe src="${attachmentUrl}#toolbar=1" style="width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px;" title="${attachment.filename}"></iframe>`;
+            } else {
+                contentEl.innerHTML = `
+                    <div style="padding: 3rem; text-align: center;">
+                        <i data-lucide="file" style="width: 64px; height: 64px; color: #9ca3af; margin-bottom: 1rem;"></i>
+                        <p style="color: #6b7280; margin: 0.5rem 0;">This file type cannot be previewed.</p>
+                        <a href="${attachmentUrl}" download="${attachment.filename}" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">Download File</a>
+                    </div>
+                `;
+            }
+        }
+
+        if (typeof lucide !== 'undefined') {
+            // eslint-disable-next-line no-undef
+            lucide.createIcons();
+        }
+    }
+
+    function showPreviousAttachment() {
+        if (currentAttachmentIndex > 0) {
+            currentAttachmentIndex--;
+            showAttachment(currentAttachmentIndex);
+        }
+    }
+
+    function showNextAttachment() {
+        if (currentAttachmentIndex < currentAttachments.length - 1) {
+            currentAttachmentIndex++;
+            showAttachment(currentAttachmentIndex);
+        }
+    }
+
+    // Attach click handlers to attachment links and images
+    function attachAttachmentHandlers(memo) {
+        if (!memo || !memo.attachments || memo.attachments.length === 0) {
+            return;
+        }
+
+        const memoBodyContent = document.getElementById('memoBodyContent');
+        if (!memoBodyContent) {
+            return;
+        }
+
+        // Find all attachment links and images
+        const attachmentLinks = memoBodyContent.querySelectorAll('.attachment-link');
+        const attachmentImages = memoBodyContent.querySelectorAll('.attachment-image-preview');
+
+        attachmentLinks.forEach((link, index) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                openAttachmentModal(memo.attachments, index);
+            });
+        });
+
+        attachmentImages.forEach((img, index) => {
+            img.addEventListener('click', () => {
+                openAttachmentModal(memo.attachments, index);
+            });
+        });
+    }
+
     // Display memo
     function displayMemo(index) {
         const memo = filteredMemos[index];
 
+        // Validate memo exists
+        if (!memo) {
+            // eslint-disable-next-line no-console
+            console.error('Memo not found at index:', index);
+            showNotification('Memo not found', 'error');
+            return;
+        }
+
+        // Debug logging
+        // eslint-disable-next-line no-console
         console.log('Displaying memo:', memo);
+        // eslint-disable-next-line no-console
+        console.log('Memo content:', memo?.content);
+        // eslint-disable-next-line no-console
+        console.log('Memo attachments:', memo?.attachments);
+        // eslint-disable-next-line no-console
         console.log('Index:', index);
 
         // Show viewer first before trying to access elements
@@ -1021,45 +1389,76 @@ document.addEventListener('DOMContentLoaded', () => {
         const memoBodyContent = document.getElementById('memoBodyContent');
         const attachmentsDiv = document.getElementById('attachments');
 
+        // eslint-disable-next-line no-console
         console.log('Elements found:', { senderAvatar, senderName, senderTitle, memoBodyContent, attachmentsDiv });
+        // eslint-disable-next-line no-console
+        console.log('Memo data check:', {
+            hasContent: !!memo.content,
+            contentLength: memo.content?.length || 0,
+            contentPreview: memo.content?.substring(0, 50) || 'EMPTY',
+            hasAttachments: !!memo.attachments,
+            attachmentsCount: memo.attachments?.length || 0
+        });
 
         if (senderAvatar) {senderAvatar.src = memo.sender?.profilePicture || '/images/memofy-logo.png';}
         if (senderName) {senderName.textContent = `${memo.sender?.firstName} ${memo.sender?.lastName}`;}
         if (senderTitle) {senderTitle.textContent = `${memo.sender?.department || ''} SECRETARY`.trim();}
 
-        // Display memo content with attachments
+        // Display memo content with attachments (Gmail-style: inline, no separator)
         if (memoBodyContent) {
-            let htmlContent = `<div style="white-space: pre-wrap;">${memo.content}</div>`;
+            let htmlContent = '';
 
-            // Add attachments display if any
+            // Display text content - handle empty content gracefully
+            const memoText = memo.content || '';
+            if (memoText && memoText.trim()) {
+                // Escape HTML to prevent XSS, then preserve whitespace
+                const safeContent = memoText
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+                htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6; color: #111827;">${safeContent}</div>`;
+            } else {
+                // Show message if content is empty but still show attachments if any
+                htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6;">No text content</div>`;
+            }
+
+            // Ensure content is always visible even if htmlContent is empty
+            if (!htmlContent && (!memo.attachments || memo.attachments.length === 0)) {
+                htmlContent = '<div style="color: #9ca3af; font-style: italic; line-height: 1.6;">This memo has no content.</div>';
+            }
+
+            // Add attachments inline below text (Gmail style - no separator line or heading)
             if (memo.attachments && memo.attachments.length > 0) {
-                htmlContent += '<div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">';
-                htmlContent += '<h4 style="font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">Attachments:</h4>';
+                // No border-top, no "Attachments:" heading - just show files inline below text
+                htmlContent += '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0;">';
 
-                memo.attachments.forEach(attachment => {
+                memo.attachments.forEach((attachment, attIndex) => {
+                    const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+                    const isPDF = attachment.mimetype === 'application/pdf';
                     const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+                    const attachmentId = `attachment-${memo._id}-${attIndex}`;
 
-                    if (isImage && attachment.path) {
-                        // Get just the filename from the path
-                        const filename = attachment.path.includes('/') ? attachment.path.split('/').pop() : attachment.path.includes('\\') ? attachment.path.split('\\').pop() : attachment.filename;
-
-                        // Display image inline
+                    // Gmail-style attachment chip (subtle, no heavy card look)
+                    if (isPDF || !isImage) {
                         htmlContent += `
-                            <div style="margin-bottom: 1.5rem;">
-                                <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">${attachment.filename}</p>
-                                <img src="/uploads/${filename}"
-                                     alt="${attachment.filename}"
-                                     style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;"
-                                     onerror="this.style.display='none'; console.error('Image not found: ${filename}');" />
+                            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 13px;">
+                                <i data-lucide="${isPDF ? 'file-text' : 'paperclip'}" style="width: 16px; height: 16px; color: #6b7280;"></i>
+                                <span class="attachment-link" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" data-size="${attachment.size || 0}" style="color: #2563eb; text-decoration: none; font-weight: 500; cursor: pointer;" title="View">${attachment.filename}</span>
+                                <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
                             </div>
                         `;
-                    } else {
-                        // Display as link for non-images
+                    } else if (isImage) {
+                        // For images, show inline preview below text (Gmail style)
                         htmlContent += `
-                            <div style="display: flex; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 8px; margin-bottom: 0.75rem;">
-                                <i data-lucide="paperclip" style="width: 16px; height: 16px; margin-right: 0.5rem; color: #6b7280;"></i>
-                                <span style="font-size: 0.875rem; color: #374151;">${attachment.filename}</span>
-                                <span style="font-size: 0.75rem; color: #9ca3af; margin-left: auto;">(${formatFileSize(attachment.size)})</span>
+                            <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                                <img src="${attachmentUrl}" alt="${attachment.filename}" class="attachment-image-preview" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" />
+                                <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
+                                    <i data-lucide="image" style="width: 16px; height: 16px; color: #6b7280;"></i>
+                                    <span class="attachment-link" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" data-size="${attachment.size || 0}" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 500; cursor: pointer;">${attachment.filename}</span>
+                                    <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
+                                </div>
                             </div>
                         `;
                     }
@@ -1068,10 +1467,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 htmlContent += '</div>';
             }
 
-            memoBodyContent.innerHTML = htmlContent;
+            // Always set innerHTML, even if empty, to ensure display
+            memoBodyContent.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
 
             // Reinitialize icons for attachment links
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') {
+                // eslint-disable-next-line no-undef
+                lucide.createIcons();
+            }
+
+            // Attach click handlers for attachments (opens in modal instead of new tab)
+            attachAttachmentHandlers(memo);
+
+            // Ensure memo body is visible
+            const memoBody = document.querySelector('.memo-body');
+            if (memoBody) {
+                memoBody.style.display = 'block';
+                memoBody.style.visibility = 'visible';
+            }
+        } else {
+            // eslint-disable-next-line no-console
+            console.error('memoBodyContent element not found in DOM');
         }
 
         // Update navigation buttons
@@ -1082,22 +1498,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update star button
         updateStarButton(memo.isStarred);
 
-        // Show attachments
+        // Hide separate attachments div - attachments are now inline with content (Gmail style)
+        // All attachments are displayed inline within memoBodyContent above
         if (attachmentsDiv) {
-            if (memo.attachments && memo.attachments.length > 0) {
-                attachmentsDiv.innerHTML = `
-                    <div class="attachment-item">
-                        <i data-lucide="file-text" class="attachment-icon"></i>
-                        <div class="attachment-info">
-                            <div class="attachment-filename">${memo.attachments[0].filename || 'Document.pdf'}</div>
-                            <div class="attachment-size">${formatFileSize(memo.attachments[0].size || 0)}</div>
-                        </div>
-                    </div>
-                `;
-                lucide.createIcons();
-            } else {
-                attachmentsDiv.innerHTML = '';
-            }
+            attachmentsDiv.innerHTML = '';
+            attachmentsDiv.style.display = 'none';
         }
     }
 
@@ -1166,6 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal(modal);
         });
     });
+
 
     // Notification helper with toast implementation
     function showNotification(message, type = 'info') {

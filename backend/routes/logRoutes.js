@@ -13,8 +13,8 @@ router.get('/memos', [isAuthenticated], logController.getAllMemos);
 // Get single memo
 router.get('/memos/:id', [isAuthenticated], logController.getMemo);
 
-// Create memo (attachments are URLs, not files)
-router.post('/memos', [isAuthenticated], logController.createMemo);
+// Create memo (attachments are files, converted server-side)
+router.post('/memos', [isAuthenticated, upload.array('attachments')], logController.createMemo);
 
 // Update memo
 router.put('/memos/:id', [isAuthenticated], logController.updateMemo);

@@ -352,6 +352,28 @@ exports.uploadProfilePicture = async (req, res) => {
 };
 
 // Get distinct departments (normalized; IT + EMC combined)
+// Get all registered user emails with full info (for recipient validation and display)
+exports.getUserEmails = async (req, res) => {
+    try {
+        const users = await User.find({ isActive: true })
+            .select('email firstName lastName profilePicture role department')
+            .lean();
+        const userData = users.map(user => ({
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            fullName: `${user.firstName} ${user.lastName}`,
+            profilePicture: user.profilePicture || '/images/memofy-logo.png',
+            role: user.role,
+            department: user.department
+        })).filter(u => u.email);
+        res.json(userData);
+    } catch (error) {
+        console.error('Error fetching user emails:', error);
+        res.status(500).json({ message: 'Error fetching user emails' });
+    }
+};
+
 exports.getDepartments = async (req, res) => {
     try {
         const raw = await User.distinct('department');

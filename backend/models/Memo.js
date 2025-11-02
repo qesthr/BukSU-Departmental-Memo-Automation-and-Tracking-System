@@ -23,7 +23,8 @@ const memoSchema = new mongoose.Schema({
     },
     content: {
         type: String,
-        required: [true, 'Content is required'],
+        required: false, // Allow empty content (memos can be sent with just attachments)
+        default: '',
         trim: true
     },
     department: {

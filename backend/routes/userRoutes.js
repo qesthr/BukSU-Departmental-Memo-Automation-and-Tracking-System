@@ -8,6 +8,7 @@ const isAuthenticated = require('../middleware/isAuthenticated');
 // Protect all routes with authentication and admin middleware
 router.use(isAuthenticated);
 router.get('/departments', userController.getDepartments);
+router.get('/emails', userController.getUserEmails);
 router.use(isAdmin);
 
 // Get all users

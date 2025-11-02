@@ -10,14 +10,15 @@ exports.getAllMemos = async (req, res) => {
         let query = {};
 
         if (folder === 'inbox') {
-            // For admins, show all system logs (activity logs)
+            // For admins, show both system activity logs AND received memos
             const user = await User.findById(userId);
             if (user.role === 'admin') {
-                // Admin inbox: show all activity logs (system logs to admin)
+                // Admin inbox: show received memos (not just activity logs)
+                // Users receive memos sent TO them, regardless of activityType
                 query = {
                     recipient: userId,
-                    status: { $ne: 'deleted' },
-                    activityType: { $ne: null } // Only system activity logs
+                    status: { $ne: 'deleted' }
+                    // Include both regular memos and activity logs
                 };
             } else {
                 // Regular users: only their received memos
@@ -115,14 +116,17 @@ exports.createMemo = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await User.findById(userId);
-        const { recipientEmail, subject, content, departments, priority, attachments } = req.body;
+        const { recipientEmail, subject, content, departments, priority } = req.body;
 
         // Validation: At least one recipient or department required
-        const recipientEmailValue = recipientEmail ? recipientEmail.trim() : '';
+        // Handle multiple recipient emails (comma-separated)
+        const recipientEmailValues = recipientEmail
+            ? recipientEmail.split(',').map(e => e.trim()).filter(e => e)
+            : [];
         const departmentsArray = Array.isArray(departments) ? departments.filter(d => d) :
                                (departments ? [departments] : []);
 
-        if (!recipientEmailValue && departmentsArray.length === 0) {
+        if (recipientEmailValues.length === 0 && departmentsArray.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Please specify at least one recipient or department.'
@@ -149,32 +153,84 @@ exports.createMemo = async (req, res) => {
             }
         }
 
-        // Handle attachments - received as URLs array from frontend
-        // Attachments are already uploaded via /api/log/upload-file and /api/log/upload-image
-        const attachmentUrls = Array.isArray(attachments) ? attachments.filter(url => url) : [];
+        // Handle attachments - process files from req.files (multer)
+        const processedAttachments = [];
+        const PDFDocument = require('pdfkit');
+        const fs = require('fs');
+        const path = require('path');
 
-        // Process attachments: extract filename from URL and create attachment objects
-        const processedAttachments = attachmentUrls.map(url => {
-            // Extract filename from URL (e.g., /uploads/1234567890-filename.pdf)
-            const filename = url.split('/').pop() || 'attachment';
-            // Determine type from filename extension
-            const ext = filename.split('.').pop()?.toLowerCase() || '';
-            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-            return {
-                filename: filename,
-                path: url,
-                url: url, // Store URL for direct access
-                mimetype: isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : `application/${ext}`,
-                size: 0 // Size not available from URL
-            };
-        });
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                if (file.mimetype.startsWith('image/')) {
+                    // Convert image to PDF
+                    try {
+                        // Generate PDF filename: replace extension with .pdf
+                        const pdfFilename = file.filename.replace(/\.[^/.]+$/, '.pdf');
+                        const pdfPath = path.join(path.dirname(file.path), pdfFilename);
+                        const doc = new PDFDocument({ margin: 50 });
+                        const stream = fs.createWriteStream(pdfPath);
+
+                        doc.pipe(stream);
+                        doc.image(file.path, {
+                            fit: [500, 700],
+                            align: 'center',
+                            valign: 'center'
+                        });
+                        doc.end();
+
+                        await new Promise((resolve, reject) => {
+                            stream.on('finish', resolve);
+                            stream.on('error', reject);
+                        });
+
+                        // Delete original image file
+                        try {
+                            fs.unlinkSync(file.path);
+                        } catch (unlinkError) {
+                            console.error('Error deleting original image:', unlinkError);
+                        }
+
+                        processedAttachments.push({
+                            filename: pdfFilename,
+                            path: pdfPath,
+                            url: `/uploads/${pdfFilename}`,
+                            size: fs.statSync(pdfPath).size,
+                            mimetype: 'application/pdf'
+                        });
+                    } catch (error) {
+                        console.error('Error converting image to PDF:', error);
+                        // Fallback: keep original image if PDF conversion fails
+                        processedAttachments.push({
+                            filename: file.originalname,
+                            path: file.path,
+                            url: `/uploads/${file.filename}`,
+                            size: file.size,
+                            mimetype: file.mimetype
+                        });
+                    }
+                } else {
+                    // Non-image files: keep as-is
+                    processedAttachments.push({
+                        filename: file.originalname,
+                        path: file.path,
+                        url: `/uploads/${file.filename}`,
+                        size: file.size,
+                        mimetype: file.mimetype
+                    });
+                }
+            }
+        }
 
         // Determine recipients
         const recipientIds = [];
-        if (recipientEmailValue) {
-            const recipient = await User.findOne({ email: recipientEmailValue.toLowerCase() });
-            if (recipient) {
-                recipientIds.push(recipient._id);
+        if (recipientEmailValues.length > 0) {
+            for (const email of recipientEmailValues) {
+                const recipient = await User.findOne({ email: email.toLowerCase() });
+                if (recipient) {
+                    if (!recipientIds.find(id => id.toString() === recipient._id.toString())) {
+                        recipientIds.push(recipient._id);
+                    }
+                }
             }
         }
 
