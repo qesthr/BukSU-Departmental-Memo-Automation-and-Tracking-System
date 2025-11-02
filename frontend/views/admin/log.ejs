@@ -14,6 +14,8 @@
     <script>
         // Pass user data to JavaScript
         window.currentUser = {
+            id: '<%= user._id %>',
+            email: '<%= user.email %>',
             role: '<%= user.role %>',
             department: '<%= user.department || "" %>',
             canCrossSend: <%= user.canCrossSend || false %>
@@ -67,12 +69,20 @@
 
                                         <div class="sort-dropdown-wrapper">
                                             <select id="sortDropdown" class="sort-dropdown">
-                                                <option value="newest">Sort: Newest</option>
-                                                <option value="oldest">Sort: Oldest</option>
-                                                <option value="priority">Sort: Priority</option>
-                                                <option value="subject">Sort: Subject (A-Z)</option>
-                                                <option value="sender">Sort: Sender/Recipient (A-Z)</option>
+                                                <option value="newest">Newest</option>
+                                                <option value="oldest">Oldest</option>
+                                                <option value="priority">Priority</option>
+                                                <option value="subject">Subject (A-Z)</option>
+                                                <option value="sender">Sender/Recipient (A-Z)</option>
+                                                <option value="sent">Sent by Me</option>
                                             </select>
+                                        </div>
+
+                                        <div class="date-filter-wrapper">
+                                            <input type="date" id="dateFilterInput" class="date-filter-input" title="Filter by date">
+                                            <button id="clearDateFilter" class="date-filter-clear" title="Clear date filter" style="display: none;">
+                                                <i data-lucide="x"></i>
+                                            </button>
                                         </div>
 
                                         <!-- Compose button moved here -->

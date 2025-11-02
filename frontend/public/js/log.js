@@ -17,12 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const deptFilterDropdown = document.getElementById('deptFilterDropdown');
     const priorityFilterDropdown = document.getElementById('priorityFilterDropdown');
     const sortDropdown = document.getElementById('sortDropdown');
+    const dateFilterInput = document.getElementById('dateFilterInput');
+    const clearDateFilter = document.getElementById('clearDateFilter');
     const globalSearchInput = document.getElementById('globalSearchInput');
 
     let currentFolder = 'inbox';
     let currentDeptFilter = 'all';
     let currentPriorityFilter = 'all';
     let currentSort = 'newest';
+    let currentDateFilter = null;
     let currentSearchTerm = '';
     let memos = [];
     let filteredMemos = [];
@@ -32,6 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     fetchMemos();
     loadDepartments();
+
+    // Initialize Lucide icons for date filter clear button
+    if (typeof lucide !== 'undefined' && clearDateFilter) {
+        // eslint-disable-next-line no-undef
+        lucide.createIcons();
+    }
 
     // Compose button
     if (composeBtn && composeModal) {
@@ -88,9 +97,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Sorting via dropdown
     if (sortDropdown) {
-        sortDropdown.addEventListener('change', (e) => {
+        sortDropdown.addEventListener('change', async (e) => {
             currentSort = e.target.value;
+            // If "Sent by Me" is selected, we need to fetch from sent folder
+            // If switching away from "sent", refresh with current folder
+            if (currentSort === 'sent') {
+                await fetchMemos();
+            } else {
+                applyFilters();
+            }
+        });
+    }
+
+    // Date filter functionality
+    if (dateFilterInput) {
+        dateFilterInput.addEventListener('change', (e) => {
+            currentDateFilter = e.target.value || null;
+            if (currentDateFilter) {
+                if (clearDateFilter) {
+                    clearDateFilter.style.display = 'inline-flex';
+                    // Reinitialize Lucide icons
+                    if (typeof lucide !== 'undefined') {
+                        // eslint-disable-next-line no-undef
+                        lucide.createIcons();
+                    }
+                }
+            } else {
+                if (clearDateFilter) {
+                    clearDateFilter.style.display = 'none';
+                }
+            }
             applyFilters();
+        });
+    }
+
+    // Clear date filter
+    if (clearDateFilter) {
+        clearDateFilter.addEventListener('click', () => {
+            if (dateFilterInput) {
+                dateFilterInput.value = '';
+                currentDateFilter = null;
+                clearDateFilter.style.display = 'none';
+                applyFilters();
+            }
         });
     }
 
@@ -1046,7 +1095,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch memos
     async function fetchMemos() {
         try {
-            const response = await fetch(`/api/log/memos?folder=${currentFolder}`);
+            // If "Sent by Me" filter is active, fetch from sent folder
+            const folderToFetch = currentSort === 'sent' ? 'sent' : currentFolder;
+            const response = await fetch(`/api/log/memos?folder=${folderToFetch}`);
             const data = await response.json();
 
             if (data.success) {
@@ -1061,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Apply filters (department, priority, search) and sorting
+    // Apply filters (department, priority, search, date, sent) and sorting
     function applyFilters() {
         // Start with all memos
         filteredMemos = [...memos];
@@ -1083,6 +1134,56 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Filter by date
+        if (currentDateFilter) {
+            filteredMemos = filteredMemos.filter(memo => {
+                if (!memo.createdAt) {
+                    return false;
+                }
+                const memoDate = new Date(memo.createdAt);
+                const filterDate = new Date(currentDateFilter);
+                // Compare dates (ignore time)
+                return memoDate.getFullYear() === filterDate.getFullYear() &&
+                       memoDate.getMonth() === filterDate.getMonth() &&
+                       memoDate.getDate() === filterDate.getDate();
+            });
+        }
+
+        // Filter by "Sent by Me" (check if current user is sender)
+        if (currentSort === 'sent') {
+            const currentUserId = window.currentUser?.id;
+            const currentUserEmail = window.currentUser?.email?.toLowerCase();
+
+            if (currentUserId) {
+                filteredMemos = filteredMemos.filter(memo => {
+                    if (!memo.sender) {
+                        return false;
+                    }
+
+                    // Check if sender ID matches current user ID (try multiple formats)
+                    let senderId;
+                    if (typeof memo.sender === 'object' && memo.sender._id) {
+                        senderId = memo.sender._id.toString();
+                    } else if (typeof memo.sender === 'object' && memo.sender.id) {
+                        senderId = memo.sender.id.toString();
+                    } else {
+                        senderId = memo.sender.toString();
+                    }
+
+                    const senderEmail = memo.sender.email?.toLowerCase();
+
+                    // Match by ID or email (in case ID format differs)
+                    const matchesById = senderId === currentUserId.toString();
+                    const matchesByEmail = currentUserEmail && senderEmail && senderEmail === currentUserEmail;
+
+                    return matchesById || matchesByEmail;
+                });
+            } else {
+                // If no user ID, show no results
+                filteredMemos = [];
+            }
+        }
+
         // Filter by search term
         if (currentSearchTerm) {
             filteredMemos = filteredMemos.filter(memo => {
@@ -1101,8 +1202,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Apply sorting
-        sortMemos();
+        // Apply sorting (only if not "sent" filter, which is already a filter)
+        if (currentSort !== 'sent') {
+            sortMemos();
+        } else {
+            // For "sent" filter, sort by newest first
+            filteredMemos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
 
         renderMemoList();
     }
@@ -1138,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return aName.localeCompare(bName);
             });
         }
+        // Note: 'sent' is handled as a filter in applyFilters(), not a sort
     }
 
     // Render memo list
@@ -1426,17 +1533,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const attachmentLinks = memoBodyContent.querySelectorAll('.attachment-link');
         const attachmentImages = memoBodyContent.querySelectorAll('.attachment-image-preview');
 
-        attachmentLinks.forEach((link, index) => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                openAttachmentModal(memo.attachments, index);
+        // Helper function to find attachment index by filename or URL
+        function findAttachmentIndex(filename, url) {
+            return memo.attachments.findIndex(att => {
+                return att.filename === filename ||
+                       att.url === url ||
+                       att.filename === decodeURIComponent(filename);
             });
+        }
+
+        attachmentLinks.forEach((link) => {
+            const filename = link.dataset.filename || link.textContent.trim();
+            const url = link.dataset.url;
+            const attIndex = findAttachmentIndex(filename, url);
+
+            if (attIndex >= 0) {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openAttachmentModal(memo.attachments, attIndex);
+                });
+            }
         });
 
-        attachmentImages.forEach((img, index) => {
-            img.addEventListener('click', () => {
-                openAttachmentModal(memo.attachments, index);
-            });
+        attachmentImages.forEach((img) => {
+            const filename = img.dataset.filename || img.alt;
+            const url = img.dataset.url || img.src;
+            const attIndex = findAttachmentIndex(filename, url);
+
+            if (attIndex >= 0) {
+                img.addEventListener('click', () => {
+                    openAttachmentModal(memo.attachments, attIndex);
+                });
+            }
         });
     }
 
@@ -1556,14 +1684,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
                     } else if (isImage) {
                         // For images, show inline preview below text (Gmail style)
+                        // Image preview is clickable to open modal (no link text needed)
                         htmlContent += `
                             <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-                                <img src="${attachmentUrl}" alt="${attachment.filename}" class="attachment-image-preview" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" />
-                                <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
-                                    <i data-lucide="image" style="width: 16px; height: 16px; color: #6b7280;"></i>
-                                    <span class="attachment-link" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" data-size="${attachment.size || 0}" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 500; cursor: pointer;">${attachment.filename}</span>
-                                    <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
-                                </div>
+                                <img src="${attachmentUrl}" alt="${attachment.filename}" class="attachment-image-preview" data-url="${attachmentUrl}" data-filename="${attachment.filename}" data-mimetype="${attachment.mimetype || ''}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" title="Click to view in modal (with download option)" />
                             </div>
                         `;
                     }
