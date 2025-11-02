@@ -13,40 +13,67 @@ exports.getDashboardStats = async (req, res) => {
         const facultyUsers = await User.countDocuments({ role: 'faculty' });
         const activeUsers = await User.countDocuments({ lastLogin: { $exists: true } });
 
-        // Get memo stats - only actual memos (activityType is null or 'memo_sent')
-        const memoFilter = {
-            status: 'sent',
+        // Get user-specific memo stats
+        // Total memos = memos where user is sender OR recipient (excluding deleted)
+        const totalMemosCount = await Memo.countDocuments({
             $or: [
-                { activityType: null },
-                { activityType: 'memo_sent' }
-            ]
-        };
+                { sender: userId },
+                { recipient: userId }
+            ],
+            status: { $ne: 'deleted' }
+        });
 
-        const totalMemosSent = await Memo.countDocuments(memoFilter);
+        // Memos sent by this user
+        const totalMemosSent = await Memo.countDocuments({
+            sender: userId,
+            status: { $ne: 'deleted' }
+        });
+
+        // Memos received by this user
+        const totalMemosReceived = await Memo.countDocuments({
+            recipient: userId,
+            status: { $ne: 'deleted' }
+        });
+
+        // Pending memos (unread memos received by this user)
         const pendingMemos = await Memo.countDocuments({
-            ...memoFilter,
-            isRead: false
-        });
-        const overdueMemos = await Memo.countDocuments({
-            ...memoFilter,
-            dueDate: { $lt: new Date() }
+            recipient: userId,
+            isRead: false,
+            status: { $ne: 'deleted' }
         });
 
-        // Get recent memos - only actual memos
-        const recentMemos = await Memo.find(memoFilter)
+        // Overdue memos (received memos with past due date)
+        const overdueMemos = await Memo.countDocuments({
+            recipient: userId,
+            dueDate: { $lt: new Date() },
+            status: { $ne: 'deleted' }
+        });
+
+        // Get recent memos for this user (sent or received)
+        const recentMemos = await Memo.find({
+            $or: [
+                { sender: userId },
+                { recipient: userId }
+            ],
+            status: { $ne: 'deleted' }
+        })
             .populate('sender', 'firstName lastName department profilePicture')
             .populate('recipient', 'firstName lastName department')
             .sort({ createdAt: -1 })
             .limit(5)
             .lean();
 
-        // Format recent memos
+        // Format recent memos - differentiate between sent and received
         const formattedRecentMemos = recentMemos.map(memo => {
             // Determine icon color based on priority
             let iconType = 'blue';
             if (memo.priority === 'high' || memo.priority === 'urgent') {
                 iconType = 'orange';
             }
+
+            // Check if user is sender or recipient
+            const isSent = memo.sender?._id?.toString() === userId.toString();
+            const isReceived = memo.recipient?._id?.toString() === userId.toString();
 
             return {
                 id: memo._id,
@@ -59,7 +86,10 @@ exports.getDashboardStats = async (req, res) => {
                 }),
                 type: iconType,
                 sender: memo.sender?.firstName + ' ' + memo.sender?.lastName,
-                senderPicture: memo.sender?.profilePicture
+                senderPicture: memo.sender?.profilePicture,
+                recipient: memo.recipient?.firstName + ' ' + memo.recipient?.lastName,
+                isSent: isSent,
+                isReceived: isReceived
             };
         });
 
@@ -74,7 +104,9 @@ exports.getDashboardStats = async (req, res) => {
                     active: activeUsers
                 },
                 memos: {
-                    totalSent: totalMemosSent,
+                    total: totalMemosCount, // Total memos (sent + received) for this user
+                    totalSent: totalMemosSent, // Memos sent by this user
+                    totalReceived: totalMemosReceived, // Memos received by this user
                     pending: pendingMemos,
                     overdue: overdueMemos
                 },

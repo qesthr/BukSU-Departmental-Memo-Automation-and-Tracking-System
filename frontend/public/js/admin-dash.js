@@ -20,14 +20,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function updateStatCards(stats) {
-    // Update Total Memos Sent
+    // Update Total Memos (user-specific: sent + received)
     const totalMemosElement = document.querySelector('.stat-card:nth-child(1) .stat-value');
     if (totalMemosElement) {
-        totalMemosElement.textContent = stats.memos.totalSent.toLocaleString();
+        // Use total if available, otherwise calculate from sent + received
+        const totalMemos = stats.memos.total ||
+            ((stats.memos.totalSent || 0) + (stats.memos.totalReceived || 0));
+        totalMemosElement.textContent = totalMemos.toLocaleString();
         // Add percentage change if available
         const changeElement = totalMemosElement.parentElement.querySelector('.stat-change');
         if (changeElement) {
-            changeElement.textContent = '+0% from last month'; // Can be calculated from historical data
+            // Show breakdown: sent + received
+            const sentCount = stats.memos.totalSent || 0;
+            const receivedCount = stats.memos.totalReceived || 0;
+            changeElement.textContent = `${sentCount} sent, ${receivedCount} received`;
         }
     }
 
@@ -73,11 +79,27 @@ function updateRecentMemos(recentMemos) {
             iconName = 'calendar';
         }
 
+        // Format title: add "Sent: " prefix for sent memos
+        let displayTitle = memo.title || '(No subject)';
+        if (memo.isSent) {
+            displayTitle = `Sent: ${displayTitle}`;
+        }
+
+        // Format department/recipient info
+        let displayInfo = memo.department || 'Unknown';
+        if (memo.isSent && memo.recipient) {
+            displayInfo = `To: ${memo.recipient}`;
+        } else if (memo.isReceived && memo.sender) {
+            displayInfo = `From: ${memo.sender}`;
+        } else {
+            displayInfo = memo.department || 'Unknown';
+        }
+
         memoItem.innerHTML = `
             <i data-lucide="${iconName}" class="memo-icon ${memo.type}"></i>
             <div class="memo-info">
-                <h4>${memo.title}</h4>
-                <p>${memo.department}</p>
+                <h4>${displayTitle}</h4>
+                <p>${displayInfo}</p>
             </div>
             <span class="memo-date">${memo.date}</span>
         `;

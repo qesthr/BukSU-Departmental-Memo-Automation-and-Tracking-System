@@ -15,10 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refreshBtn');
     const selectAllMemos = document.getElementById('selectAllMemos');
     const deptFilterDropdown = document.getElementById('deptFilterDropdown');
+    const priorityFilterDropdown = document.getElementById('priorityFilterDropdown');
+    const sortDropdown = document.getElementById('sortDropdown');
     const globalSearchInput = document.getElementById('globalSearchInput');
 
     let currentFolder = 'inbox';
     let currentDeptFilter = 'all';
+    let currentPriorityFilter = 'all';
+    let currentSort = 'newest';
     let currentSearchTerm = '';
     let memos = [];
     let filteredMemos = [];
@@ -70,6 +74,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deptFilterDropdown) {
         deptFilterDropdown.addEventListener('change', (e) => {
             currentDeptFilter = e.target.value;
+            applyFilters();
+        });
+    }
+
+    // Priority filtering via dropdown
+    if (priorityFilterDropdown) {
+        priorityFilterDropdown.addEventListener('change', (e) => {
+            currentPriorityFilter = e.target.value;
+            applyFilters();
+        });
+    }
+
+    // Sorting via dropdown
+    if (sortDropdown) {
+        sortDropdown.addEventListener('change', (e) => {
+            currentSort = e.target.value;
             applyFilters();
         });
     }
@@ -502,7 +522,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            formData.append('priority', 'medium');
+            // Get priority from select dropdown
+            const prioritySelect = composeModal.querySelector('#prioritySelect');
+            const priority = prioritySelect ? prioritySelect.value : 'medium';
+            formData.append('priority', priority);
 
             // Add files directly (not pre-uploaded URLs)
             selectedFiles.forEach(file => {
@@ -1038,7 +1061,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Apply filters (department and search)
+    // Apply filters (department, priority, search) and sorting
     function applyFilters() {
         // Start with all memos
         filteredMemos = [...memos];
@@ -1049,6 +1072,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return memo.department === currentDeptFilter ||
                        memo.sender?.department === currentDeptFilter ||
                        memo.recipient?.department === currentDeptFilter;
+            });
+        }
+
+        // Filter by priority
+        if (currentPriorityFilter !== 'all') {
+            filteredMemos = filteredMemos.filter(memo => {
+                const memoPriority = memo.priority || 'medium';
+                return memoPriority === currentPriorityFilter;
             });
         }
 
@@ -1070,7 +1101,43 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Apply sorting
+        sortMemos();
+
         renderMemoList();
+    }
+
+    // Sort memos based on current sort option
+    function sortMemos() {
+        if (currentSort === 'newest') {
+            filteredMemos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        } else if (currentSort === 'oldest') {
+            filteredMemos.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        } else if (currentSort === 'priority') {
+            // Priority order: urgent > high > medium > low
+            const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+            filteredMemos.sort((a, b) => {
+                const aPriority = priorityOrder[a.priority || 'medium'] || 2;
+                const bPriority = priorityOrder[b.priority || 'medium'] || 2;
+                if (bPriority !== aPriority) {
+                    return bPriority - aPriority; // Higher priority first
+                }
+                // If same priority, sort by date (newest first)
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+        } else if (currentSort === 'subject') {
+            filteredMemos.sort((a, b) => {
+                const aSubject = (a.subject || '').toLowerCase();
+                const bSubject = (b.subject || '').toLowerCase();
+                return aSubject.localeCompare(bSubject);
+            });
+        } else if (currentSort === 'sender') {
+            filteredMemos.sort((a, b) => {
+                const aName = `${a.sender?.firstName || ''} ${a.sender?.lastName || ''}`.toLowerCase();
+                const bName = `${b.sender?.firstName || ''} ${b.sender?.lastName || ''}`.toLowerCase();
+                return aName.localeCompare(bName);
+            });
+        }
     }
 
     // Render memo list
@@ -1106,6 +1173,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const subject = subjectPrefix + (memo.subject || '(No subject)');
             const contentPreview = memo.content ? `- ${memo.content.substring(0, 50)}${memo.content.length > 50 ? '...' : ''}` : '- (No content)';
 
+            // Priority badge
+            const priority = memo.priority || 'medium';
+            let priorityBadge = '';
+            if (priority === 'urgent') {
+                priorityBadge = '<span class="priority-badge priority-urgent" title="Urgent">🔴 URGENT</span>';
+            } else if (priority === 'high') {
+                priorityBadge = '<span class="priority-badge priority-high" title="High">🟠 HIGH</span>';
+            } else if (priority === 'medium') {
+                priorityBadge = '<span class="priority-badge priority-medium" title="Medium">🟡 MEDIUM</span>';
+            } else if (priority === 'low') {
+                priorityBadge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
+            }
+
             return `
             <div class="memo-item ${index === currentMemoIndex ? 'active' : ''}"
                  data-id="${memo._id}"
@@ -1118,7 +1198,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="memo-sender-name">${displayLabel}: ${displayName}</div>
                         <div class="memo-sender-email">${displayEmail}</div>
                     </div>
-                    ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
+                    <div class="memo-item-actions">
+                        ${priorityBadge}
+                        ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
+                    </div>
                 </div>
                 <div class="memo-subject">${subject}</div>
                 <div class="memo-preview">${contentPreview}</div>
@@ -1383,26 +1466,48 @@ document.addEventListener('DOMContentLoaded', () => {
         showMemoViewer();
 
         // Update the memo viewer content (now that it's visible)
-        const senderAvatar = document.getElementById('senderAvatar');
-        const senderName = document.getElementById('senderName');
-        const senderTitle = document.getElementById('senderTitle');
+        const memoDetailSubject = document.getElementById('memoDetailSubject');
+        const memoDetailFrom = document.getElementById('memoDetailFrom');
+        const memoDetailTo = document.getElementById('memoDetailTo');
+        const memoDetailDepartment = document.getElementById('memoDetailDepartment');
+        const memoDetailPriority = document.getElementById('memoDetailPriority');
+        const memoDetailDate = document.getElementById('memoDetailDate');
         const memoBodyContent = document.getElementById('memoBodyContent');
         const attachmentsDiv = document.getElementById('attachments');
 
-        // eslint-disable-next-line no-console
-        console.log('Elements found:', { senderAvatar, senderName, senderTitle, memoBodyContent, attachmentsDiv });
-        // eslint-disable-next-line no-console
-        console.log('Memo data check:', {
-            hasContent: !!memo.content,
-            contentLength: memo.content?.length || 0,
-            contentPreview: memo.content?.substring(0, 50) || 'EMPTY',
-            hasAttachments: !!memo.attachments,
-            attachmentsCount: memo.attachments?.length || 0
-        });
+        // Update memo details (PDF-style format)
+        if (memoDetailSubject) {
+            memoDetailSubject.textContent = memo.subject || '(No subject)';
+        }
 
-        if (senderAvatar) {senderAvatar.src = memo.sender?.profilePicture || '/images/memofy-logo.png';}
-        if (senderName) {senderName.textContent = `${memo.sender?.firstName} ${memo.sender?.lastName}`;}
-        if (senderTitle) {senderTitle.textContent = `${memo.sender?.department || ''} SECRETARY`.trim();}
+        if (memoDetailFrom) {
+            const senderName = memo.sender
+                ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
+                : 'Unknown Sender';
+            const senderEmail = memo.sender?.email || '';
+            memoDetailFrom.textContent = senderEmail ? `${senderName} (${senderEmail})` : senderName;
+        }
+
+        if (memoDetailTo) {
+            const recipientName = memo.recipient
+                ? `${memo.recipient.firstName || ''} ${memo.recipient.lastName || ''}`.trim()
+                : 'Unknown Recipient';
+            const recipientEmail = memo.recipient?.email || '';
+            memoDetailTo.textContent = recipientEmail ? `${recipientName} (${recipientEmail})` : recipientName;
+        }
+
+        if (memoDetailDepartment) {
+            memoDetailDepartment.textContent = memo.department || 'N/A';
+        }
+
+        if (memoDetailPriority) {
+            memoDetailPriority.textContent = memo.priority || 'medium';
+        }
+
+        if (memoDetailDate && memo.createdAt) {
+            const date = new Date(memo.createdAt);
+            memoDetailDate.textContent = date.toLocaleString();
+        }
 
         // Display memo content with attachments (Gmail-style: inline, no separator)
         if (memoBodyContent) {

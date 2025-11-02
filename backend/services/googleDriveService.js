@@ -227,79 +227,19 @@ async function uploadMemoToDrive(memo) {
             pdfDoc.fontSize(11).text('(No content)', { align: 'left', italic: true });
         }
 
-        // First, upload all attachment files to Google Drive and get their shareable links
-        const attachmentDriveUrls = {};
+        // Generate attachment URLs for linking in PDF (using local server URLs)
+        // We don't upload individual attachments - only the memo PDF itself
+        const attachmentUrls = {};
         if (memo.attachments && memo.attachments.length > 0) {
             // eslint-disable-next-line no-console
-            console.log(`  📎 Uploading ${memo.attachments.length} attachment(s) to Google Drive...`);
+            console.log(`  📎 Processing ${memo.attachments.length} attachment(s) for PDF links...`);
 
             for (const attachment of memo.attachments) {
-                // Try multiple possible paths for the file
-                let filePath = attachment.path;
-                if (!filePath || !fs.existsSync(filePath)) {
-                    filePath = path.join(__dirname, '../../uploads', attachment.filename);
-                }
-                // Also try with just the filename in uploads
-                if (!fs.existsSync(filePath)) {
-                    filePath = path.join(__dirname, '../../uploads', path.basename(attachment.filename));
-                }
-
-                if (fs.existsSync(filePath)) {
-                    try {
-                        // Sanitize filename for Google Drive
-                        const sanitizedFilename = attachment.filename
-                            .replace(/[<>:"/\\|?*]/g, '_')
-                            .trim()
-                            .substring(0, 200);
-
-                        // Upload attachment file to Google Drive
-                        const attachmentFileMetadata = {
-                            name: sanitizedFilename,
-                            parents: [folderId]
-                        };
-
-                        const attachmentFile = await drive.files.create({
-                            resource: attachmentFileMetadata,
-                            media: {
-                                mimeType: attachment.mimetype || 'application/octet-stream',
-                                body: fs.createReadStream(filePath)
-                            },
-                            fields: 'id, webViewLink, webContentLink'
-                        });
-
-                        // Make file publicly viewable
-                        try {
-                            await drive.permissions.create({
-                                fileId: attachmentFile.data.id,
-                                requestBody: {
-                                    role: 'reader',
-                                    type: 'anyone'
-                                }
-                            });
-                        } catch (permError) {
-                            // eslint-disable-next-line no-console
-                            console.warn(`  ⚠️ Could not set permissions for ${attachment.filename}:`, permError.message);
-                        }
-
-                        // Store the Google Drive link
-                        attachmentDriveUrls[attachment.filename] = attachmentFile.data.webViewLink || attachmentFile.data.webContentLink;
-
-                        // eslint-disable-next-line no-console
-                        console.log(`  ✅ Uploaded attachment to Drive: ${attachment.filename} -> ${attachmentFile.data.id}`);
-                    } catch (uploadError) {
-                        // eslint-disable-next-line no-console
-                        console.error(`  ⚠️ Failed to upload attachment ${attachment.filename}:`, uploadError.message);
-                        // Use fallback URL if upload fails
-                        const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-                        attachmentDriveUrls[attachment.filename] = attachment.url || `${baseUrl}/uploads/${encodeURIComponent(attachment.filename)}`;
-                    }
-                } else {
-                    // eslint-disable-next-line no-console
-                    console.warn(`  ⚠️ Attachment file not found: ${filePath}`);
-                    // Use fallback URL
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-                    attachmentDriveUrls[attachment.filename] = attachment.url || `${baseUrl}/uploads/${encodeURIComponent(attachment.filename)}`;
-                }
+                // Use local server URL for attachments (clickable links in PDF)
+                const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+                attachmentUrls[attachment.filename] = attachment.url || `${baseUrl}/uploads/${encodeURIComponent(attachment.filename)}`;
+                // eslint-disable-next-line no-console
+                console.log(`  📎 Attachment link: ${attachment.filename} -> ${attachmentUrls[attachment.filename]}`);
             }
         }
 
@@ -320,10 +260,10 @@ async function uploadMemoToDrive(memo) {
                     filePath = path.join(__dirname, '../../uploads', path.basename(attachment.filename));
                 }
 
-                // Use Google Drive URL if available, otherwise fallback to local URL
-                const attachmentUrl = attachmentDriveUrls[attachment.filename] ||
-                    attachment.url ||
-                    `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${encodeURIComponent(attachment.filename)}`;
+                    // Use local server URL for attachment links (clickable in PDF)
+                    const attachmentUrl = attachmentUrls[attachment.filename] ||
+                        attachment.url ||
+                        `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${encodeURIComponent(attachment.filename)}`;
 
                 if (fs.existsSync(filePath)) {
                     // Check if it's an image (original) or a PDF that was converted from an image

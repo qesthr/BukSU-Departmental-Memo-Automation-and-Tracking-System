@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     align-items: center;
                     flex-shrink: 0;
                 ">
-                    <h2 id="notificationMemoSubject" style="margin: 0; font-size: 1.25rem; font-weight: 600; color: #111827;"></h2>
+                    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: #111827;">View Memo</h2>
                     <button id="closeNotificationMemoModal" style="
                         background: none;
                         border: none;
@@ -522,19 +522,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     overflow-y: auto;
                     flex: 1;
                 ">
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-                        <img id="notificationMemoSenderAvatar" src="/images/memofy-logo.png" alt="Sender" style="
-                            width: 48px;
-                            height: 48px;
-                            border-radius: 50%;
-                            object-fit: cover;
-                            border: 2px solid #e5e7eb;
-                        " />
-                        <div style="flex: 1;">
-                            <div id="notificationMemoSenderName" style="font-weight: 600; color: #111827; font-size: 0.9375rem;"></div>
-                            <div id="notificationMemoSenderEmail" style="color: #6b7280; font-size: 0.8125rem; margin-top: 0.25rem;"></div>
+                    <!-- PDF-style Memo Header -->
+                    <div style="margin-bottom: 24px; padding-bottom: 16px;">
+                        <h1 style="font-size: 24px; font-weight: 700; text-align: center; margin: 0 0 20px 0; color: #111827; letter-spacing: 1px;">MEMO</h1>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">Subject:</span>
+                                <span id="notificationMemoSubject" style="color: #111827; flex: 1;"></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">From:</span>
+                                <span id="notificationMemoFrom" style="color: #111827; flex: 1;"></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">To:</span>
+                                <span id="notificationMemoTo" style="color: #111827; flex: 1;"></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">Department:</span>
+                                <span id="notificationMemoDepartment" style="color: #111827; flex: 1;"></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">Priority:</span>
+                                <span id="notificationMemoPriority" style="color: #111827; flex: 1;"></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5;">
+                                <span style="font-weight: 600; color: #374151; min-width: 100px; flex-shrink: 0;">Date:</span>
+                                <span id="notificationMemoDate" style="color: #111827; flex: 1;"></span>
+                            </div>
                         </div>
-                        <div id="notificationMemoDate" style="color: #9ca3af; font-size: 0.8125rem; text-align: right;"></div>
+                        <div style="width: 100%; height: 1px; background: #e5e7eb; margin: 16px 0;"></div>
                     </div>
                     <div id="notificationMemoBodyContent" style="
                         color: #111827;
@@ -584,27 +601,39 @@ document.addEventListener('DOMContentLoaded', () => {
         // Subject
         const subjectEl = modal.querySelector('#notificationMemoSubject');
         if (subjectEl) {
-            subjectEl.textContent = memo.subject || 'Memo';
+            subjectEl.textContent = memo.subject || '(No subject)';
         }
 
-        // Sender info
-        const senderNameEl = modal.querySelector('#notificationMemoSenderName');
-        const senderEmailEl = modal.querySelector('#notificationMemoSenderEmail');
-        const senderAvatarEl = modal.querySelector('#notificationMemoSenderAvatar');
-
-        if (senderNameEl) {
+        // From (Sender)
+        const fromEl = modal.querySelector('#notificationMemoFrom');
+        if (fromEl) {
             const senderName = memo.sender
                 ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
                 : 'Unknown Sender';
-            senderNameEl.textContent = senderName;
+            const senderEmail = memo.sender?.email || '';
+            fromEl.textContent = senderEmail ? `${senderName} (${senderEmail})` : senderName;
         }
 
-        if (senderEmailEl) {
-            senderEmailEl.textContent = memo.sender?.email || '';
+        // To (Recipient)
+        const toEl = modal.querySelector('#notificationMemoTo');
+        if (toEl) {
+            const recipientName = memo.recipient
+                ? `${memo.recipient.firstName || ''} ${memo.recipient.lastName || ''}`.trim()
+                : 'Unknown Recipient';
+            const recipientEmail = memo.recipient?.email || '';
+            toEl.textContent = recipientEmail ? `${recipientName} (${recipientEmail})` : recipientName;
         }
 
-        if (senderAvatarEl) {
-            senderAvatarEl.src = memo.sender?.profilePicture || '/images/memofy-logo.png';
+        // Department
+        const departmentEl = modal.querySelector('#notificationMemoDepartment');
+        if (departmentEl) {
+            departmentEl.textContent = memo.department || 'N/A';
+        }
+
+        // Priority
+        const priorityEl = modal.querySelector('#notificationMemoPriority');
+        if (priorityEl) {
+            priorityEl.textContent = memo.priority || 'medium';
         }
 
         // Date

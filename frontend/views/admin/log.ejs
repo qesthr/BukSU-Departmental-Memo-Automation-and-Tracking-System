@@ -55,6 +55,26 @@
                                             </select>
                                         </div>
 
+                                        <div class="priority-dropdown-wrapper">
+                                            <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                                <option value="all">All Priorities</option>
+                                                <option value="urgent">🔴 Urgent</option>
+                                                <option value="high">🟠 High</option>
+                                                <option value="medium">🟡 Medium</option>
+                                                <option value="low">🔵 Low</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="sort-dropdown-wrapper">
+                                            <select id="sortDropdown" class="sort-dropdown">
+                                                <option value="newest">Sort: Newest</option>
+                                                <option value="oldest">Sort: Oldest</option>
+                                                <option value="priority">Sort: Priority</option>
+                                                <option value="subject">Sort: Subject (A-Z)</option>
+                                                <option value="sender">Sort: Sender/Recipient (A-Z)</option>
+                                            </select>
+                                        </div>
+
                                         <!-- Compose button moved here -->
                                         <div class="compose-control">
                                             <button class="compose-btn">
@@ -104,12 +124,36 @@
                                 </div>
 
                                 <div class="memo-content">
-                                    <div class="memo-header-info">
-                                        <img id="senderAvatar" src="" alt="Sender" class="sender-avatar">
-                                        <div class="sender-info">
-                                            <h3 id="senderName"></h3>
-                                            <p id="senderTitle"></p>
+                                    <!-- Memo Header (PDF-style format) -->
+                                    <div class="memo-pdf-header">
+                                        <h1 class="memo-title">MEMO</h1>
+                                        <div class="memo-details">
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Subject:</span>
+                                                <span id="memoDetailSubject" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">From:</span>
+                                                <span id="memoDetailFrom" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">To:</span>
+                                                <span id="memoDetailTo" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Department:</span>
+                                                <span id="memoDetailDepartment" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Priority:</span>
+                                                <span id="memoDetailPriority" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Date:</span>
+                                                <span id="memoDetailDate" class="memo-detail-value"></span>
+                                            </div>
                                         </div>
+                                        <div class="memo-separator"></div>
                                     </div>
                                     <div class="memo-body">
                                         <div id="memoBodyContent"></div>
@@ -144,19 +188,29 @@
                             <label class="compose-field-label" style="display: none;">Subject</label>
                             <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
                         </div>
-                        <div class="custom-dropdown compose-field-dropdown">
-                            <button id="deptDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
-                                <span class="dept-placeholder">Department</span>
-                            </button>
-                            <div id="deptDropdownMenu" class="dept-dropdown-menu">
-                                <label class="dept-checkbox-label">
-                                    <input type="checkbox" id="selectAllDepts" class="dept-checkbox">
-                                    <span>Select All</span>
-                                </label>
-                                <hr class="dept-dropdown-hr">
-                                <div id="deptCheckboxesContainer">
-                                    <!-- Departments loaded dynamically -->
+                        <div class="compose-inline-fields">
+                            <div class="custom-dropdown compose-field-dropdown compose-field-inline">
+                                <button id="deptDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
+                                    <span class="dept-placeholder">Department</span>
+                                </button>
+                                <div id="deptDropdownMenu" class="dept-dropdown-menu">
+                                    <label class="dept-checkbox-label">
+                                        <input type="checkbox" id="selectAllDepts" class="dept-checkbox">
+                                        <span>Select All</span>
+                                    </label>
+                                    <hr class="dept-dropdown-hr">
+                                    <div id="deptCheckboxesContainer">
+                                        <!-- Departments loaded dynamically -->
+                                    </div>
                                 </div>
+                            </div>
+                            <div class="compose-field-wrapper compose-field-inline">
+                                <select id="prioritySelect" name="priority" class="compose-field compose-priority-select">
+                                    <option value="medium">🟡 Medium</option>
+                                    <option value="urgent">🔴 Urgent</option>
+                                    <option value="high">🟠 High</option>
+                                    <option value="low">🔵 Low</option>
+                                </select>
                             </div>
                         </div>
                         <input type="hidden" id="selectedDepartments" name="departments">

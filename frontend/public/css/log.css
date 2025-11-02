@@ -143,10 +143,22 @@
 
 .department-dropdown-wrapper {
     flex: 1;
-    max-width: 300px;
+    max-width: 200px;
 }
 
-.dept-filter-dropdown {
+.priority-dropdown-wrapper {
+    flex: 1;
+    max-width: 180px;
+}
+
+.sort-dropdown-wrapper {
+    flex: 1;
+    max-width: 180px;
+}
+
+.dept-filter-dropdown,
+.priority-filter-dropdown,
+.sort-dropdown {
     width: 100%;
     padding: 8px 12px;
     padding-right: 36px;
@@ -165,11 +177,15 @@
     background-size: 12px;
 }
 
-.dept-filter-dropdown:hover {
+.dept-filter-dropdown:hover,
+.priority-filter-dropdown:hover,
+.sort-dropdown:hover {
     border-color: #9ca3af;
 }
 
-.dept-filter-dropdown:focus {
+.dept-filter-dropdown:focus,
+.priority-filter-dropdown:focus,
+.sort-dropdown:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -206,6 +222,50 @@
     align-items: center;
     gap: 12px;
     margin-bottom: 8px;
+}
+
+.memo-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Priority Badges */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.priority-urgent {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.priority-high {
+    background: #fed7aa;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+}
+
+.priority-medium {
+    background: #fef3c7;
+    color: #854d0e;
+    border: 1px solid #fcd34d;
+}
+
+.priority-low {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
 }
 
 .memo-avatar {
@@ -360,6 +420,55 @@
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+}
+
+/* PDF-style Memo Header */
+.memo-pdf-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+}
+
+.memo-title {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 20px 0;
+    color: #111827;
+    letter-spacing: 1px;
+}
+
+.memo-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.memo-detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.memo-detail-label {
+    font-weight: 600;
+    color: #374151;
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.memo-detail-value {
+    color: #111827;
+    flex: 1;
+}
+
+.memo-separator {
+    width: 100%;
+    height: 1px;
+    background: #e5e7eb;
+    margin: 16px 0;
 }
 
 .memo-header-info {
@@ -541,6 +650,62 @@
     padding: 8px 16px 0;
     border-bottom: 1px solid #e5e7eb;
     flex-shrink: 0;
+}
+
+.compose-inline-fields {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    padding: 8px 0;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.compose-inline-fields:focus-within {
+    border-bottom-color: #2563eb;
+}
+
+.compose-field-inline {
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+}
+
+.compose-field-inline .compose-field,
+.compose-field-inline .dept-dropdown-btn {
+    width: 100%;
+    min-height: 38px;
+    height: 38px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+
+.compose-field-inline .dept-dropdown-btn {
+    padding: 6px 12px;
+    justify-content: space-between;
+}
+
+.compose-field-inline .compose-priority-select {
+    height: 38px;
+    padding: 6px 36px 6px 0;
+    display: flex;
+    align-items: center;
+}
+
+.compose-priority-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+    cursor: pointer;
+}
+
+.compose-priority-select:focus {
+    outline: none;
+    border-bottom-color: #2563eb;
 }
 
 .compose-field-wrapper {
