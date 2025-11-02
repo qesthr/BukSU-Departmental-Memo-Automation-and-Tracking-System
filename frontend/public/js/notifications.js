@@ -267,13 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 iconName = 'x-circle';
             }
 
-            // Determine click action based on notification type
-            const clickAction = notif.type === 'memo_received' || notif.type === 'memo_sent'
-                ? `window.location.href='/admin/log?memo=${notif.id}'`
-                : `window.location.href='/admin/log'`;
+            // For memo notifications, use data attributes to identify them
+            const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent';
 
             return `
-                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" onclick="${clickAction}">
+                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? notif.id : ''}" data-notification-type="${notif.type}">
                     <div class="notification-icon">
                         <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
                     </div>
@@ -295,11 +293,42 @@ document.addEventListener('DOMContentLoaded', () => {
             window.lucide.createIcons();
         }
 
-        // Mark as read when clicked
+        // Handle click on notification items
         list.querySelectorAll('.notification-item').forEach(item => {
-            item.addEventListener('click', async () => {
+            item.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
                 const id = item.dataset.id;
+                const memoId = item.dataset.memoId;
+                const notificationType = item.dataset.notificationType;
+
+                // eslint-disable-next-line no-console
+                console.log('Notification clicked:', { id, memoId, notificationType });
+
+                // Mark as read
                 await markAsRead(id);
+
+                // For memo notifications, open modal
+                if (memoId && (notificationType === 'memo_received' || notificationType === 'memo_sent')) {
+                    // eslint-disable-next-line no-console
+                    console.log('Opening memo modal with ID:', memoId);
+                    try {
+                        await openMemoModal(memoId);
+                        // eslint-disable-next-line no-console
+                        console.log('openMemoModal call completed');
+                    } catch (modalError) {
+                        // eslint-disable-next-line no-console
+                        console.error('Error in openMemoModal:', modalError);
+                        // Fallback to navigation
+                        window.location.href = `/admin/log?memo=${memoId}`;
+                    }
+                } else {
+                    // For other notifications, navigate to log
+                    // eslint-disable-next-line no-console
+                    console.log('Navigating to log page');
+                    window.location.href = '/admin/log';
+                }
             });
         });
     }
@@ -356,6 +385,312 @@ document.addEventListener('DOMContentLoaded', () => {
             return `${Math.floor(diff / 86400000)}d ago`;
         }
         return time.toLocaleDateString();
+    }
+
+    // Function to open memo in modal
+    async function openMemoModal(memoId) {
+        // eslint-disable-next-line no-console
+        console.log('Opening memo modal for ID:', memoId);
+
+        if (!memoId) {
+            // eslint-disable-next-line no-console
+            console.error('No memo ID provided');
+            return;
+        }
+
+        try {
+            // Fetch memo data
+            // eslint-disable-next-line no-console
+            console.log('Fetching memo from API:', `/api/log/memos/${memoId}`);
+            const response = await fetch(`/api/log/memos/${memoId}`);
+            const data = await response.json();
+
+            // eslint-disable-next-line no-console
+            console.log('API Response:', data);
+
+            if (!data.success || !data.memo) {
+                // eslint-disable-next-line no-console
+                console.error('Memo not found:', memoId, data);
+                // Fallback to navigation
+                window.location.href = `/admin/log?memo=${memoId}`;
+                return;
+            }
+
+            const memo = data.memo;
+            // eslint-disable-next-line no-console
+            console.log('Memo fetched:', memo);
+
+            // Create or get memo modal
+            let memoModal = document.getElementById('notificationMemoModal');
+            if (!memoModal) {
+                // eslint-disable-next-line no-console
+                console.log('Creating new memo modal');
+                memoModal = createMemoModal();
+            } else {
+                // eslint-disable-next-line no-console
+                console.log('Using existing memo modal');
+            }
+
+            // Populate modal with memo data
+            populateMemoModal(memo, memoModal);
+
+            // Show modal - force visibility with !important
+            memoModal.style.setProperty('display', 'flex', 'important');
+            memoModal.style.setProperty('visibility', 'visible', 'important');
+            memoModal.style.setProperty('opacity', '1', 'important');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+            // Verify modal is visible
+            // eslint-disable-next-line no-console
+            console.log('Modal displayed, checking visibility:', {
+                display: memoModal.style.display,
+                computedDisplay: window.getComputedStyle(memoModal).display,
+                visibility: window.getComputedStyle(memoModal).visibility,
+                zIndex: window.getComputedStyle(memoModal).zIndex
+            });
+
+            // Force a reflow to ensure display
+            void memoModal.offsetHeight;
+
+            // Close notification dropdown
+            const dropdown = document.getElementById('notificationDropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Error fetching memo:', error);
+            // Fallback to navigation
+            window.location.href = `/admin/log?memo=${memoId}`;
+        }
+    }
+
+    // Create memo modal structure
+    function createMemoModal() {
+        const modal = document.createElement('div');
+        modal.id = 'notificationMemoModal';
+        modal.className = 'notification-memo-modal';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow-y: auto;
+        `;
+
+        modal.innerHTML = `
+            <div class="notification-memo-content" style="
+                background: white;
+                border-radius: 12px;
+                max-width: 800px;
+                width: 100%;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            ">
+                <div class="notification-memo-header" style="
+                    padding: 1.5rem;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex-shrink: 0;
+                ">
+                    <h2 id="notificationMemoSubject" style="margin: 0; font-size: 1.25rem; font-weight: 600; color: #111827;"></h2>
+                    <button id="closeNotificationMemoModal" style="
+                        background: none;
+                        border: none;
+                        font-size: 1.5rem;
+                        color: #6b7280;
+                        cursor: pointer;
+                        padding: 0.5rem;
+                        line-height: 1;
+                        border-radius: 6px;
+                        transition: all 0.2s;
+                    ">&times;</button>
+                </div>
+                <div class="notification-memo-body" style="
+                    padding: 1.5rem;
+                    overflow-y: auto;
+                    flex: 1;
+                ">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+                        <img id="notificationMemoSenderAvatar" src="/images/memofy-logo.png" alt="Sender" style="
+                            width: 48px;
+                            height: 48px;
+                            border-radius: 50%;
+                            object-fit: cover;
+                            border: 2px solid #e5e7eb;
+                        " />
+                        <div style="flex: 1;">
+                            <div id="notificationMemoSenderName" style="font-weight: 600; color: #111827; font-size: 0.9375rem;"></div>
+                            <div id="notificationMemoSenderEmail" style="color: #6b7280; font-size: 0.8125rem; margin-top: 0.25rem;"></div>
+                        </div>
+                        <div id="notificationMemoDate" style="color: #9ca3af; font-size: 0.8125rem; text-align: right;"></div>
+                    </div>
+                    <div id="notificationMemoBodyContent" style="
+                        color: #111827;
+                        line-height: 1.6;
+                        white-space: pre-wrap;
+                        word-wrap: break-word;
+                    "></div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close button handler
+        const closeBtn = modal.querySelector('#closeNotificationMemoModal');
+        closeBtn.addEventListener('click', closeMemoModal);
+
+        // Hover effect for close button
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#f3f4f6';
+            closeBtn.style.color = '#111827';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = '#6b7280';
+        });
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeMemoModal();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.style.display !== 'none') {
+                closeMemoModal();
+            }
+        });
+
+        return modal;
+    }
+
+    // Populate memo modal with data
+    function populateMemoModal(memo, modal) {
+        // Subject
+        const subjectEl = modal.querySelector('#notificationMemoSubject');
+        if (subjectEl) {
+            subjectEl.textContent = memo.subject || 'Memo';
+        }
+
+        // Sender info
+        const senderNameEl = modal.querySelector('#notificationMemoSenderName');
+        const senderEmailEl = modal.querySelector('#notificationMemoSenderEmail');
+        const senderAvatarEl = modal.querySelector('#notificationMemoSenderAvatar');
+
+        if (senderNameEl) {
+            const senderName = memo.sender
+                ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
+                : 'Unknown Sender';
+            senderNameEl.textContent = senderName;
+        }
+
+        if (senderEmailEl) {
+            senderEmailEl.textContent = memo.sender?.email || '';
+        }
+
+        if (senderAvatarEl) {
+            senderAvatarEl.src = memo.sender?.profilePicture || '/images/memofy-logo.png';
+        }
+
+        // Date
+        const dateEl = modal.querySelector('#notificationMemoDate');
+        if (dateEl && memo.createdAt) {
+            const date = new Date(memo.createdAt);
+            dateEl.textContent = date.toLocaleString();
+        }
+
+        // Content
+        const bodyContentEl = modal.querySelector('#notificationMemoBodyContent');
+        if (bodyContentEl) {
+            let htmlContent = '';
+
+            // Text content
+            if (memo.content && memo.content.trim()) {
+                const safeContent = memo.content
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+                htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'}; line-height: 1.6;">${safeContent}</div>`;
+            } else {
+                htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'};">No text content</div>`;
+            }
+
+            // Attachments
+            if (memo.attachments && memo.attachments.length > 0) {
+                htmlContent += '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem;">';
+
+                memo.attachments.forEach((attachment) => {
+                    const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+                    const isPDF = attachment.mimetype === 'application/pdf';
+                    const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+                    // Helper function to format file size
+                    function formatFileSize(bytes) {
+                        if (!bytes || bytes === 0) return '0 B';
+                        const k = 1024;
+                        const sizes = ['B', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+                    }
+
+                    if (isPDF || !isImage) {
+                        htmlContent += `
+                            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 13px;">
+                                <i data-lucide="${isPDF ? 'file-text' : 'paperclip'}" style="width: 16px; height: 16px; color: #6b7280;"></i>
+                                <a href="${attachmentUrl}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
+                                <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
+                            </div>
+                        `;
+                    } else if (isImage) {
+                        htmlContent += `
+                            <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                                <img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="window.open('${attachmentUrl}', '_blank')" />
+                                <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
+                                    <i data-lucide="image" style="width: 16px; height: 16px; color: #6b7280;"></i>
+                                    <a href="${attachmentUrl}" target="_blank" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
+                                    <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                htmlContent += '</div>';
+            }
+
+            bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+
+            // Reinitialize icons
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+    }
+
+    // Close memo modal
+    function closeMemoModal() {
+        const modal = document.getElementById('notificationMemoModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = ''; // Restore scrolling
+        }
     }
 
     // Fetch notifications on page load
