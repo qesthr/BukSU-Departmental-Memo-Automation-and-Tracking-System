@@ -1,5 +1,6 @@
 const Memo = require('../models/Memo');
 const User = require('../models/User');
+const googleDriveService = require('../services/googleDriveService');
 
 // Get all memos for a user
 exports.getAllMemos = async (req, res) => {
@@ -306,6 +307,36 @@ exports.createMemo = async (req, res) => {
             .lean();
 
         populatedMemo.attachments = createdMemos[0].attachments;
+
+        // Trigger Google Drive backup asynchronously (non-blocking)
+        // Only for Admin and Secretary roles, and only if Drive is connected
+        if ((user.role === 'admin' || user.role === 'secretary')) {
+            // Run backup in background - don't wait for it
+            googleDriveService.uploadMemoToDrive(populatedMemo)
+                .then((driveFileId) => {
+                    // eslint-disable-next-line no-console
+                    console.log(`✅ Memo backup to Google Drive successful: ${driveFileId}`);
+
+                    // Optionally update memo with Drive file ID
+                    Memo.findByIdAndUpdate(createdMemos[0]._id, {
+                        googleDriveFileId: driveFileId
+                    }).catch(err => {
+                        // eslint-disable-next-line no-console
+                        console.error('Failed to update memo with Drive ID:', err.message);
+                    });
+                })
+                .catch((backupError) => {
+                    // Log error but don't fail the memo creation
+                    // eslint-disable-next-line no-console
+                    console.error('⚠️ Google Drive backup failed (memo still saved):', backupError.message);
+                    // eslint-disable-next-line no-console
+                    console.error('  Backup error details:', {
+                        subject: populatedMemo.subject,
+                        error: backupError.message,
+                        stack: backupError.stack
+                    });
+                });
+        }
 
         res.status(201).json({
             success: true,
