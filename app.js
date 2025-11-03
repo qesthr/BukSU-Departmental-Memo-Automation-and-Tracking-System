@@ -35,7 +35,7 @@ app.use(helmet({
                 "https://unpkg.com", "https://cdn.jsdelivr.net"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://www.google.com",
                 "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
-            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "https://www.google.com",
                 "https://developers.google.com"],
             frameSrc: ["'self'", "https://www.google.com", "https://accounts.google.com", "https://*.google.com"],

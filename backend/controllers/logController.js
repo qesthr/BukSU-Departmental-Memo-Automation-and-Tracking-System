@@ -54,8 +54,8 @@ exports.getAllMemos = async (req, res) => {
         }
 
         const memos = await Memo.find(query)
-            .populate('sender', 'firstName lastName email profilePicture department')
-            .populate('recipient', 'firstName lastName email profilePicture department')
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role')
             .sort({ createdAt: -1 });
 
         res.json({ success: true, memos });
@@ -73,8 +73,8 @@ exports.getMemo = async (req, res) => {
         const userId = req.user._id;
 
         const memo = await Memo.findById(id)
-            .populate('sender', 'firstName lastName email profilePicture department')
-            .populate('recipient', 'firstName lastName email profilePicture department');
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role');
 
         if (!memo) {
             return res.status(404).json({ success: false, message: 'Memo not found' });

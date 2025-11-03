@@ -1258,6 +1258,71 @@ document.addEventListener('DOMContentLoaded', () => {
         const isSentFolder = currentFolder === 'sent';
 
         memoList.innerHTML = filteredMemos.map((memo, index) => {
+            // Check if this is a calendar event notification
+            const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                                   (memo.subject && memo.subject.includes('Calendar Event')) ||
+                                   (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
+            // Calendar events have a different format
+            if (isCalendarEvent) {
+                // Parse calendar event content to extract info
+                let eventTitle = memo.subject || 'Calendar Event';
+                let eventDate = '';
+                let eventTime = '';
+                let eventCategory = '';
+
+                if (memo.content) {
+                    const lines = memo.content.split('\n').filter(l => l.trim());
+                    if (lines.length > 0) {
+                        eventTitle = lines[0].trim();
+                    }
+                    lines.forEach(line => {
+                        if (line.startsWith('Date:')) {eventDate = line.replace('Date:', '').trim();}
+                        if (line.startsWith('Time:')) {eventTime = line.replace('Time:', '').trim();}
+                        if (line.startsWith('Category:')) {eventCategory = line.replace('Category:', '').trim();}
+                    });
+                }
+
+                // Category color indicator
+                let categoryColor = '#86efac'; // Default green (Standard)
+                let categoryLabel = 'Standard';
+                if (eventCategory.includes('Urgent') || eventCategory.includes('🔴')) {
+                    categoryColor = '#f87171';
+                    categoryLabel = 'Urgent';
+                } else if (eventCategory.includes('Today') || eventCategory.includes('🟡')) {
+                    categoryColor = '#fbbf24';
+                    categoryLabel = 'Today';
+                }
+
+                return `
+                <div class="memo-item calendar-event-item ${index === currentMemoIndex ? 'active' : ''}"
+                     data-id="${memo._id}"
+                     data-index="${index}"
+                     style="border-left: 4px solid ${categoryColor}; background: linear-gradient(to right, ${categoryColor}15 0%, transparent 5%);">
+                    <div class="memo-item-header" style="align-items: flex-start;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div style="width: 48px; height: 48px; border-radius: 8px; background: ${categoryColor}20; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i data-lucide="calendar" style="width: 24px; height: 24px; color: ${categoryColor};"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-weight: 600; color: #111827; font-size: 14px;">${eventTitle}</span>
+                                    <span style="padding: 2px 8px; background: ${categoryColor}20; color: ${categoryColor}; border-radius: 4px; font-size: 11px; font-weight: 500;">${categoryLabel}</span>
+                                </div>
+                                ${eventDate ? `<div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">📅 ${eventDate}</div>` : ''}
+                                ${eventTime ? `<div style="font-size: 12px; color: #6b7280;">🕐 ${eventTime}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="memo-item-actions">
+                            ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">${formatDate(memo.createdAt)}</div>
+                </div>
+            `;
+            }
+
+            // Regular memo format (unchanged)
             // For sent folder: show recipient info and "Sent:" prefix
             // For inbox/other folders: show sender info (default)
             let displayUser, displayLabel, subjectPrefix;
@@ -1641,11 +1706,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (memoBodyContent) {
             let htmlContent = '';
 
+            // Check if this is a calendar event notification
+            const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                                   (memo.subject && memo.subject.includes('Calendar Event')) ||
+                                   (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
             // Display text content - handle empty content gracefully
             const memoText = memo.content || '';
             if (memoText && memoText.trim()) {
-                // Escape HTML to prevent XSS, then preserve whitespace
-                const safeContent = memoText
+                // Remove markdown asterisks for calendar events, escape HTML to prevent XSS, then preserve whitespace
+                let formattedContent = memoText;
+                if (isCalendarEvent) {
+                    formattedContent = formattedContent.replace(/\*\*/g, ''); // Remove all ** (markdown bold markers)
+                }
+                const safeContent = formattedContent
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')

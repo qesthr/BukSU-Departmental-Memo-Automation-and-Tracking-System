@@ -200,7 +200,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch notifications
     async function fetchNotifications() {
         try {
-            const response = await fetch('/api/log/notifications');
+            const response = await fetch('/api/log/notifications', {
+                credentials: 'same-origin'
+            });
+            if (!response.ok) {
+                // Don't show error if unauthorized - user might not be logged in
+                if (response.status === 401) {
+                    return; // Silently fail if not authenticated
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
             const data = await response.json();
 
             if (data.success) {
@@ -249,9 +258,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         list.innerHTML = notifications.map(notif => {
+            // Check if this is a calendar event notification
+            const isCalendarEvent = (notif.title && notif.title.includes('Calendar Event')) ||
+                                   (notif.title && notif.title.includes('📅'));
+
             // Determine icon based on activity type
             let iconName = 'bell';
-            if (notif.type === 'memo_sent' || notif.type === 'memo_received') {
+            if (isCalendarEvent) {
+                iconName = 'calendar';
+            } else if (notif.type === 'memo_sent' || notif.type === 'memo_received') {
                 iconName = 'file-text';
             } else if (notif.type === 'user_deleted') {
                 iconName = 'user-minus';
@@ -268,16 +283,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // For memo notifications, use data attributes to identify them
-            const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent';
+            const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent' || isCalendarEvent;
+
+            // Format calendar event message for dropdown preview
+            let displayMessage = notif.message || '';
+            if (isCalendarEvent && notif.message) {
+                // Parse the calendar event content to extract key info
+                // Format: "Title\n\nDate: ...\nTime: ...\nCategory: ...\nDescription: ..."
+                const lines = notif.message.split('\n').filter(l => l.trim());
+                if (lines.length > 0) {
+                    const title = lines[0].trim();
+                    // Extract date, time, category from content
+                    let dateStr = '';
+                    let timeStr = '';
+                    let categoryStr = '';
+
+                    lines.forEach(line => {
+                        if (line.startsWith('Date:')) dateStr = line.replace('Date:', '').trim();
+                        if (line.startsWith('Time:')) timeStr = line.replace('Time:', '').trim();
+                        if (line.startsWith('Category:')) categoryStr = line.replace('Category:', '').trim();
+                    });
+
+                    // Create a clean preview message
+                    displayMessage = `📅 ${title}`;
+                    if (dateStr) displayMessage += ` • ${dateStr}`;
+                    if (timeStr) displayMessage += ` • ${timeStr}`;
+                }
+            }
 
             return `
-                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? notif.id : ''}" data-notification-type="${notif.type}">
+                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? notif.id : ''}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
                     <div class="notification-icon">
                         <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${notif.title || 'Notification'}</div>
-                        <div class="notification-message">${notif.message || ''}</div>
+                        <div class="notification-title">${isCalendarEvent ? (notif.title || 'Calendar Event') : (notif.title || 'Notification')}</div>
+                        <div class="notification-message">${displayMessage}</div>
                         <div class="notification-meta">
                             ${notif.sender ? `<span>From: ${notif.sender.name}</span>` : ''}
                             ${notif.hasAttachments ? `<span>📎 Attachment</span>` : ''}
@@ -598,15 +639,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Populate memo modal with data
     function populateMemoModal(memo, modal) {
+        // Check if this is a calendar event notification
+        // Check both metadata and subject/content patterns as fallback
+        const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                               (memo.subject && memo.subject.includes('Calendar Event')) ||
+                               (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
+        const memoHeader = modal.querySelector('.notification-memo-body > div:first-child');
+
+        if (isCalendarEvent && memoHeader) {
+            // Hide MEMO header for calendar events
+            memoHeader.style.display = 'none';
+        }
+
         // Subject
         const subjectEl = modal.querySelector('#notificationMemoSubject');
-        if (subjectEl) {
+        if (subjectEl && !isCalendarEvent) {
             subjectEl.textContent = memo.subject || '(No subject)';
         }
 
         // From (Sender)
         const fromEl = modal.querySelector('#notificationMemoFrom');
-        if (fromEl) {
+        if (fromEl && !isCalendarEvent) {
             const senderName = memo.sender
                 ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
                 : 'Unknown Sender';
@@ -648,17 +702,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bodyContentEl) {
             let htmlContent = '';
 
-            // Text content
-            if (memo.content && memo.content.trim()) {
-                const safeContent = memo.content
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
-                htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'}; line-height: 1.6;">${safeContent}</div>`;
+            // Calendar event format - simple display with button
+            if (isCalendarEvent) {
+                if (memo.content && memo.content.trim()) {
+                    // Format calendar event content nicely - remove markdown asterisks
+                    let formattedContent = memo.content
+                        .replace(/\*\*/g, '') // Remove all ** (markdown bold markers)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                    htmlContent += `<div style="white-space: pre-wrap; line-height: 1.8; color: #111827; font-size: 15px; margin-bottom: 1.5rem;">${formattedContent}</div>`;
+                }
+
+                // Add "View Calendar" button - detect route from current pathname
+                const isSecretaryRoute = window.location.pathname.includes('/secretary');
+                const calendarUrl = isSecretaryRoute ? '/secretary/calendar' : '/admin/calendar';
+                htmlContent += `<div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                    <a href="${calendarUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: #1C89E3; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#1674c7'" onmouseout="this.style.background='#1C89E3'">View in Calendar</a>
+                </div>`;
             } else {
-                htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'};">No text content</div>`;
+                // Regular memo format
+                // Text content
+                if (memo.content && memo.content.trim()) {
+                    const safeContent = memo.content
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                    htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'}; line-height: 1.6;">${safeContent}</div>`;
+                } else {
+                    htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1.5rem' : '0'};">No text content</div>`;
+                }
             }
 
             // Attachments

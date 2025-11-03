@@ -6,7 +6,7 @@ const CalendarEventSchema = new mongoose.Schema({
     end: { type: Date, required: true, index: true },
     allDay: { type: Boolean, default: false },
     category: { type: String, enum: ['today', 'urgent', 'standard', 'archived'], default: 'standard', index: true },
-    participants: { type: [String], default: [] },
+    participants: { type: mongoose.Schema.Types.Mixed, default: [] }, // Can be array of strings (legacy) or {departments: [], emails: []}
     description: { type: String, default: '' },
     memoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Memo', required: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },

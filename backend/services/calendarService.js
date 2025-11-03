@@ -35,10 +35,24 @@ async function getAuthenticatedClient(user) {
 }
 
 async function listEvents(user, { timeMin, timeMax }) {
-    const auth = await getAuthenticatedClient(user);
-    const calendar = google.calendar({ version: 'v3', auth });
-    const resp = await calendar.events.list({ calendarId: 'primary', timeMin, timeMax, singleEvents: true, orderBy: 'startTime' });
-    return resp.data.items || [];
+    // Only fetch Google Calendar events if user has connected their calendar
+    if (!user.calendarAccessToken && !user.calendarRefreshToken) {
+        console.log(`📅 Google Calendar not connected for user ${user.email}`);
+        return [];
+    }
+
+    try {
+        const auth = await getAuthenticatedClient(user);
+        const calendar = google.calendar({ version: 'v3', auth });
+        console.log(`📅 Fetching Google Calendar events for user: ${user.email}`);
+        const resp = await calendar.events.list({ calendarId: 'primary', timeMin, timeMax, singleEvents: true, orderBy: 'startTime' });
+        const events = resp.data.items || [];
+        console.log(`📅 Found ${events.length} Google Calendar events for user ${user.email}`);
+        return events;
+    } catch (error) {
+        console.error(`❌ Error fetching Google Calendar events for user ${user.email}:`, error.message);
+        return [];
+    }
 }
 
 async function addEvent(user, { title, description, startISO, endISO, category }) {

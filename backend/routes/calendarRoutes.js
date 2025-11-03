@@ -20,6 +20,8 @@ const allowAdminOrSecretary = (req, res, next) => {
 router.use(isAuthenticated, allowAdminOrSecretary);
 
 router.get('/events', ctrl.list);
+router.get('/events/:id', ctrl.getOne);
+router.get('/events/:id/memo', ctrl.getEventMemo);
 router.post('/events', ctrl.create);
 router.put('/events/:id', ctrl.update);
 router.patch('/events/:id/time', ctrl.updateTime);
