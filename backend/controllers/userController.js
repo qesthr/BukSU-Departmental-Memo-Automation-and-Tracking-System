@@ -267,7 +267,7 @@ exports.deleteUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt } = req.body;
+        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt, canCrossSend } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -304,6 +304,22 @@ exports.updateUser = async (req, res) => {
         if (email !== undefined) {user.email = email;}
         if (profilePicture !== undefined) {user.profilePicture = profilePicture;}
 
+        // Handle canCrossSend: only meaningful for secretaries
+        const targetRole = role !== undefined ? role : user.role;
+        if (targetRole === 'secretary') {
+            if (canCrossSend !== undefined) {
+                user.canCrossSend = !!canCrossSend;
+            }
+        } else {
+            // Non-secretaries shouldn't keep cross-send flag
+            user.canCrossSend = false;
+        }
+
+        // Enforce: Admins are not assigned to any department
+        if (targetRole === 'admin') {
+            user.department = '';
+        }
+
         await user.save();
 
         res.json({
@@ -316,6 +332,7 @@ exports.updateUser = async (req, res) => {
                 lastName: user.lastName,
                 role: user.role,
                 department: user.department,
+                canCrossSend: user.canCrossSend,
                 profilePicture: user.profilePicture
             }
         });

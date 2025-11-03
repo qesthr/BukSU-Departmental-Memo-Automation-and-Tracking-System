@@ -767,7 +767,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update label
             if (userRole === 'admin' || (userRole === 'secretary' && canCrossSend)) {
-                document.getElementById('multiSelectLabel').style.display = 'inline';
+                const multiLabel = document.getElementById('multiSelectLabel');
+                if (multiLabel) { multiLabel.style.display = 'inline'; }
             }
 
             // Initialize dropdown functionality (pass composeModal for scoping)
@@ -1725,10 +1726,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Display text content - handle empty content gracefully
             const memoText = memo.content || '';
             if (memoText && memoText.trim()) {
-                // Remove markdown asterisks for calendar events, escape HTML to prevent XSS, then preserve whitespace
+                // Remove markdown asterisks and any trailing "View the calendar..." line for calendar events
                 let formattedContent = memoText;
                 if (isCalendarEvent) {
-                    formattedContent = formattedContent.replace(/\*\*/g, ''); // Remove all ** (markdown bold markers)
+                    formattedContent = formattedContent
+                        .replace(/\*\*/g, '')
+                        .split('\n')
+                        .filter(line => !/\bview\s+the\s+calendar\b/i.test(line))
+                        .join('\n');
                 }
                 const safeContent = formattedContent
                     .replace(/&/g, '&amp;')

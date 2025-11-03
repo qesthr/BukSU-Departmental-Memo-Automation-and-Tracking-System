@@ -14,6 +14,13 @@
     <script src="https://accounts.google.com/gsi/client"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="/js/admin-dash.js" defer></script>
+    <script>
+        window.currentUser = {
+            id: '<%= user._id %>',
+            email: '<%= user.email %>',
+            role: '<%= user.role %>'
+        };
+    </script>
 </head>
 
 <body>
@@ -67,28 +74,46 @@
                                 <h2>Recent Memos</h2>
                         <div class="memo-container">
                             <div class="memo-list">
-                                <% (allMemos || []).filter(m => m.status === 'pending').forEach(function(memo){ %>
+                                <% const sortedMemos = (allMemos||[]).slice().sort(function(a,b){
+                                     const pa = (a.status === 'pending') ? 1 : 0;
+                                     const pb = (b.status === 'pending') ? 1 : 0;
+                                     if (pb !== pa) return pb - pa; // pending first
+                                     const ad = new Date(a.createdAt||0).getTime();
+                                     const bd = new Date(b.createdAt||0).getTime();
+                                     return bd - ad; // newest next
+                                   }); %>
+
+                                <% if ((sortedMemos||[]).length === 0) { %>
                                     <div class="memo-item">
-                                        <i data-lucide="alert-triangle" class="memo-icon orange"></i>
+                                        <i data-lucide="inbox" class="memo-icon"></i>
+                                        <div class="memo-info">
+                                            <h4>No memos yet</h4>
+                                            <p>New submissions will appear here</p>
+                                        </div>
+                                    </div>
+                                <% } %>
+
+                                <% (sortedMemos||[]).forEach(function(memo){ %>
+                                    <div class="memo-item">
+                                        <% if (memo.status === 'pending') { %>
+                                            <i data-lucide="alert-triangle" class="memo-icon orange"></i>
+                                        <% } else { %>
+                                            <i data-lucide="file-text" class="memo-icon blue"></i>
+                                        <% } %>
                                         <div class="memo-info">
                                             <h4><%= memo.subject %></h4>
                                             <p>From: <%= memo.sender ? (memo.sender.firstName + ' ' + (memo.sender.lastName || '')) : 'Unknown' %></p>
                                         </div>
                                         <div style="display:flex; gap:8px; align-items:center;">
-                                            <button class="btn-primary" onclick="approveMemo('<%= memo._id %>')">Approve</button>
-                                            <button class="btn-secondary" onclick="rejectMemo('<%= memo._id %>')">Reject</button>
+                                            <% if (memo.status === 'pending') { %>
+                                                <button class="btn-primary" onclick="approveMemo('<%= memo._id %>')">Approve</button>
+                                                <button class="btn-secondary" onclick="rejectMemo('<%= memo._id %>')">Reject</button>
+                                            <% } else { %>
+                                                <span class="memo-date"><%= new Date(memo.createdAt).toLocaleDateString() %></span>
+                                            <% } %>
                                         </div>
                                     </div>
                                 <% }); %>
-                                <% if (!(allMemos||[]).some(m=>m.status==='pending')) { %>
-                                    <div class="memo-item">
-                                        <i data-lucide="inbox" class="memo-icon"></i>
-                                        <div class="memo-info">
-                                            <h4>No pending memos</h4>
-                                            <p>New submissions will appear here for approval</p>
-                                        </div>
-                                    </div>
-                                <% } %>
                             </div>
                         </div>
                             </section>
@@ -152,14 +177,22 @@
 				location.reload();
 			}catch(e){ alert('Failed to approve'); }
 		}
-		async function rejectMemo(id){
-			try{
-				const res = await fetch(`/api/log/memos/${id}/reject`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
-				const data = await res.json();
-				alert(data.message || 'Rejected');
-				location.reload();
-			}catch(e){ alert('Failed to reject'); }
-		}
+        async function rejectMemo(id){
+            try {
+                const reason = window.prompt('Optional reason for rejection:', '');
+                const res = await fetch(`/api/log/memos/${id}/reject`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason || '' })
+                });
+                const data = await res.json().catch(()=>({}));
+                if (!res.ok) throw new Error(data.message || 'Failed to reject');
+                alert(data.message || 'Rejected');
+                location.reload();
+            } catch (e) {
+                alert(e?.message || 'Failed to reject');
+            }
+        }
     </script>
     <script src="/js/freezeZoom.js"></script>
 </body>

@@ -426,12 +426,14 @@ function normalizeDepartment(dept) {
 
     addUserForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        const roleVal = document.getElementById('role').value;
+        const depVal = normalizeDepartment(document.getElementById('department').value);
         const formData = {
             firstName: document.getElementById('firstName').value,
             lastName: document.getElementById('lastName').value,
             email: document.getElementById('email').value,
-            department: normalizeDepartment(document.getElementById('department').value),
-            role: document.getElementById('role').value
+            department: roleVal === 'admin' ? '' : depVal,
+            role: roleVal
         };
         addUser(formData);
     });
@@ -446,6 +448,12 @@ function normalizeDepartment(dept) {
             role: document.getElementById('editRole').value,
             lastUpdatedAt: document.getElementById('editLastUpdatedAt').value
         };
+        // Include canCrossSend only when role is secretary
+        const roleVal = formData.role;
+        const canCrossEl = document.getElementById('editCanCrossSend');
+        if (roleVal === 'secretary' && canCrossEl) {
+            formData.canCrossSend = !!canCrossEl.checked;
+        }
         const errEl = document.getElementById('editErrorMsg');
         if (errEl) { errEl.textContent = ''; }
         updateUser(userId, formData);
@@ -698,9 +706,27 @@ function normalizeDepartment(dept) {
         document.getElementById('editUserId').value = user._id;
         document.getElementById('editFirstName').value = user.firstName;
         document.getElementById('editLastName').value = user.lastName;
-        document.getElementById('editDepartment').value = user.department || '';
+        const depSel = document.getElementById('editDepartment');
+        depSel.value = user.department || '';
         const roleSel = document.getElementById('editRole');
         roleSel.value = user.role;
+        // Disable/clear department for admins
+        if (user.role === 'admin') {
+            depSel.disabled = true;
+            depSel.value = '';
+        } else {
+            depSel.disabled = false;
+        }
+        // Toggle canCrossSend checkbox visibility for secretaries
+        const ccGroup = document.getElementById('editCanCrossSendGroup');
+        const ccBox = document.getElementById('editCanCrossSend');
+        if (user.role === 'secretary') {
+            if (ccGroup) ccGroup.style.display = 'flex';
+            if (ccBox) ccBox.checked = !!user.canCrossSend;
+        } else {
+            if (ccGroup) ccGroup.style.display = 'none';
+            if (ccBox) ccBox.checked = false;
+        }
         const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
         const note = document.getElementById('selfEditNote');
         if (isSelf) {
@@ -714,6 +740,29 @@ function normalizeDepartment(dept) {
         if (lu) { lu.value = user.lastUpdatedAt || user.updatedAt || ''; }
         openModal(editUserModal);
     }
+
+    // Update canCrossSend visibility on role change in the edit form
+    (function wireRoleChange(){
+        const roleSel = document.getElementById('editRole');
+        if (!roleSel) return;
+        roleSel.addEventListener('change', () => {
+            const ccGroup = document.getElementById('editCanCrossSendGroup');
+            const ccBox = document.getElementById('editCanCrossSend');
+            const depSel = document.getElementById('editDepartment');
+            if (roleSel.value === 'secretary') {
+                if (ccGroup) ccGroup.style.display = 'flex';
+                if (depSel) depSel.disabled = false;
+            } else {
+                if (ccGroup) ccGroup.style.display = 'none';
+                if (ccBox) ccBox.checked = false;
+                if (roleSel.value === 'admin') {
+                    if (depSel) { depSel.disabled = true; depSel.value = ''; }
+                } else {
+                    if (depSel) depSel.disabled = false;
+                }
+            }
+        });
+    })();
 
     // Subscribe to SSE notifications for toasts
     (function initSSE(){

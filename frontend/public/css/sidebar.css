@@ -1,0 +1,19 @@
+/* Minimal sidebar stylesheet to satisfy imports from sec-nav.css and keep layout consistent */
+
+:root {
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e5e7eb;
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+.sidebar .logo { display: flex; align-items: center; gap: 8px; padding: 16px; }
+.sidebar nav { padding: 8px 0; }
+.sidebar nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: #111827; text-decoration: none; border-radius: 8px; }
+.sidebar nav a:hover { background: #f3f4f6; }
+.sidebar nav a.active { background: #eef2ff; color: #1d4ed8; }
+
+

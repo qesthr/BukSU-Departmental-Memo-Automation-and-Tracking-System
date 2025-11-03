@@ -1,6 +1,7 @@
 const Memo = require('../models/Memo');
 const User = require('../models/User');
 const googleDriveService = require('../services/googleDriveService');
+const { approve, reject } = require('../services/memoWorkflowService');
 
 // Get all memos for a user
 exports.getAllMemos = async (req, res) => {
@@ -18,15 +19,14 @@ exports.getAllMemos = async (req, res) => {
                 // Users receive memos sent TO them, regardless of activityType
                 query = {
                     recipient: userId,
-                    status: { $ne: 'deleted' }
-                    // Include both regular memos and activity logs
+                    status: { $nin: ['deleted','archived'] }
                 };
             } else {
                 // Regular users: only their received memos
-                query = { recipient: userId, status: { $ne: 'deleted' } };
+                query = { recipient: userId, status: { $nin: ['deleted','archived'] } };
             }
         } else if (folder === 'sent') {
-            query = { sender: userId, folder: 'sent', status: { $ne: 'deleted' } };
+            query = { sender: userId, folder: 'sent', status: { $nin: ['deleted','archived'] } };
         } else if (folder === 'starred') {
             query = {
                 $or: [
@@ -34,7 +34,7 @@ exports.getAllMemos = async (req, res) => {
                     { recipient: userId }
                 ],
                 isStarred: true,
-                status: { $ne: 'deleted' }
+                status: { $nin: ['deleted','archived'] }
             };
         } else if (folder === 'activity') {
             // Activity Logs folder: show all system activity logs
@@ -442,6 +442,38 @@ exports.permanentDelete = async (req, res) => {
     }
 };
 
+// Admin approve memo (uses workflow service)
+exports.approveMemo = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Admin only' });
+        }
+        const { id } = req.params;
+        const updated = await approve({ memoId: id, adminUser: req.user });
+        return res.json({ success: true, memo: updated, message: 'Memo approved and sent to recipients.' });
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error approving memo:', error);
+        res.status(500).json({ success: false, message: 'Error approving memo' });
+    }
+};
+
+// Admin reject memo (optional reason)
+exports.rejectMemo = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Admin only' });
+        }
+        const { id } = req.params;
+        const { reason } = req.body || {};
+        const updated = await reject({ memoId: id, adminUser: req.user, reason });
+        return res.json({ success: true, memo: updated });
+    } catch (error) {
+        console.error('Error rejecting memo:', error);
+        res.status(500).json({ success: false, message: 'Error rejecting memo' });
+    }
+};
+
 // Department users (for secretary search)
 exports.getDepartmentUsers = async (req, res) => {
     try {
@@ -635,35 +667,18 @@ exports.approveMemo = async (req, res) => {
     }
 };
 
-// Admin: reject a pending memo
+// Admin reject memo (uses workflow service)
 exports.rejectMemo = async (req, res) => {
     try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Admin only' });
+        }
         const { id } = req.params;
-        const memo = await Memo.findById(id);
-        if (!memo) {
-            return res.status(404).json({ success: false, message: 'Memo not found' });
-        }
-        memo.status = 'rejected';
-        memo.folder = 'deleted';
-        await memo.save();
-
-        // Notify secretary (creator)
-        try {
-            const { createSystemLog } = require('../services/logService');
-            const creator = await require('../models/User').findById(memo.createdBy).select('email firstName lastName department');
-            await createSystemLog({
-                activityType: 'memo_rejected',
-                user: creator || { _id: memo.createdBy },
-                subject: `Memo Rejected: ${memo.subject}`,
-                content: 'Your memo has been rejected or removed by the admin.',
-                department: memo.department
-            });
-        } catch (e) {
-            console.error('Failed to log rejection notification:', e.message);
-        }
-
-        res.json({ success: true, message: 'Memo rejected.' });
+        const { reason } = req.body || {};
+        const updated = await reject({ memoId: id, adminUser: req.user, reason });
+        return res.json({ success: true, memo: updated, message: 'Memo rejected and secretary notified.' });
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error rejecting memo:', error);
         res.status(500).json({ success: false, message: 'Error rejecting memo' });
     }

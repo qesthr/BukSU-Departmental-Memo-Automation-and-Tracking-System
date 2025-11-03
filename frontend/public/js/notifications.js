@@ -282,8 +282,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 iconName = 'x-circle';
             }
 
+            // Extract original memo id for workflow notifications (pending/approved/rejected)
+            const originalMemoId = (notif.metadata && (notif.metadata.originalMemoId || notif.metadata.memoId)) || notif.originalMemoId || '';
+            const derivedMemoId = notif.memoId || originalMemoId || '';
+
             // For memo notifications, use data attributes to identify them
-            const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent' || isCalendarEvent;
+            const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent' || isCalendarEvent || notif.type === 'pending_memo';
 
             // Format calendar event message for dropdown preview
             let displayMessage = notif.message || '';
@@ -312,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return `
-                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? notif.id : ''}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
+                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? (derivedMemoId || notif.id) : ''}" data-original-memo-id="${originalMemoId}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
                     <div class="notification-icon">
                         <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
                     </div>
@@ -343,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const id = item.dataset.id;
                 const memoId = item.dataset.memoId;
                 const notificationType = item.dataset.notificationType;
+                const originalMemoId = item.dataset.originalMemoId;
 
                 // eslint-disable-next-line no-console
                 console.log('Notification clicked:', { id, memoId, notificationType });
@@ -350,8 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Mark as read
                 await markAsRead(id);
 
-                // For memo notifications, open modal
-                if (memoId && (notificationType === 'memo_received' || notificationType === 'memo_sent')) {
+                // For memo notifications, open modal (include pending_memo using original memo id)
+                if (memoId && (notificationType === 'memo_received' || notificationType === 'memo_sent' || notificationType === 'pending_memo')) {
                     // eslint-disable-next-line no-console
                     console.log('Opening memo modal with ID:', memoId);
                     try {
@@ -394,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mark notification as read
     async function markAsRead(id) {
         try {
-            await fetch(`/api/log/notifications/${id}/read`, { method: 'PUT' });
+            await fetch(`/api/log/notifications/${id}/read`, { method: 'PUT', credentials: 'same-origin' });
             unreadCount = Math.max(0, unreadCount - 1);
             updateBadge();
             const item = document.querySelector(`.notification-item[data-id="${id}"]`);
@@ -443,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Fetch memo data
             // eslint-disable-next-line no-console
             console.log('Fetching memo from API:', `/api/log/memos/${memoId}`);
-            const response = await fetch(`/api/log/memos/${memoId}`);
+            const response = await fetch(`/api/log/memos/${memoId}`, { credentials: 'same-origin' });
             const data = await response.json();
 
             // eslint-disable-next-line no-console
@@ -537,6 +542,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 flex-direction: column;
                 box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             ">
+                <div id="notificationActionOverlay" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; background: rgba(255,255,255,0.85); z-index: 5;">
+                    <div style="text-align:center;">
+                        <div id="naoSpinner" style="width:44px;height:44px;border:4px solid #93c5fd;border-top-color:#1C89E3;border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite;"></div>
+                        <div id="naoCheck" style="display:none; font-size:36px; color:#16a34a; margin-bottom:8px;">✔</div>
+                        <div id="naoText" style="color:#111827; font-weight:600;">Processing...</div>
+                    </div>
+                </div>
                 <div class="notification-memo-header" style="
                     padding: 1.5rem;
                     border-bottom: 1px solid #e5e7eb;
@@ -600,6 +612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         white-space: pre-wrap;
                         word-wrap: break-word;
                     "></div>
+                </div>
+                <div id="notificationMemoFooter" style="padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: none; gap: 8px; justify-content: flex-end;">
                 </div>
             </div>
         `;
@@ -702,12 +716,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bodyContentEl) {
             let htmlContent = '';
 
-            // Calendar event format - simple display with button
+            // Calendar event format - simple display without footer/button
             if (isCalendarEvent) {
                 if (memo.content && memo.content.trim()) {
                     // Format calendar event content nicely - remove markdown asterisks
-                    let formattedContent = memo.content
-                        .replace(/\*\*/g, '') // Remove all ** (markdown bold markers)
+                    let formattedContent = memo.content.replace(/\*\*/g, '');
+                    // Remove any lines like: "View the calendar to see more details."
+                    formattedContent = formattedContent
+                        .split('\n')
+                        .filter(line => !/\bview\s+the\s+calendar\b/i.test(line))
+                        .join('\n')
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
@@ -715,13 +733,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         .replace(/'/g, '&#039;');
                     htmlContent += `<div style="white-space: pre-wrap; line-height: 1.8; color: #111827; font-size: 15px; margin-bottom: 1.5rem;">${formattedContent}</div>`;
                 }
-
-                // Add "View Calendar" button - detect route from current pathname
-                const isSecretaryRoute = window.location.pathname.includes('/secretary');
-                const calendarUrl = isSecretaryRoute ? '/secretary/calendar' : '/admin/calendar';
-                htmlContent += `<div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <a id="notificationViewCalendarBtn" href="${calendarUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: #1C89E3; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#1674c7'" onmouseout="this.style.background='#1C89E3'">View in Calendar</a>
-                </div>`;
             } else {
                 // Regular memo format
                 // Text content
@@ -783,26 +794,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
             bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
 
-            // If calendar event, ensure clicking the button marks notification as read and removes it
-            if (isCalendarEvent) {
-                const viewBtn = modal.querySelector('#notificationViewCalendarBtn');
-                if (viewBtn) {
-                    viewBtn.addEventListener('click', async (e) => {
-                        e.preventDefault();
+            // Footer actions for admin approval workflow
+            const footer = modal.querySelector('#notificationMemoFooter');
+            if (footer) {
+                footer.innerHTML = '';
+                const statusStr = (memo.status || '').toString();
+                const isPendingStatus = ['pending_admin','PENDING_ADMIN','pending','PENDING'].includes(statusStr);
+                const looksPendingBySubject = (memo.subject || '').toLowerCase().includes('pending approval');
+                const isAdminUser = (window.currentUser && (window.currentUser.role === 'admin'));
+                if (!isCalendarEvent && isAdminUser && (isPendingStatus || looksPendingBySubject)) {
+                    footer.style.display = 'flex';
+                    const rejectBtn = document.createElement('button');
+                    rejectBtn.textContent = 'Reject';
+                    rejectBtn.style.cssText = 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;';
+                    const approveBtn = document.createElement('button');
+                    approveBtn.textContent = 'Approve';
+                    approveBtn.style.cssText = 'background:#1C89E3;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;';
+
+                    // Spinner keyframes (inject once)
+                    if (!document.getElementById('notif-modal-spinner-style')){
+                        const kf = document.createElement('style');
+                        kf.id = 'notif-modal-spinner-style';
+                        kf.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+                        document.head.appendChild(kf);
+                    }
+
+                    function showOverlay(text){
+                        const overlay = modal.querySelector('#notificationActionOverlay');
+                        const sp = modal.querySelector('#naoSpinner');
+                        const ck = modal.querySelector('#naoCheck');
+                        const tx = modal.querySelector('#naoText');
+                        if (!overlay) return;
+                        if (tx) tx.textContent = text || 'Processing...';
+                        if (sp) sp.style.display = 'block';
+                        if (ck) ck.style.display = 'none';
+                        overlay.style.display = 'flex';
+                    }
+                    function showOverlaySuccess(text){
+                        const overlay = modal.querySelector('#notificationActionOverlay');
+                        const sp = modal.querySelector('#naoSpinner');
+                        const ck = modal.querySelector('#naoCheck');
+                        const tx = modal.querySelector('#naoText');
+                        if (!overlay) return;
+                        if (sp) sp.style.display = 'none';
+                        if (ck) ck.style.display = 'block';
+                        if (tx) tx.textContent = text || 'Done';
+                        overlay.style.display = 'flex';
+                    }
+
+                    // Use original memo id if present (pending review notifications)
+                    const targetMemoId = (memo.metadata && (memo.metadata.originalMemoId || memo.metadata.relatedMemoId)) || memo._id;
+
+                    rejectBtn.onclick = async () => {
                         try {
-                            // Mark as read
-                            await markAsRead(memo._id);
-                            // Remove from list immediately
-                            const item = document.querySelector(`.notification-item[data-id="${memo._id}"]`);
-                            if (item && item.parentElement) { item.parentElement.removeChild(item); }
+                            const reason = window.prompt('Optional reason for rejection:', '');
+                            showOverlay('Rejecting...');
+                            const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }) });
+                            const data = await res.json().catch(()=>({}));
+                            if (!res.ok) throw new Error(data.message || 'Failed to reject');
+                            showOverlaySuccess('Rejected');
+                            // Remove notification item immediately
+                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
+                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
                         } catch (err) {
-                            // eslint-disable-next-line no-console
-                            console.error('Error marking calendar notification as read:', err);
-                        } finally {
-                            // Navigate to calendar
-                            window.location.href = viewBtn.getAttribute('href');
+                            alert(err?.message || 'Failed to reject');
                         }
-                    });
+                    };
+
+                    approveBtn.onclick = async () => {
+                        try {
+                            showOverlay('Approving...');
+                            const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'} });
+                            const data = await res.json().catch(()=>({}));
+                            if (!res.ok) throw new Error(data.message || 'Failed to approve');
+                            showOverlaySuccess('Approved');
+                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
+                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
+                        } catch (err) {
+                            alert(err?.message || 'Failed to approve');
+                        }
+                    };
+
+                    footer.appendChild(rejectBtn);
+                    footer.appendChild(approveBtn);
+                } else {
+                    footer.style.display = 'none';
                 }
             }
 

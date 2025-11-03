@@ -1,4 +1,10 @@
+// Prevent login script from running on non-login pages
+if (typeof window !== 'undefined' && typeof window.showMessageModal !== 'function') {
+  window.showMessageModal = function(){ /* no-op outside login */ };
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+    if (!document.getElementById('loginCard')) { return; }
     const layers = document.querySelectorAll(".layer");
     const loginCard = document.getElementById("loginCard");
     const container = document.querySelector(".container");
