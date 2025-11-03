@@ -1658,6 +1658,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show viewer first before trying to access elements
         showMemoViewer();
 
+        // Detect calendar event memos and toggle the MEMO header visibility
+        const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                               (memo.subject && memo.subject.includes('Calendar Event')) ||
+                               (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
+        // Do not redirect calendar memos to the calendar; show them here in the memo viewer
+        const memoPdfHeader = document.querySelector('.memo-pdf-header');
+        if (memoPdfHeader) {
+            memoPdfHeader.style.display = isCalendarEvent ? 'none' : 'block';
+        }
+
         // Update the memo viewer content (now that it's visible)
         const memoDetailSubject = document.getElementById('memoDetailSubject');
         const memoDetailFrom = document.getElementById('memoDetailFrom');

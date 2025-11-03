@@ -14,7 +14,7 @@ exports.list = async (req, res, next) => {
             return res.status(401).json({ message: 'Unauthorized: User not found' });
         }
 
-        const { start, end, category } = req.query;
+        const { start, end, category, onlyCreatedByMe } = req.query;
         if (!start || !end) {
             return res.status(400).json({ message: 'start and end are required ISO dates' });
         }
@@ -110,6 +110,12 @@ exports.list = async (req, res, next) => {
             if (isCreator) {
                 console.log(`   ✅ SHOWN - User is creator`);
                 return true;
+            }
+
+            // If onlyCreatedByMe flag is set, hide non-creator events
+            if (onlyCreatedByMe === '1' || onlyCreatedByMe === 'true') {
+                console.log('   ❌ FILTERED OUT - onlyCreatedByMe flag set, user is not the creator');
+                return false;
             }
 
             // Check if user is a participant

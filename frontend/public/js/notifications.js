@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSecretaryRoute = window.location.pathname.includes('/secretary');
                 const calendarUrl = isSecretaryRoute ? '/secretary/calendar' : '/admin/calendar';
                 htmlContent += `<div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <a href="${calendarUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: #1C89E3; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#1674c7'" onmouseout="this.style.background='#1C89E3'">View in Calendar</a>
+                    <a id="notificationViewCalendarBtn" href="${calendarUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: #1C89E3; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#1674c7'" onmouseout="this.style.background='#1C89E3'">View in Calendar</a>
                 </div>`;
             } else {
                 // Regular memo format
@@ -782,6 +782,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+
+            // If calendar event, ensure clicking the button marks notification as read and removes it
+            if (isCalendarEvent) {
+                const viewBtn = modal.querySelector('#notificationViewCalendarBtn');
+                if (viewBtn) {
+                    viewBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        try {
+                            // Mark as read
+                            await markAsRead(memo._id);
+                            // Remove from list immediately
+                            const item = document.querySelector(`.notification-item[data-id="${memo._id}"]`);
+                            if (item && item.parentElement) { item.parentElement.removeChild(item); }
+                        } catch (err) {
+                            // eslint-disable-next-line no-console
+                            console.error('Error marking calendar notification as read:', err);
+                        } finally {
+                            // Navigate to calendar
+                            window.location.href = viewBtn.getAttribute('href');
+                        }
+                    });
+                }
+            }
 
             // Reinitialize icons
             if (window.lucide) {

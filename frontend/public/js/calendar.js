@@ -46,6 +46,8 @@
   const closeDepartmentDropdown = document.getElementById('closeDepartmentDropdown');
   const editingSourceInput = document.getElementById('memoEditingSource');
   const editingIdInput = document.getElementById('memoEditingId');
+  const allDayCheckbox = document.getElementById('allDayCheckbox');
+  const timeInputs = document.getElementById('timeInputs');
 
   // Participants data structure
   let participantsData = {
@@ -262,7 +264,7 @@
   const miniCursor = new Date(today.getFullYear(), today.getMonth(), 1);
   let miniCalendarEvents = []; // Store events for mini calendar indicators
 
-  const calendar = new FullCalendar.Calendar(calendarEl, {
+    const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'timeGridDay',
     initialDate: new Date(), // Start with today
     customButtons: customButtons,
@@ -355,26 +357,8 @@
       const isAllDay = e.allDay || e.extendedProps?.allDay || false;
       const isCreator = e.extendedProps?.isCreator !== false; // Default to true if not set (for Google events)
 
-      // If user is NOT the creator and it's a backend event, redirect to view the memo notification
-      if (source === 'backend' && !isCreator) {
-        try {
-          // Find the memo notification for this event
-          const res = await fetch(`/api/calendar/events/${e.id}/memo`, { credentials: 'same-origin' });
-          if (res.ok) {
-            const memo = await res.json();
-            // Redirect to view the memo notification in the log page
-            const isSecretaryRoute = window.location.pathname.includes('/secretary');
-            const logUrl = isSecretaryRoute ? '/secretary/log' : '/admin/log';
-            window.location.href = `${logUrl}?memo=${memo._id}`;
-            return;
-          }
-        } catch (err) {
-          console.error('Error fetching event memo:', err);
-          // If memo not found, show alert and return
-          alert('This event was created by another user. Please check your notifications to view the event details.');
-          return;
-        }
-      }
+      // If user is NOT the creator and it's a backend event, open read-only modal (no redirect)
+      // We will fetch full event details below and pass edit: false
 
       // Fetch full event details if it's a backend event
       let participants = [];
@@ -406,13 +390,13 @@
         endTime = e.endStr ? e.endStr.substring(11, 16) : '';
       }
 
-      openModal({
+        openModal({
         title: originalTitle,
         date: dateStr,
         start: startTime,
         end: endTime,
         allDay: isAllDay,
-        edit: isCreator, // Only allow editing if user is creator
+          edit: isCreator, // Non-creators get read-only modal
         id: e.id,
         source: source,
         participants: participants,
@@ -448,9 +432,9 @@
         alert(err.message || 'Update failed');
       }
     },
-    events: async function(fetchInfo, success, failure) {
+      events: async function(fetchInfo, success, failure) {
       try {
-        const qs = new URLSearchParams({ start: fetchInfo.startStr, end: fetchInfo.endStr });
+          const qs = new URLSearchParams({ start: fetchInfo.startStr, end: fetchInfo.endStr, onlyCreatedByMe: '1' });
         console.log('🔍 Fetching events for date range:', fetchInfo.startStr, 'to', fetchInfo.endStr);
         const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
         if (!res.ok) { throw new Error('Failed to load events'); }
@@ -552,6 +536,74 @@
   });
   calendar.render();
 
+    // Fallback: if dateClick is blocked by browser/CSS, enable clicking on time slots to add event
+    calendarEl.addEventListener('click', (evt) => {
+      // Ignore clicks on existing events
+      if (evt.target.closest('.fc-event')) { return; }
+      const slot = evt.target.closest('.fc-timegrid-slot');
+      if (!slot) { return; }
+      try {
+        const currentDay = calendar.view.currentStart;
+        const dateStr = new Date(currentDay).toISOString().slice(0, 10);
+        const slotTime = (slot.getAttribute('data-time') || slot.dataset?.time || '').slice(0,5) || '08:00';
+        openModal({ date: dateStr, start: slotTime });
+      } catch { /* ignore */ }
+    }, true);
+
+    // If URL has ?openEvent=<id>, open that event in a modal (read-only for non-creators)
+    (async function handleOpenEventParam() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const openEventId = params.get('openEvent');
+        if (!openEventId) { return; }
+
+        const res = await fetch(`/api/calendar/events/${openEventId}`, { credentials: 'same-origin' });
+        if (!res.ok) { return; }
+        const eventData = await res.json();
+
+        // Navigate to the event's date in day view
+        const startDate = new Date(eventData.start);
+        calendar.changeView('timeGridDay', startDate);
+        calendar.gotoDate(startDate);
+
+        // Helper to format HH:MM
+        const toTime = (dStr) => {
+          if (!dStr) return '';
+          const d = new Date(dStr);
+          const h = String(d.getHours()).padStart(2, '0');
+          const m = String(d.getMinutes()).padStart(2, '0');
+          return `${h}:${m}`;
+        };
+
+        // Open the modal with event data
+        setTimeout(() => {
+          openModal({
+            title: eventData.title,
+            date: startDate.toISOString().slice(0, 10),
+            start: eventData.allDay ? '' : toTime(eventData.start),
+            end: eventData.allDay ? '' : toTime(eventData.end),
+            allDay: !!eventData.allDay,
+            edit: !!eventData.isCreator,
+            id: eventData._id,
+            source: 'backend',
+            participants: eventData.participants,
+            description: eventData.description,
+            category: eventData.category
+          });
+          // Scroll to event time if available
+          if (!eventData.allDay && eventData.start) {
+            const t = toTime(eventData.start);
+            if (t) { calendar.scrollToTime(`${t}:00`); }
+          }
+        }, 300);
+
+        // Clean the URL to avoid repeat opening
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (e) {
+        // ignore
+      }
+    })();
+
   // Mini calendar rendering (simple month grid)
   // Note: miniCursor and miniCalendarEvents are declared above before calendar initialization
 
@@ -650,7 +702,7 @@
       const startStr = firstDay.toISOString();
       const endStr = lastDay.toISOString();
 
-      const qs = new URLSearchParams({ start: startStr, end: endStr });
+      const qs = new URLSearchParams({ start: startStr, end: endStr, onlyCreatedByMe: '1' });
       const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
 
       if (res.ok) {
@@ -1075,10 +1127,7 @@
       alert('Please select a start time');
       return;
     }
-    if (!end) {
-      alert('Please select an end time');
-      return;
-    }
+    // End time is optional; if empty, default to +1 hour from start
 
     // Get participants data (departments and emails)
     const participants = participantsHiddenInput ? participantsHiddenInput.value : JSON.stringify(participantsData);
@@ -1086,7 +1135,23 @@
     // Format ISO date-time strings (date is YYYY-MM-DD, time is HH:MM)
     // Ensure we have valid timezone format
     const startISO = `${date}T${start}:00`;
-    const endISO = `${date}T${end}:00`;
+    let endISO;
+    if (end) {
+      endISO = `${date}T${end}:00`;
+    } else {
+      const [sh, sm] = start.split(':').map(Number);
+      const startDateObj = new Date(`${date}T${start}:00`);
+      // Fallback if parsing fails
+      if (!isNaN(startDateObj.getTime())) {
+        startDateObj.setHours((sh ?? 0), (sm ?? 0));
+        const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
+        const eh = String(endDateObj.getHours()).padStart(2, '0');
+        const em = String(endDateObj.getMinutes()).padStart(2, '0');
+        endISO = `${date}T${eh}:${em}:00`;
+      } else {
+        endISO = `${date}T${start}:00`;
+      }
+    }
 
     console.log('Form data:', { date, start, end, startISO, endISO });
 
