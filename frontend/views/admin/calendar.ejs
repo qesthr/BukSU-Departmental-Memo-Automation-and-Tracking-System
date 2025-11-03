@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,56 +13,48 @@
     <link rel="stylesheet" href="/css/calendar.css">
     <!-- Google OAuth handled server-side; no client secret exposed -->
 </head>
+
 <body>
     <div class="dashboard-container">
         <%- include('../../components/nav'); %>
-        <main class="main-content">
-            <%- include('../../components/admintopbar') %>
+            <main class="main-content">
+                <%- include('../../components/admintopbar') %>
 
-            <div class="calendar-page">
-                <aside class="calendar-sidebar">
-                    <div class="sidebar-section">
-                        <div class="mini-cal-header">
-                            <h3 id="miniCalMonth">Mini Calendar</h3>
-                            <div class="mini-cal-nav">
-                                <button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
-                                <button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
+                    <div class="calendar-page">
+                        <aside class="calendar-sidebar">
+                            <div class="sidebar-section">
+                                <div class="mini-cal-header">
+                                    <h3 id="miniCalMonth">Mini Calendar</h3>
+                                    <div class="mini-cal-nav">
+                                        <button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
+                                        <button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
+                                    </div>
+                                </div>
+                                <div id="miniCalendar" class="mini-calendar"></div>
                             </div>
-                        </div>
-                        <div id="miniCalendar" class="mini-calendar"></div>
-                    </div>
-                    <div class="sidebar-section">
-                        <h3>My Calendars</h3>
-                        <label><input type="checkbox" id="filterAll" checked> All</label><br/>
-                        <label><input type="checkbox" id="filterMine" checked> My Events</label><br/>
-                        <label><input type="checkbox" id="filterDepartment" checked> Department</label>
-                    </div>
-                    <div class="sidebar-section">
-                        <h3>Categories</h3>
-                        <div><span class="category-dot cat-today"></span>Today</div>
-                        <div><span class="category-dot cat-urgent"></span>Urgent</div>
-                        <div><span class="category-dot cat-standard"></span>Standard</div>
-                    </div>
-                    <div class="sidebar-section">
-                        <h3>Profile</h3>
-                        <div class="profile-card">
-                            <img src="<%= user.profilePicture || '/images/memofy-logo.png' %>" alt="Profile" />
-                            <div>
-                                <div style="font-weight:600"><%= (user.firstName && user.lastName) ? user.firstName + ' ' + user.lastName : user.name || 'User' %></div>
-                                <div style="font-size:.85rem; color:#64748b"><%= user.email || 'email@example.com' %></div>
+                            <div class="sidebar-section">
+                                <h3>My Calendars</h3>
+                                <label><input type="checkbox" id="filterAll" checked> All</label><br />
+                                <label><input type="checkbox" id="filterMine" checked> My Events</label><br />
+                                <label><input type="checkbox" id="filterDepartment" checked> Department</label>
                             </div>
-                        </div>
-                    </div>
-                </aside>
+                            <div class="sidebar-section">
+                                <h3>Categories</h3>
+                                <div><span class="category-dot cat-today"></span>Today</div>
+                                <div><span class="category-dot cat-urgent"></span>Urgent</div>
+                                <div><span class="category-dot cat-standard"></span>Standard</div>
+                            </div>
 
-                <section class="calendar-main">
-                    <div id="calendar"></div>
-                </section>
-                <script>
-                    window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
-                </script>
-            </div>
-        </main>
+                        </aside>
+
+                        <section class="calendar-main">
+                            <div id="calendar"></div>
+                        </section>
+                        <script>
+                            window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
+                        </script>
+                    </div>
+            </main>
     </div>
 
     <!-- Add/Edit Memo Modal -->
@@ -69,7 +62,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="memoModalTitle">Add Memo</h2>
-                <button class="close-modal" id="closeMemoModal" style="border:none; background:none; font-size:1.5rem; cursor:pointer">&times;</button>
+                <button class="close-modal" id="closeMemoModal"
+                    style="border:none; background:none; font-size:1.5rem; cursor:pointer">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="memoForm">
@@ -108,10 +102,12 @@
                             <label class="participant-label">Participants / Recipients:</label>
                             <div class="participant-input-wrapper">
                                 <div id="participantsChips" class="participant-chips-wrapper"></div>
-                                <input type="text" id="participantEmailInput" class="participant-input" placeholder="" autocomplete="off" />
+                                <input type="text" id="participantEmailInput" class="participant-input" placeholder=""
+                                    autocomplete="off" />
                                 <ul id="emailSuggestions" class="email-suggestions"></ul>
                             </div>
-                            <button type="button" class="btn-department-inline" id="selectDepartmentBtn">Department</button>
+                            <button type="button" class="btn-department-inline"
+                                id="selectDepartmentBtn">Department</button>
                         </div>
                         <input type="hidden" id="memoParticipants" value="" />
                     </div>
@@ -130,7 +126,8 @@
 
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" id="cancelMemo">Cancel</button>
-                        <button type="button" class="btn-secondary" id="deleteMemo" style="margin-left:auto">Delete</button>
+                        <button type="button" class="btn-secondary" id="deleteMemo"
+                            style="margin-left:auto">Delete</button>
                         <button type="submit" class="btn-primary">Save</button>
                     </div>
                 </form>
@@ -146,8 +143,8 @@
             </div>
             <div class="success-check" id="successCheck" style="display: none;">
                 <svg viewBox="0 0 52 52">
-                    <circle cx="26" cy="26" r="25" fill="none" class="check-circle"/>
-                    <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" class="check-path"/>
+                    <circle cx="26" cy="26" r="25" fill="none" class="check-circle" />
+                    <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" class="check-path" />
                 </svg>
             </div>
             <p class="success-message" id="successMessage">Saving event...</p>
@@ -158,7 +155,7 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="/js/calendar.js"></script>
     <script>lucide.createIcons();</script>
+
 </body>
+
 </html>
-
-

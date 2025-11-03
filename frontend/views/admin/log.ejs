@@ -53,7 +53,10 @@
                                                 <option value="Food Technology">Food Technology</option>
                                                 <option value="Electronics Technology">Electronics Technology</option>
                                                 <option value="Automotive Technology">Automotive Technology</option>
-                                                <option value="Information Technology and Entertainment Multimedia Computing">Information Technology and Entertainment Multimedia Computing</option>
+                                                <option
+                                                    value="Information Technology and Entertainment Multimedia Computing">
+                                                    Information Technology and Entertainment Multimedia Computing
+                                                </option>
                                             </select>
                                         </div>
 
@@ -79,8 +82,10 @@
                                         </div>
 
                                         <div class="date-filter-wrapper">
-                                            <input type="date" id="dateFilterInput" class="date-filter-input" title="Filter by date">
-                                            <button id="clearDateFilter" class="date-filter-clear" title="Clear date filter" style="display: none;">
+                                            <input type="date" id="dateFilterInput" class="date-filter-input"
+                                                title="Filter by date">
+                                            <button id="clearDateFilter" class="date-filter-clear"
+                                                title="Clear date filter" style="display: none;">
                                                 <i data-lucide="x"></i>
                                             </button>
                                         </div>
@@ -191,7 +196,8 @@
                             <label class="recipient-label">To</label>
                             <div class="recipient-input-wrapper">
                                 <div id="recipient-chips" class="recipient-chips-wrapper"></div>
-                                <input type="text" id="recipients" name="recipients" class="recipient-input" placeholder="">
+                                <input type="text" id="recipients" name="recipients" class="recipient-input"
+                                    placeholder="">
                             </div>
                         </div>
                         <div class="compose-field-wrapper">
@@ -215,7 +221,8 @@
                                 </div>
                             </div>
                             <div class="compose-field-wrapper compose-field-inline">
-                                <select id="prioritySelect" name="priority" class="compose-field compose-priority-select">
+                                <select id="prioritySelect" name="priority"
+                                    class="compose-field compose-priority-select">
                                     <option value="medium">🟡 Medium</option>
                                     <option value="urgent">🔴 Urgent</option>
                                     <option value="high">🟠 High</option>
@@ -228,7 +235,8 @@
 
                     <!-- Content area with drag-and-drop support -->
                     <div class="compose-content-area" id="composeContentArea">
-                        <textarea id="content" name="content" class="compose-textarea" placeholder="Enter memo content (plain text)..."></textarea>
+                        <textarea id="content" name="content" class="compose-textarea"
+                            placeholder="Enter memo content (plain text)..."></textarea>
                         <!-- Attachments preview (Gmail style - inline below text, no separator) -->
                         <div id="attachment-preview" class="attachment-preview-container" style="display: none;">
                             <!-- Attachment preview items will be inserted here -->
@@ -241,7 +249,8 @@
                             <i data-lucide="paperclip"></i>
                         </button>
                         <input type="file" id="attachments" name="attachments" style="display: none;" multiple>
-                        <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary close-modal"
+                            style="padding: 23px 50px;">Cancel</button>
                         <button type="submit" class="btn btn-primary" id="sendMemoBtn">
                             <span class="btn-text">Send</span>
                             <span class="btn-loading" style="display: none;">

@@ -674,10 +674,10 @@ html {
 }
 
 .modal-header {
-    background: linear-gradient(135deg, #4285f4, #34a853);
+    background: #075bbf;
     color: white;
     padding: 20px 25px;
-    border-radius: 15px 15px 0 0;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
