@@ -1,7 +1,8 @@
 const Memo = require('../models/Memo');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const googleDriveService = require('../services/googleDriveService');
-const { approve, reject } = require('../services/memoWorkflowService');
+const { approve, reject, createBySecretary } = require('../services/memoWorkflowService');
 
 // Get all memos for a user
 exports.getAllMemos = async (req, res) => {
@@ -22,8 +23,8 @@ exports.getAllMemos = async (req, res) => {
                     status: { $nin: ['deleted','archived'] }
                 };
             } else {
-                // Regular users: only their received memos
-                query = { recipient: userId, status: { $nin: ['deleted','archived'] } };
+                // Regular users: only delivered memos (hide pending workflow items)
+                query = { recipient: userId, status: { $in: ['sent','approved'] } };
             }
         } else if (folder === 'sent') {
             query = { sender: userId, folder: 'sent', status: { $nin: ['deleted','archived'] } };
@@ -70,6 +71,9 @@ exports.getAllMemos = async (req, res) => {
 exports.getMemo = async (req, res) => {
     try {
         const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid memo id' });
+        }
         const userId = req.user._id;
 
         const memo = await Memo.findById(id)
@@ -221,47 +225,47 @@ exports.createMemo = async (req, res) => {
 
         const isSecretary = (user.role === 'secretary');
 
-        // Create memos for all recipients
-        const memoPromises = recipientIds.map(async (recipientId) => {
-            const memo = new Memo({
-                sender: userId,
-                recipient: recipientId,
-                subject: subject.trim(),
-                content: textContent,
-                department: departmentsArray[0] || user.department, // Primary department
-                departments: departmentsArray,
-                recipients: recipientIds,
-                priority: priority || 'medium',
-                createdBy: userId,
-                attachments: processedAttachments,
-                status: isSecretary ? 'pending' : 'sent',
-                folder: isSecretary ? 'drafts' : 'sent'
-            });
-            return await memo.save();
-        });
-
-        const createdMemos = await Promise.all(memoPromises);
-
+        let createdMemos = [];
         if (isSecretary) {
-            // Notify admins of pending memo
+            // Use workflow: a single pending memo owned by secretary, not delivered to recipients yet
             try {
-                const { createSystemLog } = require('../services/logService');
-                await createSystemLog({
-                    activityType: 'pending_memo',
-                    user: {
-                        _id: userId,
-                        email: user.email,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        department: user.department
-                    },
-                    subject: `Memo Pending Approval: ${subject}`,
-                    content: `A memo from ${user.email} is awaiting approval. Subject: ${subject}`,
-                    department: departmentsArray[0] || user.department
+                const workflowMemo = await createBySecretary({
+                    user,
+                    payload: {
+                        recipientEmail: recipientEmailValues.join(','),
+                        subject: subject.trim(),
+                        content: textContent,
+                        departments: departmentsArray,
+                        priority: priority || 'medium',
+                        attachments: processedAttachments,
+                        recipients: recipientIds
+                    }
                 });
+                createdMemos = [workflowMemo];
             } catch (e) {
-                console.error('Failed to create pending memo log:', e.message);
+                console.error('Error creating pending memo via workflow:', e);
+                return res.status(500).json({ success: false, message: 'Error creating pending memo' });
             }
+        } else {
+            // Non-secretaries send immediately
+            const memoPromises = recipientIds.map(async (recipientId) => {
+                const memo = new Memo({
+                    sender: userId,
+                    recipient: recipientId,
+                    subject: subject.trim(),
+                    content: textContent,
+                    department: departmentsArray[0] || user.department,
+                    departments: departmentsArray,
+                    recipients: recipientIds,
+                    priority: priority || 'medium',
+                    createdBy: userId,
+                    attachments: processedAttachments,
+                    status: 'sent',
+                    folder: 'sent'
+                });
+                return await memo.save();
+            });
+            createdMemos = await Promise.all(memoPromises);
         }
 
         // Fetch first memo with attachments included for response
@@ -307,7 +311,7 @@ exports.createMemo = async (req, res) => {
             memo: populatedMemo,
             count: createdMemos.length,
             message: isSecretary
-                ? `Your memo is pending for admin approval. It will be sent to ${createdMemos.length} recipient(s) once approved.`
+                ? 'Your memo is pending for admin approval. It will be sent once approved.'
                 : `Memo sent successfully to ${createdMemos.length} recipient(s).`
         });
     } catch (error) {
@@ -449,12 +453,26 @@ exports.approveMemo = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Admin only' });
         }
         const { id } = req.params;
-        const updated = await approve({ memoId: id, adminUser: req.user });
+        // Resolve to original pending memo id if this id refers to a notification wrapper
+        let targetId = id;
+        try {
+            const doc = await Memo.findById(id).lean();
+            const meta = doc && doc.metadata;
+            if (meta && (meta.originalMemoId || meta.relatedMemoId)) {
+                targetId = meta.originalMemoId || meta.relatedMemoId;
+            }
+        } catch (e) {
+            // ignore; fall back to provided id
+        }
+        if (!mongoose.Types.ObjectId.isValid(targetId)) {
+            return res.status(400).json({ success: false, message: 'Invalid original memo id' });
+        }
+        const updated = await approve({ memoId: targetId, adminUser: req.user });
         return res.json({ success: true, memo: updated, message: 'Memo approved and sent to recipients.' });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error approving memo:', error);
-        res.status(500).json({ success: false, message: 'Error approving memo' });
+        res.status(500).json({ success: false, message: 'Error approving memo', detail: error?.message });
     }
 };
 
@@ -466,6 +484,9 @@ exports.rejectMemo = async (req, res) => {
         }
         const { id } = req.params;
         const { reason } = req.body || {};
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid memo id' });
+        }
         const updated = await reject({ memoId: id, adminUser: req.user, reason });
         return res.json({ success: true, memo: updated });
     } catch (error) {
@@ -633,39 +654,7 @@ exports.uploadImage = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error uploading image' });
     }
 };
-// Admin: approve a pending memo
-exports.approveMemo = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const memo = await Memo.findById(id);
-        if (!memo) {
-            return res.status(404).json({ success: false, message: 'Memo not found' });
-        }
-        memo.status = 'sent'; // treat approved as sent
-        memo.folder = 'sent';
-        await memo.save();
-
-        // Notify secretary (creator)
-        try {
-            const { createSystemLog } = require('../services/logService');
-            const creator = await require('../models/User').findById(memo.createdBy).select('email firstName lastName department');
-            await createSystemLog({
-                activityType: 'memo_approved',
-                user: creator || { _id: memo.createdBy },
-                subject: `Memo Approved: ${memo.subject}`,
-                content: 'Your memo has been approved by admin and sent to recipients.',
-                department: memo.department
-            });
-        } catch (e) {
-            console.error('Failed to log approval notification:', e.message);
-        }
-
-        res.json({ success: true, message: 'Memo approved and sent.' });
-    } catch (error) {
-        console.error('Error approving memo:', error);
-        res.status(500).json({ success: false, message: 'Error approving memo' });
-    }
-};
+// Note: approveMemo implementation is defined earlier using the workflow service.
 
 // Admin reject memo (uses workflow service)
 exports.rejectMemo = async (req, res) => {
@@ -675,12 +664,23 @@ exports.rejectMemo = async (req, res) => {
         }
         const { id } = req.params;
         const { reason } = req.body || {};
-        const updated = await reject({ memoId: id, adminUser: req.user, reason });
+        let targetId = id;
+        try {
+            const doc = await Memo.findById(id).lean();
+            const meta = doc && doc.metadata;
+            if (meta && (meta.originalMemoId || meta.relatedMemoId)) {
+                targetId = meta.originalMemoId || meta.relatedMemoId;
+            }
+        } catch (e) {}
+        if (!mongoose.Types.ObjectId.isValid(targetId)) {
+            return res.status(400).json({ success: false, message: 'Invalid original memo id' });
+        }
+        const updated = await reject({ memoId: targetId, adminUser: req.user, reason });
         return res.json({ success: true, memo: updated, message: 'Memo rejected and secretary notified.' });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error rejecting memo:', error);
-        res.status(500).json({ success: false, message: 'Error rejecting memo' });
+        res.status(500).json({ success: false, message: 'Error rejecting memo', detail: error?.message });
     }
 };
 

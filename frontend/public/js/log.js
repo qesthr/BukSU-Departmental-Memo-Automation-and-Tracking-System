@@ -600,7 +600,8 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/log/memos', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) {
@@ -611,12 +612,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (data.success) {
-                    // Hide sending modal
+                    // Show success state in sending modal (spinner -> check + message)
                     if (sendingModal) {
-                        sendingModal.style.display = 'none';
+                        sendingModal.style.display = 'flex';
+                        const contentEl = sendingModal.querySelector('.sending-modal-content');
+                        if (contentEl) {
+                            contentEl.innerHTML = `
+                                <div style="width:52px;height:52px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#fff;font-size:28px;">✓</div>
+                                <p style="margin:0; color:#111827; font-weight:600; text-align:center;">
+                                    ${ (window.currentUser && window.currentUser.role === 'secretary')
+                                        ? 'Your memo is pending admin approval.'
+                                        : (data.message || 'Memo sent successfully.') }
+                                </p>`;
+                        }
                     }
-
-                    showNotification(data.message || 'Memo sent successfully', 'success');
 
                     // Reset form
                     composeForm.reset();
@@ -674,11 +683,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (btnLoading) {btnLoading.style.display = 'none';}
                     }
 
-                    // Close modal after a short delay
+                    // Close success modal + compose after a short delay
                     setTimeout(() => {
+                        if (sendingModal) {sendingModal.style.display = 'none';}
                         closeModal(composeModal);
                         fetchMemos();
-                    }, 1500);
+                    }, 1200);
                 } else {
                     // Hide sending modal
                     if (sendingModal) {

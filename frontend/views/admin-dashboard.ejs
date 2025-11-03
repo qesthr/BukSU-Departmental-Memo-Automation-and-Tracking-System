@@ -169,9 +169,9 @@
         // Initialize Lucide icons
         lucide.createIcons();
 
-		async function approveMemo(id){
-			try{
-				const res = await fetch(`/api/log/memos/${id}/approve`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+        async function approveMemo(id){
+            try{
+                const res = await fetch(`/api/log/memos/${id}/approve`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
 				const data = await res.json();
 				alert(data.message || 'Approved');
 				location.reload();
@@ -183,7 +183,8 @@
                 const res = await fetch(`/api/log/memos/${id}/reject`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reason: reason || '' })
+                    body: JSON.stringify({ reason: reason || '' }),
+                    credentials: 'same-origin'
                 });
                 const data = await res.json().catch(()=>({}));
                 if (!res.ok) throw new Error(data.message || 'Failed to reject');

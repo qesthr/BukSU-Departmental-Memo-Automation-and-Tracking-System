@@ -31,6 +31,9 @@ router.delete('/memos/:id/permanent', [isAuthenticated], logController.permanent
 // Admin moderation actions
 router.put('/memos/:id/approve', [isAuthenticated, isAdmin], logController.approveMemo);
 router.put('/memos/:id/reject', [isAuthenticated, isAdmin], logController.rejectMemo);
+// Convenience GET endpoints (e.g., when accessed via link) - perform same actions
+router.get('/memos/:id/approve', [isAuthenticated, isAdmin], logController.approveMemo);
+router.get('/memos/:id/reject', [isAuthenticated, isAdmin], logController.rejectMemo);
 
 // Secretary distribution helpers
 router.get('/department-users', [isAuthenticated], logController.getDepartmentUsers);

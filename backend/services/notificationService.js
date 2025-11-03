@@ -31,9 +31,10 @@ async function notifySecretary({ memo, actor, action, reason }) {
   try {
     const secretaryId = memo.sender; // original author
     if (!secretaryId) return;
+    const clean = (s) => String(s || '').replace(/^\s*Memo\s+Pending\s+Approval:\s*/i, '').trim();
     const subject = action === 'approved'
-      ? `Memo approved: ${memo.subject}`
-      : `Memo rejected: ${memo.subject}`;
+      ? `Memo Approved: ${clean(memo.subject)}`
+      : `Memo Rejected: ${clean(memo.subject)}`;
     const content = action === 'approved'
       ? `Your memo was approved by ${actor?.email || 'an admin'} and will be sent to recipients.`
       : `Your memo was rejected by ${actor?.email || 'an admin'}${reason ? `\nReason: ${reason}` : ''}`;

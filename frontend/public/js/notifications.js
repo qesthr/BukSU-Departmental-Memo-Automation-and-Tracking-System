@@ -849,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const reason = window.prompt('Optional reason for rejection:', '');
                             showOverlay('Rejecting...');
-                            const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }) });
+                            const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }), credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
                             if (!res.ok) throw new Error(data.message || 'Failed to reject');
                             showOverlaySuccess('Rejected');
@@ -865,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     approveBtn.onclick = async () => {
                         try {
                             showOverlay('Approving...');
-                            const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'} });
+                            const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
                             if (!res.ok) throw new Error(data.message || 'Failed to approve');
                             showOverlaySuccess('Approved');
