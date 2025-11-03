@@ -29,7 +29,9 @@ router.get('/auth/callback', isAuthenticated, async (req, res) => {
         };
         if (tokens.refresh_token) { updates.calendarRefreshToken = tokens.refresh_token; }
         await User.findByIdAndUpdate(req.user._id, updates);
-        return res.redirect('/admin/calendar');
+        // Redirect based on user role
+        const redirectPath = req.user.role === 'secretary' ? '/secretary/calendar' : '/calendar';
+        return res.redirect(redirectPath);
     } catch {
         return res.status(500).send('Calendar authorization failed');
     }
@@ -63,6 +65,22 @@ router.delete('/events/:id', isAuthenticated, async (req, res) => {
         return res.json(data);
     } catch {
         return res.status(500).json({ message: 'Failed to delete calendar event' });
+    }
+});
+
+// Disconnect Google Calendar
+router.delete('/disconnect', isAuthenticated, async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.user._id, {
+            $unset: {
+                calendarAccessToken: 1,
+                calendarRefreshToken: 1,
+                calendarTokenExpiry: 1
+            }
+        });
+        return res.json({ success: true, message: 'Google Calendar disconnected' });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to disconnect calendar' });
     }
 });
 

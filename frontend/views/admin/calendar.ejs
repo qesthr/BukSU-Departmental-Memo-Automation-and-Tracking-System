@@ -55,23 +55,14 @@
                 </aside>
 
                 <section class="calendar-main">
-                    <div class="calendar-toolbar">
+                    <div class="calendar-toolbar" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">
                         <div style="display:flex; gap:.5rem; align-items:center;">
                             <% if (!(user.calendarAccessToken || user.calendarRefreshToken)) { %>
                                 <a href="/calendar/auth" class="btn-secondary" id="connectCalendarBtn">Connect Google Calendar</a>
                             <% } else { %>
-                                <button id="addMemoBtn" class="add-btn">Add Memo</button>
+                                <button id="addMemoBtn" class="add-btn">Add Event</button>
+                                <button id="disconnectCalendarBtn" class="btn-secondary">Disconnect</button>
                             <% } %>
-                        </div>
-                        <div class="nav-toggle" style="display:flex; gap:.5rem; align-items:center;">
-                            <button id="prevBtn" class="btn-secondary" aria-label="Previous">&#8249;</button>
-                            <button id="todayBtn" class="btn-secondary">Today</button>
-                            <button id="nextBtn" class="btn-secondary" aria-label="Next">&#8250;</button>
-                        </div>
-                        <div class="view-toggle">
-                            <button data-view="dayGridMonth" class="active">Month</button>
-                            <button data-view="timeGridWeek">Week</button>
-                            <button data-view="timeGridDay">Day</button>
                         </div>
                     </div>
 

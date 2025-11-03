@@ -1,16 +1,31 @@
 /* global FullCalendar */
 (function () {
+  // Wait for DOM to be fully loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCalendar);
+  } else {
+    initCalendar();
+  }
+
+  function initCalendar() {
   const calendarEl = document.getElementById('calendar');
+  if (!calendarEl) {
+    console.error('Calendar element not found');
+    return;
+  }
+
+  if (typeof FullCalendar === 'undefined') {
+    console.error('FullCalendar library not loaded');
+    return;
+  }
+
   const mini = document.getElementById('miniCalendar');
   const miniMonthEl = document.getElementById('miniCalMonth');
   const miniPrev = document.getElementById('miniPrev');
   const miniNext = document.getElementById('miniNext');
-  const viewButtons = document.querySelectorAll('.view-toggle button');
   const addBtn = document.getElementById('addMemoBtn');
 
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const todayBtn = document.getElementById('todayBtn');
+  // Navigation is now handled by FullCalendar header toolbar
 
   const modal = document.getElementById('memoModal');
   const closeModalBtn = document.getElementById('closeMemoModal');
@@ -49,17 +64,29 @@
 
   function categoryColor(category) {
     switch (category) {
-      case 'today': return '#22c55e';
-      case 'urgent': return '#ef4444';
-      default: return '#3b82f6';
+      case 'today': return '#fbbf24'; // Yellow
+      case 'urgent': return '#f87171'; // Red
+      default: return '#86efac'; // Green
     }
   }
 
-  // No Google Calendar integration
+  function formatEventTime(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    return `${displayHours}:${displayMinutes} ${ampm}`;
+  }
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
-    headerToolbar: false,
+    headerToolbar: {
+      left: 'prev,next title',
+      right: 'today dayGridMonth,timeGridWeek,timeGridDay'
+    },
     selectable: true,
     editable: true,
     nowIndicator: true,
@@ -73,14 +100,16 @@
     },
     eventClick(info) {
       const e = info.event;
+      // Get original title if available (from extendedProps)
+      const originalTitle = e.extendedProps?.originalTitle || e.title.split(' at ')[0];
       openModal({
-        title: e.title,
+        title: originalTitle,
         date: e.startStr.substring(0, 10),
         start: e.startStr.substring(11, 16),
         end: e.endStr ? e.endStr.substring(11, 16) : '',
         edit: true,
         id: e.id,
-        source: 'backend'
+        source: e.id.startsWith('gcal_') ? 'google' : 'backend'
       });
     },
     async eventDrop(info) {
@@ -117,14 +146,23 @@
         const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
         if (!res.ok) { throw new Error('Failed to load events'); }
         const data = await res.json();
-        const localEvents = data.map(e => ({
-          id: e._id,
-          title: e.title,
-          start: e.start,
-          end: e.end,
-          backgroundColor: categoryColor(e.category),
-          borderColor: categoryColor(e.category)
-        }));
+        const localEvents = data.map(e => {
+          const timeStr = formatEventTime(e.start);
+          const eventTitle = timeStr ? `${e.title} at ${timeStr}` : e.title;
+          return {
+            id: e._id,
+            title: eventTitle,
+            start: e.start,
+            end: e.end,
+            backgroundColor: categoryColor(e.category),
+            borderColor: categoryColor(e.category),
+            classNames: [`fc-event-${e.category || 'standard'}`],
+            extendedProps: {
+              originalTitle: e.title,
+              category: e.category
+            }
+          };
+        });
 
         // Try to append Google Calendar events if connected; failures are ignored
         let googleEvents = [];
@@ -132,14 +170,20 @@
           const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(fetchInfo.startStr)}&timeMax=${encodeURIComponent(fetchInfo.endStr)}`, { credentials: 'same-origin' });
           if (r2.ok) {
             const gItems = await r2.json();
-            googleEvents = (gItems || []).map(ev => ({
-              id: 'gcal_' + ev.id,
-              title: ev.summary || '(no title)',
-              start: ev.start && (ev.start.dateTime || ev.start.date),
-              end: ev.end && (ev.end.dateTime || ev.end.date),
-              backgroundColor: '#16a34a',
-              borderColor: '#16a34a'
-            }));
+            googleEvents = (gItems || []).map(ev => {
+              const startDateTime = ev.start && (ev.start.dateTime || ev.start.date);
+              const timeStr = startDateTime ? formatEventTime(startDateTime) : '';
+              const eventTitle = timeStr ? `${ev.summary || '(no title)'} at ${timeStr}` : (ev.summary || '(no title)');
+              return {
+                id: 'gcal_' + ev.id,
+                title: eventTitle,
+                start: startDateTime,
+                end: ev.end && (ev.end.dateTime || ev.end.date),
+                backgroundColor: '#16a34a',
+                borderColor: '#16a34a',
+                classNames: ['fc-event-standard']
+              };
+            });
           }
         } catch {
           // ignore calendar fetch failure
@@ -203,23 +247,30 @@
   if (miniPrev) { miniPrev.addEventListener('click', () => { miniCursor.setMonth(miniCursor.getMonth() - 1); renderMiniCalendar(); }); }
   if (miniNext) { miniNext.addEventListener('click', () => { miniCursor.setMonth(miniCursor.getMonth() + 1); renderMiniCalendar(); }); }
 
-  viewButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      viewButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      calendar.changeView(btn.getAttribute('data-view'));
-    });
-  });
-
-  addBtn.addEventListener('click', () => openModal());
+  if (addBtn) { addBtn.addEventListener('click', () => openModal()); }
   closeModalBtn.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
 
-  // No Google connect button
+  // Disconnect Google Calendar button handler
+  const disconnectBtn = document.getElementById('disconnectCalendarBtn');
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to disconnect Google Calendar?')) { return; }
+      try {
+        const res = await fetch('/calendar/disconnect', { method: 'DELETE', credentials: 'same-origin' });
+        if (res.ok) {
+          alert('Google Calendar disconnected successfully');
+          window.location.reload();
+        } else {
+          throw new Error('Failed to disconnect');
+        }
+      } catch (err) {
+        alert('Failed to disconnect Google Calendar');
+      }
+    });
+  }
 
-  if (prevBtn) { prevBtn.addEventListener('click', () => calendar.prev()); }
-  if (nextBtn) { nextBtn.addEventListener('click', () => calendar.next()); }
-  if (todayBtn) { todayBtn.addEventListener('click', () => calendar.today()); }
+  // Navigation buttons are handled by FullCalendar header toolbar
 
   // Auto-refresh events every 60s
   setInterval(() => {
@@ -312,6 +363,8 @@
       }
     });
   }
+
+  } // End of initCalendar function
 })();
 
 
