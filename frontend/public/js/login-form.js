@@ -112,7 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', async (e) => {
         // eslint-disable-next-line no-console
         console.log(' Info: FORM SUBMITTED!');
+
+        // CRITICAL: Prevent default form submission to keep modal on page
         e.preventDefault();
+        e.stopPropagation();
+
+        // Prevent any potential page reload or redirect
+        if (e.defaultPrevented === false) {
+            e.preventDefault();
+        }
 
         const email = emailInput.value.trim();
         const password = passwordInput.value;
@@ -124,13 +132,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Basic validation
         if (!email || !password) {
-            showMessageModal('Missing Information', 'Please enter both email and password', 'warning');
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal('Missing Information', 'Please enter both email and password', 'warning');
+            } else {
+                alert('Please enter both email and password');
+            }
             return;
         }
 
         // Check if reCAPTCHA is loaded
         if (typeof window.grecaptcha === 'undefined' || !window.grecaptcha) {
-            showMessageModal('reCAPTCHA Error', 'reCAPTCHA is not loaded. Please refresh the page and try again.', 'error');
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal('reCAPTCHA Error', 'reCAPTCHA is not loaded. Please refresh the page and try again.', 'error');
+            } else {
+                alert('reCAPTCHA Error: reCAPTCHA is not loaded. Please refresh the page and try again.');
+            }
             return;
         }
 
@@ -147,7 +163,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // If no token, show error immediately and STOP
         if (!recaptchaToken || recaptchaToken.trim() === '') {
-            showMessageModal('reCAPTCHA Required', 'Please verify the reCAPTCHA before logging in.', 'warning');
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal('reCAPTCHA Required', 'Please verify the reCAPTCHA before logging in.', 'warning');
+            } else {
+                alert('Please verify the reCAPTCHA before logging in.');
+            }
             // Focus on the reCAPTCHA to help user
             const recaptchaContainer = document.getElementById('recaptchaContainer');
             if (recaptchaContainer) {
@@ -169,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update button text
         loginButton.textContent = 'Logging in...';
 
-        let loginSuccessful = true;
+        let loginSuccessful = false;
 
         try {
             // eslint-disable-next-line no-console
@@ -184,11 +204,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ email, password, recaptchaToken })
             });
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                // eslint-disable-next-line no-console
+                console.error('Error parsing response:', parseError);
+                if (typeof window.showMessageModal === 'function') {
+                    window.showMessageModal('Server Error', 'Unable to process login response. Please try again.', 'error');
+                } else {
+                    alert('Server Error: Unable to process login response. Please try again.');
+                }
+                recaptchaVerified = false;
+                if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+                    window.grecaptcha.reset();
+                }
+                window.disableSubmit();
+                return;
+            }
+
+            // eslint-disable-next-line no-console
+            console.log('📥 Response received:', response.status, data);
 
             if (data.success) {
                 loginSuccessful = true;
-                showMessageModal('Login Successful', data.message, 'success');
+                if (typeof window.showMessageModal === 'function') {
+                    window.showMessageModal('Login Successful', data.message, 'success');
+                }
                 loginButton.textContent = 'Success! Redirecting...';
 
                 // Redirect based on role
@@ -203,34 +245,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 window.location.href = redirectUrl;
             } else {
+                // Set loginSuccessful to false to prevent any redirects
+                loginSuccessful = false;
+                // eslint-disable-next-line no-console
+                console.log('❌ Login failed:', data.errorCode, data.message);
+
                 // Handle different types of errors
-                if (response.status === 423) {
-                    // Account locked - show modal
-                    if (data.lockTimeRemaining) {
-                        showAccountLockoutModal(data.lockTimeRemaining);
+                if (data.errorCode === 'ACCOUNT_NOT_FOUND') {
+                    // Account not found - user hasn't been invited/added by admin
+                    // eslint-disable-next-line no-console
+                    console.log('🔍 Showing ACCOUNT_NOT_FOUND modal');
+                    const errorMessage = 'Your account has not been added by an administrator. Please contact your administrator to create your account.';
+
+                    // Call modal directly - it should be available after DOMContentLoaded
+                    if (typeof window.showMessageModal === 'function') {
+                        // eslint-disable-next-line no-console
+                        console.log('✅ Calling showMessageModal for ACCOUNT_NOT_FOUND with message:', errorMessage);
+                        window.showMessageModal('Account Not Found', errorMessage, 'error');
                     } else {
-                        showMessageModal('Account Locked', data.message, 'error');
+                        // eslint-disable-next-line no-console
+                        console.error('showMessageModal is not available, using alert');
+                        alert('Account Not Found: ' + errorMessage);
+                    }
+                } else if (data.errorCode === 'ACCOUNT_INACTIVE') {
+                    // Account exists but is inactive
+                    // eslint-disable-next-line no-console
+                    console.log('🔍 Showing ACCOUNT_INACTIVE modal');
+                    const inactiveMessage = data.message || 'Your account has been deactivated. Please contact your administrator.';
+
+                    // Call modal directly
+                    if (typeof window.showMessageModal === 'function') {
+                        // eslint-disable-next-line no-console
+                        console.log('✅ Calling showMessageModal for ACCOUNT_INACTIVE');
+                        window.showMessageModal('Account Deactivated', inactiveMessage, 'error');
+                    } else {
+                        // eslint-disable-next-line no-console
+                        console.error('showMessageModal is not available, using alert');
+                        alert('Account Deactivated: ' + inactiveMessage);
+                    }
+                } else if (response.status === 423) {
+                    // Account locked - show modal
+                    if (data.lockTimeRemaining && typeof showAccountLockoutModal === 'function') {
+                        showAccountLockoutModal(data.lockTimeRemaining);
+                    } else if (typeof window.showMessageModal === 'function') {
+                        window.showMessageModal('Account Locked', data.message, 'error');
+                    } else {
+                        alert('Account Locked: ' + data.message);
                     }
                 } else if (response.status === 429) {
                     // IP locked - show modal
-                    showMessageModal('IP Blocked', data.message, 'error');
+                    if (typeof window.showMessageModal === 'function') {
+                        window.showMessageModal('IP Blocked', data.message, 'error');
+                    } else {
+                        alert('IP Blocked: ' + data.message);
+                    }
                 } else if (data.attemptsRemaining !== undefined) {
                     // Show remaining attempts in modal
-                    showMessageModal('Login Failed', data.message, 'warning');
+                    if (typeof window.showMessageModal === 'function') {
+                        window.showMessageModal('Login Failed', data.message, 'warning');
+                    } else {
+                        alert('Login Failed: ' + data.message);
+                    }
                 } else {
                     // Other errors in modal
-                    showMessageModal('Login Error', data.message, 'error');
+                    // eslint-disable-next-line no-console
+                    console.log('🔍 Showing generic error modal');
+                    if (typeof window.showMessageModal === 'function') {
+                        window.showMessageModal('Login Error', data.message || 'Invalid email or password', 'error');
+                    } else {
+                        alert('Login Error: ' + (data.message || 'Invalid email or password'));
+                    }
                 }
 
                 // Reset reCAPTCHA on error
                 recaptchaVerified = false;
-                window.grecaptcha.reset();
+                if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+                    window.grecaptcha.reset();
+                }
                 window.disableSubmit();
             }
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error('Login error:', error);
-            showMessageModal('Network Error', 'Network error. Please try again.', 'error');
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal('Network Error', 'Network error. Please try again.', 'error');
+            } else {
+                alert('Network Error: Network error. Please try again.');
+            }
             // Reset reCAPTCHA on network error
             recaptchaVerified = false;
             if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {

@@ -98,9 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success || response.ok) {
-                // Update nav profile display
-                document.getElementById('navProfileName').textContent = `${firstName} ${lastName}`;
-                document.getElementById('navProfileEmail').textContent = email;
+                // Update nav profile display (check if elements exist)
+                const navProfileName = document.getElementById('navProfileName');
+                const navProfileEmail = document.getElementById('navProfileEmail');
+                if (navProfileName) navProfileName.textContent = `${firstName} ${lastName}`;
+                if (navProfileEmail) navProfileEmail.textContent = email;
 
                 // If profile picture was changed
                 const fileInput = document.getElementById('profilePictureInput');

@@ -20,20 +20,49 @@ exports.getNotifications = async (req, res) => {
         const formattedNotifications = memos
             .filter(memo => !memo.isRead || memo.activityType !== null) // Show unread memos OR activity logs
             .slice(0, 10) // Limit to 10 most recent
-            .map(memo => ({
-                id: memo._id,
-                type: memo.activityType || 'memo_received',
-                title: memo.subject || 'New Memo',
-                message: memo.content || (memo.activityType ? 'System notification' : 'You have a new memo'),
-                sender: memo.sender ? {
-                    name: `${memo.sender.firstName} ${memo.sender.lastName}`,
-                    email: memo.sender.email,
-                    department: memo.sender.department
-                } : null,
-                timestamp: memo.createdAt,
-                isRead: memo.isRead || false,
-                hasAttachments: memo.attachments && memo.attachments.length > 0
-            }));
+            .map(memo => {
+                // Normalize type for workflow-related system notifications
+                let normalizedType = memo.activityType || 'memo_received';
+                const subjectLower = (memo.subject || '').toLowerCase();
+                if (normalizedType === 'system_notification') {
+                    if (subjectLower.includes('pending approval')) {
+                        normalizedType = 'pending_memo';
+                    } else if (subjectLower.includes('memo approved')) {
+                        normalizedType = 'memo_approved';
+                    } else if (subjectLower.includes('memo rejected')) {
+                        normalizedType = 'memo_rejected';
+                    }
+                }
+
+                // Prefer the original memo id if present in metadata for workflow items
+                // BUT: For regular memos (memo_received), use the memo's own ID so faculty can view their delivered memo
+                const originalMemoId = (memo.metadata && (memo.metadata.originalMemoId || memo.metadata.relatedMemoId)) || null;
+
+                // For system notifications (pending/approved/rejected), use originalMemoId
+                // For regular memos, use the memo's own ID
+                const isWorkflowNotification = normalizedType === 'pending_memo' || normalizedType === 'memo_approved' || normalizedType === 'memo_rejected';
+                const memoIdToUse = (isWorkflowNotification && originalMemoId) ? originalMemoId : memo._id;
+
+                return {
+                    id: memo._id,
+                    type: normalizedType,
+                    title: memo.subject || 'New Memo',
+                    message: memo.content || (memo.activityType ? 'System notification' : 'You have a new memo'),
+                    sender: memo.sender ? {
+                        name: `${memo.sender.firstName} ${memo.sender.lastName}`,
+                        email: memo.sender.email,
+                        department: memo.sender.department
+                    } : null,
+                    timestamp: memo.createdAt,
+                    isRead: memo.isRead || false,
+                    hasAttachments: memo.attachments && memo.attachments.length > 0,
+                    // Expose metadata to the client so it can resolve original memo id
+                    metadata: memo.metadata || {},
+                    // Provide a direct memoId field the UI can use to open the correct memo
+                    memoId: memoIdToUse,
+                    originalMemoId: originalMemoId
+                };
+            });
 
         // Count unread (all unread memos, not just activity logs)
         const unreadCount = await Memo.countDocuments({

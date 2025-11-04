@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { audit } = require('../middleware/auditLogger');
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
 
@@ -98,6 +99,12 @@ const googleTokenLogin = async (req, res, next) => {
                 return next(err);
             }
 
+            // Audit login success (non-blocking)
+            audit(user, 'login_success', 'User Login', `User ${user.email} logged in via Google`, {
+                method: 'google',
+                timestamp: new Date()
+            });
+
             res.json({
                 success: true,
                 message: 'Google login successful',
@@ -117,6 +124,16 @@ const googleTokenLogin = async (req, res, next) => {
 
     } catch (error) {
         console.error('Google token login error:', error);
+        // Attempt to audit failed login if email present
+        try {
+            if (req && req.body && req.body.email) {
+                await audit({ _id: undefined, email: req.body.email }, 'login_failed', 'Login Failed', 'Google token login failed', {
+                    method: 'google',
+                    reason: error.message || 'invalid_token',
+                    timestamp: new Date()
+                });
+            }
+        } catch (_) { }
         res.status(401).json({
             success: false,
             message: 'Invalid Google token'
@@ -180,16 +197,32 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Find user by email
+        // First check if user exists at all (regardless of active status)
+        const userExists = await User.findOne({
+            email: email.toLowerCase().trim()
+        });
+
+        // If user doesn't exist, they haven't been invited/added by admin
+        if (!userExists) {
+            return res.status(401).json({
+                success: false,
+                message: 'This account has not been added by an administrator. Please contact your administrator to create your account.',
+                errorCode: 'ACCOUNT_NOT_FOUND'
+            });
+        }
+
+        // Now check if user is active
         const user = await User.findOne({
             email: email.toLowerCase().trim(),
             isActive: true
         });
 
-        if (!user) {
+        // If user exists but is inactive
+        if (!user && userExists) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid email or password'
+                message: 'Your account has been deactivated. Please contact your administrator.',
+                errorCode: 'ACCOUNT_INACTIVE'
             });
         }
 
@@ -256,6 +289,14 @@ const login = async (req, res, next) => {
                 message += `. Account has been locked for ${lockoutMinutes} minutes due to too many failed attempts.`;
             }
 
+            // Audit failed login (non-blocking)
+            audit(user, 'login_failed', 'Login Failed', `Failed local login for ${user.email}`, {
+                method: 'local',
+                attemptsRemaining,
+                violationCount: (user.violationCount || 0) + (newAttempts >= 5 ? 1 : 0),
+                timestamp: new Date()
+            });
+
             return res.status(401).json({
                 success: false,
                 message: message,
@@ -275,25 +316,40 @@ const login = async (req, res, next) => {
             lastLogin: new Date()
         });
 
-        // Log user in
-        req.login(user, (err) => {
+        // Refresh user data to ensure we have the latest profilePicture and other fields
+        const refreshedUser = await User.findById(user._id);
+        if (!refreshedUser) {
+            return res.status(500).json({
+                success: false,
+                message: 'Error retrieving user data'
+            });
+        }
+
+        // Log user in with Passport (use refreshed user for session)
+        req.login(refreshedUser, (err) => {
             if (err) {
                 return next(err);
             }
+
+            // Audit login success (non-blocking)
+            audit(refreshedUser, 'login_success', 'User Login', `User ${refreshedUser.email} logged in`, {
+                method: 'local',
+                timestamp: new Date()
+            });
 
             res.json({
                 success: true,
                 message: 'Login successful',
                 user: {
-                    id: user._id,
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    fullName: user.fullName,
-                    role: user.role,
-                    department: user.department,
-                    employeeId: user.employeeId,
-                    profilePicture: user.profilePicture
+                    id: refreshedUser._id,
+                    email: refreshedUser.email,
+                    firstName: refreshedUser.firstName,
+                    lastName: refreshedUser.lastName,
+                    fullName: refreshedUser.fullName,
+                    role: refreshedUser.role,
+                    department: refreshedUser.department,
+                    employeeId: refreshedUser.employeeId,
+                    profilePicture: refreshedUser.profilePicture || '/images/memofy-logo.png'
                 }
             });
         });
@@ -323,6 +379,12 @@ const logout = (req, res) => {
             }
 
             res.clearCookie('connect.sid');
+            // Audit logout (best-effort)
+            try {
+                if (req && req.user) {
+                    audit(req.user, 'logout', 'User Logout', `User ${req.user.email} logged out`, { timestamp: new Date() });
+                }
+            } catch (_) { }
             res.json({
                 success: true,
                 message: 'Logout successful'

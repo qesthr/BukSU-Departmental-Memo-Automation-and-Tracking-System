@@ -537,7 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Validate at least one recipient or department
-            if (recipientData.length === 0 && selectedDepartments.length === 0) {
+            // For secretaries, allow submission without departments (backend will default to their department)
+            const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
+            if (recipientData.length === 0 && selectedDepartments.length === 0 && !isSecretary) {
                 showNotification('Please specify at least one recipient or department.', 'error');
                 return;
             }
@@ -1034,6 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Star button
+    if (starBtn) {
     starBtn.addEventListener('click', async () => {
         if (!currentMemoId) {return;}
 
@@ -1061,6 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Error updating memo', 'error');
         }
     });
+    }
 
     // Delete button
     deleteBtn.addEventListener('click', async () => {
@@ -1854,9 +1858,18 @@ document.addEventListener('DOMContentLoaded', () => {
         showDefaultView();
     }
 
-    // Update star button
+    // Update star button - icon only, no duplication
     function updateStarButton(isStarred) {
-        const icon = starBtn.querySelector('i');
+        if (!starBtn) {return;}
+
+        // Clear all existing icons first to prevent duplication
+        starBtn.innerHTML = '';
+
+        // Create a single icon element
+        const icon = document.createElement('i');
+        icon.style.width = '20px';
+        icon.style.height = '20px';
+
         if (isStarred) {
             icon.setAttribute('data-lucide', 'star');
             icon.style.color = '#fbbf24';
@@ -1866,7 +1879,15 @@ document.addEventListener('DOMContentLoaded', () => {
             icon.style.color = '#6b7280';
             starBtn.style.color = '#6b7280';
         }
-        lucide.createIcons();
+
+        // Append the single icon
+        starBtn.appendChild(icon);
+
+        // Initialize Lucide icons only for this button
+        if (typeof lucide !== 'undefined') {
+            // eslint-disable-next-line no-undef
+            lucide.createIcons();
+        }
     }
 
     // Format date

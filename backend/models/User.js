@@ -108,7 +108,26 @@ const userSchema = new mongoose.Schema({
     department: {
         type: String,
         trim: true,
-        required: [true, 'Department is required']
+        required: function() {
+            // Department is required only for secretary and faculty roles
+            return this.role !== 'admin';
+        },
+        validate: {
+            validator: function(v) {
+                // Admins must not have a department
+                if (this.role === 'admin') {
+                    return !v || v.trim() === '';
+                }
+                // Secretary and faculty must have a department
+                return v && v.trim().length > 0;
+            },
+            message: function() {
+                if (this.role === 'admin') {
+                    return 'Admins cannot belong to any department';
+                }
+                return 'Department is required for secretaries and faculty';
+            }
+        }
     },
     profilePicture: {
         type: String,
@@ -225,6 +244,12 @@ userSchema.pre('save', async function (next) {
 userSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
     this.lastUpdatedAt = new Date();
+
+    // Ensure admins never have a department
+    if (this.role === 'admin' && this.department) {
+        this.department = '';
+    }
+
     next();
 });
 

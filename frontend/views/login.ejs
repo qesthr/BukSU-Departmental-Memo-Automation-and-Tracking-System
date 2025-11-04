@@ -23,7 +23,7 @@
                 top: 0;
                 width: 100vw;
                 height: 100vh;
-                background: rgba(33, 150, 243, 0.06);
+                background: rgba(0, 0, 0, 0.1); /* Very light backdrop - login page visible */
             }
 
             .modal-content {
@@ -245,7 +245,7 @@
 
                     <form id="resetCodeForm">
                         <div class="input-group">
-                            <img src="/images/recycle.png" alt="Code Icon" class="input-icon">
+                            <img src="/images/bin.png" alt="Code Icon" class="input-icon">
                             <input type="text" name="resetCode" placeholder="Enter Reset Code" required>
                         </div>
                         <button type="submit" class="login-btn">Verify Code</button>
@@ -278,7 +278,7 @@
                             <input type="password" name="newPassword" placeholder="New Password" required>
                         </div>
                         <div class="input-group">
-                            <img src="/images/recycle.png" alt="Confirm Password Icon" class="input-icon">
+                            <img src="/images/bin.png" alt="Confirm Password Icon" class="input-icon">
                             <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
                         </div>
                         <button type="submit" class="login-btn">Reset Password</button>
@@ -391,6 +391,12 @@
         </div>
 
         <style>
+            /* Ensure messageModal backdrop shows login page */
+            #messageModal.modal {
+                background: rgba(0, 0, 0, 0.1) !important; /* Very light backdrop - login page visible */
+                backdrop-filter: blur(2px); /* Subtle blur */
+            }
+
             .modal-info {
                 background: #2196f3 !important;
                 color: #fff !important;
@@ -410,10 +416,15 @@
 
             #messageModal .message-text {
                 text-align: center !important;
-                font-size: 1.13rem;
-                font-weight: bold;
-                margin-top: 10px;
-                color: #fff;
+                font-size: 1.13rem !important;
+                font-weight: 500 !important;
+                margin-top: 10px !important;
+                color: #fff !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                line-height: 1.5 !important;
+                padding: 10px 20px !important;
             }
 
             #messageModal.modal-info .modal-title {

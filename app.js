@@ -51,6 +51,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Trust reverse proxy (needed for secure cookies behind proxies/load balancers)
+app.set('trust proxy', 1);
+
 // Session configuration
 app.use(session({
     secret: process.env.SESSION_SECRET || 'fallback_secret_key',
@@ -59,6 +62,7 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
@@ -255,9 +259,34 @@ app.get('/secretary/memos', async (req, res) => {
     }
 });
 
-// Log route - protected
+// Faculty memos page - only for faculty
+app.get('/faculty/memos', async (req, res) => {
+    if (!req.isAuthenticated()) { return res.redirect('/'); }
+    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+    try {
+        // Get memos received by faculty (only sent/approved status, not pending)
+        const received = await Memo.find({
+            recipient: req.user._id,
+            status: { $in: ['sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .populate('sender', 'firstName lastName email profilePicture department')
+            .populate('recipient', 'firstName lastName email profilePicture department');
+        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received });
+    } catch (e) {
+        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received: [] });
+    }
+});
+
+// Log route - redirect faculty to their memos page
 app.get('/log', (req, res) => {
     if (req.isAuthenticated()) {
+        // Redirect faculty to their own memos page
+        if (req.user && req.user.role === 'faculty') {
+            return res.redirect('/faculty/memos');
+        }
+        // Admins and secretaries go to admin log
         res.render('admin/log', {
             user: req.user,
             path: '/log'

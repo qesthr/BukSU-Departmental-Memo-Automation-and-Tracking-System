@@ -346,9 +346,16 @@ async function loadRealtimeData() {
  */
 async function loadActivityChart(startDate, endDate) {
     try {
-        const metric = document.getElementById('activityMetric')?.value || 'activeUsers';
+        // Map UI select values to GA4 metric API names and display labels
+        const selected = document.getElementById('activityMetric')?.value || 'users';
+        const metricMap = {
+            users: { api: 'activeUsers', label: 'Active Users' },
+            sessions: { api: 'sessions', label: 'Sessions' },
+            pageviews: { api: 'screenPageViews', label: 'Page Views' }
+        };
+        const mapped = metricMap[selected] || metricMap.users;
         const response = await fetch(
-            `/api/analytics/activity?startDate=${startDate}&endDate=${endDate}&metric=${metric}`,
+            `/api/analytics/activity?startDate=${startDate}&endDate=${endDate}&metric=${mapped.api}`,
             { credentials: 'include' }
         );
 
@@ -383,7 +390,7 @@ async function loadActivityChart(startDate, endDate) {
             return;
         }
 
-        drawActivityChart(data);
+        drawActivityChart(data, mapped.label);
 
     } catch (error) {
         console.error('Error loading activity chart:', error);
@@ -394,7 +401,7 @@ async function loadActivityChart(startDate, endDate) {
 /**
  * Draw activity chart using Google Charts
  */
-function drawActivityChart(data) {
+function drawActivityChart(data, yLabel = 'Active Users') {
     if (!google || !google.charts) {
         console.error('Google Charts not loaded');
         showChartError('activityChart', 'Charts library not loaded');
@@ -411,7 +418,7 @@ function drawActivityChart(data) {
         try {
             const chartData = new google.visualization.DataTable();
             chartData.addColumn('date', 'Date');
-            chartData.addColumn('number', 'Active Users');
+            chartData.addColumn('number', yLabel);
 
             if (data.rows && data.rows.length > 0) {
                 data.rows.forEach(row => {
@@ -440,7 +447,7 @@ function drawActivityChart(data) {
             const options = {
                 title: 'User Activity Over Time',
                 hAxis: { title: 'Date' },
-                vAxis: { title: 'Active Users' },
+                vAxis: { title: yLabel },
                 legend: { position: 'none' },
                 chartArea: { width: '80%', height: '70%' }
             };

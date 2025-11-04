@@ -32,12 +32,21 @@ async function notifySecretary({ memo, actor, action, reason }) {
     const secretaryId = memo.sender; // original author
     if (!secretaryId) return;
     const clean = (s) => String(s || '').replace(/^\s*Memo\s+Pending\s+Approval:\s*/i, '').trim();
-    const subject = action === 'approved'
-      ? `Memo Approved: ${clean(memo.subject)}`
-      : `Memo Rejected: ${clean(memo.subject)}`;
-    const content = action === 'approved'
-      ? `Your memo was approved by ${actor?.email || 'an admin'} and will be sent to recipients.`
-      : `Your memo was rejected by ${actor?.email || 'an admin'}${reason ? `\nReason: ${reason}` : ''}`;
+
+    let subject, content;
+    if (action === 'pending') {
+      subject = `Memo Pending Approval: ${clean(memo.subject)}`;
+      content = `Your memo "${memo.subject}" has been submitted and is pending admin approval.`;
+    } else if (action === 'approved') {
+      subject = `Memo Approved: ${clean(memo.subject)}`;
+      content = `Your memo "${memo.subject}" was approved by ${actor?.email || 'an admin'} and has been sent to recipients.`;
+    } else if (action === 'rejected') {
+      subject = `Memo Rejected: ${clean(memo.subject)}`;
+      content = `Your memo "${memo.subject}" was rejected by ${actor?.email || 'an admin'}${reason ? `\nReason: ${reason}` : ''}`;
+    } else {
+      return; // Unknown action
+    }
+
     await new Memo({
       sender: actor?._id || secretaryId,
       recipient: secretaryId,

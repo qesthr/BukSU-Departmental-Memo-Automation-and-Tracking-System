@@ -476,6 +476,32 @@
     gap: 8px;
 }
 
+.btn-text-action {
+    background: none;
+    border: 1px solid #e5e7eb;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 400;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-text-action:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.btn-text-action i {
+    width: 16px;
+    height: 16px;
+}
+
 .memo-content {
     flex: 1;
     overflow-y: auto;

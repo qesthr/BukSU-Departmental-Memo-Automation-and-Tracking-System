@@ -49,7 +49,7 @@ const memoSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'pending', 'sent', 'read', 'archived', 'deleted'],
+        enum: ['draft', 'pending', 'sent', 'read', 'archived', 'deleted', 'approved', 'rejected'],
         default: 'sent'
     },
     activityType: {

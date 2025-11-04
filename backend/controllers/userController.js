@@ -130,14 +130,16 @@ exports.addUser = async (req, res) => {
         }
 
         // Create user without password (they'll use Google OAuth to login first time)
-        const user = new User({
+        // Admins cannot have departments
+        const userData = {
             email,
             firstName,
             lastName,
             role,
-            department
-            // No password - user will login with Google OAuth first
-        });
+            department: role === 'admin' ? '' : department
+        };
+
+        const user = new User(userData);
 
         await user.save();
         // Release any lock and notify success

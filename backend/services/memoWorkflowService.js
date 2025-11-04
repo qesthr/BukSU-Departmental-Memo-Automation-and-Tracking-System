@@ -15,9 +15,12 @@ async function appendHistory(memo, actor, action, reason) {
 
 async function createBySecretary({ user, payload }) {
   // Create memo as PENDING_ADMIN; do not alter existing external contracts
+  // Store as a single document - secretary is the sender but NOT the recipient
+  // The recipient field is set to sender for tracking, but secretary won't receive the actual memo
   const memo = new Memo({
     sender: user._id,
     // Store a single pending record owned by secretary; keep all intended recipients in `recipients`
+    // Set recipient to sender for tracking purposes, but secretary will only get notifications
     recipient: user._id,
     recipients: payload.recipients,
     subject: payload.subject,
@@ -32,7 +35,13 @@ async function createBySecretary({ user, payload }) {
   });
   await appendHistory(memo, user, 'created');
   await memo.save();
+
+  // Notify admin that memo is pending
   await notifyAdmin({ memo, actor: user });
+
+  // Notify secretary that memo is pending (notification only, not the actual memo)
+  await notifySecretary({ memo, actor: user, action: 'pending' });
+
   return memo;
 }
 
@@ -44,14 +53,15 @@ async function approve({ memoId, adminUser }) {
   await notifySecretary({ memo, actor: adminUser, action: 'approved' });
   await deliver({ memo, actor: adminUser });
   await archivePendingAdminNotifications(memoId);
-  // Remove the original pending memo document after successful delivery
+
+  // Keep the original pending memo for audit; mark as APPROVED
   try {
-    await Memo.deleteOne({ _id: memoId });
-    // Also remove any legacy per-recipient pending copies that may linger
-    await Memo.deleteMany({ status: 'pending', sender: memo.sender, subject: memo.subject });
+    memo.status = MEMO_STATUS.APPROVED;
+    memo.folder = 'drafts';
+    await memo.save();
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.error('Failed to delete original pending memo after approval:', e?.message || e);
+    console.error('Failed to update original memo after approval:', e?.message || e);
   }
 
   // Fire-and-forget Google Drive backup of the approved memo
@@ -76,16 +86,19 @@ async function approve({ memoId, adminUser }) {
 async function reject({ memoId, adminUser, reason }) {
   const memo = await Memo.findById(memoId);
   if (!memo) throw new Error('Memo not found');
-  // Record rejection without assigning an enum value that schema may not allow
+  // Record rejection and keep the record
   await appendHistory(memo, adminUser, 'rejected', reason);
   await notifySecretary({ memo, actor: adminUser, action: 'rejected', reason });
   await archivePendingAdminNotifications(memoId);
-  // Remove the original pending memo document after rejection
+
+  // Keep the original pending memo; mark as REJECTED
   try {
-    await Memo.deleteOne({ _id: memoId });
+    memo.status = MEMO_STATUS.REJECTED;
+    memo.folder = 'drafts';
+    await memo.save();
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.error('Failed to delete original pending memo after rejection:', e?.message || e);
+    console.error('Failed to update original memo after rejection:', e?.message || e);
   }
   return memo;
 }
@@ -99,7 +112,8 @@ async function deliver({ memo, actor }) {
       ? memo.departments
       : (memo.department ? [memo.department] : []);
     if (deptList.length > 0) {
-      const faculty = await User.find({ role: 'faculty', department: { $in: deptList } }).select('_id');
+      // Only get faculty members (not secretaries or admins)
+      const faculty = await User.find({ role: 'faculty', department: { $in: deptList }, isActive: true }).select('_id');
       recipientIds = faculty.map(u => u._id);
     }
   }
@@ -108,15 +122,28 @@ async function deliver({ memo, actor }) {
   const senderIdStr = String(memo.sender || (actor && actor._id) || '');
   const finalRecipients = (recipientIds || []).filter(r => String(r) !== senderIdStr);
 
-  // Create recipient memos
-  const createOps = finalRecipients.map(r => new Memo({
+  // Also exclude any secretaries - memos are only for faculty
+  const recipientUsers = await User.find({ _id: { $in: finalRecipients } }).select('_id role');
+  const facultyRecipients = recipientUsers
+    .filter(u => u.role === 'faculty')
+    .map(u => u._id);
+
+  if (facultyRecipients.length === 0) {
+    // eslint-disable-next-line no-console
+    console.warn('No faculty recipients found for memo delivery');
+    return memo;
+  }
+
+  // Create recipient memos - one memo per faculty recipient
+  // This is necessary for individual inbox tracking
+  const createOps = facultyRecipients.map(r => new Memo({
     sender: memo.sender,
     recipient: r,
     subject: memo.subject,
     content: memo.content || '',
     department: memo.department,
     departments: memo.departments,
-    recipients: finalRecipients,
+    recipients: facultyRecipients, // All recipients list
     priority: memo.priority || 'medium',
     createdBy: memo.createdBy || memo.sender,
     attachments: memo.attachments || [],
@@ -126,8 +153,8 @@ async function deliver({ memo, actor }) {
   }).save());
   await Promise.all(createOps);
 
-  // Mark workflow memo as sent in history (it may be deleted by caller later)
-  memo.status = MEMO_STATUS.SENT;
+  // Mark workflow memo as approved (not sent) and persist history
+  memo.status = MEMO_STATUS.APPROVED;
   await appendHistory(memo, actor, 'sent');
   await memo.save();
   return memo;

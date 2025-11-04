@@ -24,10 +24,18 @@ exports.getAllMemos = async (req, res) => {
                 };
             } else {
                 // Regular users: only delivered memos (hide pending workflow items)
+                // Status filter already excludes pending, so secretaries won't see their own pending memos
                 query = { recipient: userId, status: { $in: ['sent','approved'] } };
             }
         } else if (folder === 'sent') {
-            query = { sender: userId, folder: 'sent', status: { $nin: ['deleted','archived'] } };
+            // For sent folder, show memos sent by user
+            // Include pending memos for secretaries so they can see what they submitted
+            const user = await User.findById(userId);
+            if (user.role === 'secretary') {
+                query = { sender: userId, status: { $nin: ['deleted','archived'] } };
+            } else {
+                query = { sender: userId, folder: 'sent', status: { $nin: ['deleted','archived'] } };
+            }
         } else if (folder === 'starred') {
             query = {
                 $or: [
@@ -85,8 +93,14 @@ exports.getMemo = async (req, res) => {
         }
 
         // Check if user has access to this memo
-        if (memo.sender?._id?.toString() !== userId.toString() &&
-            memo.recipient?._id?.toString() !== userId.toString()) {
+        // Admins can view pending memos awaiting their approval
+        const isAdmin = req.user.role === 'admin';
+        // MEMO_STATUS.PENDING_ADMIN = 'pending' (see memoStatus.js)
+        const isPendingAdmin = memo.status === 'pending' || memo.status === 'PENDING_ADMIN' || memo.status === 'pending_admin';
+        const isSender = memo.sender?._id?.toString() === userId.toString();
+        const isRecipient = memo.recipient?._id?.toString() === userId.toString();
+
+        if (!isSender && !isRecipient && !(isAdmin && isPendingAdmin)) {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
@@ -107,7 +121,7 @@ exports.getMemo = async (req, res) => {
 
 // Basic HTML sanitization function
 function sanitizeHTML(html) {
-    if (!html) return '';
+    if (!html) {return '';}
     // Remove script tags and dangerous event handlers
     return html
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -128,8 +142,14 @@ exports.createMemo = async (req, res) => {
         const recipientEmailValues = recipientEmail
             ? recipientEmail.split(',').map(e => e.trim()).filter(e => e)
             : [];
-        const departmentsArray = Array.isArray(departments) ? departments.filter(d => d) :
+        let departmentsArray = Array.isArray(departments) ? departments.filter(d => d) :
                                (departments ? [departments] : []);
+
+        // Default to secretary's department if none specified AND no specific recipients selected
+        const isSecretary = user && user.role === 'secretary';
+        if (isSecretary && recipientEmailValues.length === 0 && (!departmentsArray || departmentsArray.length === 0) && user.department) {
+            departmentsArray = [user.department];
+        }
 
         if (recipientEmailValues.length === 0 && departmentsArray.length === 0) {
             return res.status(400).json({
@@ -222,8 +242,6 @@ exports.createMemo = async (req, res) => {
                 message: 'No valid recipients found.'
             });
         }
-
-        const isSecretary = (user.role === 'secretary');
 
         let createdMemos = [];
         if (isSecretary) {

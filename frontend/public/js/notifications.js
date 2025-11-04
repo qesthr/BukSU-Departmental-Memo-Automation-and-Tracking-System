@@ -283,8 +283,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Extract original memo id for workflow notifications (pending/approved/rejected)
-            const originalMemoId = (notif.metadata && (notif.metadata.originalMemoId || notif.metadata.memoId)) || notif.originalMemoId || '';
-            const derivedMemoId = notif.memoId || originalMemoId || '';
+            // The API provides originalMemoId directly, but also check metadata for backward compatibility
+            const originalMemoId = notif.originalMemoId || (notif.metadata && (notif.metadata.originalMemoId || notif.metadata.relatedMemoId)) || '';
+            const derivedMemoId = notif.memoId || originalMemoId || notif.id;
 
             // For memo notifications, use data attributes to identify them
             const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent' || isCalendarEvent || notif.type === 'pending_memo';
@@ -350,24 +351,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalMemoId = item.dataset.originalMemoId;
 
                 // eslint-disable-next-line no-console
-                console.log('Notification clicked:', { id, memoId, notificationType });
+                console.log('Notification clicked:', { id, memoId, notificationType, originalMemoId });
 
                 // Mark as read
                 await markAsRead(id);
 
                 // For memo notifications, open modal (include pending_memo using original memo id)
                 if (memoId && (notificationType === 'memo_received' || notificationType === 'memo_sent' || notificationType === 'pending_memo')) {
+                    // For pending_memo notifications, use originalMemoId to fetch the actual pending memo
+                    const targetMemoId = (notificationType === 'pending_memo' && originalMemoId) ? originalMemoId : memoId;
                     // eslint-disable-next-line no-console
-                    console.log('Opening memo modal with ID:', memoId);
+                    console.log('Opening memo modal with ID:', targetMemoId);
                     try {
-                        await openMemoModal(memoId);
+                        await openMemoModal(targetMemoId);
                         // eslint-disable-next-line no-console
                         console.log('openMemoModal call completed');
                     } catch (modalError) {
                         // eslint-disable-next-line no-console
                         console.error('Error in openMemoModal:', modalError);
                         // Fallback to navigation
-                        window.location.href = `/admin/log?memo=${memoId}`;
+                        window.location.href = `/admin/log?memo=${targetMemoId}`;
                     }
                 } else {
                     // For other notifications, navigate to log
@@ -453,6 +456,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // eslint-disable-next-line no-console
             console.log('API Response:', data);
+
+            if (!response.ok) {
+                // eslint-disable-next-line no-console
+                console.error('API Error:', response.status, data);
+                if (response.status === 403) {
+                    alert('You do not have permission to view this memo.');
+                } else if (response.status === 404) {
+                    alert('Memo not found.');
+                } else {
+                    alert(`Error loading memo: ${data.message || 'Unknown error'}`);
+                }
+                // Fallback to navigation
+                window.location.href = `/admin/log?memo=${memoId}`;
+                return;
+            }
 
             if (!data.success || !data.memo) {
                 // eslint-disable-next-line no-console

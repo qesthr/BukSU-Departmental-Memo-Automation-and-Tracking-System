@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
 
@@ -16,8 +15,12 @@ exports.inviteUser = async (req, res) => {
   try {
     const { firstName, lastName, email, department, role } = req.body || {};
 
-    if (!firstName || !lastName || !email || !department || !role) {
-      return res.status(400).json({ success: false, message: 'All fields are required' });
+    // Validation: department is required only for non-admin roles
+    if (!firstName || !lastName || !email || !role) {
+      return res.status(400).json({ success: false, message: 'First name, last name, email, and role are required' });
+    }
+    if (role !== 'admin' && !department) {
+      return res.status(400).json({ success: false, message: 'Department is required for secretaries and faculty' });
     }
     if (!isAllowedDomain(email)) {
       return res.status(400).json({ success: false, message: 'Email must be @buksu.edu.ph or @student.buksu.edu.ph' });
@@ -59,7 +62,7 @@ exports.inviteUser = async (req, res) => {
         firstName,
         lastName,
         email: email.toLowerCase(),
-        department,
+        department: role === 'admin' ? '' : department, // Admins cannot have departments
         role,
         isActive: false,
         status: 'pending',
@@ -69,7 +72,7 @@ exports.inviteUser = async (req, res) => {
     } else {
       user.firstName = firstName;
       user.lastName = lastName;
-      user.department = department;
+      user.department = role === 'admin' ? '' : department; // Admins cannot have departments
       user.role = role;
       user.isActive = false;
       user.status = 'pending';
@@ -165,7 +168,8 @@ exports.completeInvite = async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(password, 12);
+    // Set plain password - User model's pre-save hook will hash it automatically
+    user.password = password;
     user.status = 'active';
     user.isActive = true;
     user.inviteTokenUsed = true;
