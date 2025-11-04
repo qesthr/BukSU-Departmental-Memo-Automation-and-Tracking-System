@@ -34,10 +34,13 @@ app.use(helmet({
                 "https://accounts.google.com", "https://apis.google.com",
                 "https://unpkg.com", "https://cdn.jsdelivr.net"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://www.google.com",
+                "https://www.gstatic.com", "https://fonts.googleapis.com",
+                "https://cdn.jsdelivr.net"],
+            styleSrcElem: ["'self'", "'unsafe-inline'", "https://www.gstatic.com",
                 "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "https://www.google.com",
-                "https://developers.google.com"],
+                "https://www.gstatic.com", "https://developers.google.com"],
             frameSrc: ["'self'", "https://www.google.com", "https://accounts.google.com", "https://*.google.com"],
             connectSrc: ["'self'", "https://unpkg.com", "https://www.googleapis.com",
                 "https://accounts.google.com", "https://*.google.com", "https://*.googleapis.com"]
@@ -75,6 +78,8 @@ app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
+app.use('/api/analytics', require('./backend/routes/analyticsRoutes'));
+app.use('/analytics', require('./backend/routes/analyticsRoutes'));
 
 // --- Simple SSE event bus for admin notifications ---
 const sseClients = new Set();

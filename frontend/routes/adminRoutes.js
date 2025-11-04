@@ -61,4 +61,12 @@ router.get('/calendar', [isAuthenticated, isAdmin], (req, res) => {
     });
 });
 
+// Report route - admin only
+router.get('/report', [isAuthenticated, isAdmin], (req, res) => {
+    res.render('admin/report', {
+        user: req.user,
+        path: '/report'
+    });
+});
+
 module.exports = router;
