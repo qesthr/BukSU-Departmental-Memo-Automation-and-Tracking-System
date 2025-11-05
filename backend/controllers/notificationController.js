@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Memo = require('../models/Memo');
+const AuditLog = require('../models/AuditLog');
 
 // Get notifications for user (both received memos and activity logs)
 exports.getNotifications = async (req, res) => {
@@ -16,8 +17,14 @@ exports.getNotifications = async (req, res) => {
         .populate('sender', 'firstName lastName email profilePicture department')
         .lean();
 
+        // Also fetch recent audit logs for admins
+        let auditLogs = [];
+        if (req.user && req.user.role === 'admin') {
+            auditLogs = await AuditLog.find({}).sort({ createdAt: -1 }).limit(10).lean();
+        }
+
         // Format notifications - prioritize unread, then include activity logs
-        const formattedNotifications = memos
+        const formattedMemoNotifications = memos
             .filter(memo => !memo.isRead || memo.activityType !== null) // Show unread memos OR activity logs
             .slice(0, 10) // Limit to 10 most recent
             .map(memo => {
@@ -64,6 +71,18 @@ exports.getNotifications = async (req, res) => {
                 };
             });
 
+        const formattedAuditNotifications = auditLogs.map(l => ({
+            id: l._id,
+            type: 'user_log',
+            title: l.subject || 'User Activity',
+            message: l.message || '',
+            sender: { name: l.email || 'System' },
+            timestamp: l.createdAt,
+            isRead: !!l.isRead,
+            hasAttachments: false,
+            metadata: { audit: true }
+        }));
+
         // Count unread (all unread memos, not just activity logs)
         const unreadCount = await Memo.countDocuments({
             recipient: userId,
@@ -73,7 +92,7 @@ exports.getNotifications = async (req, res) => {
 
         res.json({
             success: true,
-            notifications: formattedNotifications,
+            notifications: [...formattedAuditNotifications, ...formattedMemoNotifications].sort((a,b)=> new Date(b.timestamp)-new Date(a.timestamp)),
             unreadCount
         });
     } catch (error) {

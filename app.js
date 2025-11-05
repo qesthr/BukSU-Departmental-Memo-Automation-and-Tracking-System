@@ -17,6 +17,7 @@ const forgotPasswordRoutes = require('./backend/routes/forgotPasswordRoutes');
 const logRoutes = require('./backend/routes/logRoutes');
 const driveRoutes = require('./backend/routes/driveRoutes');
 const calendarRoutes = require('./backend/routes/calendarRoutes');
+const auditRoutes = require('./backend/routes/auditRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -81,6 +82,7 @@ app.post('/invite/complete', require('./backend/controllers/inviteController').c
 app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/audit', auditRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
 app.use('/api/analytics', require('./backend/routes/analyticsRoutes'));
 app.use('/analytics', require('./backend/routes/analyticsRoutes'));

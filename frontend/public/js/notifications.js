@@ -268,6 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 iconName = 'calendar';
             } else if (notif.type === 'memo_sent' || notif.type === 'memo_received') {
                 iconName = 'file-text';
+            } else if (notif.type === 'user_log') {
+                iconName = 'user';
             } else if (notif.type === 'user_deleted') {
                 iconName = 'user-minus';
             } else if (notif.type === 'password_reset') {
@@ -370,7 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Opening notification modal with ID:', finalMemoId, 'Type:', notificationType);
 
                 try {
-                    await openMemoModal(finalMemoId);
+                    if (notificationType === 'user_log') {
+                        await openAuditLogModal(id);
+                    } else {
+                        await openMemoModal(finalMemoId);
+                    }
                     // eslint-disable-next-line no-console
                     console.log('openMemoModal call completed');
                 } catch (modalError) {
@@ -381,6 +387,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+    }
+
+    async function openAuditLogModal(auditId){
+        if (!auditId) return;
+        const res = await fetch(`/api/audit/logs/${auditId}`, { credentials: 'same-origin' });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error('Failed to load audit log');
+        const log = data.log;
+        const memoLike = {
+            _id: log._id,
+            subject: log.subject || 'User Activity',
+            content: log.message || '',
+            sender: { email: log.email || 'system' },
+            recipient: null,
+            department: 'System',
+            priority: 'low',
+            createdAt: log.createdAt,
+            activityType: 'user_activity',
+            metadata: { userEmail: log.email, isAuditLog: true }
+        };
+        let memoModal = document.getElementById('notificationMemoModal');
+        if (!memoModal) memoModal = createMemoModal();
+        populateMemoModal(memoLike, memoModal);
+        memoModal.style.setProperty('display', 'flex', 'important');
+        memoModal.style.setProperty('visibility', 'visible', 'important');
+        memoModal.style.setProperty('opacity', '1', 'important');
+        document.body.style.overflow = 'hidden';
     }
 
     // Mark all as read functionality
@@ -680,20 +713,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const memoHeader = modal.querySelector('.notification-memo-body > div:first-child');
 
-        if (isCalendarEvent && memoHeader) {
+        // Detect user/audit log entries
+        const isUserLog = (memo.activityType === 'user_activity') ||
+                          ((memo.subject || '').toLowerCase().includes('user login')) ||
+                          ((memo.subject || '').toLowerCase().includes('user activity'));
+
+        if ((isCalendarEvent || isUserLog) && memoHeader) {
             // Hide MEMO header for calendar events
             memoHeader.style.display = 'none';
         }
 
         // Subject
         const subjectEl = modal.querySelector('#notificationMemoSubject');
-        if (subjectEl && !isCalendarEvent) {
+        if (subjectEl && !isCalendarEvent && !isUserLog) {
             subjectEl.textContent = memo.subject || '(No subject)';
         }
 
         // From (Sender)
         const fromEl = modal.querySelector('#notificationMemoFrom');
-        if (fromEl && !isCalendarEvent) {
+        if (fromEl && !isCalendarEvent && !isUserLog) {
             const senderName = memo.sender
                 ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
                 : 'Unknown Sender';
@@ -752,6 +790,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         .replace(/'/g, '&#039;');
                     htmlContent += `<div style="white-space: pre-wrap; line-height: 1.8; color: #111827; font-size: 15px; margin-bottom: 1.5rem;">${formattedContent}</div>`;
                 }
+            } else if (isUserLog) {
+                // User log format: professional, branded
+                const titleEl = modal.querySelector('.notification-memo-header h2');
+                if (titleEl) titleEl.textContent = 'User Log';
+                const email = memo.sender?.email || memo.metadata?.userEmail || '(unknown)';
+                const dt = memo.createdAt ? new Date(memo.createdAt) : null;
+                const when = dt ? dt.toLocaleString() : '';
+                const dateOnly = dt ? dt.toLocaleDateString() : '';
+                const timeOnly = dt ? dt.toLocaleTimeString() : '';
+                const safe = (s) => String(s || '')
+                    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+                let body = memo.content && memo.content.trim() ? safe(memo.content) : `User ${safe(email)} activity recorded.`;
+                htmlContent += `
+                    <div style="text-align:center;margin-top:6px;">
+                        <img src="/images/memofy-logo.png" alt="Memofy" style="width:48px;height:48px;opacity:.95;" />
+                        <h3 style="margin:10px 0 0 0; font-size:18px; color:#111827;">${safe(memo.subject || 'User Activity')}</h3>
+                        <p style="margin:4px 0 0 0; color:#6b7280; font-size:12px;">${safe(email)} • ${safe(when)}</p>
+                    </div>
+                    <div style="display:flex; gap:16px; justify-content:center; margin-top:10px; color:#374151; font-size:12px;">
+                        <div><span style="font-weight:600;">Date:</span> ${safe(dateOnly)}</div>
+                        <div><span style="font-weight:600;">Time:</span> ${safe(timeOnly)}</div>
+                    </div>
+                    <div style="width:100%; height:1px; background:#e5e7eb; margin:16px 0;"></div>
+                    <div style="white-space:pre-wrap; line-height:1.8; color:#111827; font-size:14px;">${body}</div>
+                `;
             } else {
                 // Regular memo format
                 // Text content
@@ -817,6 +880,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const footer = modal.querySelector('#notificationMemoFooter');
             if (footer) {
                 footer.innerHTML = '';
+                // Generic overlay helpers for action feedback
+                function showActionOverlay(text){
+                    const overlay = modal.querySelector('#notificationActionOverlay');
+                    const sp = modal.querySelector('#naoSpinner');
+                    const ck = modal.querySelector('#naoCheck');
+                    const tx = modal.querySelector('#naoText');
+                    if (!overlay) return;
+                    if (tx) tx.textContent = text || 'Processing...';
+                    if (sp) sp.style.display = 'block';
+                    if (ck) ck.style.display = 'none';
+                    overlay.style.display = 'flex';
+                }
+                function showActionOverlaySuccess(text){
+                    const overlay = modal.querySelector('#notificationActionOverlay');
+                    const sp = modal.querySelector('#naoSpinner');
+                    const ck = modal.querySelector('#naoCheck');
+                    const tx = modal.querySelector('#naoText');
+                    if (!overlay) return;
+                    if (sp) sp.style.display = 'none';
+                    if (ck) ck.style.display = 'block';
+                    if (tx) tx.textContent = text || 'Done';
+                    overlay.style.display = 'flex';
+                }
                 const statusStr = (memo.status || '').toString();
                 const isPendingStatus = ['pending_admin','PENDING_ADMIN','pending','PENDING'].includes(statusStr);
                 const looksPendingBySubject = (memo.subject || '').toLowerCase().includes('pending approval');
@@ -898,6 +984,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     footer.appendChild(rejectBtn);
                     footer.appendChild(approveBtn);
+                } else if (isUserLog && isAdminUser) {
+                    footer.style.display = 'flex';
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Delete Log';
+                    deleteBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;';
+                    deleteBtn.onclick = async () => {
+                        try {
+                            // Show modal overlay, then perform delete
+                            showActionOverlay('Deleting...');
+                            await new Promise(r => setTimeout(r, 500));
+                            const endpoint = (memo.metadata && memo.metadata.isAuditLog) ? `/api/audit/logs/${memo._id}` : `/api/log/memos/${memo._id}`;
+                            const res = await fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' });
+                            if (!res.ok) throw new Error('Failed to delete');
+                            showActionOverlaySuccess('Deleted');
+                            // Remove from list if it exists in dropdown
+                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
+                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            setTimeout(() => { closeMemoModal(); fetchNotifications && fetchNotifications(); }, 600);
+                        } catch (err) {
+                            alert(err?.message || 'Delete failed');
+                        }
+                    };
+                    footer.appendChild(deleteBtn);
                 } else {
                     footer.style.display = 'none';
                 }

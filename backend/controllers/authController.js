@@ -9,6 +9,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Google token login controller (handles JWT tokens from Google Identity Services)
 const googleTokenLogin = async (req, res, next) => {
     try {
+        console.log('🔐 Starting Google user verification...');
         const { credential, idToken, accessToken, email, name, imageUrl } = req.body;
 
         if (!credential && !idToken && !accessToken) {
@@ -53,6 +54,8 @@ const googleTokenLogin = async (req, res, next) => {
 
         const googleId = userInfo.id || userInfo['sub'];
         const verifiedEmail = userInfo.email;
+        console.log(`✅ Google Account Found: ${verifiedEmail || '(no email in token)'}`);
+        console.log(`🔎 Searching for user with email: ${verifiedEmail || email || '(unknown)'}`);
         const userName = userInfo.name;
         const userImage = userInfo.picture;
 
@@ -67,12 +70,14 @@ const googleTokenLogin = async (req, res, next) => {
             });
 
             if (user) {
+                console.log('✅ Found user in Users collection (active)');
                 // User exists and is active - update with Google ID and preserve admin-set role/department
                 user.googleId = googleId;
                 user.profilePicture = userImage;
                 user.lastLogin = new Date();
                 await user.save();
             } else {
+                console.log('❌ User not found or inactive in Users collection');
                 // User doesn't exist or is inactive - admin must add them first
                 return res.status(403).json({
                     success: false,
@@ -82,6 +87,7 @@ const googleTokenLogin = async (req, res, next) => {
         } else {
             // Check if user is active
             if (!user.isActive) {
+                console.log('❌ Authentication failed - User found but deactivated');
                 return res.status(403).json({
                     success: false,
                     message: 'Your account has been deactivated. Please contact your administrator.'
@@ -105,6 +111,7 @@ const googleTokenLogin = async (req, res, next) => {
                 timestamp: new Date()
             });
 
+            console.log(`✅ Google Account ${verifiedEmail} successfully authenticated and logged in`);
             res.json({
                 success: true,
                 message: 'Google login successful',
@@ -134,6 +141,7 @@ const googleTokenLogin = async (req, res, next) => {
                 });
             }
         } catch (_) { }
+        console.log('❌ Authentication failed - User not authorized or invalid Google token');
         res.status(401).json({
             success: false,
             message: 'Invalid Google token'
@@ -144,9 +152,11 @@ const googleTokenLogin = async (req, res, next) => {
 // Login controller with enhanced brute force protection
 const login = async (req, res, next) => {
     try {
-        // Accept both field names for compatibility
-        const { email, password, recaptchaToken, 'g-recaptcha-response': recaptchaResponse } = req.body;
+        // Accept both field names for compatibility (guard against undefined body)
+        const body = req.body || {};
+        const { email, password, recaptchaToken, 'g-recaptcha-response': recaptchaResponse } = body;
         const token = recaptchaToken || recaptchaResponse;
+        const isDevBypass = (process.env.BYPASS_RECAPTCHA === 'true') || (req.headers && req.headers['x-dev-bypass-recaptcha'] === 'true');
 
         // Validate input
         if (!email || !password) {
@@ -156,45 +166,49 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Verify reCAPTCHA
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please complete reCAPTCHA verification.'
-            });
-        }
-
-        try {
-            // Verify reCAPTCHA token with Google
-            console.log('Verifying reCAPTCHA token...');
-
-            const response = await axios({
-                method: 'POST',
-                url: 'https://www.google.com/recaptcha/api/siteverify',
-                params: {
-                    secret: process.env.RECAPTCHA_SECRET,
-                    response: token
-                }
-            });
-
-            console.log('reCAPTCHA verification response:', response.data);
-
-            if (!response.data.success) {
-                console.error('reCAPTCHA verification failed:', response.data['error-codes']);
+        // Verify reCAPTCHA (skip in dev bypass mode)
+        if (!isDevBypass) {
+            if (!token) {
                 return res.status(400).json({
                     success: false,
-                    message: 'reCAPTCHA verification failed. Please try again.'
+                    message: 'Please complete reCAPTCHA verification.'
                 });
             }
 
-            console.log('✅ reCAPTCHA verified successfully');
-        } catch (error) {
-            console.error('reCAPTCHA verification error:', error.message);
-            console.error('Error details:', error.response?.data);
-            return res.status(500).json({
-                success: false,
-                message: 'Error verifying reCAPTCHA. Please try again.'
-            });
+            try {
+                // Verify reCAPTCHA token with Google
+                console.log('Verifying reCAPTCHA token...');
+
+                const response = await axios({
+                    method: 'POST',
+                    url: 'https://www.google.com/recaptcha/api/siteverify',
+                    params: {
+                        secret: process.env.RECAPTCHA_SECRET,
+                        response: token
+                    }
+                });
+
+                console.log('reCAPTCHA verification response:', response.data);
+
+                if (!response.data.success) {
+                    console.error('reCAPTCHA verification failed:', response.data['error-codes']);
+                    return res.status(400).json({
+                        success: false,
+                        message: 'reCAPTCHA verification failed. Please try again.'
+                    });
+                }
+
+                console.log('✅ reCAPTCHA verified successfully');
+            } catch (error) {
+                console.error('reCAPTCHA verification error:', error.message);
+                console.error('Error details:', error.response?.data);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error verifying reCAPTCHA. Please try again.'
+                });
+            }
+        } else {
+            console.log('⚠️  reCAPTCHA verification bypassed (dev mode).');
         }
 
         // First check if user exists at all (regardless of active status)
@@ -362,6 +376,8 @@ const login = async (req, res, next) => {
 
 // Logout controller
 const logout = (req, res) => {
+    // Capture user before logout clears req.user
+    const userBeforeLogout = req.user ? { _id: req.user._id, email: req.user.email, department: req.user.department } : null;
     req.logout((err) => {
         if (err) {
             return res.status(500).json({
@@ -379,10 +395,10 @@ const logout = (req, res) => {
             }
 
             res.clearCookie('connect.sid');
-            // Audit logout (best-effort)
+            // Audit logout using captured user (best-effort)
             try {
-                if (req && req.user) {
-                    audit(req.user, 'logout', 'User Logout', `User ${req.user.email} logged out`, { timestamp: new Date() });
+                if (userBeforeLogout && userBeforeLogout._id) {
+                    audit(userBeforeLogout, 'logout', 'User Logout', `User ${userBeforeLogout.email} logged out`, { timestamp: new Date() });
                 }
             } catch (_) { }
             res.json({

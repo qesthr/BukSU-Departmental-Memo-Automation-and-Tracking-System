@@ -128,12 +128,7 @@ exports.renderInvitePage = async (req, res) => {
     const { token } = req.params;
     const user = await User.findOne({ inviteToken: token, inviteTokenUsed: { $ne: true } });
     if (!user || !user.inviteTokenExpires || user.inviteTokenExpires < new Date()) {
-      return res.status(400).render('login', {
-        showMessageModal: true,
-        modalTitle: 'Invalid Link',
-        modalMessage: 'Link is not valid any more',
-        modalType: 'error'
-      });
+      return res.status(400).render('invalid-invite', { message: 'This invitation link is invalid or has expired.', layout: false });
     }
     return res.render('invite-register', { user, token, layout: false });
   } catch (err) {
@@ -160,12 +155,7 @@ exports.completeInvite = async (req, res) => {
 
     const user = await User.findOne({ inviteToken: token, inviteTokenUsed: { $ne: true } });
     if (!user || !user.inviteTokenExpires || user.inviteTokenExpires < new Date()) {
-      return res.status(400).render('login', {
-        showMessageModal: true,
-        modalTitle: 'Invalid Link',
-        modalMessage: 'Link is not valid any more',
-        modalType: 'error'
-      });
+      return res.status(400).render('invalid-invite', { message: 'This invitation link is invalid or has expired.', layout: false });
     }
 
     // Set plain password - User model's pre-save hook will hash it automatically
