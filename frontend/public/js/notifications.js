@@ -290,6 +290,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // For memo notifications, use data attributes to identify them
             const isMemoNotification = notif.type === 'memo_received' || notif.type === 'memo_sent' || isCalendarEvent || notif.type === 'pending_memo';
 
+            // ALL notifications should have a memoId - use the notification's own ID if no memoId is provided
+            // This ensures all notifications can be opened in modals
+            const notificationMemoId = derivedMemoId || notif.id;
+
             // Format calendar event message for dropdown preview
             let displayMessage = notif.message || '';
             if (isCalendarEvent && notif.message) {
@@ -317,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return `
-                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${isMemoNotification ? (derivedMemoId || notif.id) : ''}" data-original-memo-id="${originalMemoId}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
+                <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${notificationMemoId}" data-original-memo-id="${originalMemoId}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
                     <div class="notification-icon">
                         <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
                     </div>
@@ -356,27 +360,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Mark as read
                 await markAsRead(id);
 
-                // For memo notifications, open modal (include pending_memo using original memo id)
-                if (memoId && (notificationType === 'memo_received' || notificationType === 'memo_sent' || notificationType === 'pending_memo')) {
-                    // For pending_memo notifications, use originalMemoId to fetch the actual pending memo
-                    const targetMemoId = (notificationType === 'pending_memo' && originalMemoId) ? originalMemoId : memoId;
+                // ALL notifications should open in modal - use the notification's own ID if no memoId
+                const targetMemoId = memoId || id;
+
+                // For pending_memo notifications, use originalMemoId to fetch the actual pending memo
+                const finalMemoId = (notificationType === 'pending_memo' && originalMemoId) ? originalMemoId : targetMemoId;
+
+                // eslint-disable-next-line no-console
+                console.log('Opening notification modal with ID:', finalMemoId, 'Type:', notificationType);
+
+                try {
+                    await openMemoModal(finalMemoId);
                     // eslint-disable-next-line no-console
-                    console.log('Opening memo modal with ID:', targetMemoId);
-                    try {
-                        await openMemoModal(targetMemoId);
-                        // eslint-disable-next-line no-console
-                        console.log('openMemoModal call completed');
-                    } catch (modalError) {
-                        // eslint-disable-next-line no-console
-                        console.error('Error in openMemoModal:', modalError);
-                        // Fallback to navigation
-                        window.location.href = `/admin/log?memo=${targetMemoId}`;
-                    }
-                } else {
-                    // For other notifications, navigate to log
+                    console.log('openMemoModal call completed');
+                } catch (modalError) {
                     // eslint-disable-next-line no-console
-                    console.log('Navigating to log page');
-                    window.location.href = '/admin/log';
+                    console.error('Error in openMemoModal:', modalError);
+                    // Fallback to navigation
+                    window.location.href = `/admin/log?memo=${finalMemoId}`;
                 }
             });
         });
