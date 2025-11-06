@@ -1413,6 +1413,88 @@
     overflow: visible; /* Ensure dropdown isn't clipped by ancestors */
 }
 
+/* Signatory section */
+#composeModal .signatory-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+
+#composeModal .signatory-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 8px 4px;
+    border: 1px dashed #e5e7eb;
+    border-radius: 8px;
+    min-height: 140px;
+    background: #fafafa;
+}
+
+#composeModal .signatory-signature {
+    width: 180px;
+    height: 60px;
+    object-fit: contain;
+}
+
+#composeModal .signatory-name { font-weight: 700; color: #111827; margin-top: 8px; }
+#composeModal .signatory-title { color: #6b7280; font-size: 13px; }
+
+/* Template dropdown radio buttons */
+#composeModal .template-checkbox {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+#composeModal .add-signature-btn:hover {
+    background: #e5e7eb !important;
+    border-color: #9ca3af !important;
+}
+
+/* In-modal preview overlay */
+#previewOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+#previewOverlay .preview-content {
+    background: #fff;
+    width: 90vw;
+    max-width: 900px;
+    height: 85vh;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#previewOverlay .close-preview {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #6b7280;
+    cursor: pointer;
+    z-index: 1;
+}
+
+#previewOverlay #previewFrame {
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
 .dept-checkbox-label {
     display: flex;
     align-items: center;
