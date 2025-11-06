@@ -47,7 +47,7 @@ async function createBySecretary({ user, payload }) {
 
 async function approve({ memoId, adminUser }) {
   const memo = await Memo.findById(memoId);
-  if (!memo) throw new Error('Memo not found');
+  if (!memo) {throw new Error('Memo not found');}
   // Mark approval in history; avoid setting a status not allowed by schema
   await appendHistory(memo, adminUser, 'approved');
   await notifySecretary({ memo, actor: adminUser, action: 'approved' });
@@ -85,7 +85,7 @@ async function approve({ memoId, adminUser }) {
 
 async function reject({ memoId, adminUser, reason }) {
   const memo = await Memo.findById(memoId);
-  if (!memo) throw new Error('Memo not found');
+  if (!memo) {throw new Error('Memo not found');}
   // Record rejection and keep the record
   await appendHistory(memo, adminUser, 'rejected', reason);
   await notifySecretary({ memo, actor: adminUser, action: 'rejected', reason });

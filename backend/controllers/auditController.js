@@ -25,7 +25,7 @@ exports.getLogById = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden' });
         }
         const log = await AuditLog.findById(req.params.id).lean();
-        if (!log) return res.status(404).json({ success: false, message: 'Not found' });
+        if (!log) {return res.status(404).json({ success: false, message: 'Not found' });}
         res.json({ success: true, log });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Server error' });
@@ -38,7 +38,7 @@ exports.deleteLog = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden' });
         }
         const result = await AuditLog.findByIdAndDelete(req.params.id);
-        if (!result) return res.status(404).json({ success: false, message: 'Not found' });
+        if (!result) {return res.status(404).json({ success: false, message: 'Not found' });}
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Server error' });

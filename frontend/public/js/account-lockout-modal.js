@@ -1,5 +1,5 @@
 // Account Lockout Modal JavaScript
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('Account lockout modal script loaded');
 
     const accountLockoutModal = document.getElementById('accountLockoutModal');
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Start countdown timer
     function startCountdownTimer(minutes) {
-        let totalSeconds = minutes * 60;
+        const totalSeconds = minutes * 60;
         let remainingSeconds = totalSeconds;
 
         // Update timer display
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Close modal when clicking outside
-    accountLockoutModal.addEventListener('click', function(e) {
+    accountLockoutModal.addEventListener('click', (e) => {
         if (e.target === accountLockoutModal) {
             closeAccountLockoutModal();
         }

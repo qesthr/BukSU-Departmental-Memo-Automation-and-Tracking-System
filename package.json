@@ -38,13 +38,6 @@
     "express": "^5.1.0",
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.2",
-<<<<<<< HEAD
-    "google-auth-library": "^10.4.1",
-    "googleapis": "^164.1.0",
-    "helmet": "^8.1.0",
-    "mongodb": "^6.20.0",
-    "mongoose": "^8.19.2",
-=======
     "google-auth-library": "^10.4.2",
     "googleapis": "^164.1.0",
     "helmet": "^8.1.0",
@@ -52,7 +45,6 @@
     "mongoose": "^8.19.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
->>>>>>> 24a06b666f6b0504be8e4daa1ac7cad27a20491d
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",

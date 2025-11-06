@@ -58,7 +58,7 @@
   let departmentsList = [];
 
   function normalizeDate(dateValue) {
-    if (!dateValue) return '';
+    if (!dateValue) {return '';}
     // If it's already in yyyy-MM-dd format, return as is
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       return dateValue;
@@ -66,7 +66,7 @@
     // Otherwise, try to extract just the date part
     try {
       const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return '';
+      if (isNaN(date.getTime())) {return '';}
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -84,8 +84,8 @@
       dateInput.value = normalizeDate(preset.date || '');
       startInput.value = preset.start || '';
       endInput.value = preset.end || '';
-      if (preset.description !== undefined) descInput.value = preset.description || '';
-      if (preset.category) categorySelect.value = preset.category;
+      if (preset.description !== undefined) {descInput.value = preset.description || '';}
+      if (preset.category) {categorySelect.value = preset.category;}
       // Set participants if editing
       if (preset.participants) {
         try {
@@ -122,9 +122,9 @@
     } else {
       // Clear all fields for new event
       participantsData = { departments: [], emails: [] };
-      if (descInput) descInput.value = '';
-      if (categorySelect) categorySelect.value = 'standard';
-      if (participantEmailInput) participantEmailInput.value = '';
+      if (descInput) {descInput.value = '';}
+      if (categorySelect) {categorySelect.value = 'standard';}
+      if (participantEmailInput) {participantEmailInput.value = '';}
     }
     renderParticipantsChips();
     renderDepartmentDropdown();
@@ -133,53 +133,53 @@
         editingSourceInput.value = preset.source || '';
         editingIdInput.value = preset.id || '';
         // Only show delete button if user is creator (backend events only)
-        if (deleteBtn) deleteBtn.style.display = (preset.source === 'backend' && preset.edit === true) ? 'block' : 'none';
+        if (deleteBtn) {deleteBtn.style.display = (preset.source === 'backend' && preset.edit === true) ? 'block' : 'none';}
 
         // Disable all form fields if user is NOT the creator (read-only mode)
         const isReadOnly = preset.edit === false;
         if (isReadOnly) {
-          if (titleInput) titleInput.disabled = true;
-          if (dateInput) dateInput.disabled = true;
-          if (startInput) startInput.disabled = true;
-          if (endInput) endInput.disabled = true;
-          if (categorySelect) categorySelect.disabled = true;
-          if (descInput) descInput.disabled = true;
-          if (allDayCheckbox) allDayCheckbox.disabled = true;
-          if (participantEmailInput) participantEmailInput.disabled = true;
-          if (selectDepartmentBtn) selectDepartmentBtn.disabled = true;
+          if (titleInput) {titleInput.disabled = true;}
+          if (dateInput) {dateInput.disabled = true;}
+          if (startInput) {startInput.disabled = true;}
+          if (endInput) {endInput.disabled = true;}
+          if (categorySelect) {categorySelect.disabled = true;}
+          if (descInput) {descInput.disabled = true;}
+          if (allDayCheckbox) {allDayCheckbox.disabled = true;}
+          if (participantEmailInput) {participantEmailInput.disabled = true;}
+          if (selectDepartmentBtn) {selectDepartmentBtn.disabled = true;}
           // Hide form submit button or make it read-only
           const submitBtn = form.querySelector('button[type="submit"]');
-          if (submitBtn) submitBtn.style.display = 'none';
+          if (submitBtn) {submitBtn.style.display = 'none';}
         } else {
           // Enable all fields if user is creator
-          if (titleInput) titleInput.disabled = false;
-          if (dateInput) dateInput.disabled = false;
-          if (startInput) startInput.disabled = false;
-          if (endInput) endInput.disabled = false;
-          if (categorySelect) categorySelect.disabled = false;
-          if (descInput) descInput.disabled = false;
-          if (allDayCheckbox) allDayCheckbox.disabled = false;
-          if (participantEmailInput) participantEmailInput.disabled = false;
-          if (selectDepartmentBtn) selectDepartmentBtn.disabled = false;
+          if (titleInput) {titleInput.disabled = false;}
+          if (dateInput) {dateInput.disabled = false;}
+          if (startInput) {startInput.disabled = false;}
+          if (endInput) {endInput.disabled = false;}
+          if (categorySelect) {categorySelect.disabled = false;}
+          if (descInput) {descInput.disabled = false;}
+          if (allDayCheckbox) {allDayCheckbox.disabled = false;}
+          if (participantEmailInput) {participantEmailInput.disabled = false;}
+          if (selectDepartmentBtn) {selectDepartmentBtn.disabled = false;}
           const submitBtn = form.querySelector('button[type="submit"]');
-          if (submitBtn) submitBtn.style.display = 'block';
+          if (submitBtn) {submitBtn.style.display = 'block';}
         }
       } else {
         editingSourceInput.value = '';
         editingIdInput.value = '';
-        if (deleteBtn) deleteBtn.style.display = 'none';
+        if (deleteBtn) {deleteBtn.style.display = 'none';}
         // Enable all fields for new events
-        if (titleInput) titleInput.disabled = false;
-        if (dateInput) dateInput.disabled = false;
-        if (startInput) startInput.disabled = false;
-        if (endInput) endInput.disabled = false;
-        if (categorySelect) categorySelect.disabled = false;
-        if (descInput) descInput.disabled = false;
-        if (allDayCheckbox) allDayCheckbox.disabled = false;
-        if (participantEmailInput) participantEmailInput.disabled = false;
-        if (selectDepartmentBtn) selectDepartmentBtn.disabled = false;
+        if (titleInput) {titleInput.disabled = false;}
+        if (dateInput) {dateInput.disabled = false;}
+        if (startInput) {startInput.disabled = false;}
+        if (endInput) {endInput.disabled = false;}
+        if (categorySelect) {categorySelect.disabled = false;}
+        if (descInput) {descInput.disabled = false;}
+        if (allDayCheckbox) {allDayCheckbox.disabled = false;}
+        if (participantEmailInput) {participantEmailInput.disabled = false;}
+        if (selectDepartmentBtn) {selectDepartmentBtn.disabled = false;}
         const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.style.display = 'block';
+        if (submitBtn) {submitBtn.style.display = 'block';}
       }
       modal.style.display = 'grid';
   }
@@ -197,7 +197,7 @@
   }
 
   function formatEventTime(dateStr) {
-    if (!dateStr) return '';
+    if (!dateStr) {return '';}
     const date = new Date(dateStr);
     const hours = date.getHours();
     const minutes = date.getMinutes();
@@ -213,7 +213,7 @@
   // Define custom buttons
   const customButtons = {};
   let leftButtons = 'title';
-  let rightButtons = ''; // No view toggles - only day view
+  const rightButtons = ''; // No view toggles - only day view
 
   if (isCalendarConnected) {
     customButtons.addEventBtn = {
@@ -568,7 +568,7 @@
 
         // Helper to format HH:MM
         const toTime = (dStr) => {
-          if (!dStr) return '';
+          if (!dStr) {return '';}
           const d = new Date(dStr);
           const h = String(d.getHours()).padStart(2, '0');
           const m = String(d.getMinutes()).padStart(2, '0');
@@ -612,7 +612,7 @@
   }
 
   function getEventsForDate(date) {
-    if (!miniCalendarEvents || miniCalendarEvents.length === 0) return [];
+    if (!miniCalendarEvents || miniCalendarEvents.length === 0) {return [];}
     const dateStr = date.toISOString().split('T')[0];
     return miniCalendarEvents.filter(event => {
       const eventDate = new Date(event.start);
@@ -643,7 +643,7 @@
 
   // Function to scroll to first event time
   function scrollToFirstEventTime(date, events) {
-    if (!events || events.length === 0) return;
+    if (!events || events.length === 0) {return;}
 
     // Get the earliest event time for the date
     const dateStr = date.toISOString().split('T')[0];
@@ -929,7 +929,7 @@
   }
 
   function renderDepartmentDropdown() {
-    if (!departmentList) return;
+    if (!departmentList) {return;}
     departmentList.innerHTML = '';
     departmentsList.forEach(dept => {
       const item = document.createElement('div');
@@ -1061,7 +1061,7 @@
   }
 
   function renderParticipantsChips() {
-    if (!participantsChipsContainer) return;
+    if (!participantsChipsContainer) {return;}
     participantsChipsContainer.innerHTML = '';
 
     // Render departments
@@ -1162,7 +1162,7 @@
     const successMessage = document.getElementById('successMessage');
 
     function showSuccessModal(message, type = 'loading') {
-      if (!successModal) return;
+      if (!successModal) {return;}
       successModal.style.display = 'flex';
       successLoader.style.display = type === 'loading' ? 'block' : 'none';
       successCheck.style.display = type === 'success' ? 'block' : 'none';

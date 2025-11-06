@@ -4,7 +4,7 @@ const AuditLog = require('../models/AuditLog');
 // Memo.activityType has a strict enum; normalize to 'user_activity' and include original type in metadata
 async function audit(user, activityType, subject, content, metadata = {}) {
 	try {
-		if (!user || !user._id) return;
+		if (!user || !user._id) {return;}
 		await AuditLog.create({
 			user: user._id,
 			email: user.email,

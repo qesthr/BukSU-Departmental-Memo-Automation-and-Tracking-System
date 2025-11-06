@@ -121,7 +121,7 @@ function setupPasswordModal() {
 
     form.onsubmit = async (e) => {
         e.preventDefault();
-        
+
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
@@ -161,7 +161,7 @@ async function checkPasswordStatus() {
     try {
         const response = await fetch('/api/password/has-password');
         const data = await response.json();
-        
+
         if (response.ok && !data.hasPassword) {
             // Show password setup prompt for Google OAuth users
             const modal = setupPasswordModal();

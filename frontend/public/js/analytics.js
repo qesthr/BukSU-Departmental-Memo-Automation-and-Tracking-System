@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAnalytics();
 });
 
-let analyticsData = {
+const analyticsData = {
     isConnected: false,
     propertyId: null,
     dateRange: 30
@@ -75,11 +75,11 @@ function updateConnectionStatus(connected, message) {
         if (connected) {
             statusDot.classList.add('connected');
             statusText.textContent = `Connected${analyticsData.propertyId ? ` (${analyticsData.propertyId})` : ''}`;
-            if (connectBtn) connectBtn.style.display = 'none';
+            if (connectBtn) {connectBtn.style.display = 'none';}
         } else {
             statusDot.classList.add('error');
             statusText.textContent = message || 'Not connected';
-            if (connectBtn) connectBtn.style.display = 'inline-flex';
+            if (connectBtn) {connectBtn.style.display = 'inline-flex';}
         }
     }
 }
@@ -853,7 +853,7 @@ async function loadRecentActivity() {
  */
 function displayRecentActivity(activities) {
     const tbody = document.getElementById('activityTableBody');
-    if (!tbody) return;
+    if (!tbody) {return;}
 
     if (!activities || activities.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading-state">No activity found</td></tr>';
@@ -894,7 +894,7 @@ async function handleExport() {
         if (exportBtn) {
             exportBtn.disabled = true;
             const span = exportBtn.querySelector('span');
-            if (span) span.textContent = 'Generating PDF...';
+            if (span) {span.textContent = 'Generating PDF...';}
         }
 
         // Generate PDF
@@ -930,7 +930,7 @@ async function handleExport() {
             if (exportBtn) {
                 exportBtn.disabled = false;
                 const span = exportBtn.querySelector('span');
-                if (span && originalText) span.textContent = originalText;
+                if (span && originalText) {span.textContent = originalText;}
             }
         }, 1000);
 
@@ -943,7 +943,7 @@ async function handleExport() {
         if (exportBtn) {
             exportBtn.disabled = false;
             const span = exportBtn.querySelector('span');
-            if (span) span.textContent = 'Export Report';
+            if (span) {span.textContent = 'Export Report';}
         }
     }
 }

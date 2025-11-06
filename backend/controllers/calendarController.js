@@ -36,7 +36,7 @@ exports.list = async (req, res, next) => {
 
         // Build query filters - query at database level for better performance
         const filters = {};
-        if (category) filters.category = category;
+        if (category) {filters.category = category;}
 
         // Use MongoDB query to filter by creator OR participants at database level
         // This is more efficient than fetching all and filtering in memory
@@ -301,7 +301,7 @@ exports.update = async (req, res, next) => {
     try {
         // Get the original event first to check permissions
         const originalEvent = await CalendarEvent.findById(req.params.id);
-        if (!originalEvent) return res.status(404).json({ message: 'Event not found' });
+        if (!originalEvent) {return res.status(404).json({ message: 'Event not found' });}
 
         // Check if user is the creator
         const userId = req.user._id.toString();
@@ -314,11 +314,11 @@ exports.update = async (req, res, next) => {
         }
 
         const updates = { ...req.body };
-        if (updates.start) updates.start = new Date(updates.start);
-        if (updates.end) updates.end = new Date(updates.end);
+        if (updates.start) {updates.start = new Date(updates.start);}
+        if (updates.end) {updates.end = new Date(updates.end);}
 
         const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         // Update participant notifications if event details changed
         const shouldUpdateNotifications =
@@ -346,11 +346,11 @@ exports.update = async (req, res, next) => {
 exports.updateTime = async (req, res, next) => {
     try {
         const { start, end } = req.body;
-        if (!start || !end) return res.status(400).json({ message: 'start and end are required' });
+        if (!start || !end) {return res.status(400).json({ message: 'start and end are required' });}
 
         // Check if user is the creator
         const event = await CalendarEvent.findById(req.params.id);
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         const userId = req.user._id.toString();
         const creatorId = event.createdBy ?
@@ -375,7 +375,7 @@ exports.updateTime = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
     try {
         const event = await CalendarEvent.findById(req.params.id);
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         // Check if user is the creator
         const userId = req.user._id.toString();

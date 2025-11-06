@@ -1,5 +1,5 @@
 // Reset Password Page JavaScript
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('Reset password page loaded');
 
     const resetPasswordForm = document.getElementById('resetPasswordForm');
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission
-    resetPasswordForm.addEventListener('submit', async function(e) {
+    resetPasswordForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const newPassword = newPasswordInput.value.trim();
@@ -76,12 +76,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Password strength calculation
     function getPasswordStrength(password) {
         let strength = 0;
-        if (password.length >= 6) strength++;
-        if (password.length >= 8) strength++;
-        if (/[A-Z]/.test(password)) strength++;
-        if (/[a-z]/.test(password)) strength++;
-        if (/[0-9]/.test(password)) strength++;
-        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        if (password.length >= 6) {strength++;}
+        if (password.length >= 8) {strength++;}
+        if (/[A-Z]/.test(password)) {strength++;}
+        if (/[a-z]/.test(password)) {strength++;}
+        if (/[0-9]/.test(password)) {strength++;}
+        if (/[^A-Za-z0-9]/.test(password)) {strength++;}
         return strength;
     }
 
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
             existingIndicator.remove();
         }
 
-        if (strength === 0) return;
+        if (strength === 0) {return;}
 
         const indicator = document.createElement('div');
         indicator.className = 'password-strength';

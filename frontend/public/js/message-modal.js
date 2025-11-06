@@ -1,5 +1,5 @@
 // Generic Message Modal JavaScript
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('Message modal script loaded');
 
     const messageModal = document.getElementById('messageModal');
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Close modal when clicking outside
     if (messageModal) {
-        messageModal.addEventListener('click', function(e) {
+        messageModal.addEventListener('click', (e) => {
             if (e.target === messageModal) {
                 closeMessageModal();
             }
@@ -87,10 +87,10 @@ document.addEventListener('DOMContentLoaded', function() {
     window.showMessageModal = function(title, message, type) {
         console.log('showMessageModal called with:', { title, message, type });
 
-        var modal = document.getElementById('messageModal');
-        var modalTitle = document.getElementById('messageModalTitle');
-        var modalBody = document.getElementById('messageText');
-        var iconDiv = document.getElementById('messageIcon');
+        const modal = document.getElementById('messageModal');
+        const modalTitle = document.getElementById('messageModalTitle');
+        const modalBody = document.getElementById('messageText');
+        const iconDiv = document.getElementById('messageIcon');
 
         // Check if elements exist
         if (!modal || !modalTitle || !modalBody || !iconDiv) {

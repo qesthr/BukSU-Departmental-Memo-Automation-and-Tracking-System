@@ -310,15 +310,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     let categoryStr = '';
 
                     lines.forEach(line => {
-                        if (line.startsWith('Date:')) dateStr = line.replace('Date:', '').trim();
-                        if (line.startsWith('Time:')) timeStr = line.replace('Time:', '').trim();
-                        if (line.startsWith('Category:')) categoryStr = line.replace('Category:', '').trim();
+                        if (line.startsWith('Date:')) {dateStr = line.replace('Date:', '').trim();}
+                        if (line.startsWith('Time:')) {timeStr = line.replace('Time:', '').trim();}
+                        if (line.startsWith('Category:')) {categoryStr = line.replace('Category:', '').trim();}
                     });
 
                     // Create a clean preview message
                     displayMessage = `📅 ${title}`;
-                    if (dateStr) displayMessage += ` • ${dateStr}`;
-                    if (timeStr) displayMessage += ` • ${timeStr}`;
+                    if (dateStr) {displayMessage += ` • ${dateStr}`;}
+                    if (timeStr) {displayMessage += ` • ${timeStr}`;}
                 }
             }
 
@@ -390,10 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function openAuditLogModal(auditId){
-        if (!auditId) return;
+        if (!auditId) {return;}
         const res = await fetch(`/api/audit/logs/${auditId}`, { credentials: 'same-origin' });
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error('Failed to load audit log');
+        if (!res.ok || !data.success) {throw new Error('Failed to load audit log');}
         const log = data.log;
         const memoLike = {
             _id: log._id,
@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             metadata: { userEmail: log.email, isAuditLog: true }
         };
         let memoModal = document.getElementById('notificationMemoModal');
-        if (!memoModal) memoModal = createMemoModal();
+        if (!memoModal) {memoModal = createMemoModal();}
         populateMemoModal(memoLike, memoModal);
         memoModal.style.setProperty('display', 'flex', 'important');
         memoModal.style.setProperty('visibility', 'visible', 'important');
@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isUserLog) {
                 // User log format: professional, branded
                 const titleEl = modal.querySelector('.notification-memo-header h2');
-                if (titleEl) titleEl.textContent = 'User Log';
+                if (titleEl) {titleEl.textContent = 'User Log';}
                 const email = memo.sender?.email || memo.metadata?.userEmail || '(unknown)';
                 const dt = memo.createdAt ? new Date(memo.createdAt) : null;
                 const when = dt ? dt.toLocaleString() : '';
@@ -801,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const timeOnly = dt ? dt.toLocaleTimeString() : '';
                 const safe = (s) => String(s || '')
                     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-                let body = memo.content && memo.content.trim() ? safe(memo.content) : `User ${safe(email)} activity recorded.`;
+                const body = memo.content && memo.content.trim() ? safe(memo.content) : `User ${safe(email)} activity recorded.`;
                 htmlContent += `
                     <div style="text-align:center;margin-top:6px;">
                         <img src="/images/memofy-logo.png" alt="Memofy" style="width:48px;height:48px;opacity:.95;" />
@@ -842,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Helper function to format file size
                     function formatFileSize(bytes) {
-                        if (!bytes || bytes === 0) return '0 B';
+                        if (!bytes || bytes === 0) {return '0 B';}
                         const k = 1024;
                         const sizes = ['B', 'KB', 'MB', 'GB'];
                         const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -886,10 +886,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sp = modal.querySelector('#naoSpinner');
                     const ck = modal.querySelector('#naoCheck');
                     const tx = modal.querySelector('#naoText');
-                    if (!overlay) return;
-                    if (tx) tx.textContent = text || 'Processing...';
-                    if (sp) sp.style.display = 'block';
-                    if (ck) ck.style.display = 'none';
+                    if (!overlay) {return;}
+                    if (tx) {tx.textContent = text || 'Processing...';}
+                    if (sp) {sp.style.display = 'block';}
+                    if (ck) {ck.style.display = 'none';}
                     overlay.style.display = 'flex';
                 }
                 function showActionOverlaySuccess(text){
@@ -897,10 +897,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sp = modal.querySelector('#naoSpinner');
                     const ck = modal.querySelector('#naoCheck');
                     const tx = modal.querySelector('#naoText');
-                    if (!overlay) return;
-                    if (sp) sp.style.display = 'none';
-                    if (ck) ck.style.display = 'block';
-                    if (tx) tx.textContent = text || 'Done';
+                    if (!overlay) {return;}
+                    if (sp) {sp.style.display = 'none';}
+                    if (ck) {ck.style.display = 'block';}
+                    if (tx) {tx.textContent = text || 'Done';}
                     overlay.style.display = 'flex';
                 }
                 const statusStr = (memo.status || '').toString();
@@ -929,10 +929,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const sp = modal.querySelector('#naoSpinner');
                         const ck = modal.querySelector('#naoCheck');
                         const tx = modal.querySelector('#naoText');
-                        if (!overlay) return;
-                        if (tx) tx.textContent = text || 'Processing...';
-                        if (sp) sp.style.display = 'block';
-                        if (ck) ck.style.display = 'none';
+                        if (!overlay) {return;}
+                        if (tx) {tx.textContent = text || 'Processing...';}
+                        if (sp) {sp.style.display = 'block';}
+                        if (ck) {ck.style.display = 'none';}
                         overlay.style.display = 'flex';
                     }
                     function showOverlaySuccess(text){
@@ -940,10 +940,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const sp = modal.querySelector('#naoSpinner');
                         const ck = modal.querySelector('#naoCheck');
                         const tx = modal.querySelector('#naoText');
-                        if (!overlay) return;
-                        if (sp) sp.style.display = 'none';
-                        if (ck) ck.style.display = 'block';
-                        if (tx) tx.textContent = text || 'Done';
+                        if (!overlay) {return;}
+                        if (sp) {sp.style.display = 'none';}
+                        if (ck) {ck.style.display = 'block';}
+                        if (tx) {tx.textContent = text || 'Done';}
                         overlay.style.display = 'flex';
                     }
 
@@ -956,11 +956,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             showOverlay('Rejecting...');
                             const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }), credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
-                            if (!res.ok) throw new Error(data.message || 'Failed to reject');
+                            if (!res.ok) {throw new Error(data.message || 'Failed to reject');}
                             showOverlaySuccess('Rejected');
                             // Remove notification item immediately
                             const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
                             setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
                         } catch (err) {
                             alert(err?.message || 'Failed to reject');
@@ -972,10 +972,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             showOverlay('Approving...');
                             const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
-                            if (!res.ok) throw new Error(data.message || 'Failed to approve');
+                            if (!res.ok) {throw new Error(data.message || 'Failed to approve');}
                             showOverlaySuccess('Approved');
                             const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
                             setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
                         } catch (err) {
                             alert(err?.message || 'Failed to approve');
@@ -996,11 +996,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             await new Promise(r => setTimeout(r, 500));
                             const endpoint = (memo.metadata && memo.metadata.isAuditLog) ? `/api/audit/logs/${memo._id}` : `/api/log/memos/${memo._id}`;
                             const res = await fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' });
-                            if (!res.ok) throw new Error('Failed to delete');
+                            if (!res.ok) {throw new Error('Failed to delete');}
                             showActionOverlaySuccess('Deleted');
                             // Remove from list if it exists in dropdown
                             const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
                             setTimeout(() => { closeMemoModal(); fetchNotifications && fetchNotifications(); }, 600);
                         } catch (err) {
                             alert(err?.message || 'Delete failed');

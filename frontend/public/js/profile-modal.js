@@ -101,8 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update nav profile display (check if elements exist)
                 const navProfileName = document.getElementById('navProfileName');
                 const navProfileEmail = document.getElementById('navProfileEmail');
-                if (navProfileName) navProfileName.textContent = `${firstName} ${lastName}`;
-                if (navProfileEmail) navProfileEmail.textContent = email;
+                if (navProfileName) {navProfileName.textContent = `${firstName} ${lastName}`;}
+                if (navProfileEmail) {navProfileEmail.textContent = email;}
 
                 // If profile picture was changed
                 const fileInput = document.getElementById('profilePictureInput');

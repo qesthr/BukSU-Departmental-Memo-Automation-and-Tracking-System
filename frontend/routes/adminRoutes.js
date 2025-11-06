@@ -1,16 +1,5 @@
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
-
-router.get('/dashboard', (req, res) => {
-    res.render('admin/dashboard', {
-        admin: { name: 'Queen' },
-        stats: { totalMemos: 12, pending: 3, departments: 4, users: 20, acknowledged: 9, delivered: 12 },
-        logs: [
-            { time: '2025-10-22 14:00', user: 'RJ Larida', action: 'Created Memo', details: 'Faculty Meeting' },
-            { time: '2025-10-22 14:30', user: 'Queen', action: 'Added User', details: 'New secretary account' },
-        ],
-=======
 const isAuthenticated = require('../../backend/middleware/isAuthenticated');
 const isAdmin = require('../../backend/middleware/isAdmin');
 
@@ -77,7 +66,6 @@ router.get('/report', [isAuthenticated, isAdmin], (req, res) => {
     res.render('admin/report', {
         user: req.user,
         path: '/report'
->>>>>>> 24a06b666f6b0504be8e4daa1ac7cad27a20491d
     });
 });
 

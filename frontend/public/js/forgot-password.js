@@ -1,5 +1,5 @@
 // Forgot Password Form Handling
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
     // Forgot Password Form
     const forgotForm = document.getElementById('forgotForm');
     if (forgotForm) {
