@@ -52,3 +52,21 @@ out/
 temp/
 *.tmp
 
+# Uploaded files
+
+
+# Local utility/test scripts (not used at runtime)
+backend/scripts/
+backend/test-scripts/
+
+# Local docs, analysis, and reports that don't affect runtime
+docs/ANALYSIS_SUMMARY.md
+docs/CODE_ANALYSIS.md
+docs/ESLINT_REPORT.md
+docs/QUICK_FIX.md
+docs/TEST_GDRIVE.md
+docs/TROUBLESHOOTING_PDF_UPLOAD.md
+
+# Local editor/workbench test files at repo root
+test-email.js
+

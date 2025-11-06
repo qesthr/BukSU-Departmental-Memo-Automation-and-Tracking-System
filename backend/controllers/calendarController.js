@@ -1,0 +1,655 @@
+const mongoose = require('mongoose');
+const CalendarEvent = require('../models/CalendarEvent');
+const User = require('../models/User');
+const Memo = require('../models/Memo');
+
+exports.list = async (req, res, next) => {
+    try {
+        // Validate user is authenticated
+        if (!req.user || !req.user._id) {
+            console.error('❌ CRITICAL: req.user is missing or invalid!', {
+                hasUser: !!req.user,
+                hasId: req.user?._id
+            });
+            return res.status(401).json({ message: 'Unauthorized: User not found' });
+        }
+
+        const { start, end, category, onlyCreatedByMe } = req.query;
+        if (!start || !end) {
+            return res.status(400).json({ message: 'start and end are required ISO dates' });
+        }
+        const rangeStart = new Date(start);
+        const rangeEnd = new Date(end);
+
+        // Filter events to show only:
+        // 1. Events created by the current user, OR
+        // 2. Events where the user is a participant (by department or email)
+        const userId = req.user._id;
+        const userEmail = (req.user.email || '').toLowerCase().trim();
+        const userDepartment = req.user.department || '';
+
+        console.log('\n🔍 ===== CALENDAR EVENT FILTERING =====');
+        console.log(`👤 User: ${req.user.email}`);
+        console.log(`📋 User ID: ${userId} (type: ${typeof userId})`);
+        console.log(`🏢 User Department: ${userDepartment}`);
+        console.log(`📅 Date Range: ${start} to ${end}`);
+
+        // Build query filters - query at database level for better performance
+        const filters = {};
+        if (category) filters.category = category;
+
+        // Use MongoDB query to filter by creator OR participants at database level
+        // This is more efficient than fetching all and filtering in memory
+        const allEvents = await CalendarEvent.findInRange(rangeStart, rangeEnd, filters).lean();
+        console.log(`📊 Total events in DB for range: ${allEvents.length}`);
+
+        if (allEvents.length > 0) {
+            console.log('📅 Events in DB:');
+            allEvents.forEach((e, idx) => {
+                console.log(`  ${idx + 1}. "${e.title}" - CreatedBy: ${e.createdBy} (type: ${typeof e.createdBy}), Participants:`, JSON.stringify(e.participants));
+            });
+        }
+
+        console.log(`📋 Total events before filtering: ${allEvents.length}`);
+
+        const filteredEvents = allEvents.filter(event => {
+            // Show if user created the event (handle both ObjectId and string)
+            // Convert createdBy to string reliably - handle all cases
+            let eventCreatorId = null;
+
+            if (event.createdBy) {
+                // Handle different formats of createdBy
+                if (event.createdBy instanceof mongoose.Types.ObjectId) {
+                    eventCreatorId = event.createdBy.toString();
+                } else if (typeof event.createdBy === 'object' && event.createdBy.toString) {
+                    eventCreatorId = event.createdBy.toString();
+                } else if (typeof event.createdBy === 'string') {
+                    eventCreatorId = event.createdBy;
+                } else {
+                    eventCreatorId = String(event.createdBy);
+                }
+            }
+
+            // Convert both IDs to strings for comparison
+            const creatorIdStr = eventCreatorId || null;
+            const userIdStr = userId ? String(userId) : null;
+
+            // Use both ObjectId.equals() and string comparison for reliability
+            let isCreator = false;
+
+            if (creatorIdStr && userIdStr) {
+                try {
+                    // Try ObjectId comparison first (most reliable)
+                    if (creatorIdStr.length === 24 && userIdStr.length === 24) {
+                        // Both look like ObjectId strings
+                        const creatorObjId = new mongoose.Types.ObjectId(creatorIdStr);
+                        const userObjId = new mongoose.Types.ObjectId(userIdStr);
+                        isCreator = creatorObjId.equals(userObjId);
+
+                        if (!isCreator) {
+                            // Also try direct string comparison as fallback
+                            isCreator = creatorIdStr === userIdStr;
+                        }
+                    } else {
+                        // Use string comparison if not ObjectId format
+                        isCreator = creatorIdStr === userIdStr;
+                    }
+                } catch (e) {
+                    // Fallback to string comparison if ObjectId conversion fails
+                    isCreator = creatorIdStr === userIdStr;
+                    console.log(`⚠️ Error in ObjectId comparison, using string: ${e.message}`);
+                }
+            }
+
+            console.log(`🔍 Event "${event.title}":`);
+            console.log(`   CreatedBy (raw): ${JSON.stringify(event.createdBy)}`);
+            console.log(`   CreatedBy (str): ${creatorIdStr}`);
+            console.log(`   Current User ID: ${userIdStr}`);
+            console.log(`   Match: ${isCreator}`);
+
+            if (isCreator) {
+                console.log(`   ✅ SHOWN - User is creator`);
+                return true;
+            }
+
+            // If onlyCreatedByMe flag is set, hide non-creator events
+            if (onlyCreatedByMe === '1' || onlyCreatedByMe === 'true') {
+                console.log('   ❌ FILTERED OUT - onlyCreatedByMe flag set, user is not the creator');
+                return false;
+            }
+
+            // Check if user is a participant
+            // IMPORTANT: If user is NOT the creator, they must be explicitly added as a participant
+            const participants = event.participants || {};
+
+            console.log(`   📋 Checking participants for event "${event.title}":`, JSON.stringify(participants));
+
+            // Handle new format {departments: [], emails: []}
+            if (participants && typeof participants === 'object' && !Array.isArray(participants)) {
+                const departments = Array.isArray(participants.departments) ? participants.departments : [];
+                const emails = Array.isArray(participants.emails) ? participants.emails.map(e => e.toLowerCase().trim()) : [];
+
+                console.log(`   📋 Participant departments: ${JSON.stringify(departments)}, emails: ${JSON.stringify(emails)}`);
+                console.log(`   👤 User department: "${userDepartment}", email: "${userEmail}"`);
+
+                // If event has NO participants at all, ONLY creator can see it - filter out immediately
+                if (departments.length === 0 && emails.length === 0) {
+                    console.log(`   ❌ FILTERED OUT - Event has no participants, only creator can see it`);
+                    return false;
+                }
+
+                // Check if user's department matches
+                if (userDepartment && departments.length > 0 && departments.some(dept => dept === userDepartment)) {
+                    console.log(`   ✅ SHOWN - User's department "${userDepartment}" matches participant departments`);
+                    return true;
+                }
+
+                // Check if user's email matches
+                if (userEmail && emails.length > 0 && emails.includes(userEmail)) {
+                    console.log(`   ✅ SHOWN - User's email "${userEmail}" matches participant emails`);
+                    return true;
+                }
+
+                console.log(`   ❌ FILTERED OUT - User is not creator and not in participants`);
+                return false;
+            }
+            // Handle legacy format (array of department strings)
+            else if (Array.isArray(event.participants)) {
+                const departments = event.participants.filter(d => typeof d === 'string');
+
+                console.log(`   📋 Participant departments (legacy): ${JSON.stringify(departments)}`);
+
+                // If event has NO participants, ONLY creator can see it - filter out immediately
+                if (departments.length === 0) {
+                    console.log(`   ❌ FILTERED OUT - Event has no participants (legacy format), only creator can see it`);
+                    return false;
+                }
+
+                if (userDepartment && departments.includes(userDepartment)) {
+                    console.log(`   ✅ SHOWN - User's department "${userDepartment}" matches participant departments (legacy)`);
+                    return true;
+                }
+
+                console.log(`   ❌ FILTERED OUT - User is not creator and department "${userDepartment}" not in participant departments`);
+                return false;
+            } else {
+                // Invalid or empty participants format - only creator can see it
+                console.log(`   ❌ FILTERED OUT - Invalid participants format or no participants, only creator can see it`);
+                return false;
+            }
+        });
+
+        console.log(`✅ Filtered events count: ${filteredEvents.length} (after filtering for user ${req.user.email})`);
+        console.log(`📋 Events shown:`, filteredEvents.map(e => `"${e.title}"`).join(', ') || 'None');
+        console.log(`🔍 ===== END FILTERING =====\n`);
+
+        // Add createdBy info and check if current user is creator for each event
+        const userIdStr = userId.toString();
+        const eventsWithCreator = filteredEvents.map(event => {
+            const eventObj = { ...event };
+            const creatorId = event.createdBy ?
+                (event.createdBy._id ? event.createdBy._id.toString() : event.createdBy.toString()) :
+                null;
+            eventObj.isCreator = creatorId === userIdStr;
+            return eventObj;
+        });
+
+        res.json(eventsWithCreator);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.getOne = async (req, res, next) => {
+    try {
+        const event = await CalendarEvent.findById(req.params.id).populate('createdBy', 'email firstName lastName');
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Check if current user is the creator - use reliable ObjectId comparison
+        const userId = req.user._id.toString();
+        let creatorId = null;
+
+        if (event.createdBy) {
+            if (event.createdBy._id) {
+                creatorId = event.createdBy._id.toString();
+            } else if (typeof event.createdBy === 'object' && event.createdBy.toString) {
+                creatorId = event.createdBy.toString();
+            } else {
+                creatorId = String(event.createdBy);
+            }
+        }
+
+        const isCreator = creatorId && creatorId === userId;
+
+        // Return event with creator info and permission flag
+        const eventObj = event.toObject();
+        eventObj.isCreator = isCreator;
+
+        res.json(eventObj);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.create = async (req, res, next) => {
+    try {
+        const { title, start, end, allDay, category, participants, description, memoId } = req.body;
+        console.log('Creating calendar event:', { title, start, end, category, participants, description, userId: req.user?._id });
+
+        if (!title || !start || !end) {
+            console.error('Validation failed: missing required fields', { title: !!title, start: !!start, end: !!end });
+            return res.status(400).json({ message: 'Title, start and end are required' });
+        }
+
+        if (!req.user || !req.user._id) {
+            console.error('No user found in request');
+            return res.status(401).json({ message: 'Unauthorized: User not found' });
+        }
+
+        // Parse dates - handle ISO strings
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+
+        // Validate dates
+        if (isNaN(startDate.getTime())) {
+            console.error('Invalid start date:', start);
+            return res.status(400).json({ message: 'Invalid start date format' });
+        }
+        if (isNaN(endDate.getTime())) {
+            console.error('Invalid end date:', end);
+            return res.status(400).json({ message: 'Invalid end date format' });
+        }
+
+        const eventData = {
+            title,
+            start: startDate,
+            end: endDate,
+            allDay: !!allDay,
+            category: category || 'standard',
+            participants: participants || [],
+            description: description || '',
+            memoId: memoId || undefined,
+            createdBy: req.user._id
+        };
+
+        console.log('Event data to save:', eventData);
+        console.log('Parsed dates - start:', startDate.toISOString(), 'end:', endDate.toISOString());
+
+        const event = await CalendarEvent.create(eventData);
+        console.log('Event created successfully:', event._id, 'Title:', event.title);
+
+        // Send notifications to participants
+        try {
+            await notifyEventParticipants(event, req.user);
+        } catch (notifyError) {
+            console.error('Error sending event notifications:', notifyError);
+            // Don't fail the request if notifications fail
+        }
+
+        // Populate the createdBy field for response
+        const populatedEvent = await CalendarEvent.findById(event._id).populate('createdBy', 'firstName lastName email');
+        res.status(201).json(populatedEvent);
+    } catch (err) {
+        console.error('Error creating calendar event:', err);
+        next(err);
+    }
+};
+
+exports.update = async (req, res, next) => {
+    try {
+        // Get the original event first to check permissions
+        const originalEvent = await CalendarEvent.findById(req.params.id);
+        if (!originalEvent) return res.status(404).json({ message: 'Event not found' });
+
+        // Check if user is the creator
+        const userId = req.user._id.toString();
+        const creatorId = originalEvent.createdBy ?
+            (originalEvent.createdBy._id ? originalEvent.createdBy._id.toString() : originalEvent.createdBy.toString()) :
+            originalEvent.createdBy.toString();
+
+        if (creatorId !== userId) {
+            return res.status(403).json({ message: 'Only the event creator can edit this event' });
+        }
+
+        const updates = { ...req.body };
+        if (updates.start) updates.start = new Date(updates.start);
+        if (updates.end) updates.end = new Date(updates.end);
+
+        const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
+        if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        // Update participant notifications if event details changed
+        const shouldUpdateNotifications =
+            originalEvent.category !== event.category ||
+            originalEvent.title !== event.title ||
+            originalEvent.start.getTime() !== event.start.getTime() ||
+            originalEvent.end.getTime() !== event.end.getTime() ||
+            originalEvent.description !== event.description;
+
+        if (shouldUpdateNotifications) {
+            try {
+                await updateEventNotifications(event, req.user);
+            } catch (notifyError) {
+                console.error('Error updating event notifications:', notifyError);
+                // Don't fail the request if notifications fail
+            }
+        }
+
+        res.json(event);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.updateTime = async (req, res, next) => {
+    try {
+        const { start, end } = req.body;
+        if (!start || !end) return res.status(400).json({ message: 'start and end are required' });
+
+        // Check if user is the creator
+        const event = await CalendarEvent.findById(req.params.id);
+        if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        const userId = req.user._id.toString();
+        const creatorId = event.createdBy ?
+            (event.createdBy._id ? event.createdBy._id.toString() : event.createdBy.toString()) :
+            event.createdBy.toString();
+
+        if (creatorId !== userId) {
+            return res.status(403).json({ message: 'Only the event creator can modify this event' });
+        }
+
+        const updatedEvent = await CalendarEvent.findByIdAndUpdate(
+            req.params.id,
+            { start: new Date(start), end: new Date(end) },
+            { new: true }
+        );
+        res.json(updatedEvent);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.remove = async (req, res, next) => {
+    try {
+        const event = await CalendarEvent.findById(req.params.id);
+        if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        // Check if user is the creator
+        const userId = req.user._id.toString();
+        const creatorId = event.createdBy ?
+            (event.createdBy._id ? event.createdBy._id.toString() : event.createdBy.toString()) :
+            event.createdBy.toString();
+
+        if (creatorId !== userId) {
+            return res.status(403).json({ message: 'Only the event creator can delete this event' });
+        }
+
+        await CalendarEvent.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Deleted' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Get memo notification for an event (for non-creators)
+exports.getEventMemo = async (req, res, next) => {
+    try {
+        const eventId = req.params.id;
+        const userId = req.user._id;
+
+        console.log(`🔍 Looking for memo notification for event ${eventId} and user ${req.user.email}`);
+
+        // Find memo notification for this event and current user
+        const memo = await Memo.findOne({
+            'metadata.eventId': eventId,
+            'metadata.eventType': 'calendar_event',
+            recipient: userId,
+            status: { $ne: 'deleted' }
+        }).populate('sender', 'firstName lastName email')
+          .populate('recipient', 'firstName lastName email');
+
+        if (!memo) {
+            console.log(`❌ No memo found for event ${eventId} and user ${req.user.email}`);
+            // Try to find all memos for this event to debug
+            const allEventMemos = await Memo.find({
+                'metadata.eventId': eventId,
+                'metadata.eventType': 'calendar_event'
+            }).select('recipient metadata');
+            console.log(`📋 All memos for event ${eventId}:`, allEventMemos.map(m => ({
+                recipient: m.recipient,
+                metadata: m.metadata
+            })));
+
+            return res.status(404).json({ message: 'Memo notification not found for this event' });
+        }
+
+        console.log(`✅ Found memo ${memo._id} for event ${eventId}`);
+        res.json(memo);
+    } catch (err) {
+        console.error('❌ Error in getEventMemo:', err);
+        next(err);
+    }
+};
+
+// Helper function to update existing event notifications
+async function updateEventNotifications(event, updater) {
+    try {
+        // Find all notification memos for this event
+        const existingMemos = await Memo.find({
+            'metadata.eventId': event._id.toString(),
+            'metadata.eventType': 'calendar_event',
+            status: { $ne: 'deleted' }
+        }).populate('recipient', 'email');
+
+        if (existingMemos.length === 0) {
+            console.log('No existing notifications found to update for event:', event._id);
+            return;
+        }
+
+        // Get event creator for sender field
+        const creator = await User.findById(event.createdBy).select('email firstName lastName');
+        if (!creator) {
+            console.log('Event creator not found:', event.createdBy);
+            return;
+        }
+
+        // Format event date/time
+        const startDate = new Date(event.start);
+        const endDate = new Date(event.end);
+        const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const startTimeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+        const categoryLabels = {
+            urgent: '🔴 Urgent',
+            today: '🟡 Today',
+            standard: '🟢 Standard'
+        };
+        const categoryLabel = categoryLabels[event.category] || event.category;
+
+        // Map calendar event category to memo priority
+        const categoryToPriority = {
+            urgent: 'urgent',
+            today: 'high',
+            standard: 'medium'
+        };
+        const memoPriority = categoryToPriority[event.category] || 'medium';
+
+        // Update all notification memos
+        const updatePromises = existingMemos.map(async (memo) => {
+            // Format content for calendar event update notification (simple format)
+            let updateContent = `${event.title}\n\n`;
+            updateContent += `Date: ${dateStr}\n`;
+            updateContent += `Time: ${startTimeStr} - ${endTimeStr}\n`;
+            updateContent += `Category: ${categoryLabel}\n`;
+            if (event.description) {
+                updateContent += `Description: ${event.description}\n`;
+            }
+
+            memo.subject = `📅 Calendar Event Updated: ${event.title}`;
+            memo.content = updateContent;
+            memo.priority = memoPriority;
+            memo.isRead = false; // Mark as unread so recipient sees the update
+            memo.metadata.category = event.category;
+            memo.updatedAt = new Date();
+            return await memo.save();
+        });
+
+        const updatedMemos = await Promise.all(updatePromises);
+        console.log(`✅ Updated ${updatedMemos.length} notifications for event "${event.title}" (ID: ${event._id})`);
+
+    } catch (error) {
+        console.error('❌ Error in updateEventNotifications:', error);
+        throw error;
+    }
+}
+
+// Helper function to send notifications to event participants
+async function notifyEventParticipants(event, creator) {
+    try {
+        const participants = event.participants || {};
+
+        // Handle both new format {departments: [], emails: []} and legacy array format
+        let departments = [];
+        let emails = [];
+
+        if (participants && typeof participants === 'object' && !Array.isArray(participants)) {
+            departments = Array.isArray(participants.departments) ? participants.departments : [];
+            emails = Array.isArray(participants.emails) ? participants.emails : [];
+        } else if (Array.isArray(event.participants)) {
+            // Legacy format: array of department strings
+            departments = event.participants.filter(d => typeof d === 'string');
+        }
+
+        // Get all users who should be notified
+        const recipientIds = new Set();
+
+        // Find users by departments
+        if (departments.length > 0) {
+            const departmentUsers = await User.find({
+                department: { $in: departments },
+                isActive: true
+            }).select('_id email');
+
+            departmentUsers.forEach(user => {
+                recipientIds.add(user._id.toString());
+            });
+            console.log(`Found ${departmentUsers.length} users from departments:`, departments);
+        }
+
+        // Find users by emails
+        if (emails.length > 0) {
+            const emailUsers = await User.find({
+                email: { $in: emails.map(e => e.toLowerCase().trim()) },
+                isActive: true
+            }).select('_id email');
+
+            emailUsers.forEach(user => {
+                recipientIds.add(user._id.toString());
+            });
+            console.log(`Found ${emailUsers.length} users from emails:`, emails);
+        }
+
+        // Remove creator from recipients (they don't need to notify themselves)
+        // Also check by email to be extra sure
+        const creatorId = creator._id.toString();
+        const creatorEmail = (creator.email || '').toLowerCase().trim();
+        recipientIds.delete(creatorId);
+
+        // Also remove if creator's email was in the participants list
+        const finalRecipientIds = Array.from(recipientIds).filter(id => {
+            // We'll filter out creator email matches when creating memos
+            return id !== creatorId;
+        });
+
+        if (finalRecipientIds.length === 0) {
+            console.log('No recipients to notify for event (creator excluded):', event._id);
+            return;
+        }
+
+        console.log(`Preparing to notify ${finalRecipientIds.length} recipients (excluding creator: ${creator.email})`);
+
+        // Format event date/time
+        const startDate = new Date(event.start);
+        const endDate = new Date(event.end);
+        const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const startTimeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+        const categoryLabels = {
+            urgent: '🔴 Urgent',
+            today: '🟡 Today',
+            standard: '🟢 Standard'
+        };
+        const categoryLabel = categoryLabels[event.category] || event.category;
+
+        // Map calendar event category to memo priority
+        const categoryToPriority = {
+            urgent: 'urgent',
+            today: 'high',
+            standard: 'medium'
+        };
+        const memoPriority = categoryToPriority[event.category] || 'medium';
+
+        // Create notification memos for each recipient
+        const memoPromises = finalRecipientIds.map(async (recipientId) => {
+            // Double-check this isn't the creator
+            if (recipientId === creatorId) {
+                console.log('Skipping creator as recipient:', creator.email);
+                return null;
+            }
+
+            const recipientUser = await User.findById(recipientId).select('email');
+            if (!recipientUser) {
+                console.log('Recipient user not found:', recipientId);
+                return null;
+            }
+
+            // Final check: ensure recipient email doesn't match creator
+            if (recipientUser.email && recipientUser.email.toLowerCase().trim() === creatorEmail) {
+                console.log('Skipping creator email match:', recipientUser.email);
+                return null;
+            }
+            // Format content for calendar event notification (simple format)
+            let content = `${event.title}\n\n`;
+            content += `Date: ${dateStr}\n`;
+            content += `Time: ${startTimeStr} - ${endTimeStr}\n`;
+            content += `Category: ${categoryLabel}\n`;
+            if (event.description) {
+                content += `Description: ${event.description}\n`;
+            }
+
+            const memo = new Memo({
+                sender: creator._id,
+                recipient: recipientId,
+                subject: `📅 Calendar Event: ${event.title}`,
+                content: content,
+                activityType: 'system_notification',
+                status: 'sent',
+                priority: memoPriority, // Map category to priority
+                isRead: false,
+                metadata: {
+                    eventId: event._id.toString(),
+                    eventType: 'calendar_event',
+                    category: event.category
+                }
+            });
+            return await memo.save();
+        });
+
+        const createdMemos = (await Promise.all(memoPromises)).filter(m => m !== null);
+        console.log(`✅ Sent ${createdMemos.length} notifications for event "${event.title}" (ID: ${event._id})`);
+        if (createdMemos.length === 0) {
+            console.log('⚠️  No notifications were sent - all recipients were filtered out (likely all were the creator)');
+        }
+
+    } catch (error) {
+        console.error('❌ Error in notifyEventParticipants:', error);
+        throw error;
+    }
+}
+
+
