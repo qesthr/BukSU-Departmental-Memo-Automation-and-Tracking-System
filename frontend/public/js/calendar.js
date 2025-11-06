@@ -58,7 +58,7 @@
   let departmentsList = [];
 
   function normalizeDate(dateValue) {
-    if (!dateValue) return '';
+    if (!dateValue) {return '';}
     // If it's already in yyyy-MM-dd format, return as is
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       return dateValue;
@@ -66,7 +66,7 @@
     // Otherwise, try to extract just the date part
     try {
       const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return '';
+      if (isNaN(date.getTime())) {return '';}
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -84,8 +84,8 @@
       dateInput.value = normalizeDate(preset.date || '');
       startInput.value = preset.start || '';
       endInput.value = preset.end || '';
-      if (preset.description !== undefined) descInput.value = preset.description || '';
-      if (preset.category) categorySelect.value = preset.category;
+      if (preset.description !== undefined) {descInput.value = preset.description || '';}
+      if (preset.category) {categorySelect.value = preset.category;}
       // Set participants if editing
       if (preset.participants) {
         try {
@@ -122,9 +122,9 @@
     } else {
       // Clear all fields for new event
       participantsData = { departments: [], emails: [] };
-      if (descInput) descInput.value = '';
-      if (categorySelect) categorySelect.value = 'standard';
-      if (participantEmailInput) participantEmailInput.value = '';
+      if (descInput) {descInput.value = '';}
+      if (categorySelect) {categorySelect.value = 'standard';}
+      if (participantEmailInput) {participantEmailInput.value = '';}
     }
     renderParticipantsChips();
     renderDepartmentDropdown();
@@ -133,53 +133,53 @@
         editingSourceInput.value = preset.source || '';
         editingIdInput.value = preset.id || '';
         // Only show delete button if user is creator (backend events only)
-        if (deleteBtn) deleteBtn.style.display = (preset.source === 'backend' && preset.edit === true) ? 'block' : 'none';
+        if (deleteBtn) {deleteBtn.style.display = (preset.source === 'backend' && preset.edit === true) ? 'block' : 'none';}
 
         // Disable all form fields if user is NOT the creator (read-only mode)
         const isReadOnly = preset.edit === false;
         if (isReadOnly) {
-          if (titleInput) titleInput.disabled = true;
-          if (dateInput) dateInput.disabled = true;
-          if (startInput) startInput.disabled = true;
-          if (endInput) endInput.disabled = true;
-          if (categorySelect) categorySelect.disabled = true;
-          if (descInput) descInput.disabled = true;
-          if (allDayCheckbox) allDayCheckbox.disabled = true;
-          if (participantEmailInput) participantEmailInput.disabled = true;
-          if (selectDepartmentBtn) selectDepartmentBtn.disabled = true;
+          if (titleInput) {titleInput.disabled = true;}
+          if (dateInput) {dateInput.disabled = true;}
+          if (startInput) {startInput.disabled = true;}
+          if (endInput) {endInput.disabled = true;}
+          if (categorySelect) {categorySelect.disabled = true;}
+          if (descInput) {descInput.disabled = true;}
+          if (allDayCheckbox) {allDayCheckbox.disabled = true;}
+          if (participantEmailInput) {participantEmailInput.disabled = true;}
+          if (selectDepartmentBtn) {selectDepartmentBtn.disabled = true;}
           // Hide form submit button or make it read-only
           const submitBtn = form.querySelector('button[type="submit"]');
-          if (submitBtn) submitBtn.style.display = 'none';
+          if (submitBtn) {submitBtn.style.display = 'none';}
         } else {
           // Enable all fields if user is creator
-          if (titleInput) titleInput.disabled = false;
-          if (dateInput) dateInput.disabled = false;
-          if (startInput) startInput.disabled = false;
-          if (endInput) endInput.disabled = false;
-          if (categorySelect) categorySelect.disabled = false;
-          if (descInput) descInput.disabled = false;
-          if (allDayCheckbox) allDayCheckbox.disabled = false;
-          if (participantEmailInput) participantEmailInput.disabled = false;
-          if (selectDepartmentBtn) selectDepartmentBtn.disabled = false;
+          if (titleInput) {titleInput.disabled = false;}
+          if (dateInput) {dateInput.disabled = false;}
+          if (startInput) {startInput.disabled = false;}
+          if (endInput) {endInput.disabled = false;}
+          if (categorySelect) {categorySelect.disabled = false;}
+          if (descInput) {descInput.disabled = false;}
+          if (allDayCheckbox) {allDayCheckbox.disabled = false;}
+          if (participantEmailInput) {participantEmailInput.disabled = false;}
+          if (selectDepartmentBtn) {selectDepartmentBtn.disabled = false;}
           const submitBtn = form.querySelector('button[type="submit"]');
-          if (submitBtn) submitBtn.style.display = 'block';
+          if (submitBtn) {submitBtn.style.display = 'block';}
         }
       } else {
         editingSourceInput.value = '';
         editingIdInput.value = '';
-        if (deleteBtn) deleteBtn.style.display = 'none';
+        if (deleteBtn) {deleteBtn.style.display = 'none';}
         // Enable all fields for new events
-        if (titleInput) titleInput.disabled = false;
-        if (dateInput) dateInput.disabled = false;
-        if (startInput) startInput.disabled = false;
-        if (endInput) endInput.disabled = false;
-        if (categorySelect) categorySelect.disabled = false;
-        if (descInput) descInput.disabled = false;
-        if (allDayCheckbox) allDayCheckbox.disabled = false;
-        if (participantEmailInput) participantEmailInput.disabled = false;
-        if (selectDepartmentBtn) selectDepartmentBtn.disabled = false;
+        if (titleInput) {titleInput.disabled = false;}
+        if (dateInput) {dateInput.disabled = false;}
+        if (startInput) {startInput.disabled = false;}
+        if (endInput) {endInput.disabled = false;}
+        if (categorySelect) {categorySelect.disabled = false;}
+        if (descInput) {descInput.disabled = false;}
+        if (allDayCheckbox) {allDayCheckbox.disabled = false;}
+        if (participantEmailInput) {participantEmailInput.disabled = false;}
+        if (selectDepartmentBtn) {selectDepartmentBtn.disabled = false;}
         const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.style.display = 'block';
+        if (submitBtn) {submitBtn.style.display = 'block';}
       }
       modal.style.display = 'grid';
   }
@@ -190,14 +190,15 @@
 
   function categoryColor(category) {
     switch (category) {
-      case 'today': return '#fbbf24'; // Yellow
-      case 'urgent': return '#f87171'; // Red
-      default: return '#86efac'; // Green
+      case 'today': return '#fed7aa'; // Light orange
+      case 'urgent': return '#fee2e2'; // Light red
+      case 'standard': return '#d1fae5'; // Light green
+      default: return '#d1fae5'; // Default to light green
     }
   }
 
   function formatEventTime(dateStr) {
-    if (!dateStr) return '';
+    if (!dateStr) {return '';}
     const date = new Date(dateStr);
     const hours = date.getHours();
     const minutes = date.getMinutes();
@@ -207,29 +208,33 @@
     return `${displayHours}:${displayMinutes} ${ampm}`;
   }
 
-  // Get calendar connection status
-  const isCalendarConnected = window.calendarConnected === true;
+  // Get calendar connection status (Google Calendar is optional)
+  const isGoogleCalendarConnected = window.calendarConnected === true;
 
   // Define custom buttons
   const customButtons = {};
   let leftButtons = 'title';
-  let rightButtons = ''; // No view toggles - only day view
+  const rightButtons = ''; // No view toggles - only day view
 
-  if (isCalendarConnected) {
-    customButtons.addEventBtn = {
-      text: 'Add Event',
-      click: function() {
-        openModal();
-      }
-    };
-    customButtons.disconnectBtn = {
-      text: 'Disconnect',
+  // ALWAYS show Add Event button - database calendar works without Google Calendar
+  customButtons.addEventBtn = {
+    text: 'Add Event',
+    click: function() {
+      openModal();
+    }
+  };
+  leftButtons = 'addEventBtn ' + leftButtons;
+
+  // Google Calendar connection is optional - show as secondary button
+  if (isGoogleCalendarConnected) {
+    customButtons.googleCalendarBtn = {
+      text: '🔗 Google Calendar',
       click: async function() {
-        if (!confirm('Are you sure you want to disconnect Google Calendar?')) { return; }
+        if (!confirm('Disconnect Google Calendar? Your events will still be saved in Memofy.')) { return; }
         try {
           const res = await fetch('/calendar/disconnect', { method: 'DELETE', credentials: 'same-origin' });
           if (res.ok) {
-            alert('Google Calendar disconnected successfully');
+            alert('Google Calendar disconnected. Your Memofy events are still saved.');
             window.location.reload();
           } else {
             throw new Error('Failed to disconnect');
@@ -239,34 +244,49 @@
         }
       }
     };
-    leftButtons = 'addEventBtn,disconnectBtn ' + leftButtons;
+    leftButtons = leftButtons + ' googleCalendarBtn';
   } else {
-    customButtons.connectBtn = {
-      text: 'Connect Google Calendar',
+    // Optional: Show small connect button (less prominent)
+    customButtons.googleCalendarBtn = {
+      text: '🔗 Sync Google Calendar',
       click: function() {
-        window.location.href = '/calendar/auth';
+        if (confirm('Connect Google Calendar to sync your Memofy events with Google Calendar?\n\nYou can still use Memofy calendar without connecting.')) {
+          window.location.href = '/calendar/auth';
+        }
       }
     };
-    leftButtons = 'connectBtn ' + leftButtons;
+    leftButtons = leftButtons + ' googleCalendarBtn';
   }
 
-  // Helper function to get current time in HH:MM:SS format
+  // Helper function to get current time in HH:MM:SS format (Manila timezone)
   function getCurrentTime() {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}:00`;
+    // Get time in Manila timezone
+    const hours = now.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+    const minutes = now.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
   }
 
+
+  // Helper function to format dates in Manila timezone
+  const formatDateManila = (d) => {
+    const dateObj = new Date(d);
+    const year = dateObj.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' });
+    const month = dateObj.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' });
+    const day = dateObj.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' });
+    return `${year}-${month}-${day}`;
+  };
 
   // Mini calendar variables - declare early so they're available in calendar callbacks
   const today = new Date();
   const miniCursor = new Date(today.getFullYear(), today.getMonth(), 1);
   let miniCalendarEvents = []; // Store events for mini calendar indicators
+  let selectedDate = new Date(); // Track the currently selected date (default to today)
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'timeGridDay',
     initialDate: new Date(), // Start with today
+    timeZone: 'Asia/Manila', // Explicitly set to Philippines timezone (GMT+8)
     customButtons: customButtons,
     headerToolbar: {
       left: leftButtons,
@@ -286,21 +306,35 @@
     slotMaxTime: '24:00:00', // Show full 24 hours
     scrollTime: getCurrentTime(), // Scroll to current time initially (makes it visible first)
     datesSet: function(dateInfo) {
+      // Update selected date based on main calendar view
+      const viewDate = dateInfo.start;
+      selectedDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate());
+
       // Update mini calendar when main calendar view changes
       renderMiniCalendar();
 
       // Auto-scroll to current time or first event
       setTimeout(() => {
-        const viewDate = dateInfo.start;
-        const today = new Date();
-        const isToday = viewDate.toDateString() === today.toDateString();
+        // Compare dates in Manila timezone
+        const isToday = (date) => {
+          const today = new Date();
+          const todayStr = formatDateManila(today);
+          const dateStr = formatDateManila(date);
+          return todayStr === dateStr;
+        };
 
-        if (isToday) {
+        if (isToday(viewDate)) {
           // For today, scroll to current time so it's visible
           setTimeout(() => {
             const currentTime = getCurrentTime();
+            console.log('📅 Scrolling to current time:', currentTime);
             calendar.scrollToTime(currentTime);
-          }, 100);
+
+            // Also ensure the calendar renders after scrolling
+            setTimeout(() => {
+              calendar.render();
+            }, 50);
+          }, 300);
         } else {
           // For other dates, try to scroll to first event if available
           setTimeout(() => {
@@ -316,10 +350,39 @@
       clickedDayOnly.setHours(0, 0, 0, 0);
 
       // Extract time from clicked date (HH:MM format)
-      const clickedTime = clickedDate;
-      const hours = String(clickedTime.getHours()).padStart(2, '0');
-      const minutes = String(clickedTime.getMinutes()).padStart(2, '0');
-      const timeStr = `${hours}:${minutes}`;
+      // FullCalendar with timeZone: 'Asia/Manila' provides info.dateStr in the configured timezone
+      // Extract time from dateStr which is already in Asia/Manila timezone
+      let timeStr = '08:00'; // Default time
+
+      if (info.dateStr && info.dateStr.includes('T')) {
+        // Extract HH:mm from dateStr (format: YYYY-MM-DDTHH:mm:ss[+/-]HH:mm)
+        const timeMatch = info.dateStr.match(/T(\d{2}):(\d{2})/);
+        if (timeMatch) {
+          timeStr = `${timeMatch[1]}:${timeMatch[2]}`;
+        } else {
+          // Alternative: try substring method
+          const timePart = info.dateStr.substring(11, 16);
+          if (timePart && /^\d{2}:\d{2}$/.test(timePart)) {
+            timeStr = timePart;
+          }
+        }
+      } else {
+        // Fallback: convert Date to Asia/Manila timezone and extract hours/minutes
+        const phTimeStr = clickedDate.toLocaleString('en-US', {
+          timeZone: 'Asia/Manila',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: undefined
+        });
+        // Parse HH:mm from locale string (e.g., "16:00" or "4:00 PM")
+        const timeMatch = phTimeStr.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          const hours = String(timeMatch[1]).padStart(2, '0');
+          const minutes = timeMatch[2];
+          timeStr = `${hours}:${minutes}`;
+        }
+      }
 
       // Update mini calendar month if needed
       if (clickedDayOnly.getMonth() !== miniCursor.getMonth() || clickedDayOnly.getFullYear() !== miniCursor.getFullYear()) {
@@ -351,6 +414,15 @@
     },
     async eventClick(info) {
       const e = info.event;
+      console.log('🖱️ Event clicked:', {
+        id: e.id,
+        title: e.title,
+        start: e.start,
+        end: e.end,
+        startStr: e.startStr,
+        endStr: e.endStr
+      });
+
       // Get original title if available (from extendedProps)
       const originalTitle = e.extendedProps?.originalTitle || e.title.split(' at ')[0];
       const source = e.id.startsWith('gcal_') ? 'google' : 'backend';
@@ -380,15 +452,46 @@
       }
 
       // Format date and time for the modal
-      const eventDate = new Date(e.start);
-      const dateStr = eventDate.toISOString().split('T')[0];
+      // Extract date and time in Asia/Manila timezone for accurate display
+      const eventStartDate = new Date(e.start);
+      const eventEndDate = e.end ? new Date(e.end) : null;
+
+      // Get date string in YYYY-MM-DD format (using Asia/Manila timezone)
+      const dateStr = eventStartDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // en-CA gives YYYY-MM-DD format
+
       let startTime = '';
       let endTime = '';
 
       if (!isAllDay) {
-        startTime = e.startStr.substring(11, 16) || '';
-        endTime = e.endStr ? e.endStr.substring(11, 16) : '';
+        // Extract time in HH:mm format from Asia/Manila timezone
+        const startTimeStr = eventStartDate.toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Manila',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        startTime = startTimeStr.match(/(\d{2}:\d{2})/)?.[1] || '';
+
+        if (eventEndDate) {
+          const endTimeStr = eventEndDate.toLocaleTimeString('en-US', {
+            timeZone: 'Asia/Manila',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          endTime = endTimeStr.match(/(\d{2}:\d{2})/)?.[1] || '';
+        }
       }
+
+      console.log('📋 Opening modal with event data:', {
+        title: originalTitle,
+        date: dateStr,
+        start: startTime,
+        end: endTime,
+        category: category,
+        isCreator: isCreator,
+        source: source
+      });
 
         openModal({
         title: originalTitle,
@@ -406,11 +509,26 @@
     },
     async eventDrop(info) {
       try {
+        // Format dates with Manila timezone (+08:00)
+        const formatDateTimeManila = (date) => {
+          const d = new Date(date);
+          const year = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' });
+          const month = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' });
+          const day = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' });
+          const hours = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+          const minutes = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+          const seconds = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', second: '2-digit' });
+          return `${year}-${month}-${day}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}+08:00`;
+        };
+
         const res = await fetch(`/api/calendar/events/${info.event.id}/time`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ start: info.event.start.toISOString(), end: info.event.end?.toISOString() || info.event.start.toISOString() })
+          body: JSON.stringify({
+            start: formatDateTimeManila(info.event.start),
+            end: formatDateTimeManila(info.event.end || info.event.start)
+          })
         });
         if (!res.ok) { throw new Error('Failed to update schedule'); }
       } catch (err) {
@@ -420,11 +538,26 @@
     },
     async eventResize(info) {
       try {
+        // Format dates with Manila timezone (+08:00)
+        const formatDateTimeManila = (date) => {
+          const d = new Date(date);
+          const year = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' });
+          const month = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' });
+          const day = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' });
+          const hours = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+          const minutes = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+          const seconds = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', second: '2-digit' });
+          return `${year}-${month}-${day}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}+08:00`;
+        };
+
         const res = await fetch(`/api/calendar/events/${info.event.id}/time`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ start: info.event.start.toISOString(), end: info.event.end?.toISOString() })
+          body: JSON.stringify({
+            start: formatDateTimeManila(info.event.start),
+            end: formatDateTimeManila(info.event.end)
+          })
         });
         if (!res.ok) { throw new Error('Failed to update schedule'); }
       } catch (err) {
@@ -441,6 +574,8 @@
         const data = await res.json();
         console.log('📅 Events received from server:', data.length, 'events');
         console.log('📅 Event details:', data);
+        console.log('📅 Date range requested:', fetchInfo.startStr, 'to', fetchInfo.endStr);
+
         const localEvents = data.map(e => {
           const timeStr = formatEventTime(e.start);
           const eventTitle = timeStr ? `${e.title} at ${timeStr}` : e.title;
@@ -451,18 +586,32 @@
           let startDate = e.start;
           let endDate = e.end;
 
+          // Convert date strings to Date objects for FullCalendar
+          // FullCalendar expects Date objects, not strings
+          if (typeof e.start === 'string') {
+            startDate = new Date(e.start);
+          } else if (e.start instanceof Date) {
+            startDate = e.start;
+          }
+
+          if (typeof e.end === 'string') {
+            endDate = new Date(e.end);
+          } else if (e.end instanceof Date) {
+            endDate = e.end;
+          }
+
           if (isAllDay) {
             // Convert to date-only format for all-day events
-            const start = new Date(e.start);
+            const start = new Date(startDate);
             start.setHours(0, 0, 0, 0);
             startDate = start;
 
-            const end = new Date(e.end);
+            const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             endDate = end;
           }
 
-          return {
+          const eventObj = {
             id: e._id,
             title: isAllDay ? e.title : eventTitle, // Don't add time for all-day events
             start: startDate,
@@ -481,12 +630,45 @@
               isCreator: e.isCreator !== false // Store creator flag
             }
           };
+
+          console.log(`📌 Event "${e.title}":`, {
+            id: e._id,
+            start: startDate,
+            end: endDate,
+            category: e.category,
+            isCreator: e.isCreator,
+            startDateType: typeof startDate,
+            endDateType: typeof endDate
+          });
+
+          return eventObj;
         });
 
         // Try to append Google Calendar events if connected; failures are ignored
         let googleEvents = [];
         try {
-          const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(fetchInfo.startStr)}&timeMax=${encodeURIComponent(fetchInfo.endStr)}`, { credentials: 'same-origin' });
+          // Ensure dates are formatted with timezone for Google Calendar API (RFC3339 format)
+          // FullCalendar's startStr and endStr might not include timezone when timeZone is set
+          const formatForGoogleAPI = (dateStr) => {
+            if (!dateStr) {return dateStr;}
+            // If already has timezone, return as is
+            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {
+              return dateStr;
+            }
+            // If has time but no timezone, add Philippines timezone
+            if (dateStr.includes('T')) {
+              return `${dateStr}+08:00`;
+            }
+            // If date only, add time and timezone
+            return `${dateStr}T00:00:00+08:00`;
+          };
+
+          const timeMin = formatForGoogleAPI(fetchInfo.startStr);
+          const timeMax = formatForGoogleAPI(fetchInfo.endStr);
+
+          console.log('📅 Google Calendar API request:', { timeMin, timeMax });
+
+          const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
           if (r2.ok) {
             const gItems = await r2.json();
             googleEvents = (gItems || []).map(ev => {
@@ -509,6 +691,30 @@
         }
 
           const formatted = [...localEvents, ...googleEvents];
+
+          console.log(`✅ Successfully formatted ${formatted.length} events for FullCalendar`);
+          console.log(`   📊 Database events: ${localEvents.length}`);
+          console.log(`   📊 Google Calendar events: ${googleEvents.length}`);
+
+          formatted.forEach((evt, idx) => {
+            const startDate = new Date(evt.start);
+            const endDate = new Date(evt.end);
+            const startInManila = startDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' });
+            const endInManila = endDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' });
+            const startDateOnly = startDate.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+            const source = evt.id.startsWith('gcal_') ? 'Google Calendar' : 'Database';
+          console.log(`  ${idx + 1}. "${evt.title}" (${source})`);
+          console.log(`     Start Manila: ${startInManila}`);
+          console.log(`     Start Date (Manila): ${startDateOnly}`);
+          console.log(`     End Manila: ${endInManila}`);
+          console.log(`     Category: ${evt.extendedProps?.category || 'standard'}`);
+          });
+
+          // Log the date range being requested
+          const rangeStartManila = new Date(fetchInfo.startStr).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' });
+          const rangeEndManila = new Date(fetchInfo.endStr).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' });
+          console.log(`📅 Date range requested (Manila time): ${rangeStartManila} to ${rangeEndManila}`);
+          console.log(`📅 Date range requested (raw): ${fetchInfo.startStr} to ${fetchInfo.endStr}`);
 
           // Update mini calendar events for the current month if they're in range
           const currentMonth = miniCursor.getMonth();
@@ -544,7 +750,7 @@
       if (!slot) { return; }
       try {
         const currentDay = calendar.view.currentStart;
-        const dateStr = new Date(currentDay).toISOString().slice(0, 10);
+        const dateStr = formatDateManila(currentDay);
         const slotTime = (slot.getAttribute('data-time') || slot.dataset?.time || '').slice(0,5) || '08:00';
         openModal({ date: dateStr, start: slotTime });
       } catch { /* ignore */ }
@@ -566,20 +772,20 @@
         calendar.changeView('timeGridDay', startDate);
         calendar.gotoDate(startDate);
 
-        // Helper to format HH:MM
+        // Helper to format HH:MM in Manila timezone
         const toTime = (dStr) => {
-          if (!dStr) return '';
+          if (!dStr) {return '';}
           const d = new Date(dStr);
-          const h = String(d.getHours()).padStart(2, '0');
-          const m = String(d.getMinutes()).padStart(2, '0');
-          return `${h}:${m}`;
+          const h = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+          const m = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+          return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
         };
 
         // Open the modal with event data
         setTimeout(() => {
           openModal({
             title: eventData.title,
-            date: startDate.toISOString().slice(0, 10),
+            date: formatDateManila(startDate),
             start: eventData.allDay ? '' : toTime(eventData.start),
             end: eventData.allDay ? '' : toTime(eventData.end),
             allDay: !!eventData.allDay,
@@ -612,21 +818,21 @@
   }
 
   function getEventsForDate(date) {
-    if (!miniCalendarEvents || miniCalendarEvents.length === 0) return [];
-    const dateStr = date.toISOString().split('T')[0];
+    if (!miniCalendarEvents || miniCalendarEvents.length === 0) {return [];}
+    // Compare dates in Asia/Manila timezone to avoid timezone conversion issues
+    const dateStr = formatDateManila(date);
     return miniCalendarEvents.filter(event => {
-      const eventDate = new Date(event.start);
-      const eventDateStr = eventDate.toISOString().split('T')[0];
+      const eventDateStr = formatDateManila(event.start);
       return eventDateStr === dateStr;
     });
   }
 
   function getCategoryColor(category) {
     switch (category) {
-      case 'urgent': return '#f87171'; // Red
-      case 'today': return '#fbbf24'; // Yellow
-      case 'standard': return '#86efac'; // Green
-      default: return '#86efac'; // Default to green
+      case 'urgent': return '#fee2e2'; // Light red
+      case 'today': return '#fed7aa'; // Light orange
+      case 'standard': return '#d1fae5'; // Light green
+      default: return '#d1fae5'; // Default to light green
     }
   }
 
@@ -643,13 +849,14 @@
 
   // Function to scroll to first event time
   function scrollToFirstEventTime(date, events) {
-    if (!events || events.length === 0) return;
+    if (!events || events.length === 0) {return;}
 
     // Get the earliest event time for the date
-    const dateStr = date.toISOString().split('T')[0];
+    // Format date as YYYY-MM-DD in Manila timezone
+    const dateStr = formatDateManila(date);
     const sameDayEvents = events.filter(e => {
-      const eventDate = new Date(e.start);
-      return eventDate.toISOString().split('T')[0] === dateStr;
+      const eventDateStr = formatDateManila(e.start);
+      return eventDateStr === dateStr;
     });
 
     if (sameDayEvents.length > 0) {
@@ -658,10 +865,10 @@
       const firstEvent = sameDayEvents[0];
       const eventTime = new Date(firstEvent.start);
 
-      // Format as HH:MM:SS for scrollToTime
-      const hours = String(eventTime.getHours()).padStart(2, '0');
-      const minutes = String(eventTime.getMinutes()).padStart(2, '0');
-      const scrollTime = `${hours}:${minutes}:00`;
+      // Get time in Manila timezone
+      const hours = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+      const minutes = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+      const scrollTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
 
       calendar.scrollToTime(scrollTime);
     }
@@ -672,19 +879,22 @@
     // Wait for events to load, then scroll
     setTimeout(() => {
       const allEvents = calendar.getEvents();
-      const dateStr = date.toISOString().split('T')[0];
+
+      const dateStr = formatDateManila(date);
       const sameDayEvents = Array.from(allEvents).filter(e => {
-        const eventDate = new Date(e.start);
-        return eventDate.toISOString().split('T')[0] === dateStr && !e.allDay;
+        const eventDateStr = formatDateManila(e.start);
+        return eventDateStr === dateStr && !e.allDay;
       });
 
       if (sameDayEvents.length > 0) {
         sameDayEvents.sort((a, b) => a.start - b.start);
         const firstEvent = sameDayEvents[0];
         const eventTime = new Date(firstEvent.start);
-        const hours = String(eventTime.getHours()).padStart(2, '0');
-        const minutes = String(eventTime.getMinutes()).padStart(2, '0');
-        calendar.scrollToTime(`${hours}:${minutes}:00`);
+
+        // Get time in Manila timezone
+        const hours = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+        const minutes = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+        calendar.scrollToTime(`${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`);
       } else {
         // No events, scroll to 8am as default
         calendar.scrollToTime('08:00:00');
@@ -699,8 +909,19 @@
       const lastDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth() + 1, 0);
       lastDay.setHours(23, 59, 59, 999);
 
-      const startStr = firstDay.toISOString();
-      const endStr = lastDay.toISOString();
+      // Format dates with Manila timezone offset (+08:00)
+      const formatForAPI = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+08:00`;
+      };
+
+      const startStr = formatForAPI(firstDay);
+      const endStr = formatForAPI(lastDay);
 
       const qs = new URLSearchParams({ start: startStr, end: endStr, onlyCreatedByMe: '1' });
       const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
@@ -757,6 +978,13 @@
       const today = new Date();
       if (today.toDateString() === iter.toDateString()) { el.classList.add('mini-today'); }
 
+      // Highlight selected date (default to today)
+      const iterDate = new Date(iter.getFullYear(), iter.getMonth(), iter.getDate());
+      const selectedDateNormalized = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      if (iterDate.getTime() === selectedDateNormalized.getTime()) {
+        el.classList.add('mini-selected');
+      }
+
       // Add event indicators based on category
       const dayEvents = getEventsForDate(iter);
       if (dayEvents.length > 0) {
@@ -778,23 +1006,90 @@
       }
 
       el.addEventListener('click', () => {
-        mini.querySelectorAll('.mini-selected').forEach(n => n.classList.remove('mini-selected'));
-        el.classList.add('mini-selected');
+        // Update selected date
+        selectedDate = new Date(year, month, dayNumber);
 
-        // Create a proper date using captured values
-        const clickedDate = new Date(year, month, dayNumber);
-        clickedDate.setHours(0, 0, 0, 0);
+        // Re-render to update highlights
+        renderMiniCalendar();
 
-        console.log('Mini calendar clicked - Setting date to:', clickedDate.toISOString().split('T')[0], 'Day number:', dayNumber, 'Month:', month, 'Year:', year);
+        // Create date object that represents the clicked day
+        // Since FullCalendar is configured with timeZone: 'Asia/Manila',
+        // we need to create a Date object that FullCalendar will interpret correctly
+        const clickedYear = year;
+        const clickedMonth = month; // JavaScript month is 0-indexed
+        const clickedDay = dayNumber;
 
-        // Always use changeView with the date - this is more reliable
-        calendar.changeView('timeGridDay', clickedDate);
+        // Create date string in YYYY-MM-DD format
+        const dateString = `${clickedYear}-${String(clickedMonth + 1).padStart(2, '0')}-${String(clickedDay).padStart(2, '0')}`;
+
+        // Try passing date string directly to FullCalendar
+        // FullCalendar's gotoDate can accept date strings in YYYY-MM-DD format
+        // and will interpret them in the configured timezone (Asia/Manila)
+        let clickedDate;
+        try {
+          // Use date string - FullCalendar interprets it in Asia/Manila timezone
+          calendar.gotoDate(dateString);
+
+          // Create Date object in Manila timezone (not UTC)
+          // Create date at midnight in Manila timezone
+          clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 0, 0, 0, 0);
+
+          // Verify the date represents the correct date in Manila timezone
+          const dateInManila = clickedDate.toLocaleDateString('en-US', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          const expectedDate = `${String(clickedMonth + 1).padStart(2, '0')}/${String(clickedDay).padStart(2, '0')}/${clickedYear}`;
+
+          if (dateInManila !== expectedDate) {
+            // Adjust if needed to ensure correct date in Manila timezone
+            const parts = dateInManila.split('/');
+            const actualDay = parseInt(parts[1]);
+            if (actualDay !== clickedDay) {
+              // Adjust the date to match the intended day
+              clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 12, 0, 0, 0);
+            }
+          }
+        } catch (e) {
+          // Fallback: create date in Manila timezone
+          clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 0, 0, 0, 0);
+          calendar.gotoDate(clickedDate);
+        }
+
+        console.log('Mini calendar clicked:');
+        console.log('  Day clicked:', clickedDay, 'Month:', clickedMonth + 1, 'Year:', clickedYear);
+        console.log('  Date string:', dateString);
+        console.log('  Date object created:', clickedDate);
+        console.log('  Date in Manila:', clickedDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' }));
+
+        // Ensure view is set correctly
+        if (calendar.view.type !== 'timeGridDay') {
+          calendar.changeView('timeGridDay', clickedDate);
+        }
+
+        // Force a render to ensure the date is displayed correctly
+        calendar.render();
 
         // Force refresh events for the selected date
         setTimeout(() => {
           const currentDate = calendar.view.currentStart;
-          const clickedDateStr = clickedDate.toISOString().split('T')[0];
-          const currentDateStr = currentDate.toISOString().split('T')[0];
+
+          // Compare dates by extracting date components in Philippines timezone
+          const getDateInPH = (date) => {
+            // Use toLocaleString to get date in Philippines timezone
+            const phDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+            const year = phDate.getFullYear();
+            const month = String(phDate.getMonth() + 1).padStart(2, '0');
+            const day = String(phDate.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          };
+
+          const clickedDateStr = getDateInPH(clickedDate);
+          const currentDateStr = getDateInPH(currentDate);
+
+          console.log('Date comparison - Clicked:', clickedDateStr, 'Current:', currentDateStr);
 
           if (clickedDateStr !== currentDateStr) {
             console.log('Date mismatch, forcing gotoDate. Expected:', clickedDateStr, 'Got:', currentDateStr);
@@ -807,12 +1102,18 @@
 
           // Scroll to appropriate time after events load
           setTimeout(() => {
-            const today = new Date();
-            const isToday = clickedDate.toDateString() === today.toDateString();
+            // Check if clicked date is today using Manila timezone
+            const isToday = (date) => {
+              const today = new Date();
+              const todayStr = formatDateManila(today);
+              const dateStr = formatDateManila(date);
+              return todayStr === dateStr;
+            };
 
-            if (isToday) {
+            if (isToday(clickedDate)) {
               // Scroll to current time for today
               const currentTime = getCurrentTime();
+              console.log('📅 Mini calendar: Scrolling to current time:', currentTime);
               calendar.scrollToTime(currentTime);
             } else if (dayEvents.length > 0) {
               // Scroll to first event time if date has events
@@ -836,7 +1137,9 @@
   setTimeout(() => {
     const currentToday = new Date();
     currentToday.setHours(0, 0, 0, 0);
-    const todayDate = currentToday.getDate();
+
+    // Set selected date to today
+    selectedDate = new Date(currentToday.getFullYear(), currentToday.getMonth(), currentToday.getDate());
 
     // Ensure mini calendar shows current month
     const currentMonth = currentToday.getMonth();
@@ -846,17 +1149,10 @@
       miniCursor.setMonth(currentMonth);
       miniCursor.setFullYear(currentYear);
       miniCursor.setDate(1);
-      renderMiniCalendar();
     }
 
-    // Highlight today in mini calendar
-    const miniDays = mini.querySelectorAll('.mini-day');
-    miniDays.forEach(day => {
-      const dayText = day.textContent.trim();
-      if (dayText && !isNaN(dayText) && parseInt(dayText) === todayDate) {
-        day.classList.add('mini-selected');
-      }
-    });
+    // Re-render with today highlighted
+    renderMiniCalendar();
 
     // Ensure main calendar shows today's date in day view
     calendar.gotoDate(currentToday);
@@ -864,6 +1160,13 @@
       calendar.changeView('timeGridDay', currentToday);
     }
     calendar.render();
+
+    // Scroll to current time after calendar is initialized
+    setTimeout(() => {
+      const currentTime = getCurrentTime();
+      console.log('📅 Initial load: Scrolling to current time:', currentTime);
+      calendar.scrollToTime(currentTime);
+    }, 500);
   }, 100);
 
   if (miniPrev) {
@@ -871,9 +1174,7 @@
       miniCursor.setMonth(miniCursor.getMonth() - 1);
       miniCursor.setDate(1); // Reset to first day of month
       loadEventsForMiniCalendar(); // This will render after loading events
-
-      // Clear selection when month changes
-      mini.querySelectorAll('.mini-selected').forEach(n => n.classList.remove('mini-selected'));
+      // Selected date persists - renderMiniCalendar will highlight it if it's in the visible month
     });
   }
   if (miniNext) {
@@ -881,9 +1182,7 @@
       miniCursor.setMonth(miniCursor.getMonth() + 1);
       miniCursor.setDate(1); // Reset to first day of month
       loadEventsForMiniCalendar(); // This will render after loading events
-
-      // Clear selection when month changes
-      mini.querySelectorAll('.mini-selected').forEach(n => n.classList.remove('mini-selected'));
+      // Selected date persists - renderMiniCalendar will highlight it if it's in the visible month
     });
   }
 
@@ -929,7 +1228,7 @@
   }
 
   function renderDepartmentDropdown() {
-    if (!departmentList) return;
+    if (!departmentList) {return;}
     departmentList.innerHTML = '';
     departmentsList.forEach(dept => {
       const item = document.createElement('div');
@@ -1061,7 +1360,7 @@
   }
 
   function renderParticipantsChips() {
-    if (!participantsChipsContainer) return;
+    if (!participantsChipsContainer) {return;}
     participantsChipsContainer.innerHTML = '';
 
     // Render departments
@@ -1132,25 +1431,31 @@
     // Get participants data (departments and emails)
     const participants = participantsHiddenInput ? participantsHiddenInput.value : JSON.stringify(participantsData);
 
-    // Format ISO date-time strings (date is YYYY-MM-DD, time is HH:MM)
-    // Ensure we have valid timezone format
-    const startISO = `${date}T${start}:00`;
+    // Format ISO date-time strings with Philippines timezone (GMT+8)
+    // Explicitly use Asia/Manila timezone to prevent date shifts
+    const formatDateTime = (dateStr, timeStr) => {
+      // Create date in Philippines timezone (GMT+8)
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const [hours, minutes] = timeStr.split(':').map(Number);
+
+      // Create date object assuming Philippines timezone (GMT+8)
+      // Format: YYYY-MM-DDTHH:mm:ss+08:00
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00+08:00`;
+    };
+
+    const startISO = formatDateTime(date, start);
     let endISO;
     if (end) {
-      endISO = `${date}T${end}:00`;
+      endISO = formatDateTime(date, end);
     } else {
+      // Default to 1 hour after start
       const [sh, sm] = start.split(':').map(Number);
-      const startDateObj = new Date(`${date}T${start}:00`);
-      // Fallback if parsing fails
-      if (!isNaN(startDateObj.getTime())) {
-        startDateObj.setHours((sh ?? 0), (sm ?? 0));
-        const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
-        const eh = String(endDateObj.getHours()).padStart(2, '0');
-        const em = String(endDateObj.getMinutes()).padStart(2, '0');
-        endISO = `${date}T${eh}:${em}:00`;
-      } else {
-        endISO = `${date}T${start}:00`;
-      }
+      const [year, month, day] = date.split('-').map(Number);
+      const startDateObj = new Date(year, month - 1, day, sh, sm, 0);
+      const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
+      const endHours = endDateObj.getHours();
+      const endMinutes = endDateObj.getMinutes();
+      endISO = formatDateTime(date, `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`);
     }
 
     console.log('Form data:', { date, start, end, startISO, endISO });
@@ -1162,7 +1467,7 @@
     const successMessage = document.getElementById('successMessage');
 
     function showSuccessModal(message, type = 'loading') {
-      if (!successModal) return;
+      if (!successModal) {return;}
       successModal.style.display = 'flex';
       successLoader.style.display = type === 'loading' ? 'block' : 'none';
       successCheck.style.display = type === 'success' ? 'block' : 'none';
@@ -1216,6 +1521,13 @@
           }
           const savedEvent = await res.json();
           console.log('Event saved successfully:', savedEvent);
+          console.log('📅 New event details:', {
+            id: savedEvent._id,
+            title: savedEvent.title,
+            start: savedEvent.start,
+            end: savedEvent.end,
+            date: new Date(savedEvent.start).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' })
+          });
 
           // Best-effort insert into Google Calendar if connected
           try {
@@ -1233,11 +1545,18 @@
         // Show success state
         showSuccessModal('Event saved successfully!', 'success');
 
-        // Refresh calendar
-        calendar.refetchEvents();
+        // Refresh calendar - wait a moment for backend to process, then refetch and render
+        setTimeout(() => {
+          console.log('🔄 Refreshing calendar events...');
+          calendar.refetchEvents();
+          calendar.render(); // Force render to ensure events are displayed
+          console.log('✅ Calendar refreshed');
+        }, 100);
 
         // Update mini calendar events after adding new event
-        loadEventsForMiniCalendar();
+        setTimeout(() => {
+          loadEventsForMiniCalendar();
+        }, 200);
 
         // Auto-close Add Event modal and success modal after delay
         setTimeout(() => {

@@ -3,6 +3,55 @@ const CalendarEvent = require('../models/CalendarEvent');
 const User = require('../models/User');
 const Memo = require('../models/Memo');
 
+/**
+ * Parse date string with timezone, ensuring the date is preserved correctly
+ * When user enters "2025-11-07T12:00:00+08:00", we want to store it so it displays as Nov 7
+ * @param {string} isoString - ISO date string with timezone (e.g., "2025-11-07T12:00:00+08:00")
+ * @returns {Date} - Date object that represents the correct date/time in Asia/Manila timezone
+ */
+function parseDateTimePreservingDate(isoString) {
+    // Parse dates - JavaScript Date constructor handles ISO strings with timezone correctly
+    // "2025-11-07T12:00:00+08:00" will be parsed as Nov 7 12:00 PM UTC+8 = Nov 7 04:00 AM UTC
+    let date = new Date(isoString);
+
+    // Extract date components from the original string to verify and ensure correct date
+    const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})([+-]\d{2}):(\d{2})$/);
+
+    if (match) {
+        const [, year, month, day, hours, minutes, seconds, tzSign, tzHours, tzMinutes] = match;
+        const expectedDate = `${year}-${month}-${day}`;
+
+        // Check what date this represents in Asia/Manila timezone
+        const dateInManila = date.toLocaleDateString('en-US', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const actualDateParts = dateInManila.split('/');
+        const actualDate = `${actualDateParts[2]}-${actualDateParts[0].padStart(2, '0')}-${actualDateParts[1].padStart(2, '0')}`;
+
+        // If dates don't match, recalculate to ensure correct date
+        if (actualDate !== expectedDate) {
+            console.warn(`⚠️ Date mismatch! Expected ${expectedDate}, but got ${actualDate}. Correcting...`);
+            // For UTC+8, Nov 7 12:00 PM = Nov 7 04:00 AM UTC
+            const tzOffsetHours = parseInt(tzSign + tzHours);
+            const tzOffsetMins = parseInt(tzSign + tzMinutes);
+            date = new Date(Date.UTC(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                parseInt(hours) - tzOffsetHours,
+                parseInt(minutes) - tzOffsetMins,
+                parseInt(seconds)
+            ));
+            console.log(`📅 Corrected date - UTC: ${date.toISOString()}, Manila: ${date.toLocaleString('en-US', { timeZone: 'Asia/Manila' })}`);
+        }
+    }
+
+    return date;
+}
+
 exports.list = async (req, res, next) => {
     try {
         // Validate user is authenticated
@@ -196,7 +245,19 @@ exports.list = async (req, res, next) => {
 
         res.json(eventsWithCreator);
     } catch (err) {
-        next(err);
+        console.error('❌ Error in calendarController.list:', err);
+        console.error('Error stack:', err.stack);
+        console.error('Error details:', {
+            message: err.message,
+            name: err.name,
+            code: err.code
+        });
+        // Return proper error response instead of just passing to error handler
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch calendar events',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+        });
     }
 };
 
@@ -248,9 +309,20 @@ exports.create = async (req, res, next) => {
             return res.status(401).json({ message: 'Unauthorized: User not found' });
         }
 
-        // Parse dates - handle ISO strings
-        const startDate = new Date(start);
-        const endDate = new Date(end);
+        // Parse dates - preserve exact date/time as entered by user
+        // When user enters "2025-11-07T12:00:00+08:00", we want to store it so it displays as Nov 7
+        console.log('📅 Raw date strings received:', { start, end });
+
+        // Use helper function to parse dates while preserving the correct date
+        const startDate = parseDateTimePreservingDate(start);
+        const endDate = parseDateTimePreservingDate(end);
+
+        console.log('📅 Final parsed dates:', {
+            startISO: startDate.toISOString(),
+            endISO: endDate.toISOString(),
+            startInManila: startDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' }),
+            endInManila: endDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' })
+        });
 
         // Validate dates
         if (isNaN(startDate.getTime())) {
@@ -314,8 +386,9 @@ exports.update = async (req, res, next) => {
         }
 
         const updates = { ...req.body };
-        if (updates.start) updates.start = new Date(updates.start);
-        if (updates.end) updates.end = new Date(updates.end);
+        // Use the same date parsing function to preserve dates correctly
+        if (updates.start) updates.start = parseDateTimePreservingDate(updates.start);
+        if (updates.end) updates.end = parseDateTimePreservingDate(updates.end);
 
         const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
         if (!event) return res.status(404).json({ message: 'Event not found' });
@@ -361,9 +434,10 @@ exports.updateTime = async (req, res, next) => {
             return res.status(403).json({ message: 'Only the event creator can modify this event' });
         }
 
+        // Use the same date parsing function to preserve dates correctly
         const updatedEvent = await CalendarEvent.findByIdAndUpdate(
             req.params.id,
-            { start: new Date(start), end: new Date(end) },
+            { start: parseDateTimePreservingDate(start), end: parseDateTimePreservingDate(end) },
             { new: true }
         );
         res.json(updatedEvent);

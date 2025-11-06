@@ -10,6 +10,10 @@
 	<link rel="stylesheet" href="/css/fal-topbar.css">
 	<link rel="stylesheet" href="/css/fal-nav.css">
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<!-- Google Analytics Tracking -->
+	<%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
 	<script src="https://unpkg.com/lucide@latest"></script>
 </head>
 

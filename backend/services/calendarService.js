@@ -35,6 +35,14 @@ async function getAuthenticatedClient(user) {
 }
 
 async function listEvents(user, { timeMin, timeMax }) {
+    // Check if Google Calendar OAuth is configured
+    const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+        console.log(`📅 Google Calendar OAuth not configured. Skipping Google Calendar events.`);
+        return [];
+    }
+
     // Only fetch Google Calendar events if user has connected their calendar
     if (!user.calendarAccessToken && !user.calendarRefreshToken) {
         console.log(`📅 Google Calendar not connected for user ${user.email}`);
@@ -45,12 +53,46 @@ async function listEvents(user, { timeMin, timeMax }) {
         const auth = await getAuthenticatedClient(user);
         const calendar = google.calendar({ version: 'v3', auth });
         console.log(`📅 Fetching Google Calendar events for user: ${user.email}`);
-        const resp = await calendar.events.list({ calendarId: 'primary', timeMin, timeMax, singleEvents: true, orderBy: 'startTime' });
+
+        // Ensure dates are in RFC3339 format with timezone (required by Google Calendar API)
+        // If dates don't have timezone, assume Philippines timezone (GMT+8)
+        let timeMinFormatted = timeMin;
+        let timeMaxFormatted = timeMax;
+
+        // Check if dates already have timezone info (ends with +HH:MM, -HH:MM, or Z)
+        const hasTimezone = (dateStr) => {
+            if (!dateStr) return false;
+            return /[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z');
+        };
+
+        if (timeMin && !hasTimezone(timeMin)) {
+            // Date doesn't have timezone - add Philippines timezone
+            timeMinFormatted = timeMin.includes('T') ? `${timeMin}+08:00` : `${timeMin}T00:00:00+08:00`;
+        }
+        if (timeMax && !hasTimezone(timeMax)) {
+            // Date doesn't have timezone - add Philippines timezone
+            timeMaxFormatted = timeMax.includes('T') ? `${timeMax}+08:00` : `${timeMax}T00:00:00+08:00`;
+        }
+
+        console.log(`📅 Google Calendar API request - timeMin: ${timeMinFormatted}, timeMax: ${timeMaxFormatted}`);
+
+        const resp = await calendar.events.list({
+            calendarId: 'primary',
+            timeMin: timeMinFormatted,
+            timeMax: timeMaxFormatted,
+            singleEvents: true,
+            orderBy: 'startTime'
+        });
         const events = resp.data.items || [];
         console.log(`📅 Found ${events.length} Google Calendar events for user ${user.email}`);
         return events;
     } catch (error) {
         console.error(`❌ Error fetching Google Calendar events for user ${user.email}:`, error.message);
+        console.error(`Error details:`, error);
+        // Log the actual error response if available
+        if (error.response && error.response.data) {
+            console.error('Google Calendar API error response:', JSON.stringify(error.response.data, null, 2));
+        }
         return [];
     }
 }

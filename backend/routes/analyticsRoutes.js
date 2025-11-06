@@ -403,7 +403,7 @@ router.get('/db/activity', [isAuthenticated, isAdmin], async (req, res) => {
 });
 
 /**
- * Get user activity over time
+ * Get user activity over time (from login data)
  * Admin only
  */
 router.get('/db/user-activity', [isAuthenticated, isAdmin], async (req, res) => {
@@ -422,6 +422,65 @@ router.get('/db/user-activity', [isAuthenticated, isAdmin], async (req, res) => 
         console.error('Error fetching user activity:', error);
         return res.status(500).json({
             error: 'Failed to fetch user activity',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * Get activity logs over time (from system memos)
+ * Admin only
+ */
+router.get('/db/activity-logs', [isAuthenticated, isAdmin], async (req, res) => {
+    try {
+        const { startDate, endDate, activityType } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const data = await reportService.getActivityLogsOverTime(startDate, endDate, activityType || null);
+
+        // Format data for Google Charts compatibility
+        const formattedData = {
+            rows: data.map(item => ({
+                dimensionValues: [{ value: item._id }],
+                metricValues: [{ value: item.count.toString() }]
+            }))
+        };
+
+        return res.json(formattedData);
+    } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        return res.status(500).json({
+            error: 'Failed to fetch activity logs',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * Get activity logs by type over time
+ * Admin only
+ */
+router.get('/db/activity-logs-by-type', [isAuthenticated, isAdmin], async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const data = await reportService.getActivityLogsByTypeOverTime(startDate, endDate);
+        return res.json(data);
+    } catch (error) {
+        console.error('Error fetching activity logs by type:', error);
+        return res.status(500).json({
+            error: 'Failed to fetch activity logs by type',
             message: error.message
         });
     }

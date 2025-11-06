@@ -3,12 +3,42 @@ const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
 
 /**
+ * Get memo filter to exclude system-generated memos and only include admin/secretary memos
+ * @returns {Object} MongoDB query filter
+ */
+async function getMemoFilter(baseFilter = {}) {
+    // Get admin and secretary user IDs
+    const adminSecretaryUsers = await User.find({
+        role: { $in: ['admin', 'secretary'] }
+    }).select('_id').lean();
+
+    const adminSecretaryIds = adminSecretaryUsers.map(u => u._id);
+
+    // System-generated activity types to exclude
+    const systemActivityTypes = [
+        'user_activity',
+        'system_notification',
+        'user_deleted',
+        'password_reset',
+        'welcome_email'
+    ];
+
+    return {
+        ...baseFilter,
+        sender: { $in: adminSecretaryIds },
+        activityType: { $nin: systemActivityTypes }
+    };
+}
+
+/**
  * Get overall statistics
  */
 async function getOverallStats() {
     try {
+        const memoFilter = await getMemoFilter({ status: { $ne: 'deleted' } });
+
         const [totalMemos, totalUsers, totalDepartments, totalEvents] = await Promise.all([
-            Memo.countDocuments({ status: { $ne: 'deleted' } }),
+            Memo.countDocuments(memoFilter),
             User.countDocuments({ isActive: true }),
             User.distinct('department'),
             CalendarEvent.countDocuments({ status: { $ne: 'cancelled' } })
@@ -31,13 +61,15 @@ async function getOverallStats() {
  */
 async function getMemoStatsByStatus(startDate, endDate) {
     try {
-        const dateFilter = {
+        const baseDateFilter = {
             createdAt: {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             },
             status: { $ne: 'deleted' }
         };
+
+        const dateFilter = await getMemoFilter(baseDateFilter);
 
         const stats = await Memo.aggregate([
             { $match: dateFilter },
@@ -62,13 +94,15 @@ async function getMemoStatsByStatus(startDate, endDate) {
  */
 async function getMemoStatsByPriority(startDate, endDate) {
     try {
-        const dateFilter = {
+        const baseDateFilter = {
             createdAt: {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             },
             status: { $ne: 'deleted' }
         };
+
+        const dateFilter = await getMemoFilter(baseDateFilter);
 
         const stats = await Memo.aggregate([
             { $match: dateFilter },
@@ -93,13 +127,15 @@ async function getMemoStatsByPriority(startDate, endDate) {
  */
 async function getMemoStatsByDepartment(startDate, endDate) {
     try {
-        const dateFilter = {
+        const baseDateFilter = {
             createdAt: {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             },
             status: { $ne: 'deleted' }
         };
+
+        const dateFilter = await getMemoFilter(baseDateFilter);
 
         const stats = await Memo.aggregate([
             { $match: dateFilter },
@@ -132,13 +168,15 @@ async function getMemoStatsByDepartment(startDate, endDate) {
  */
 async function getMemosOverTime(startDate, endDate) {
     try {
-        const dateFilter = {
+        const baseDateFilter = {
             createdAt: {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             },
             status: { $ne: 'deleted' }
         };
+
+        const dateFilter = await getMemoFilter(baseDateFilter);
 
         const stats = await Memo.aggregate([
             { $match: dateFilter },
@@ -207,9 +245,9 @@ async function getUserStats() {
  */
 async function getRecentActivity(limit = 50) {
     try {
-        const activities = await Memo.find({
-            status: { $ne: 'deleted' }
-        })
+        const memoFilter = await getMemoFilter({ status: { $ne: 'deleted' } });
+
+        const activities = await Memo.find(memoFilter)
             .populate('sender', 'firstName lastName email department')
             .populate('recipient', 'firstName lastName email department')
             .sort({ createdAt: -1 })
@@ -245,13 +283,15 @@ async function getRecentActivity(limit = 50) {
  */
 async function getMemoStatsForDateRange(startDate, endDate) {
     try {
-        const dateFilter = {
+        const baseDateFilter = {
             createdAt: {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             },
             status: { $ne: 'deleted' }
         };
+
+        const dateFilter = await getMemoFilter(baseDateFilter);
 
         const [total, sent, read, pending, byPriority, byDepartment] = await Promise.all([
             Memo.countDocuments(dateFilter),
@@ -309,6 +349,111 @@ async function getUserActivityOverTime(startDate, endDate) {
     }
 }
 
+/**
+ * Get activity logs over time from system memos
+ * This includes all activity types: user_activity, system_notification, etc.
+ */
+async function getActivityLogsOverTime(startDate, endDate, activityType = null) {
+    try {
+        const baseDateFilter = {
+            createdAt: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            },
+            status: { $ne: 'deleted' }
+        };
+
+        // Filter for system activity types
+        const systemActivityTypes = [
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            'password_reset',
+            'welcome_email',
+            'memo_sent',
+            'memo_approved',
+            'memo_rejected',
+            'pending_memo'
+        ];
+
+        const dateFilter = {
+            ...baseDateFilter,
+            activityType: activityType
+                ? { $eq: activityType }
+                : { $in: systemActivityTypes }
+        };
+
+        const stats = await Memo.aggregate([
+            { $match: dateFilter },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        return stats;
+    } catch (error) {
+        console.error('Error fetching activity logs over time:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get activity logs by type over time
+ */
+async function getActivityLogsByTypeOverTime(startDate, endDate) {
+    try {
+        const baseDateFilter = {
+            createdAt: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            },
+            status: { $ne: 'deleted' }
+        };
+
+        const systemActivityTypes = [
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            'password_reset',
+            'welcome_email',
+            'memo_sent',
+            'memo_approved',
+            'memo_rejected',
+            'pending_memo'
+        ];
+
+        const dateFilter = {
+            ...baseDateFilter,
+            activityType: { $in: systemActivityTypes }
+        };
+
+        const stats = await Memo.aggregate([
+            { $match: dateFilter },
+            {
+                $group: {
+                    _id: {
+                        date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                        activityType: '$activityType'
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.date': 1, '_id.activityType': 1 } }
+        ]);
+
+        return stats;
+    } catch (error) {
+        console.error('Error fetching activity logs by type over time:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     getOverallStats,
     getMemoStatsByStatus,
@@ -318,6 +463,8 @@ module.exports = {
     getUserStats,
     getRecentActivity,
     getMemoStatsForDateRange,
-    getUserActivityOverTime
+    getUserActivityOverTime,
+    getActivityLogsOverTime,
+    getActivityLogsByTypeOverTime
 };
 

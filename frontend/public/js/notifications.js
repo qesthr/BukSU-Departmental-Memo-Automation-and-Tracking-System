@@ -1,65 +1,70 @@
 // Notification Bell Functionality
-document.addEventListener('DOMContentLoaded', () => {
-    const notificationBtn = document.querySelector('.notification-btn');
-    const notificationDropdown = document.getElementById('notificationDropdown');
+(function() {
+    // Initialize notifications - handle both cases: DOM already loaded or not
+    function initNotifications() {
+        console.log('🔔 Initializing notifications...');
+        const notificationBtn = document.querySelector('.notification-btn');
+        const notificationDropdown = document.getElementById('notificationDropdown');
 
-    let notifications = [];
-    let unreadCount = 0;
+        let notifications = [];
+        let unreadCount = 0;
 
-    // Check if notification button exists
-    if (!notificationBtn) {
-        // eslint-disable-next-line no-console
-        console.warn('Notification button not found');
-        return;
-    }
-
-    // Create dropdown if it doesn't exist
-    if (!notificationDropdown) {
-        const dropdown = document.createElement('div');
-        dropdown.id = 'notificationDropdown';
-        dropdown.className = 'notification-dropdown';
-        dropdown.style.cssText = `
-            position: absolute;
-            top: 100%;
-            right: 0;
-            width: 400px;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            max-height: 600px;
-            overflow: hidden;
-            display: none;
-            z-index: 1000;
-            margin-top: 0.5rem;
-        `;
-        dropdown.innerHTML = `
-            <div class="notification-header" style="padding: 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b;">Notifications</h3>
-                <button id="markAllReadBtn" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; background: #f1f5f9; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; color: #64748b; transition: all 0.2s;">
-                    <i data-lucide="check" style="width: 16px; height: 16px;"></i>
-                    <span>Mark All Read</span>
-                </button>
-            </div>
-            <div class="notification-list" id="notificationList" style="max-height: 450px; overflow-y: auto;"></div>
-            <div class="notification-footer">
-                <a href="/admin/log" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View all in Log</a>
-            </div>
-        `;
-
-        // Insert dropdown - append to header-actions container
-        const headerActions = notificationBtn.closest('.header-actions');
-        if (headerActions) {
-            // Make container relative for positioning
-            headerActions.style.position = 'relative';
-            headerActions.appendChild(dropdown);
-        } else {
-            // Fallback: append to body
-            document.body.appendChild(dropdown);
+        // Check if notification button exists
+        if (!notificationBtn) {
+            // eslint-disable-next-line no-console
+            console.warn('⚠️ Notification button not found');
+            return;
         }
 
-        // Add CSS
-        const style = document.createElement('style');
+        console.log('✅ Notification button found:', notificationBtn);
+
+        // Create dropdown if it doesn't exist
+        if (!notificationDropdown) {
+            const dropdown = document.createElement('div');
+            dropdown.id = 'notificationDropdown';
+            dropdown.className = 'notification-dropdown';
+            dropdown.style.cssText = `
+                position: absolute;
+                top: 100%;
+                right: 0;
+                width: 400px;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                max-height: 600px;
+                overflow: hidden;
+                display: none;
+                z-index: 1000;
+                margin-top: 0.5rem;
+            `;
+            dropdown.innerHTML = `
+                <div class="notification-header" style="padding: 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b;">Notifications</h3>
+                    <button id="markAllReadBtn" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; background: #f1f5f9; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; color: #64748b; transition: all 0.2s;">
+                        <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                        <span>Mark All Read</span>
+                    </button>
+                </div>
+                <div class="notification-list" id="notificationList" style="max-height: 450px; overflow-y: auto;"></div>
+                <div class="notification-footer">
+                    <a href="/admin/log" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View all in Log</a>
+                </div>
+            `;
+
+            // Insert dropdown - append to header-actions container
+            const headerActions = notificationBtn.closest('.header-actions');
+            if (headerActions) {
+                // Make container relative for positioning
+                headerActions.style.position = 'relative';
+                headerActions.appendChild(dropdown);
+            } else {
+                // Fallback: append to body
+                document.body.appendChild(dropdown);
+            }
+
+            // Add CSS
+            const style = document.createElement('style');
         style.textContent = `
             .notification-badge {
                 position: absolute;
@@ -79,6 +84,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .notification-btn {
                 position: relative;
+            }
+
+            .notification-btn i,
+            .notification-btn svg {
+                pointer-events: none;
+                user-select: none;
+            }
+
+            .notification-badge {
+                pointer-events: none;
+                user-select: none;
             }
 
             .notification-item {
@@ -175,16 +191,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Toggle dropdown
     if (notificationBtn) {
+        console.log('🔔 Setting up click handler for notification button');
+        // Handle clicks on button and any child elements (icon, badge)
+        // Using capture phase to ensure we catch the event early
         notificationBtn.addEventListener('click', (e) => {
+            console.log('🔔 Notification button clicked!');
             e.stopPropagation();
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
-                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-                if (dropdown.style.display === 'block') {
+                const isOpen = dropdown.style.display === 'block';
+                dropdown.style.display = isOpen ? 'none' : 'block';
+                console.log('🔔 Dropdown toggled:', isOpen ? 'closed' : 'opened');
+                if (!isOpen) {
                     fetchNotifications();
                 }
             }
-        });
+        }, true); // Use capture phase to catch event before it bubbles
     }
 
     // Close dropdown when clicking outside
@@ -1033,5 +1055,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Refresh notifications every 30 seconds
     setInterval(fetchNotifications, 30000);
-});
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNotifications);
+    } else {
+        // DOM is already loaded, initialize immediately
+        // Use setTimeout to ensure all scripts are loaded
+        setTimeout(initNotifications, 0);
+    }
+})();
 

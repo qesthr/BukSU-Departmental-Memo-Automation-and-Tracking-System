@@ -346,18 +346,25 @@ async function loadRealtimeData() {
  */
 async function loadActivityChart(startDate, endDate) {
     try {
-        // Map UI select values to GA4 metric API names and display labels
-        const selected = document.getElementById('activityMetric')?.value || 'users';
-        const metricMap = {
-            users: { api: 'activeUsers', label: 'Active Users' },
-            sessions: { api: 'sessions', label: 'Sessions' },
-            pageviews: { api: 'screenPageViews', label: 'Page Views' }
+        // Map UI select values to activity types
+        const selected = document.getElementById('activityMetric')?.value || 'all';
+        const labelMap = {
+            all: 'All Activities',
+            user_activity: 'User Activities',
+            system_notification: 'System Notifications',
+            user_deleted: 'User Deleted',
+            memo_sent: 'Memo Sent',
+            memo_approved: 'Memo Approved',
+            memo_rejected: 'Memo Rejected',
+            pending_memo: 'Pending Memos'
         };
-        const mapped = metricMap[selected] || metricMap.users;
-        const response = await fetch(
-            `/api/analytics/activity?startDate=${startDate}&endDate=${endDate}&metric=${mapped.api}`,
-            { credentials: 'include' }
-        );
+        const label = labelMap[selected] || 'All Activities';
+
+        // Use database activity logs endpoint
+        const activityType = selected === 'all' ? null : selected;
+        const url = `/api/analytics/db/activity-logs?startDate=${startDate}&endDate=${endDate}${activityType ? `&activityType=${activityType}` : ''}`;
+
+        const response = await fetch(url, { credentials: 'include' });
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: Failed to load activity data`);
@@ -365,32 +372,19 @@ async function loadActivityChart(startDate, endDate) {
 
         const data = await response.json();
 
-        // Check if Google Analytics is not connected
-        if (data.message && data.message.includes('not connected')) {
-            showChartError('activityChart', 'Google Analytics not connected');
-            return;
-        }
-
         // Check if there's an error in the response
         if (data.error) {
-            let errorMessage = data.error || 'Failed to load activity data';
-
-            // Check if API is not enabled
-            if (errorMessage.includes('not enabled') || errorMessage.includes('has not been used')) {
-                errorMessage = 'Google Analytics Data API not enabled. Please enable it in Google Cloud Console.';
-            }
-
-            showChartError('activityChart', errorMessage);
+            showChartError('activityChart', data.error || 'Failed to load activity data');
             return;
         }
 
         // Check if data is empty
         if (!data.rows || data.rows.length === 0) {
-            showChartError('activityChart', 'No activity data available');
+            showChartError('activityChart', 'No activity data available for selected period');
             return;
         }
 
-        drawActivityChart(data, mapped.label);
+        drawActivityChart(data, label);
 
     } catch (error) {
         console.error('Error loading activity chart:', error);
@@ -425,11 +419,19 @@ function drawActivityChart(data, yLabel = 'Active Users') {
                     try {
                         if (row.dimensionValues && row.dimensionValues[0] && row.metricValues && row.metricValues[0]) {
                             const dateStr = row.dimensionValues[0].value;
-                            const date = new Date(dateStr);
-                            const value = parseInt(row.metricValues[0].value || 0);
+                            // Parse date string in format 'YYYY-MM-DD'
+                            const dateParts = dateStr.split('-');
+                            if (dateParts.length === 3) {
+                                const date = new Date(
+                                    parseInt(dateParts[0]),
+                                    parseInt(dateParts[1]) - 1,
+                                    parseInt(dateParts[2])
+                                );
+                                const value = parseInt(row.metricValues[0].value || 0);
 
-                            if (!isNaN(date.getTime()) && !isNaN(value)) {
-                                chartData.addRow([date, value]);
+                                if (!isNaN(date.getTime()) && !isNaN(value)) {
+                                    chartData.addRow([date, value]);
+                                }
                             }
                         }
                     } catch (rowError) {

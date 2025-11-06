@@ -86,10 +86,18 @@
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
+    z-index: 10;
 }
 
 .notification-btn:hover {
     background-color: var(--bg-main);
+}
+
+/* Ensure icon inside button doesn't block clicks */
+.notification-btn i,
+.notification-btn svg {
+    pointer-events: none;
+    user-select: none;
 }
 
 .notification-badge {
@@ -106,6 +114,9 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
 }
 
 

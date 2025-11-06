@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 const helmet = require('helmet');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const connectDB = require('./backend/config/db');
 const passport = require('./backend/config/passport');
 const isAdmin = require('./backend/middleware/isAdmin');
@@ -33,18 +34,30 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'",
                 "https://www.google.com", "https://www.gstatic.com",
                 "https://accounts.google.com", "https://apis.google.com",
-                "https://unpkg.com", "https://cdn.jsdelivr.net"],
+                "https://unpkg.com", "https://cdn.jsdelivr.net",
+                // Allow Google Tag Manager / gtag.js
+                "https://www.googletagmanager.com",
+                // Optional: GA debug tools (keep commented unless needed)
+                // "https://www.google-analytics.com"
+            ],
             styleSrc: ["'self'", "'unsafe-inline'", "https://www.google.com",
                 "https://www.gstatic.com", "https://fonts.googleapis.com",
                 "https://cdn.jsdelivr.net"],
             styleSrcElem: ["'self'", "'unsafe-inline'", "https://www.gstatic.com",
                 "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
-            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com",
+                // Allow Font Awesome webfonts from jsDelivr
+                "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:", "https://www.google.com",
-                "https://www.gstatic.com", "https://developers.google.com"],
+                "https://www.gstatic.com", "https://developers.google.com",
+                // Allow GA pixel requests if any image beacons are used
+                "https://www.google-analytics.com"],
             frameSrc: ["'self'", "https://www.google.com", "https://accounts.google.com", "https://*.google.com"],
             connectSrc: ["'self'", "https://unpkg.com", "https://www.googleapis.com",
-                "https://accounts.google.com", "https://*.google.com", "https://*.googleapis.com"]
+                "https://accounts.google.com", "https://*.google.com", "https://*.googleapis.com",
+                // Allow GA/gtag network requests
+                "https://www.google-analytics.com", "https://region1.google-analytics.com",
+                "https://www.googletagmanager.com"]
         },
     },
 }));
@@ -108,6 +121,49 @@ function broadcastEvent(event, data) {
 }
 
 app.locals.broadcastEvent = broadcastEvent;
+
+// Set up EJS first (needed for views configuration)
+app.use(expressLayouts);
+app.set('view engine', 'ejs');
+app.set('views', [
+    path.join(__dirname, 'frontend/views'),
+    path.join(__dirname, 'frontend/components')
+]);
+app.set('layout', path.join(__dirname, 'frontend/components/layouts/Loginlayout.ejs'));
+
+// Pass environment variables and path to views - MUST be before routes
+app.use(async (req, res, next) => {
+    res.locals.RECAPTCHA_SITE_KEY = process.env.RECAPTCHA_SITE_KEY;
+    res.locals.path = req.path; // Make current path available to all views
+
+    // Get Google Analytics Property ID for tracking (if configured)
+    // Primary: Use environment variable (faster, no DB query)
+    // Fallback: Database (only if DB is connected and env var not set)
+    try {
+        let propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID;
+
+        // Only query database if env var is not set AND mongoose is connected
+        if (!propertyId && mongoose.connection.readyState === 1) {
+            const SystemSetting = require('./backend/models/SystemSetting');
+            propertyId = await SystemSetting.get('google_analytics_property_id');
+        }
+
+        // For gtag.js, we need the full "G-XXXXXXXXXX" format
+        if (propertyId && !propertyId.startsWith('G-')) {
+            propertyId = 'G-' + propertyId;
+        }
+
+        res.locals.gaPropertyId = propertyId || null;
+    } catch (error) {
+        // Silently fail - tracking is optional
+        // Could be database not connected yet or other error
+        console.error('GA Property ID fetch error (non-critical):', error.message);
+        res.locals.gaPropertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || null;
+    }
+
+    next();
+});
+
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
@@ -118,19 +174,6 @@ app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Set up EJS
-app.use(expressLayouts);
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'frontend/views'));
-app.set('layout', path.join(__dirname, 'frontend/components/layouts/Loginlayout.ejs'));
-
-// Pass environment variables and path to views
-app.use((req, res, next) => {
-    res.locals.RECAPTCHA_SITE_KEY = process.env.RECAPTCHA_SITE_KEY;
-    res.locals.path = req.path; // Make current path available to all views
-    next();
-});
 
 // Routes
 app.get('/', (req, res) => {
