@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Departments | Memofy</title>
     <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Analytics Tracking -->
@@ -17,13 +18,7 @@
         <%- include('../../components/nav'); %>
 
         <main class="main-content">
-            <header class="top-bar">
-                <h1>Department Management</h1>
-                <div class="search-section">
-                    <input type="text" placeholder="Search departments...">
-                    <i data-lucide="search"></i>
-                </div>
-            </header>
+            <%- include('../../components/admintopbar'); %>
 
             <section class="departments-section">
                 <h2>Coming Soon</h2>

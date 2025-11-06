@@ -1405,6 +1405,14 @@
     display: block;
 }
 
+.modal#composeModal .modal-content,
+.modal#composeModal .modal-body,
+#composeModal .compose-header-fields,
+#composeModal .compose-inline-fields,
+#composeModal .custom-dropdown {
+    overflow: visible; /* Ensure dropdown isn't clipped by ancestors */
+}
+
 .dept-checkbox-label {
     display: flex;
     align-items: center;
