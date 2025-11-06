@@ -53,7 +53,7 @@ temp/
 *.tmp
 
 # Uploaded files
-uploads/
+
 
 # Local utility/test scripts (not used at runtime)
 backend/scripts/
