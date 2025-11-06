@@ -24,14 +24,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (passwordInput) {
         passwordInput.addEventListener('input', function () {
             if (this.value.length >= 6) { // Minimum 6 characters
-                if (recaptchaContainer) recaptchaContainer.style.display = 'block';
+                if (recaptchaContainer) {recaptchaContainer.style.display = 'block';}
                 // Reset reCAPTCHA if it was previously solved (guarded)
                 if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
                     window.grecaptcha.reset();
                 }
             } else {
-                if (recaptchaContainer) recaptchaContainer.style.display = 'none';
-                if (loginButton) loginButton.disabled = true;
+                if (recaptchaContainer) {recaptchaContainer.style.display = 'none';}
+                if (loginButton) {loginButton.disabled = true;}
             }
         });
     }
@@ -45,17 +45,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Validate form function
     function validateForm() {
-        if (!emailInput || !passwordInput) return;
+        if (!emailInput || !passwordInput) {return;}
         const email = emailInput.value.trim();
         const password = passwordInput.value;
         const isValidEmail = email && email.includes('@');
         const isValidPassword = password && password.length >= 6;
 
         if (isValidEmail && isValidPassword) {
-            if (recaptchaContainer) recaptchaContainer.style.display = 'block';
+            if (recaptchaContainer) {recaptchaContainer.style.display = 'block';}
         } else {
-            if (recaptchaContainer) recaptchaContainer.style.display = 'none';
-            if (loginButton) loginButton.disabled = true;
+            if (recaptchaContainer) {recaptchaContainer.style.display = 'none';}
+            if (loginButton) {loginButton.disabled = true;}
         }
     }
 
@@ -242,3 +242,18 @@ if (loginForm) {
 
 // Make showMessage globally available for other scripts
 window.showAdminMessage = showMessageModal;
+
+function showMessageModal(title, message, type) {
+    const modal = document.createElement('div');
+    modal.className = `message-modal ${type}`;
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>${title}</h3>
+            <p>${message}</p>
+            <button id="closeMsgModal">OK</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('closeMsgModal').addEventListener('click', () => modal.remove());
+}
