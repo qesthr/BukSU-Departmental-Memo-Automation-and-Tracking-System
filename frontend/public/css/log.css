@@ -259,13 +259,25 @@
 .memo-list {
     flex: 1;
     overflow-y: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    gap: 8px;
 }
 
 .memo-item {
-    padding: 16px;
-    border-bottom: 1px solid #e5e7eb;
-    cursor: pointer;
-    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 16px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .memo-item:hover {
@@ -1410,7 +1422,8 @@
 #composeModal .compose-header-fields,
 #composeModal .compose-inline-fields,
 #composeModal .custom-dropdown {
-    overflow: visible; /* Ensure dropdown isn't clipped by ancestors */
+    overflow: visible;
+    /* Ensure dropdown isn't clipped by ancestors */
 }
 
 /* Signatory section */
@@ -1439,8 +1452,16 @@
     object-fit: contain;
 }
 
-#composeModal .signatory-name { font-weight: 700; color: #111827; margin-top: 8px; }
-#composeModal .signatory-title { color: #6b7280; font-size: 13px; }
+#composeModal .signatory-name {
+    font-weight: 700;
+    color: #111827;
+    margin-top: 8px;
+}
+
+#composeModal .signatory-title {
+    color: #6b7280;
+    font-size: 13px;
+}
 
 /* Template dropdown radio buttons */
 #composeModal .template-checkbox {
@@ -1457,7 +1478,7 @@
 #previewOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     display: none;
     align-items: center;
     justify-content: center;
@@ -1470,7 +1491,7 @@
     max-width: 900px;
     height: 85vh;
     border-radius: 12px;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -2010,17 +2031,25 @@ input[type="file"]::file-selector-button:hover {
 /* Make sure the list and header adapt */
 
 
+/* Ensure the main memo container takes full width of the screen */
 .memo-container {
     width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    background: #f9fafb;
+    height: auto;
+    max-height: 750px;
+    overflow-y: auto;
+}
 
 
-    overflow: auto;
-    /* Allow scroll when resized smaller */
-    min-height: 200px;
-    /* Prevent collapsing too small */
-    max-height: 90vh;
+
+/* Ensure .log-layout inside it also stretches properly */
+.memo-container .log-layout {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    box-sizing: border-box;
 }

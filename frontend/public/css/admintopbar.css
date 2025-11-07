@@ -20,9 +20,12 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-bottom: 0.5rem;
-    position: relative; /* ensure stacking context */
-    z-index: 101; /* sit above page content */
-    overflow: visible; /* allow dropdowns to overflow */
+    position: relative;
+    /* ensure stacking context */
+    z-index: 101;
+    /* sit above page content */
+    overflow: visible;
+    /* allow dropdowns to overflow */
 }
 
 /* 🔹 Search Bar */
@@ -73,9 +76,12 @@
     align-items: center;
     /* ✅ Centers vertically */
     gap: 1.5rem;
-    position: relative; /* anchor dropdown positioning */
-    z-index: 102; /* above hero/other content */
-    overflow: visible; /* prevent clipping */
+    position: relative;
+    /* anchor dropdown positioning */
+    z-index: 102;
+    /* above hero/other content */
+    overflow: visible;
+    /* prevent clipping */
 }
 
 /* 🔹 Notification Button */
@@ -92,7 +98,10 @@
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
-    z-index: 103; /* ensure above neighbors */
+    overflow: visible;
+    /* 🔹 make sure badge isn't clipped */
+    z-index: 105;
+    /* higher stacking */
 }
 
 .notification-btn:hover {
@@ -108,22 +117,27 @@
 
 .notification-badge {
     position: absolute;
-    top: -2px;
-    right: -2px;
+    top: -6px;
+    /* 🔹 move badge slightly outside */
+    right: -6px;
+    /* 🔹 pull it out more to the right */
     background: #dc2626;
     color: white;
     border-radius: 50%;
     width: 18px;
     height: 18px;
     font-size: 0.7rem;
-    display: none; /* Hidden per request */
+    display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
     pointer-events: none;
     user-select: none;
-    z-index: 5;
+    z-index: 999;
+    /* 🔹 ensure it's always above */
 }
+
+
 
 
 /* 🔹 Profile Section */
