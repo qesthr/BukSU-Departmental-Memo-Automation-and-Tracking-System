@@ -58,8 +58,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Ensure department dropdown is initialized when modal opens
                 const modal = document.getElementById('composeModal');
                 if (modal) {
-                    initCustomDepartmentDropdown(modal);
                     attachTemplateHandlers(modal);
+                    // Initialize secretary department checkbox handler (this will handle canCrossSend secretaries)
+                    initSecretaryDeptCheckbox(modal);
+                    // For admins, initialize department dropdown
+                    const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
+                    const canCrossSend = window.currentUser?.canCrossSend || false;
+                    if (!isSecretary || (isSecretary && canCrossSend)) {
+                        // Wait a bit more to ensure DOM is fully rendered, especially for secretary wrapper
+                        setTimeout(() => {
+                            loadDepartments();
+                        }, 100);
+                    }
                 }
             }, 200);
         });
@@ -118,7 +128,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dropdown) {return;}
 
         // Load signatures and populate dropdown
-        function populateTemplateDropdown(){
+        async function populateTemplateDropdown(){
+            // Refresh signatures when modal opens to ensure we have the latest data
+            try {
+                const sigRes = await fetch('/api/log/memos/signatures/allowed', { credentials: 'same-origin' });
+                const sigData = await sigRes.json().catch(()=>({signatures:[]}));
+                if (sigData.success && sigData.signatures) {
+                    window.allowedSignatures = sigData.signatures || [];
+                }
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('Failed to refresh signatures:', e);
+                // Fall back to cached signatures
+            }
+
             const signatures = window.allowedSignatures || [];
             container.innerHTML = '';
             if (signatures.length === 0) {
@@ -137,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Populate dropdown when modal opens (async)
         populateTemplateDropdown();
 
         // Toggle dropdown
@@ -290,6 +314,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add Signature form handler
     const addSignatureForm = document.getElementById('addSignatureForm');
+
+    // Update file name display when file is selected
+    const signatureImageInput = document.getElementById('signatureImage');
+    const fileNameDisplay = document.getElementById('fileName');
+    if (signatureImageInput && fileNameDisplay) {
+        signatureImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = file.name;
+                fileNameDisplay.style.color = '#059669';
+                fileNameDisplay.style.fontWeight = '500';
+            } else {
+                fileNameDisplay.textContent = 'No file chosen';
+                fileNameDisplay.style.color = '#6b7280';
+                fileNameDisplay.style.fontWeight = 'normal';
+            }
+        });
+    }
+
     if (addSignatureForm){
         addSignatureForm.addEventListener('submit', async (e)=>{
             e.preventDefault();
@@ -326,24 +369,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (composeModal){
                         const container = composeModal.querySelector('#templateSignaturesContainer');
                         if (container){
+                            // Refresh signatures from API to get the latest
+                            try {
+                                const sigRes = await fetch('/api/log/memos/signatures/allowed', { credentials: 'same-origin' });
+                                const sigData = await sigRes.json().catch(()=>({signatures:[]}));
+                                if (sigData.success && sigData.signatures) {
+                                    window.allowedSignatures = sigData.signatures || [];
+                                }
+                            } catch (e) {
+                                // eslint-disable-next-line no-console
+                                console.warn('Failed to refresh signatures after adding:', e);
+                            }
+
                             const signatures = window.allowedSignatures || [];
                             container.innerHTML = '';
-                            signatures.forEach(sig => {
-                                const label = document.createElement('label');
-                                label.className = 'dept-checkbox-label';
-                                label.style.cursor = 'pointer';
-                                label.innerHTML = `
-                                    <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}">
-                                    <span>${sig.displayName || sig.roleTitle}</span>
-                                `;
-                                container.appendChild(label);
-                            });
+                            if (signatures.length === 0) {
+                                container.innerHTML = '<div style="padding:8px; color:#6b7280; font-size:12px; text-align:center;">No signatures available</div>';
+                            } else {
+                                signatures.forEach(sig => {
+                                    const label = document.createElement('label');
+                                    label.className = 'dept-checkbox-label';
+                                    label.style.cursor = 'pointer';
+                                    label.innerHTML = `
+                                        <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}">
+                                        <span>${sig.displayName || sig.roleTitle}</span>
+                                    `;
+                                    container.appendChild(label);
+                                });
+                            }
                         }
                     }
                     // Close modal and reset form
                     const addModal = document.getElementById('addSignatureModal');
                     if (addModal) {addModal.style.display = 'none';}
                     form.reset();
+                    // Reset file name display
+                    if (fileNameDisplay) {
+                        fileNameDisplay.textContent = 'No file chosen';
+                        fileNameDisplay.style.color = '#6b7280';
+                        fileNameDisplay.style.fontWeight = 'normal';
+                    }
                     alert('Signature added successfully!');
                 } else {
                     alert(data.message || 'Failed to add signature');
@@ -815,13 +880,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!composeModal) {return;}
 
             // Validation - get recipient emails from chips
-            const selectedDepartments = Array.from(composeModal.querySelectorAll('.dept-option:checked'))
+            let selectedDepartments = Array.from(composeModal.querySelectorAll('.dept-option:checked'))
                 .map(cb => cb.value);
 
             // Handle "Select All" for admins
             const selectAll = composeModal.querySelector('#selectAllDepts');
             if (selectAll && selectAll.checked) {
-                selectedDepartments.length = 0;
+                selectedDepartments = [];
                 composeModal.querySelectorAll('.dept-option').forEach(cb => {
                     if (cb.value) {
                         selectedDepartments.push(cb.value);
@@ -829,11 +894,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Validate at least one recipient or department
-            // For secretaries, allow submission without departments (backend will default to their department)
+            // Handle secretary department checkbox
             const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
+            const sendToAllDeptCheckbox = composeModal.querySelector('#sendToAllDeptCheckbox');
+            if (isSecretary && sendToAllDeptCheckbox) {
+                const secretaryDept = window.currentUser.department;
+                if (sendToAllDeptCheckbox.checked) {
+                    // If checked, add secretary's department to selectedDepartments
+                    if (secretaryDept && !selectedDepartments.includes(secretaryDept)) {
+                        selectedDepartments.push(secretaryDept);
+                    }
+                } else {
+                    // If unchecked, remove secretary's department from selectedDepartments
+                    selectedDepartments = selectedDepartments.filter(d => d !== secretaryDept);
+                }
+            }
+
+            // Validate at least one recipient or department
+            // For secretaries, allow submission without departments (only if they have individual recipients)
             if (recipientData.length === 0 && selectedDepartments.length === 0 && !isSecretary) {
                 showNotification('Please specify at least one recipient or department.', 'error');
+                return;
+            }
+
+            // For secretaries, require at least one recipient OR department checkbox
+            if (isSecretary && recipientData.length === 0 && selectedDepartments.length === 0) {
+                showNotification('Please select at least one recipient or enable "Send to all department members".', 'error');
                 return;
             }
 
@@ -1033,55 +1119,129 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadDepartments(){
         try{
             const composeModal = document.getElementById('composeModal');
-            if (!composeModal) {return;} // Only work if compose modal exists
+            if (!composeModal) {
+                // eslint-disable-next-line no-console
+                console.warn('loadDepartments: composeModal not found');
+                return;
+            }
 
+            // eslint-disable-next-line no-console
+            console.log('loadDepartments: Fetching departments...');
             const res = await fetch('/api/users/departments');
+            if (!res.ok) {
+                throw new Error(`Failed to fetch departments: ${res.status} ${res.statusText}`);
+            }
             const data = await res.json();
+            // eslint-disable-next-line no-console
+            console.log('loadDepartments: Received data:', data);
 
             // Scope to compose modal only
-            const container = composeModal.querySelector('#deptCheckboxesContainer');
-            const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
-            const dropdown = composeModal.querySelector('.custom-dropdown');
-
-            if (!container || !dropdownBtn || !dropdown) {return;}
-
+            // Check both admin and secretary dropdown locations
             const userRole = window.currentUser?.role || 'faculty';
-            const userDepartment = window.currentUser?.department || '';
             const canCrossSend = window.currentUser?.canCrossSend || false;
+            // eslint-disable-next-line no-console
+            console.log('loadDepartments: User role:', userRole, 'canCrossSend:', canCrossSend);
+
+            // For secretaries with canCrossSend, look in secretary wrapper first
+            let container, dropdownBtn, dropdownMenu;
+            if (userRole === 'secretary' && canCrossSend) {
+                const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+                // eslint-disable-next-line no-console
+                console.log('loadDepartments: Secretary wrapper found:', !!secretaryWrapper);
+                if (secretaryWrapper) {
+                    // Check if wrapper is visible
+                    const wrapperStyle = window.getComputedStyle(secretaryWrapper);
+                    // eslint-disable-next-line no-console
+                    console.log('loadDepartments: Wrapper display:', wrapperStyle.display);
+
+                    container = secretaryWrapper.querySelector('#deptCheckboxesContainer');
+                    dropdownBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+                    dropdownMenu = secretaryWrapper.querySelector('#deptDropdownMenu');
+                    // eslint-disable-next-line no-console
+                    console.log('loadDepartments: Elements in wrapper:', {
+                        container: !!container,
+                        dropdownBtn: !!dropdownBtn,
+                        dropdownMenu: !!dropdownMenu,
+                        containerId: container ? container.id : 'none',
+                        dropdownBtnId: dropdownBtn ? dropdownBtn.id : 'none',
+                        dropdownMenuId: dropdownMenu ? dropdownMenu.id : 'none'
+                    });
+                } else {
+                    // eslint-disable-next-line no-console
+                    console.warn('loadDepartments: Secretary wrapper not found even though canCrossSend is true');
+                }
+            }
+
+            // Fallback to admin location if not found
+            if (!container) {
+                container = composeModal.querySelector('#deptCheckboxesContainer');
+            }
+            if (!dropdownBtn) {
+                dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+            }
+            if (!dropdownMenu) {
+                dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+            }
+
+            if (!container || !dropdownBtn || !dropdownMenu) {
+                // eslint-disable-next-line no-console
+                console.error('Department dropdown elements not found:', {
+                    container: !!container,
+                    dropdownBtn: !!dropdownBtn,
+                    dropdownMenu: !!dropdownMenu,
+                    userRole,
+                    canCrossSend
+                });
+                return;
+            }
+
+            const userDepartment = window.currentUser?.department || '';
 
             container.innerHTML = '';
             const departments = data.departments || [];
+            // eslint-disable-next-line no-console
+            console.log('loadDepartments: Departments from API:', departments);
 
-            // Filter departments based on role
+            // Filter departments based on role - for canCrossSend secretaries, show all departments
             let availableDepartments = departments;
             if (userRole === 'secretary' && !canCrossSend) {
                 availableDepartments = departments.filter(d => d === userDepartment);
             }
+            // eslint-disable-next-line no-console
+            console.log('loadDepartments: Available departments:', availableDepartments);
 
-            // Show "Select All" only for admins
+            // Show "Select All" for admins and canCrossSend secretaries
             const selectAllCheckbox = composeModal.querySelector('#selectAllDepts');
-            if (selectAllCheckbox) {
-                if (userRole === 'admin') {
-                    selectAllCheckbox.parentElement.style.display = 'block';
-                    const hr = composeModal.querySelector('.dept-dropdown-hr');
+            const selectAllLabel = composeModal.querySelector('#selectAllDeptsLabel');
+            if (selectAllCheckbox && selectAllLabel) {
+                if (userRole === 'admin' || (userRole === 'secretary' && canCrossSend)) {
+                    selectAllLabel.style.display = 'block';
+                    const hr = dropdownMenu.querySelector('.dept-dropdown-hr');
                     if (hr) {hr.style.display = 'block';}
                 } else {
-                    selectAllCheckbox.parentElement.style.display = 'none';
-                    const hr = composeModal.querySelector('.dept-dropdown-hr');
+                    selectAllLabel.style.display = 'none';
+                    const hr = dropdownMenu.querySelector('.dept-dropdown-hr');
                     if (hr) {hr.style.display = 'none';}
                 }
             }
 
             // Add department checkboxes
-            availableDepartments.forEach(dept => {
-                const label = document.createElement('label');
-                label.className = 'dept-checkbox-label';
-                label.innerHTML = `
-                    <input type="checkbox" class="dept-checkbox dept-option" value="${dept}">
-                    <span>${dept}</span>
-                `;
-                container.appendChild(label);
-            });
+            if (availableDepartments.length === 0) {
+                // eslint-disable-next-line no-console
+                console.warn('loadDepartments: No departments available to display');
+            } else {
+                availableDepartments.forEach(dept => {
+                    const label = document.createElement('label');
+                    label.className = 'dept-checkbox-label';
+                    label.innerHTML = `
+                        <input type="checkbox" class="dept-checkbox dept-option" value="${dept}">
+                        <span>${dept}</span>
+                    `;
+                    container.appendChild(label);
+                });
+                // eslint-disable-next-line no-console
+                console.log('loadDepartments: Added', availableDepartments.length, 'department checkboxes');
+            }
 
             // Update label
             if (userRole === 'admin' || (userRole === 'secretary' && canCrossSend)) {
@@ -1197,6 +1357,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     else { freshBtn.textContent = `${selected.length} departments selected`; }
                 }
             }
+        }
+    }
+
+    // Initialize secretary department checkbox handler
+    function initSecretaryDeptCheckbox(composeModal) {
+        const sendToAllDeptCheckbox = composeModal.querySelector('#sendToAllDeptCheckbox');
+        const selectedDepartmentsInput = composeModal.querySelector('#selectedDepartments');
+        const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
+        const canCrossSend = window.currentUser?.canCrossSend || false;
+
+        // If secretary has canCrossSend, they use admin-style dropdown
+        // The dropdown will be initialized by loadDepartments() called from compose button handler
+        if (isSecretary && canCrossSend) {
+            return; // Dropdown will be handled by loadDepartments()
+        }
+
+        // Regular secretary: handle inline checkbox
+        if (!sendToAllDeptCheckbox || !selectedDepartmentsInput) {
+            return; // Not a secretary compose modal or elements don't exist
+        }
+
+        // Update hidden input when checkbox changes
+        sendToAllDeptCheckbox.addEventListener('change', () => {
+            if (isSecretary) {
+                const secretaryDept = window.currentUser.department;
+                if (sendToAllDeptCheckbox.checked && secretaryDept) {
+                    selectedDepartmentsInput.value = secretaryDept;
+                } else {
+                    selectedDepartmentsInput.value = '';
+                }
+            }
+        });
+
+        // Initialize checkbox state when modal opens
+        if (isSecretary) {
+            // Default to unchecked - secretary must explicitly choose to send to all
+            sendToAllDeptCheckbox.checked = false;
+            selectedDepartmentsInput.value = '';
         }
     }
 

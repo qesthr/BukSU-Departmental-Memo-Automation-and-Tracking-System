@@ -896,6 +896,42 @@
                 htmlContent += '</div>';
             }
 
+            // Add signatures if present (for regular memos only, not calendar events or user logs)
+            if (!isCalendarEvent && !isUserLog && memo.signatures && Array.isArray(memo.signatures) && memo.signatures.length > 0) {
+                htmlContent += '<div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">';
+                htmlContent += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 1rem;">';
+
+                memo.signatures.forEach(sig => {
+                    const name = sig.displayName || sig.roleTitle || sig.role || '';
+                    const title = sig.roleTitle || sig.role || '';
+                    const imgSrc = sig.imageUrl || '';
+
+                    // Escape HTML for security
+                    const escapeHtml = (text) => String(text || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+
+                    const safeName = escapeHtml(name);
+                    const safeTitle = escapeHtml(title);
+                    const safeImgSrc = escapeHtml(imgSrc);
+
+                    htmlContent += '<div style="text-align: center;">';
+                    if (imgSrc) {
+                        htmlContent += `<img src="${safeImgSrc}" alt="${safeName}" style="max-width: 180px; max-height: 60px; object-fit: contain; margin-bottom: 8px;" onerror="this.style.display='none'">`;
+                    } else {
+                        htmlContent += '<div style="height: 60px; margin-bottom: 8px;"></div>';
+                    }
+                    htmlContent += `<div style="font-weight: 600; color: #111827; margin-top: 4px;">${safeName}</div>`;
+                    htmlContent += `<div style="font-size: 13px; color: #6b7280; margin-top: 2px;">${safeTitle}</div>`;
+                    htmlContent += '</div>';
+                });
+
+                htmlContent += '</div></div>';
+            }
+
             bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
 
             // Footer actions for admin approval workflow

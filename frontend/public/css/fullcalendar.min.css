@@ -1,0 +1,8 @@
+/**
+ * Bundled by jsDelivr using Rollup v2.79.2 and Terser v5.39.0.
+ * Original file: /npm/fullcalendar@6.1.15/index.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+import{globalPlugins as e}from"/npm/@fullcalendar/core@6.1.15/index.js/+esm";export*from"/npm/@fullcalendar/core@6.1.15/index.js/+esm";import m from"/npm/@fullcalendar/interaction@6.1.17/index.js/+esm";export*from"/npm/@fullcalendar/interaction@6.1.17/index.js/+esm";import r from"/npm/@fullcalendar/daygrid@6.1.15/index.js/+esm";import n from"/npm/@fullcalendar/timegrid@6.1.17/index.js/+esm";import l from"/npm/@fullcalendar/list@6.1.17/index.js/+esm";import i from"/npm/@fullcalendar/multimonth@6.1.17/index.js/+esm";e.push(m,r,n,l,i);export default null;
+//# sourceMappingURL=/sm/6c4a366a68f1cf8bf1a6ed086dafd05d4dcf6d5238ff6918a06ddab7382d54a1.map

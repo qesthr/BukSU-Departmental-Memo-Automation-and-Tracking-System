@@ -7,6 +7,101 @@
     initCalendar();
   }
 
+  // Custom Modal Functions
+  function showConfirmModal(message, title = 'Confirm') {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirmModal');
+      const titleEl = document.getElementById('confirmModalTitle');
+      const messageEl = document.getElementById('confirmModalMessage');
+      const okBtn = document.getElementById('confirmModalOk');
+      const cancelBtn = document.getElementById('confirmModalCancel');
+      const closeBtn = document.getElementById('confirmModalClose');
+
+      if (!modal) {
+        // Fallback to browser confirm if modal doesn't exist
+        resolve(confirm(message));
+        return;
+      }
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      modal.style.display = 'flex';
+
+      const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+        closeBtn.onclick = null;
+      };
+
+      okBtn.onclick = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      cancelBtn.onclick = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      closeBtn.onclick = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      // Close on overlay click
+      const overlay = modal.querySelector('.custom-modal-overlay');
+      overlay.onclick = () => {
+        cleanup();
+        resolve(false);
+      };
+    });
+  }
+
+  function showAlertModal(message, title = 'Notice') {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('alertModal');
+      const titleEl = document.getElementById('alertModalTitle');
+      const messageEl = document.getElementById('alertModalMessage');
+      const okBtn = document.getElementById('alertModalOk');
+      const closeBtn = document.getElementById('alertModalClose');
+
+      if (!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(message);
+        resolve();
+        return;
+      }
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      modal.style.display = 'flex';
+
+      const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.onclick = null;
+        closeBtn.onclick = null;
+      };
+
+      okBtn.onclick = () => {
+        cleanup();
+        resolve();
+      };
+
+      closeBtn.onclick = () => {
+        cleanup();
+        resolve();
+      };
+
+      // Close on overlay click
+      const overlay = modal.querySelector('.custom-modal-overlay');
+      overlay.onclick = () => {
+        cleanup();
+        resolve();
+      };
+    });
+  }
+
   function initCalendar() {
   const calendarEl = document.getElementById('calendar');
   if (!calendarEl) {
@@ -230,17 +325,21 @@
     customButtons.googleCalendarBtn = {
       text: '🔗 Google Calendar',
       click: async function() {
-        if (!confirm('Disconnect Google Calendar? Your events will still be saved in Memofy.')) { return; }
+        const confirmed = await showConfirmModal(
+          'Disconnect Google Calendar? Your events will still be saved in Memofy.',
+          'Disconnect Google Calendar'
+        );
+        if (!confirmed) { return; }
         try {
           const res = await fetch('/calendar/disconnect', { method: 'DELETE', credentials: 'same-origin' });
           if (res.ok) {
-            alert('Google Calendar disconnected. Your Memofy events are still saved.');
+            await showAlertModal('Google Calendar disconnected. Your Memofy events are still saved.', 'Disconnected');
             window.location.reload();
           } else {
             throw new Error('Failed to disconnect');
           }
         } catch (err) {
-          alert('Failed to disconnect Google Calendar');
+          await showAlertModal('Failed to disconnect Google Calendar', 'Error');
         }
       }
     };
@@ -249,8 +348,12 @@
     // Optional: Show small connect button (less prominent)
     customButtons.googleCalendarBtn = {
       text: '🔗 Sync Google Calendar',
-      click: function() {
-        if (confirm('Connect Google Calendar to sync your Memofy events with Google Calendar?\n\nYou can still use Memofy calendar without connecting.')) {
+      click: async function() {
+        const confirmed = await showConfirmModal(
+          'Connect Google Calendar to sync your Memofy events with Google Calendar?\n\nYou can still use Memofy calendar without connecting.',
+          'Connect Google Calendar'
+        );
+        if (confirmed) {
           window.location.href = '/calendar/auth';
         }
       }
@@ -305,6 +408,19 @@
     slotMinTime: '00:00:00', // Start from midnight
     slotMaxTime: '24:00:00', // Show full 24 hours
     scrollTime: getCurrentTime(), // Scroll to current time initially (makes it visible first)
+    eventDidMount: function(info) {
+      console.log('🎨 Event rendered in calendar:', {
+        id: info.event.id,
+        title: info.event.title,
+        start: info.event.start,
+        end: info.event.end,
+        allDay: info.event.allDay,
+        element: info.el
+      });
+    },
+    eventWillUnmount: function(info) {
+      console.log('🗑️ Event removed from calendar:', info.event.title);
+    },
     datesSet: function(dateInfo) {
       // Update selected date based on main calendar view
       const viewDate = dateInfo.start;
@@ -403,6 +519,22 @@
           }
         });
       }, 50);
+
+      // Ensure calendar is in timeGridDay view and navigate to clicked date
+      // This ensures events for that date are visible
+      if (calendar.view.type !== 'timeGridDay') {
+        calendar.changeView('timeGridDay', clickedDate);
+      } else {
+        // If already in day view, navigate to the clicked date
+        calendar.gotoDate(clickedDate);
+      }
+
+      // Force refresh events for the clicked date to ensure newly created events are visible
+      setTimeout(() => {
+        console.log('🔄 Refreshing events after date click:', clickedDate.toISOString());
+        calendar.refetchEvents();
+        calendar.render();
+      }, 100);
 
       // Open modal with date and start time pre-filled (end time left empty for user to set)
       openModal({ date: info.dateStr.substring(0, 10), start: timeStr });
@@ -533,7 +665,7 @@
         if (!res.ok) { throw new Error('Failed to update schedule'); }
       } catch (err) {
         info.revert();
-        alert(err.message || 'Update failed');
+        await showAlertModal(err.message || 'Update failed', 'Error');
       }
     },
     async eventResize(info) {
@@ -562,7 +694,7 @@
         if (!res.ok) { throw new Error('Failed to update schedule'); }
       } catch (err) {
         info.revert();
-        alert(err.message || 'Update failed');
+        await showAlertModal(err.message || 'Update failed', 'Error');
       }
     },
       events: async function(fetchInfo, success, failure) {
@@ -570,124 +702,307 @@
           const qs = new URLSearchParams({ start: fetchInfo.startStr, end: fetchInfo.endStr, onlyCreatedByMe: '1' });
         console.log('🔍 Fetching events for date range:', fetchInfo.startStr, 'to', fetchInfo.endStr);
         const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
-        if (!res.ok) { throw new Error('Failed to load events'); }
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ Failed to load events:', res.status, res.statusText, errorText);
+          throw new Error('Failed to load events');
+        }
         const data = await res.json();
         console.log('📅 Events received from server:', data.length, 'events');
         console.log('📅 Event details:', data);
         console.log('📅 Date range requested:', fetchInfo.startStr, 'to', fetchInfo.endStr);
+        console.log('📅 Date range (parsed):', new Date(fetchInfo.start), 'to', new Date(fetchInfo.end));
 
-        const localEvents = data.map(e => {
-          const timeStr = formatEventTime(e.start);
-          const eventTitle = timeStr ? `${e.title} at ${timeStr}` : e.title;
+        // If no events, check if we should warn about date range
+        if (data.length === 0) {
+          console.warn('⚠️ No events returned. This could mean:');
+          console.warn('   1. No events exist in this date range');
+          console.warn('   2. Events exist but are filtered out');
+          console.warn('   3. Date range mismatch');
+          console.warn('   Check server logs for filtering details');
+        }
 
-          // Handle all-day events
-          const isAllDay = e.allDay || false;
-          // For all-day events, use just the date part (no time)
-          let startDate = e.start;
-          let endDate = e.end;
-
-          // Convert date strings to Date objects for FullCalendar
-          // FullCalendar expects Date objects, not strings
-          if (typeof e.start === 'string') {
-            startDate = new Date(e.start);
-          } else if (e.start instanceof Date) {
-            startDate = e.start;
-          }
-
-          if (typeof e.end === 'string') {
-            endDate = new Date(e.end);
-          } else if (e.end instanceof Date) {
-            endDate = e.end;
-          }
-
-          if (isAllDay) {
-            // Convert to date-only format for all-day events
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            startDate = start;
-
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            endDate = end;
-          }
-
-          const eventObj = {
-            id: e._id,
-            title: isAllDay ? e.title : eventTitle, // Don't add time for all-day events
-            start: startDate,
-            end: endDate,
-            allDay: isAllDay,
-            backgroundColor: categoryColor(e.category),
-            borderColor: categoryColor(e.category),
-            classNames: [`fc-event-${e.category || 'standard'}`],
-            editable: e.isCreator !== false, // Only editable if user is creator
-            extendedProps: {
-              originalTitle: e.title,
-              category: e.category,
-              allDay: isAllDay,
-              participants: e.participants,
-              description: e.description,
-              isCreator: e.isCreator !== false // Store creator flag
-            }
-          };
-
-          console.log(`📌 Event "${e.title}":`, {
-            id: e._id,
-            start: startDate,
-            end: endDate,
-            category: e.category,
-            isCreator: e.isCreator,
-            startDateType: typeof startDate,
-            endDateType: typeof endDate
+        // Log raw event data structure
+        if (data.length > 0) {
+          console.log('📋 First event raw data:', {
+            title: data[0].title,
+            start: data[0].start,
+            startType: typeof data[0].start,
+            end: data[0].end,
+            endType: typeof data[0].end,
+            allDay: data[0].allDay,
+            category: data[0].category,
+            fullEvent: data[0]
           });
+        } else {
+          console.warn('⚠️ No events returned from API for this date range');
+        }
 
-          return eventObj;
-        });
+        // Log if events exist - use fetchInfo.start to check the requested date range
+        if (data.length > 0) {
+          const firstEventDate = new Date(data[0].start);
+          const requestedStartDate = new Date(fetchInfo.start);
+          const eventDateStr = formatDateManila(firstEventDate);
+          const requestedDateStr = formatDateManila(requestedStartDate);
+          if (eventDateStr !== requestedDateStr) {
+            console.log(`⚠️ Event exists on ${eventDateStr} but calendar requested ${requestedDateStr}`);
+            console.log(`💡 Navigate to ${eventDateStr} to see the event`);
+          }
+        }
+
+        console.log(`🔄 Processing ${data.length} events from API...`);
+        const localEvents = data.map((e, index) => {
+          try {
+            console.log(`   Processing event ${index + 1}/${data.length}: "${e.title || 'NO TITLE'}"`);
+            const timeStr = formatEventTime(e.start);
+            const eventTitle = timeStr ? `${e.title} at ${timeStr}` : e.title;
+
+            // Handle all-day events
+            const isAllDay = e.allDay || false;
+            // For all-day events, use just the date part (no time)
+            let startDate = e.start;
+            let endDate = e.end;
+
+            // Convert date strings to Date objects for FullCalendar
+            // FullCalendar expects Date objects, not strings
+            // When MongoDB dates are serialized via JSON, they become ISO strings
+            if (typeof e.start === 'string') {
+              // Parse ISO string to Date object
+              startDate = new Date(e.start);
+              // Validate the parsed date
+              if (isNaN(startDate.getTime())) {
+                console.error(`❌ Failed to parse start date string "${e.start}"`);
+                return null;
+              }
+            } else if (e.start instanceof Date) {
+              startDate = e.start;
+            } else if (e.start && typeof e.start === 'object') {
+              // Handle MongoDB Date objects or other date-like objects
+              if (e.start.toDate && typeof e.start.toDate === 'function') {
+                startDate = e.start.toDate();
+              } else if (e.start.$date) {
+                // Handle MongoDB extended JSON format
+                startDate = new Date(e.start.$date);
+              } else {
+                // Try to convert to Date
+                startDate = new Date(e.start);
+              }
+            } else {
+              console.error(`❌ Unexpected start date type for event "${e.title}":`, typeof e.start, e.start);
+              return null;
+            }
+
+            if (typeof e.end === 'string') {
+              // Parse ISO string to Date object
+              endDate = new Date(e.end);
+              // Validate the parsed date
+              if (isNaN(endDate.getTime())) {
+                console.error(`❌ Failed to parse end date string "${e.end}"`);
+                return null;
+              }
+            } else if (e.end instanceof Date) {
+              endDate = e.end;
+            } else if (e.end && typeof e.end === 'object') {
+              // Handle MongoDB Date objects or other date-like objects
+              if (e.end.toDate && typeof e.end.toDate === 'function') {
+                endDate = e.end.toDate();
+              } else if (e.end.$date) {
+                // Handle MongoDB extended JSON format
+                endDate = new Date(e.end.$date);
+              } else {
+                // Try to convert to Date
+                endDate = new Date(e.end);
+              }
+            } else {
+              console.error(`❌ Unexpected end date type for event "${e.title}":`, typeof e.end, e.end);
+              return null;
+            }
+
+            // Validate dates
+            if (!startDate || isNaN(startDate.getTime())) {
+              console.error(`❌ Invalid start date for event "${e.title}":`, e.start);
+              return null;
+            }
+            if (!endDate || isNaN(endDate.getTime())) {
+              console.error(`❌ Invalid end date for event "${e.title}":`, e.end);
+              return null;
+            }
+
+            if (isAllDay) {
+              // Convert to date-only format for all-day events
+              const start = new Date(startDate);
+              start.setHours(0, 0, 0, 0);
+              startDate = start;
+
+              const end = new Date(endDate);
+              end.setHours(23, 59, 59, 999);
+              endDate = end;
+            }
+
+            // Ensure dates are proper Date objects (not strings) for FullCalendar
+            // FullCalendar with timeZone works best with Date objects
+            const finalStartDate = startDate instanceof Date ? startDate : new Date(startDate);
+            const finalEndDate = endDate instanceof Date ? endDate : new Date(endDate);
+
+            // Validate the dates one more time
+            if (isNaN(finalStartDate.getTime()) || isNaN(finalEndDate.getTime())) {
+              console.error(`❌ Invalid date conversion for event "${e.title}":`, {
+                startDate: startDate,
+                endDate: endDate,
+                finalStartDate: finalStartDate,
+                finalEndDate: finalEndDate
+              });
+              return null;
+            }
+
+            // For FullCalendar with timeZone, we can pass Date objects directly
+            // FullCalendar will handle timezone conversion internally
+            const eventObj = {
+              id: String(e._id), // Ensure ID is a string
+              title: isAllDay ? e.title : eventTitle, // Don't add time for all-day events
+              start: finalStartDate, // Use validated Date objects - FullCalendar handles timezone
+              end: finalEndDate,
+              allDay: isAllDay,
+              backgroundColor: categoryColor(e.category),
+              borderColor: categoryColor(e.category),
+              textColor: e.category === 'urgent' ? '#991b1b' : e.category === 'today' ? '#9a3412' : '#065f46',
+              classNames: [`fc-event-${e.category || 'standard'}`],
+              editable: e.isCreator !== false, // Only editable if user is creator
+              extendedProps: {
+                originalTitle: e.title,
+                category: e.category,
+                allDay: isAllDay,
+                participants: e.participants,
+                description: e.description,
+                isCreator: e.isCreator !== false // Store creator flag
+              }
+            };
+
+            // Final validation - ensure the event object is valid
+            if (!eventObj.id || !eventObj.title || !eventObj.start || !eventObj.end) {
+              console.error(`❌ Event object missing required fields:`, eventObj);
+              return null;
+            }
+
+            // Check if event is within the requested date range
+            const requestedStart = new Date(fetchInfo.start);
+            const requestedEnd = new Date(fetchInfo.end);
+            const eventStart = finalStartDate;
+            const eventEnd = finalEndDate;
+
+            // FullCalendar shows events that overlap with the date range
+            // Event is visible if: eventStart < requestedEnd AND eventEnd > requestedStart
+            const isInRange = eventStart < requestedEnd && eventEnd > requestedStart;
+
+            // Note: This warning is informational - FullCalendar will still render events
+            // that are slightly outside the range if they're close enough
+            // The warning helps debug why events might not appear
+            if (!isInRange) {
+              const eventDateStr = eventStart.toLocaleDateString('en-US', { timeZone: 'Asia/Manila' });
+              const requestedDateStr = requestedStart.toLocaleDateString('en-US', { timeZone: 'Asia/Manila' });
+              console.warn(`⚠️ Event "${e.title}" date (${eventDateStr}) is outside requested range (${requestedDateStr})`);
+              console.warn('   This is normal if you navigate to a different date. FullCalendar will fetch events when you navigate.');
+              console.warn('   Details:', {
+                eventStart: eventStart.toISOString(),
+                eventEnd: eventEnd.toISOString(),
+                requestedStart: requestedStart.toISOString(),
+                requestedEnd: requestedEnd.toISOString()
+              });
+            }
+
+            // Enhanced logging with date information
+            const startInManila = finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' });
+            const endInManila = finalEndDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' });
+            const startDateOnly = finalStartDate.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+            console.log(`📌 Event "${e.title}":`, {
+              id: e._id,
+              start: finalStartDate,
+              end: finalEndDate,
+              startInManila: startInManila,
+              endInManila: endInManila,
+              startDateOnly: startDateOnly,
+              category: e.category,
+              isCreator: e.isCreator,
+              isInRange: isInRange,
+              startDateType: typeof finalStartDate,
+              endDateType: typeof finalEndDate,
+              rawStart: e.start,
+              rawEnd: e.end
+            });
+
+            console.log(`   ✅ Successfully processed event "${e.title}"`);
+            return eventObj;
+          } catch (err) {
+            console.error(`❌ Error processing event "${e.title || 'UNNAMED'}":`, err);
+            console.error('   Event data:', e);
+            return null;
+          }
+        }).filter(event => event !== null); // Remove any null events (invalid dates)
+
+        console.log(`📊 Processed ${localEvents.length} valid events out of ${data.length} total`);
+        if (localEvents.length < data.length) {
+          console.warn(`⚠️ ${data.length - localEvents.length} events were filtered out during processing`);
+        }
 
         // Try to append Google Calendar events if connected; failures are ignored
         let googleEvents = [];
-        try {
-          // Ensure dates are formatted with timezone for Google Calendar API (RFC3339 format)
-          // FullCalendar's startStr and endStr might not include timezone when timeZone is set
-          const formatForGoogleAPI = (dateStr) => {
-            if (!dateStr) {return dateStr;}
-            // If already has timezone, return as is
-            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {
-              return dateStr;
+        // Only fetch Google Calendar events if user has connected their calendar
+        if (window.calendarConnected) {
+          try {
+            // Ensure dates are formatted with timezone for Google Calendar API (RFC3339 format)
+            // FullCalendar's startStr and endStr might not include timezone when timeZone is set
+            const formatForGoogleAPI = (dateStr) => {
+              if (!dateStr) {return dateStr;}
+              // If already has timezone, return as is
+              if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {
+                return dateStr;
+              }
+              // If has time but no timezone, add Philippines timezone
+              if (dateStr.includes('T')) {
+                return `${dateStr}+08:00`;
+              }
+              // If date only, add time and timezone
+              return `${dateStr}T00:00:00+08:00`;
+            };
+
+            const timeMin = formatForGoogleAPI(fetchInfo.startStr);
+            const timeMax = formatForGoogleAPI(fetchInfo.endStr);
+
+            console.log('📅 Google Calendar API request:', { timeMin, timeMax });
+
+            const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
+            if (r2.ok) {
+              const gItems = await r2.json();
+              console.log(`📅 Received ${gItems.length} Google Calendar events`);
+              googleEvents = (gItems || []).map(ev => {
+                // Google Calendar API returns RFC3339 strings, FullCalendar can parse them
+                // Ensure allDay is explicitly set
+                const isGoogleAllDay = ev.start.date ? true : false;
+                return {
+                  id: 'gcal_' + ev.id,
+                  title: ev.summary || '(no title)',
+                  start: isGoogleAllDay ? ev.start.date : ev.start.dateTime,
+                  end: isGoogleAllDay ? ev.end.date : ev.end.dateTime,
+                  allDay: isGoogleAllDay,
+                  backgroundColor: '#4285F4', // Google Calendar blue
+                  borderColor: '#4285F4',
+                  textColor: '#ffffff',
+                  classNames: ['fc-event-google'],
+                  editable: false, // Google Calendar events are not editable in Memofy
+                  extendedProps: {
+                    source: 'google',
+                    htmlLink: ev.htmlLink,
+                    description: ev.description
+                  }
+                };
+              });
             }
-            // If has time but no timezone, add Philippines timezone
-            if (dateStr.includes('T')) {
-              return `${dateStr}+08:00`;
-            }
-            // If date only, add time and timezone
-            return `${dateStr}T00:00:00+08:00`;
-          };
-
-          const timeMin = formatForGoogleAPI(fetchInfo.startStr);
-          const timeMax = formatForGoogleAPI(fetchInfo.endStr);
-
-          console.log('📅 Google Calendar API request:', { timeMin, timeMax });
-
-          const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
-          if (r2.ok) {
-            const gItems = await r2.json();
-            googleEvents = (gItems || []).map(ev => {
-              const startDateTime = ev.start && (ev.start.dateTime || ev.start.date);
-              const timeStr = startDateTime ? formatEventTime(startDateTime) : '';
-              const eventTitle = timeStr ? `${ev.summary || '(no title)'} at ${timeStr}` : (ev.summary || '(no title)');
-              return {
-                id: 'gcal_' + ev.id,
-                title: eventTitle,
-                start: startDateTime,
-                end: ev.end && (ev.end.dateTime || ev.end.date),
-                backgroundColor: '#16a34a',
-                borderColor: '#16a34a',
-                classNames: ['fc-event-standard']
-              };
-            });
+          } catch (err) {
+            console.error('❌ Error fetching or processing Google Calendar events:', err);
+            googleEvents = []; // Ensure it's an empty array on error
           }
-        } catch {
-          // ignore calendar fetch failure
+        } else {
+          console.log('ℹ️ Google Calendar not connected for this user. Skipping Google Calendar events.');
         }
 
           const formatted = [...localEvents, ...googleEvents];
@@ -696,6 +1011,38 @@
           console.log(`   📊 Database events: ${localEvents.length}`);
           console.log(`   📊 Google Calendar events: ${googleEvents.length}`);
 
+          // Summary of what should be displayed
+          if (formatted.length > 0) {
+            console.log(`\n🎨 Events will be displayed as colored blocks:`);
+            formatted.forEach((evt, idx) => {
+              const color = evt.backgroundColor || categoryColor(evt.extendedProps?.category);
+              const category = evt.extendedProps?.category || 'standard';
+              console.log(`   ${idx + 1}. "${evt.title}" - ${category} category (${color})`);
+            });
+          }
+
+          console.log(`   📊 Formatted events array:`, formatted);
+
+          // Log details of each formatted event before validation
+          if (formatted.length > 0) {
+            console.log('📋 Formatted events details:');
+            formatted.forEach((evt, idx) => {
+              console.log(`   ${idx + 1}. "${evt?.title || 'NO TITLE'}"`, {
+                id: evt?.id,
+                start: evt?.start,
+                end: evt?.end,
+                startType: typeof evt?.start,
+                endType: typeof evt?.end,
+                isDateStart: evt?.start instanceof Date,
+                isDateEnd: evt?.end instanceof Date
+              });
+            });
+          } else {
+            console.warn('⚠️ No events in formatted array! Check if localEvents or googleEvents have data.');
+            console.log('   localEvents:', localEvents);
+            console.log('   googleEvents:', googleEvents);
+          }
+
           formatted.forEach((evt, idx) => {
             const startDate = new Date(evt.start);
             const endDate = new Date(evt.end);
@@ -703,11 +1050,14 @@
             const endInManila = endDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' });
             const startDateOnly = startDate.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
             const source = evt.id.startsWith('gcal_') ? 'Google Calendar' : 'Database';
-          console.log(`  ${idx + 1}. "${evt.title}" (${source})`);
-          console.log(`     Start Manila: ${startInManila}`);
-          console.log(`     Start Date (Manila): ${startDateOnly}`);
-          console.log(`     End Manila: ${endInManila}`);
-          console.log(`     Category: ${evt.extendedProps?.category || 'standard'}`);
+            console.log(`  ${idx + 1}. "${evt.title}" (${source})`);
+            console.log(`     ID: ${evt.id}`);
+            console.log(`     Start: ${evt.start} (${startInManila})`);
+            console.log(`     End: ${evt.end} (${endInManila})`);
+            console.log(`     Start Date (Manila): ${startDateOnly}`);
+            console.log(`     AllDay: ${evt.allDay}`);
+            console.log(`     Category: ${evt.extendedProps?.category || 'standard'}`);
+            console.log(`     Full event object:`, evt);
           });
 
           // Log the date range being requested
@@ -733,7 +1083,192 @@
           // Re-render mini calendar to show updated indicators
           renderMiniCalendar();
 
-          success(formatted);
+          // Verify events are valid before passing to FullCalendar
+          const validEvents = formatted.filter(evt => {
+            if (!evt) {
+              console.error('❌ Event is null or undefined');
+              return false;
+            }
+            if (!evt.start || !evt.end) {
+              console.error('❌ Event missing start/end:', evt);
+              return false;
+            }
+            // Check if dates are valid Date objects
+            const startDate = evt.start instanceof Date ? evt.start : new Date(evt.start);
+            const endDate = evt.end instanceof Date ? evt.end : new Date(evt.end);
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              console.error('❌ Event has invalid dates:', {
+                event: evt,
+                start: evt.start,
+                end: evt.end,
+                startDate: startDate,
+                endDate: endDate
+              });
+              return false;
+            }
+            return true;
+          });
+
+          if (validEvents.length !== formatted.length) {
+            console.warn(`⚠️ Filtered out ${formatted.length - validEvents.length} invalid events out of ${formatted.length} total`);
+            console.log('📋 Invalid events that were filtered:', formatted.filter(evt => {
+              if (!evt || !evt.start || !evt.end) {
+                return true;
+              }
+              const startDate = evt.start instanceof Date ? evt.start : new Date(evt.start);
+              const endDate = evt.end instanceof Date ? evt.end : new Date(evt.end);
+              return isNaN(startDate.getTime()) || isNaN(endDate.getTime());
+            }));
+          }
+
+          console.log(`✅ Passing ${validEvents.length} valid events to FullCalendar`);
+          console.log('📋 Events being passed:', validEvents);
+
+          // Log each event's key properties before passing
+          validEvents.forEach((evt, idx) => {
+            console.log(`   Event ${idx + 1}: "${evt.title}"`, {
+              id: evt.id,
+              start: evt.start,
+              end: evt.end,
+              startISO: evt.start.toISOString(),
+              endISO: evt.end.toISOString(),
+              allDay: evt.allDay,
+              backgroundColor: evt.backgroundColor
+            });
+          });
+
+          console.log(`🚀 Calling success() with ${validEvents.length} events`);
+
+          // Pass valid events to FullCalendar
+          // Note: FullCalendar will replace all events with the new array, so we don't need to manually clear
+          success(validEvents);
+
+          // Force a render after passing events to ensure they're displayed
+          setTimeout(() => {
+            try {
+              calendar.render();
+              console.log('🔄 Forced calendar render after passing events');
+            } catch (err) {
+              console.warn('⚠️ Could not force render:', err);
+            }
+          }, 100);
+
+          // IMPORTANT: If we passed 0 events but FullCalendar still has events, clear them manually
+          // This handles the case where FullCalendar doesn't properly clear on empty array
+          if (validEvents.length === 0) {
+            setTimeout(() => {
+              try {
+                const currentEvents = calendar.getEvents();
+                if (currentEvents.length > 0) {
+                  console.log(`🧹 Clearing ${currentEvents.length} stale event(s) from FullCalendar`);
+                  currentEvents.forEach(evt => {
+                    evt.remove();
+                  });
+                }
+              } catch (err) {
+                console.warn('⚠️ Could not clear stale events (calendar not ready):', err);
+              }
+            }, 100);
+          }
+
+          // After a short delay, check if events were actually rendered
+          setTimeout(() => {
+            const renderedEvents = calendar.getEvents();
+            console.log(`🔍 FullCalendar reports ${renderedEvents.length} rendered events`);
+            if (renderedEvents.length !== validEvents.length) {
+              console.warn(`⚠️ Mismatch! Passed ${validEvents.length} events but FullCalendar has ${renderedEvents.length} rendered`);
+              if (renderedEvents.length > 0) {
+                console.log('📋 Rendered events:');
+                renderedEvents.forEach(evt => {
+                  console.log(`   - "${evt.title}" (${evt.id}) - Start: ${evt.start}, End: ${evt.end}`);
+                });
+              }
+              if (validEvents.length > 0) {
+                console.log('📋 Events that should have been rendered:');
+                validEvents.forEach(evt => {
+                  console.log(`   - "${evt.title}" (${evt.id}) - Start: ${evt.start}, End: ${evt.end}`);
+                });
+
+                // Try to manually add events if they weren't rendered
+                console.log('🔄 Attempting to manually add events to FullCalendar...');
+                validEvents.forEach(evt => {
+                  try {
+                    const existing = calendar.getEventById(evt.id);
+                    if (!existing) {
+                      // Ensure event dates are valid Date objects
+                      const eventToAdd = {
+                        ...evt,
+                        start: evt.start instanceof Date ? evt.start : new Date(evt.start),
+                        end: evt.end instanceof Date ? evt.end : new Date(evt.end)
+                      };
+                      calendar.addEvent(eventToAdd);
+                      console.log(`   ✅ Manually added event: "${evt.title}"`);
+                    } else {
+                      console.log(`   ℹ️ Event "${evt.title}" already exists in calendar`);
+                    }
+                  } catch (err) {
+                    console.error(`   ❌ Failed to manually add event "${evt.title}":`, err);
+                    console.error('   Event data:', evt);
+                  }
+                });
+
+                // Force render after manually adding events
+                setTimeout(() => {
+                  try {
+                    calendar.render();
+                    console.log('🔄 Forced render after manually adding events');
+                  } catch (err) {
+                    console.warn('⚠️ Could not force render after manual add:', err);
+                  }
+                }, 200);
+              }
+            } else {
+              console.log(`✅ Success! All ${validEvents.length} events were rendered correctly`);
+            }
+
+            // Final check - verify events are visible in the DOM
+            setTimeout(() => {
+              const eventElements = document.querySelectorAll('.fc-event');
+              const timeGridEvents = document.querySelectorAll('.fc-timegrid-event');
+              console.log(`🎨 DOM check: Found ${eventElements.length} .fc-event elements`);
+              console.log(`🎨 DOM check: Found ${timeGridEvents.length} .fc-timegrid-event elements`);
+
+              if (eventElements.length === 0 && timeGridEvents.length === 0 && validEvents.length > 0) {
+                console.error('❌ CRITICAL: Events were passed to FullCalendar but no DOM elements found!');
+                console.error('   This suggests FullCalendar is not rendering events properly.');
+                console.error('   Possible causes:');
+                console.error('   1. Events are outside the visible date range');
+                console.error('   2. CSS is hiding events');
+                console.error('   3. FullCalendar view type mismatch');
+                console.error('   4. Timezone conversion issue');
+
+                // Check if events are in the current view's date range
+                const currentView = calendar.view;
+                const viewStart = currentView.activeStart;
+                const viewEnd = currentView.activeEnd;
+                console.error('   Current view date range:', {
+                  start: viewStart.toISOString(),
+                  end: viewEnd.toISOString(),
+                  viewType: currentView.type
+                });
+
+                validEvents.forEach(evt => {
+                  const evtStart = evt.start instanceof Date ? evt.start : new Date(evt.start);
+                  const evtEnd = evt.end instanceof Date ? evt.end : new Date(evt.end);
+                  const isInView = evtStart < viewEnd && evtEnd > viewStart;
+                  console.error(`   Event "${evt.title}":`, {
+                    start: evtStart.toISOString(),
+                    end: evtEnd.toISOString(),
+                    isInView: isInView,
+                    viewStart: viewStart.toISOString(),
+                    viewEnd: viewEnd.toISOString()
+                  });
+                });
+              } else if (eventElements.length > 0 || timeGridEvents.length > 0) {
+                console.log(`✅ DOM check passed: ${eventElements.length + timeGridEvents.length} event elements found`);
+              }
+            }, 500);
+          }, 500);
       } catch (err) {
         // swallow to avoid noisy console in production
         failure(err);
@@ -1074,6 +1609,22 @@
 
         // Force refresh events for the selected date
         setTimeout(() => {
+          console.log('🔄 Refreshing events after mini calendar date click:', dateString);
+          calendar.refetchEvents();
+          calendar.render();
+
+          // Double-check after a delay
+          setTimeout(() => {
+            const allEvents = calendar.getEvents();
+            console.log(`📊 Calendar has ${allEvents.length} events after mini calendar click`);
+            if (allEvents.length > 0) {
+              console.log('   Events:', allEvents.map(e => ({
+                title: e.title,
+                date: formatDateManila(e.start)
+              })));
+            }
+          }, 500);
+
           const currentDate = calendar.view.currentStart;
 
           // Compare dates by extracting date components in Philippines timezone
@@ -1094,11 +1645,12 @@
           if (clickedDateStr !== currentDateStr) {
             console.log('Date mismatch, forcing gotoDate. Expected:', clickedDateStr, 'Got:', currentDateStr);
             calendar.gotoDate(clickedDate);
+            // Refresh again after navigation
+            setTimeout(() => {
+              calendar.refetchEvents();
+              calendar.render();
+            }, 100);
           }
-
-          // Always refetch events to ensure they're displayed
-          calendar.refetchEvents();
-          calendar.render();
 
           // Scroll to appropriate time after events load
           setTimeout(() => {
@@ -1317,7 +1869,7 @@
     });
 
     // Handle Enter key
-    participantEmailInput.addEventListener('keydown', (e) => {
+    participantEmailInput.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const email = e.target.value.trim();
@@ -1329,7 +1881,7 @@
             e.target.value = '';
             emailSuggestions.classList.remove('show');
           } else {
-            alert('Email not found. Please select from registered users.');
+            await showAlertModal('Email not found. Please select from registered users.', 'Invalid Email');
           }
         }
       }
@@ -1403,11 +1955,11 @@
     try { calendar.refetchEvents(); } catch (e) { /* ignore */ }
   }, 60000);
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = titleInput.value.trim();
     if (!title) {
-      alert('Please add a title before saving');
+      await showAlertModal('Please add a title before saving', 'Required Field');
       return;
     }
 
@@ -1419,11 +1971,11 @@
 
     // Validate required fields
     if (!date) {
-      alert('Please select a date');
+      await showAlertModal('Please select a date', 'Required Field');
       return;
     }
     if (!start) {
-      alert('Please select a start time');
+      await showAlertModal('Please select a start time', 'Required Field');
       return;
     }
     // End time is optional; if empty, default to +1 hour from start
@@ -1540,18 +2092,87 @@
           } catch {
             // ignore insert failure
           }
+
+          // Show success state
+          showSuccessModal('Event saved successfully!', 'success');
+
+          // Navigate to the event's date and ensure it's visible
+          const eventDate = new Date(startISO);
+          const eventDateStr = formatDateManila(eventDate);
+
+          console.log('📅 Event created, navigating to date:', eventDateStr);
+
+          // Always navigate to the event's date and ensure timeGridDay view
+          calendar.gotoDate(eventDate);
+          if (calendar.view.type !== 'timeGridDay') {
+            calendar.changeView('timeGridDay', eventDate);
+          }
+
+          // Wait for navigation to complete, then refresh events
+          setTimeout(() => {
+            console.log('🔄 First refresh after navigation...');
+            calendar.refetchEvents();
+            calendar.render();
+          }, 200);
+
+          // Refresh calendar - wait for backend to process, then refetch and render
+          // Use multiple refresh attempts to ensure the event appears
+          setTimeout(() => {
+            console.log('🔄 Second refresh after event creation...');
+            calendar.refetchEvents();
+            calendar.render();
+
+            // Double-check after a short delay
+            setTimeout(() => {
+              const allEvents = calendar.getEvents();
+              console.log(`📊 Calendar now has ${allEvents.length} events after refresh`);
+
+              // Check if our new event is there by ID (if we have it) or by title and date
+              let newEvent = null;
+              if (savedEvent && savedEvent._id) {
+                newEvent = allEvents.find(evt => String(evt.id) === String(savedEvent._id));
+              }
+
+              if (!newEvent) {
+                // Fallback: find by title and date
+                newEvent = allEvents.find(evt => {
+                  const evtDate = formatDateManila(evt.start);
+                  return evtDate === eventDateStr && (evt.title.includes(title) || evt.extendedProps?.originalTitle === title);
+                });
+              }
+
+              if (newEvent) {
+                console.log('✅ New event found in calendar:', newEvent.title);
+                // Scroll to event time
+                if (start) {
+                  const [hours, minutes] = start.split(':');
+                  const scrollTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+                  console.log('📅 Scrolling to event time:', scrollTime);
+                  calendar.scrollToTime(scrollTime);
+                }
+                calendar.render();
+              } else {
+                console.warn('⚠️ New event not found in calendar after refresh');
+                console.log('   Event details:', { title, date: eventDateStr, id: savedEvent._id });
+                console.log('   Available events:', allEvents.map(e => ({
+                  id: e.id,
+                  title: e.title,
+                  date: formatDateManila(e.start),
+                  originalTitle: e.extendedProps?.originalTitle
+                })));
+
+                // Try one more refresh after a longer delay
+                setTimeout(() => {
+                  console.log('🔄 Final refresh attempt...');
+                  calendar.refetchEvents();
+                  calendar.render();
+                }, 1000);
+              }
+            }, 800);
+
+            console.log('✅ Calendar refresh initiated');
+          }, 1000); // Increased delay to ensure backend has fully processed and committed the event
         }
-
-        // Show success state
-        showSuccessModal('Event saved successfully!', 'success');
-
-        // Refresh calendar - wait a moment for backend to process, then refetch and render
-        setTimeout(() => {
-          console.log('🔄 Refreshing calendar events...');
-          calendar.refetchEvents();
-          calendar.render(); // Force render to ensure events are displayed
-          console.log('✅ Calendar refreshed');
-        }, 100);
 
         // Update mini calendar events after adding new event
         setTimeout(() => {
@@ -1580,7 +2201,8 @@
       const editingSource = editingSourceInput.value;
       const editingId = editingIdInput.value;
       if (!editingId) { closeModal(); return; }
-      if (!confirm('Delete this event?')) { return; }
+      const confirmed = await showConfirmModal('Delete this event?', 'Delete Event');
+      if (!confirmed) { return; }
       try {
         if (editingSource === 'backend') {
           const r = await fetch(`/api/calendar/events/${editingId}`, { method: 'DELETE', credentials: 'same-origin' });
@@ -1594,7 +2216,7 @@
         loadEventsForMiniCalendar(); // Update mini calendar after deletion
         closeModal();
       } catch {
-        alert('Delete failed');
+        await showAlertModal('Delete failed', 'Error');
       }
     });
   }

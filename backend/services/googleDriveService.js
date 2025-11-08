@@ -196,7 +196,23 @@ async function uploadMemoToDrive(memo) {
 
         // Create a temporary PDF file
         pdfPath = path.join(__dirname, '../../uploads', `memo-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`);
-        const pdfDoc = new PDFDocument({ margin: 50 });
+        const pdfDoc = new PDFDocument({ margin: 50, size: 'LETTER' });
+
+        // Helper function to ensure we have enough space and add page if needed
+        const ensureSpace = (requiredHeight) => {
+            const pageHeight = pdfDoc.page.height;
+            const bottomMargin = 50;
+            const currentY = pdfDoc.y;
+            const availableHeight = pageHeight - currentY - bottomMargin;
+
+            if (availableHeight < requiredHeight) {
+                pdfDoc.addPage();
+                // eslint-disable-next-line no-console
+                console.log(`  📄 Added new page (needed ${requiredHeight}px, had ${availableHeight}px)`);
+                return true; // Page was added
+            }
+            return false; // No page needed
+        };
 
         // eslint-disable-next-line no-console
         console.log('  📄 Creating PDF file...');
@@ -220,12 +236,18 @@ async function uploadMemoToDrive(memo) {
 
         pdfDoc.moveDown(1.5);
 
-        // Content
+        // Content - PDFKit's text() method automatically handles page breaks
         if (memo.content) {
-            pdfDoc.fontSize(11).text(memo.content, { align: 'left' });
+            // Ensure we have some space before adding content
+            ensureSpace(100);
+            pdfDoc.fontSize(11).text(memo.content, { align: 'left', lineGap: 2 });
         } else {
+            ensureSpace(50);
             pdfDoc.fontSize(11).text('(No content)', { align: 'left', italic: true });
         }
+
+        // Ensure we have space after content before attachments
+        ensureSpace(100);
 
         // Generate attachment URLs for linking in PDF (using local server URLs)
         // We don't upload individual attachments - only the memo PDF itself
@@ -245,6 +267,8 @@ async function uploadMemoToDrive(memo) {
 
         // Add images if attachments exist
         if (memo.attachments && memo.attachments.length > 0) {
+            // Ensure we have space for attachments section
+            ensureSpace(150);
             pdfDoc.moveDown(2);
             pdfDoc.fontSize(11).text('Attachments:', { bold: true });
             pdfDoc.moveDown(1);
@@ -312,22 +336,104 @@ async function uploadMemoToDrive(memo) {
                             } else if (isImage) {
                                 // For original images, embed them directly in the PDF so they're visible immediately
                                 pdfDoc.moveDown(0.5);
-                                const imageY = pdfDoc.y;
-                                const imageWidth = 450; // Max width
+
+                                const maxImageWidth = 450; // Max width for images
                                 const xPosition = 50;
+                                const maxImageHeight = 600; // Max height for images
 
-                                // Embed image in PDF - this makes it visible inline, no clicking needed!
-                                pdfDoc.image(filePath, xPosition, imageY, { fit: [imageWidth, 600] });
+                                // Get image dimensions to calculate actual rendered size
+                                let originalWidth = maxImageWidth;
+                                let originalHeight = maxImageHeight;
+                                let aspectRatio = 1;
 
-                                // Make the entire image area clickable too (opens full size in Google Drive)
-                                // Estimate image height for clickable area
-                                const imageHeight = Math.min(600, imageWidth * 0.75); // Rough estimate
-                                pdfDoc.link(xPosition, imageY, imageWidth, imageHeight, attachmentUrl);
+                                try {
+                                    const sizeOf = require('image-size');
+                                    const dimensions = sizeOf(filePath);
+                                    originalWidth = dimensions.width;
+                                    originalHeight = dimensions.height;
+                                    aspectRatio = originalWidth / originalHeight;
+                                } catch (sizeError) {
+                                    // If image-size fails, use default max dimensions
+                                    // eslint-disable-next-line no-console
+                                    console.warn(`  ⚠️ Could not get image dimensions, using defaults:`, sizeError.message);
+                                }
 
+                                // Calculate available space on current page
+                                const pageHeight = pdfDoc.page.height;
+                                const bottomMargin = 50;
+                                const currentY = pdfDoc.y;
+                                const availableHeight = pageHeight - currentY - bottomMargin;
+
+                                // Calculate rendered dimensions based on fit constraints (maintaining aspect ratio)
+                                let renderedWidth = maxImageWidth;
+                                let renderedHeight = maxImageHeight;
+
+                                if (originalWidth > maxImageWidth || originalHeight > maxImageHeight) {
+                                    // Need to scale down - use the smaller scale factor to maintain aspect ratio
+                                    const widthRatio = maxImageWidth / originalWidth;
+                                    const heightRatio = maxImageHeight / originalHeight;
+                                    const scale = Math.min(widthRatio, heightRatio);
+                                    renderedWidth = originalWidth * scale;
+                                    renderedHeight = originalHeight * scale;
+                                } else {
+                                    // Use original dimensions if smaller than max
+                                    renderedWidth = originalWidth;
+                                    renderedHeight = originalHeight;
+                                }
+
+                                // Further constrain by available page height
+                                if (renderedHeight > availableHeight - 30) {
+                                    const heightScale = (availableHeight - 30) / renderedHeight;
+                                    renderedHeight = availableHeight - 30;
+                                    renderedWidth = renderedWidth * heightScale;
+                                }
+
+                                // Ensure we have enough space for the image plus spacing
+                                const requiredSpace = renderedHeight + 40; // Image height + spacing
+                                ensureSpace(requiredSpace);
+
+                                // Recalculate after ensureSpace (might have added a new page)
+                                const finalY = pdfDoc.y;
+                                const finalAvailableHeight = pdfDoc.page.height - finalY - bottomMargin;
+
+                                // Adjust rendered height if needed after page break
+                                let finalRenderedHeight = renderedHeight;
+                                if (finalRenderedHeight > finalAvailableHeight - 30) {
+                                    const heightScale = (finalAvailableHeight - 30) / finalRenderedHeight;
+                                    finalRenderedHeight = finalAvailableHeight - 30;
+                                    renderedWidth = renderedWidth * heightScale;
+                                }
+
+                                const imageY = finalY;
+
+                                // Embed image - PDFKit will automatically scale to fit [width, height] while maintaining aspect ratio
+                                pdfDoc.image(filePath, xPosition, imageY, {
+                                    fit: [maxImageWidth, finalRenderedHeight]
+                                });
+
+                                // Manually update pdfDoc.y to the position after the image
+                                // PDFKit's fit maintains aspect ratio, so calculate actual rendered height
+                                // The rendered height is constrained by both width and height limits
+                                const heightFromWidth = maxImageWidth / aspectRatio;
+                                const actualRenderedHeight = Math.min(finalRenderedHeight, heightFromWidth);
+
+                                pdfDoc.y = imageY + actualRenderedHeight + 20; // Add spacing after image
+
+                                // Double-check: if image somehow extended beyond page, add new page
+                                if (pdfDoc.y > pdfDoc.page.height - bottomMargin) {
+                                    pdfDoc.addPage();
+                                    pdfDoc.moveDown(1);
+                                    // eslint-disable-next-line no-console
+                                    console.log(`  📄 Image extended beyond page, moved to next page`);
+                                }
+
+                                // Make the entire image area clickable
+                                pdfDoc.link(xPosition, imageY, maxImageWidth, actualRenderedHeight, attachmentUrl);
+
+                                // Add extra spacing between multiple images
                                 pdfDoc.moveDown(1);
-
                                 // eslint-disable-next-line no-console
-                                console.log(`  ✅ Embedded image inline in PDF: ${attachment.filename}`);
+                                console.log(`  ✅ Embedded image inline in PDF: ${attachment.filename} (${Math.round(renderedWidth)}x${Math.round(actualRenderedHeight)}px)`);
                             }
                         } catch (imgError) {
                             // eslint-disable-next-line no-console
@@ -386,6 +492,207 @@ async function uploadMemoToDrive(memo) {
                     });
                 }
             }
+        }
+
+        // Add signatures if present
+        if (memo.signatures && Array.isArray(memo.signatures) && memo.signatures.length > 0) {
+            // eslint-disable-next-line no-console
+            console.log(`  ✍️ Processing ${memo.signatures.length} signature(s)...`);
+
+            // Calculate required space for signatures
+            // Each signature row needs: image (60px) + name (15px) + title (15px) + spacing (20px) = ~110px per row
+            const numSignatureRows = Math.ceil(memo.signatures.length / 2);
+            const signatureSectionHeight = (numSignatureRows * 110) + 150; // Add extra for divider and spacing
+
+            // ALWAYS start signatures on a new page to ensure clean placement and avoid overlap
+            // This guarantees signatures are never mixed with other content
+            const pageHeight = pdfDoc.page.height;
+            const currentY = pdfDoc.y;
+            const topMargin = 50;
+
+            // If we're not at the very top of a page, add a new page
+            // This ensures signatures always have their own clean page
+            if (currentY > topMargin + 20) {
+                pdfDoc.addPage();
+                // eslint-disable-next-line no-console
+                console.log(`  📄 Added new page for signatures (was at ${Math.round(currentY)}px, ensuring clean placement)`);
+            }
+
+            // Double-check we have enough space (should always be true after adding page)
+            ensureSpace(signatureSectionHeight);
+
+            // Start signatures section with proper spacing from top of page
+            pdfDoc.moveDown(2);
+
+            // Add divider line before signatures
+            pdfDoc.moveTo(50, pdfDoc.y).lineTo(545, pdfDoc.y).stroke();
+            pdfDoc.moveDown(1.5);
+
+            // Calculate signature block width (2 signatures side by side, or 1 if only one)
+            const numSignatures = memo.signatures.length;
+            const signatureWidth = numSignatures === 1 ? 450 : 200; // Full width if 1, half if 2+
+            const signatureSpacing = numSignatures > 1 ? 50 : 0;
+            const startX = 50;
+
+            // Group signatures - display up to 2 per row
+            for (let i = 0; i < numSignatures; i += 2) {
+                const sig1 = memo.signatures[i];
+                const sig2 = memo.signatures[i + 1];
+
+                // Check if we need a new page for this row (need at least 120px for a signature row)
+                ensureSpace(120);
+
+                const rowStartY = pdfDoc.y;
+                const sig1Height = { image: 0, name: 0, title: 0, total: 0 };
+                const sig2Height = { image: 0, name: 0, title: 0, total: 0 };
+
+                // Process first signature in row
+                if (sig1) {
+                    const sig1X = startX;
+                    let currentY = rowStartY;
+
+                    // Try to load and embed signature image FIRST
+                    if (sig1.imageUrl) {
+                        try {
+                            // Try multiple possible paths for signature image
+                            let imagePath = sig1.imageUrl;
+                            if (imagePath.startsWith('/')) {
+                                imagePath = path.join(__dirname, '../../', imagePath.substring(1));
+                            } else if (!path.isAbsolute(imagePath)) {
+                                imagePath = path.join(__dirname, '../../uploads', imagePath);
+                            }
+
+                            if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
+                                // Embed signature image at currentY position
+                                const imageHeight = 60;
+                                pdfDoc.image(imagePath, sig1X, currentY, {
+                                    fit: [signatureWidth, imageHeight]
+                                });
+                                sig1Height.image = imageHeight;
+                                currentY += imageHeight + 8; // Space after image
+                            } else {
+                                // Image not found, leave space
+                                sig1Height.image = 60;
+                                currentY += 60 + 8;
+                            }
+                        } catch (imgError) {
+                            // eslint-disable-next-line no-console
+                            console.warn(`  ⚠️ Could not load signature image for ${sig1.displayName || sig1.roleTitle}:`, imgError.message);
+                            sig1Height.image = 60;
+                            currentY += 60 + 8;
+                        }
+                    } else {
+                        // No image, leave space
+                        sig1Height.image = 60;
+                        currentY += 60 + 8;
+                    }
+
+                    // Add signature name BELOW the image
+                    const name = sig1.displayName || sig1.roleTitle || sig1.role || '';
+                    const title = sig1.roleTitle || sig1.role || '';
+
+                    pdfDoc.fontSize(11)
+                        .font('Helvetica-Bold')
+                        .text(name, sig1X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    sig1Height.name = 15;
+                    currentY += 15;
+
+                    // Add signature title BELOW the name
+                    pdfDoc.fontSize(9)
+                        .font('Helvetica')
+                        .fillColor('#666')
+                        .text(title, sig1X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    sig1Height.title = 12;
+                    currentY += 12;
+
+                    pdfDoc.fillColor('#000');
+                    sig1Height.total = currentY - rowStartY;
+                }
+
+                // Process second signature in row (if exists)
+                if (sig2) {
+                    const sig2X = startX + signatureWidth + signatureSpacing;
+                    let currentY = rowStartY;
+
+                    // Try to load and embed signature image FIRST
+                    if (sig2.imageUrl) {
+                        try {
+                            let imagePath = sig2.imageUrl;
+                            if (imagePath.startsWith('/')) {
+                                imagePath = path.join(__dirname, '../../', imagePath.substring(1));
+                            } else if (!path.isAbsolute(imagePath)) {
+                                imagePath = path.join(__dirname, '../../uploads', imagePath);
+                            }
+
+                            if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
+                                // Embed signature image at currentY position
+                                const imageHeight = 60;
+                                pdfDoc.image(imagePath, sig2X, currentY, {
+                                    fit: [signatureWidth, imageHeight]
+                                });
+                                sig2Height.image = imageHeight;
+                                currentY += imageHeight + 8; // Space after image
+                            } else {
+                                sig2Height.image = 60;
+                                currentY += 60 + 8;
+                            }
+                        } catch (imgError) {
+                            // eslint-disable-next-line no-console
+                            console.warn(`  ⚠️ Could not load signature image for ${sig2.displayName || sig2.roleTitle}:`, imgError.message);
+                            sig2Height.image = 60;
+                            currentY += 60 + 8;
+                        }
+                    } else {
+                        sig2Height.image = 60;
+                        currentY += 60 + 8;
+                    }
+
+                    // Add signature name BELOW the image
+                    const name = sig2.displayName || sig2.roleTitle || sig2.role || '';
+                    const title = sig2.roleTitle || sig2.role || '';
+
+                    pdfDoc.fontSize(11)
+                        .font('Helvetica-Bold')
+                        .text(name, sig2X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    sig2Height.name = 15;
+                    currentY += 15;
+
+                    // Add signature title BELOW the name
+                    pdfDoc.fontSize(9)
+                        .font('Helvetica')
+                        .fillColor('#666')
+                        .text(title, sig2X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    sig2Height.title = 12;
+                    currentY += 12;
+
+                    pdfDoc.fillColor('#000');
+                    sig2Height.total = currentY - rowStartY;
+                }
+
+                // Move to next row - use the maximum height of both signatures
+                const maxHeight = Math.max(sig1Height.total, sig2Height.total);
+                pdfDoc.y = rowStartY + maxHeight + 10;
+
+                // Add spacing between rows if more signatures
+                if (i + 2 < numSignatures) {
+                    pdfDoc.moveDown(1);
+                }
+            }
+
+            // eslint-disable-next-line no-console
+            console.log(`  ✅ Signatures added to PDF`);
         }
 
         // Set up file stream
