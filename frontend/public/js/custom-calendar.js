@@ -84,8 +84,13 @@ class CustomCalendar {
     // Google Calendar sync button
     const isGoogleCalendarConnected = window.calendarConnected === true;
     const googleCalendarBtn = document.createElement('button');
-    googleCalendarBtn.className = 'btn btn-secondary';
-    googleCalendarBtn.innerHTML = isGoogleCalendarConnected ? '🔗 Google Calendar' : '🔗 Sync Google Calendar';
+    googleCalendarBtn.className = 'btn btn-secondary btn-google-calendar';
+    googleCalendarBtn.title = isGoogleCalendarConnected ? 'Google Calendar (Connected)' : 'Sync Google Calendar';
+    const iconImg = document.createElement('img');
+    iconImg.src = '/images/google-calendar.png';
+    iconImg.alt = 'Google Calendar';
+    iconImg.className = 'google-calendar-icon';
+    googleCalendarBtn.appendChild(iconImg);
     googleCalendarBtn.onclick = async () => {
       if (isGoogleCalendarConnected) {
         // Disconnect
@@ -138,20 +143,19 @@ class CustomCalendar {
     nextBtn.innerHTML = '&#8250;';
     nextBtn.onclick = () => this.navigate(1);
 
+    centerSection.appendChild(prevBtn);
+    centerSection.appendChild(title);
+    centerSection.appendChild(nextBtn);
+    toolbar.appendChild(centerSection);
+
+    // Right side: Today button and View buttons
+    const rightSection = document.createElement('div');
+    rightSection.className = 'toolbar-right';
+
     const todayBtn = document.createElement('button');
     todayBtn.className = 'btn btn-secondary';
     todayBtn.textContent = 'Today';
     todayBtn.onclick = () => this.goToToday();
-
-    centerSection.appendChild(prevBtn);
-    centerSection.appendChild(title);
-    centerSection.appendChild(nextBtn);
-    centerSection.appendChild(todayBtn);
-    toolbar.appendChild(centerSection);
-
-    // Right side: View buttons
-    const rightSection = document.createElement('div');
-    rightSection.className = 'toolbar-right';
 
     const weekBtn = document.createElement('button');
     weekBtn.className = `btn btn-view ${this.currentView === 'timeGridWeek' ? 'active' : ''}`;
@@ -163,6 +167,7 @@ class CustomCalendar {
     monthBtn.textContent = 'Month';
     monthBtn.onclick = () => this.changeView('dayGridMonth');
 
+    rightSection.appendChild(todayBtn);
     rightSection.appendChild(weekBtn);
     rightSection.appendChild(monthBtn);
     toolbar.appendChild(rightSection);
@@ -190,7 +195,16 @@ class CustomCalendar {
         const weekStart = this.getWeekStart(date);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
-        titleText = `${weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+        const startMonth = weekStart.toLocaleDateString('en-US', { month: 'short' });
+        const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'short' });
+        const startDay = weekStart.getDate();
+        const endDay = weekEnd.getDate();
+        const year = weekEnd.getFullYear();
+        if (startMonth === endMonth) {
+          titleText = `${startMonth} ${startDay} - ${endDay}, ${year}`;
+        } else {
+          titleText = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+        }
         break;
       case 'dayGridMonth':
         titleText = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -298,13 +312,19 @@ class CustomCalendar {
     days.forEach(day => {
       const dayHeader = document.createElement('div');
       dayHeader.className = 'timegrid-week-day-header';
+      const isSelected = this.formatDateForData(day) === this.formatDateForData(this.selectedDate);
       dayHeader.innerHTML = `
         <div class="day-name">${day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-        <div class="day-number ${this.isToday(day) ? 'today' : ''}">${day.getDate()}</div>
+        <div class="day-number ${this.isToday(day) ? 'today' : ''} ${isSelected ? 'selected' : ''}">${day.getDate()}</div>
       `;
       dayHeader.onclick = () => {
+        // Update selected date but stay in Week view
         this.selectedDate = new Date(day);
-        this.changeView('timeGridDay');
+        const titleElement = document.getElementById('calendarTitle');
+        if (titleElement) {
+          this.updateTitle(titleElement);
+        }
+        this.render();
       };
       header.appendChild(dayHeader);
     });
@@ -599,11 +619,20 @@ class CustomCalendar {
   }
 
   /**
-   * Check if date is today
+   * Check if date is today (using Manila timezone)
    */
   isToday(date) {
-    const today = new Date();
-    return this.formatDateForData(date) === this.formatDateForData(today);
+    const now = new Date();
+    const todayYear = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' }));
+    const todayMonth = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' })) - 1;
+    const todayDay = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' }));
+    const today = new Date(todayYear, todayMonth, todayDay);
+
+    const dateYear = date.getFullYear();
+    const dateMonth = date.getMonth();
+    const dateDay = date.getDate();
+
+    return dateYear === todayYear && dateMonth === todayMonth && dateDay === todayDay;
   }
 
   /**
@@ -666,16 +695,37 @@ class CustomCalendar {
         this.selectedDate.setMonth(this.selectedDate.getMonth() + direction);
         break;
     }
+    const titleElement = document.getElementById('calendarTitle');
+    if (titleElement) {
+      this.updateTitle(titleElement);
+    }
     this.render();
   }
 
   goToToday() {
-    this.selectedDate = new Date();
+    // Get today's date in Manila timezone
+    const now = new Date();
+    const year = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' }));
+    const month = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' })) - 1;
+    const day = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' }));
+    this.selectedDate = new Date(year, month, day, 0, 0, 0, 0);
+
+    // Switch to Day view when clicking Today button
+    this.currentView = 'timeGridDay';
+
+    const titleElement = document.getElementById('calendarTitle');
+    if (titleElement) {
+      this.updateTitle(titleElement);
+    }
     this.render();
   }
 
   changeView(view) {
     this.currentView = view;
+    const titleElement = document.getElementById('calendarTitle');
+    if (titleElement) {
+      this.updateTitle(titleElement);
+    }
     this.render();
   }
 

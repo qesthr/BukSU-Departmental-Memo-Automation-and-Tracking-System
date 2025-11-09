@@ -15,6 +15,8 @@
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
+  position: relative;
+  z-index: 100;
 }
 
 .toolbar-left,
@@ -23,15 +25,42 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  flex: 0 0 auto;
+  min-width: fit-content;
+}
+
+.toolbar-center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-right {
+  flex: 0 0 auto;
+  min-width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
 }
 
 .toolbar-title {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   font-weight: 600;
   margin: 0 1rem;
-  min-width: 220px;
+  min-width: 280px;
+  max-width: 400px;
   text-align: center;
   color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
 }
 
 .btn {
@@ -45,6 +74,17 @@
   transition: all 0.2s ease;
   color: #374151;
   white-space: nowrap;
+  min-width: fit-content;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 101;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.5;
 }
 
 .btn:hover {
@@ -57,6 +97,7 @@
   color: #fff;
   border-color: #3b82f6;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  min-width: 100px;
 }
 
 .btn-primary:hover {
@@ -69,6 +110,7 @@
   background: #f9fafb;
   color: #374151;
   border-color: #e5e7eb;
+  min-width: 70px;
 }
 
 .btn-secondary:hover {
@@ -79,6 +121,7 @@
 .btn-view {
   background: #fff;
   border-color: #e5e7eb;
+  min-width: 60px;
 }
 
 .btn-view.active {
@@ -107,6 +150,26 @@
   background: #f3f4f6;
   color: #374151;
   border-color: #e5e7eb;
+}
+
+.btn-google-calendar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  position: relative;
+  z-index: 101;
+  min-width: auto;
+  width: 40px;
+  height: 40px;
+  padding: 0.5rem;
+}
+
+.google-calendar-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 /* TimeGrid Day View */
@@ -243,7 +306,7 @@
   background: #fff;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
 .timegrid-week-time-col {
@@ -278,11 +341,6 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
-}
-
-.day-number.today {
-  background: #3b82f6;
-  color: #fff;
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
@@ -290,6 +348,18 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto;
+  transition: all 0.2s ease;
+}
+
+.day-number.today {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.day-number.selected:not(.today) {
+  background: #e0e7ff;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
 }
 
 .timegrid-week-allday {
@@ -369,7 +439,7 @@
   background: #fff;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
   flex-shrink: 0; /* Don't shrink header */
 }
 
