@@ -13,7 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteBtn = document.getElementById('deleteBtn');
     const memoCounter = document.getElementById('memoCounter');
     const refreshBtn = document.getElementById('refreshBtn');
-    const selectAllMemos = document.getElementById('selectAllMemos');
+    const selectDropdownBtn = document.getElementById('selectDropdownBtn');
+    const selectDropdownMenu = document.getElementById('selectDropdownMenu');
+    const selectDropdownWrapper = document.querySelector('.select-dropdown-wrapper');
     const deptFilterDropdown = document.getElementById('deptFilterDropdown');
     const priorityFilterDropdown = document.getElementById('priorityFilterDropdown');
     const sortDropdown = document.getElementById('sortDropdown');
@@ -515,13 +517,105 @@ document.addEventListener('DOMContentLoaded', () => {
         showNotification('Refreshing...', 'success');
     });
 
-    // Select all checkbox
-    selectAllMemos.addEventListener('change', (e) => {
-        const isChecked = e.target.checked;
-        document.querySelectorAll('.memo-item-checkbox').forEach(checkbox => {
-            checkbox.checked = isChecked;
-        });
-    });
+    // Select dropdown functionality - initialize after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        const selectBtn = document.getElementById('selectDropdownBtn');
+        const selectMenu = document.getElementById('selectDropdownMenu');
+        const selectWrapper = document.querySelector('.select-dropdown-wrapper');
+
+        if (selectBtn && selectMenu && selectWrapper) {
+            // Toggle dropdown on button click
+            selectBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+
+                // Position dropdown relative to button
+                const rect = selectBtn.getBoundingClientRect();
+                selectMenu.style.top = (rect.bottom + 4) + 'px';
+                selectMenu.style.left = rect.left + 'px';
+
+                selectWrapper.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (selectWrapper && !selectWrapper.contains(e.target)) {
+                    selectWrapper.classList.remove('open');
+                }
+            });
+
+            // Handle dropdown item clicks
+            selectMenu.querySelectorAll('.select-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const action = item.dataset.action;
+                    handleSelectAction(action);
+                    if (selectWrapper) {
+                        selectWrapper.classList.remove('open');
+                    }
+                });
+            });
+        }
+    }, 100);
+
+    function handleSelectAction(action) {
+        const memoItems = document.querySelectorAll('.memo-item');
+
+        switch(action) {
+            case 'all':
+                // Show all memos and select all (could be used for bulk actions in the future)
+                memoItems.forEach(item => {
+                    item.style.display = '';
+                    item.classList.add('selected');
+                });
+                break;
+            case 'none':
+                // Show all memos and deselect all
+                memoItems.forEach(item => {
+                    item.style.display = '';
+                    item.classList.remove('selected');
+                });
+                break;
+            case 'read':
+                // Filter to show only read memos (if read status is tracked)
+                // This would need to be implemented based on your memo model
+                memoItems.forEach(item => {
+                    item.style.display = '';
+                });
+                break;
+            case 'unread':
+                // Filter to show only unread memos
+                memoItems.forEach(item => {
+                    item.style.display = '';
+                });
+                break;
+            case 'starred':
+                // Filter to show only starred memos
+                memoItems.forEach(item => {
+                    const memoId = item.dataset.id;
+                    const memo = filteredMemos.find(m => m._id === memoId);
+                    if (memo && memo.isStarred) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                break;
+            case 'unstarred':
+                // Filter to show only unstarred memos
+                memoItems.forEach(item => {
+                    const memoId = item.dataset.id;
+                    const memo = filteredMemos.find(m => m._id === memoId);
+                    if (memo && !memo.isStarred) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                break;
+        }
+    }
 
     // Simple textarea for content - no rich text editor
     const contentTextarea = document.getElementById('content');
@@ -1873,8 +1967,10 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         }).join('');
 
-        // Reset select all checkbox
-        selectAllMemos.checked = false;
+        // Reset select dropdown state
+        if (selectDropdownWrapper) {
+            selectDropdownWrapper.classList.remove('open');
+        }
 
         // Reinitialize Lucide icons
         lucide.createIcons();
