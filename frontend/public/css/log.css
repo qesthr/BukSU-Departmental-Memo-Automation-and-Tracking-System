@@ -713,7 +713,7 @@
     background: none;
     border: none;
     font-size: 28px;
-    color: #6b7280;
+    color: white;
     cursor: pointer;
     padding: 0;
     width: 32px;
@@ -2158,7 +2158,7 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .memo-list-area.shrink {
-    width: 50%;
+    width: 10%;
     transition: all 0.4s ease;
 }
 
@@ -2282,7 +2282,7 @@ input[type="file"]::file-selector-button:hover {
     background: #eff6ff;
 }
 
-.file-input:focus + .file-label {
+.file-input:focus+.file-label {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
@@ -2311,8 +2311,8 @@ input[type="file"]::file-selector-button:hover {
     min-width: 0;
 }
 
-.file-input:valid + .file-label .file-name,
-.file-input:has(files) + .file-label .file-name {
+.file-input:valid+.file-label .file-name,
+.file-input:has(files)+.file-label .file-name {
     color: #059669;
     font-weight: 500;
 }
