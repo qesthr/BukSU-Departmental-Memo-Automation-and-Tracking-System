@@ -93,7 +93,8 @@
 }
 
 /* Ensure time grid has proper height for scrolling */
-.fc-timeGridDay-view .fc-timegrid-body {
+.fc-timeGridDay-view .fc-timegrid-body,
+.fc-timeGridWeek-view .fc-timegrid-body {
     height: auto !important;
     min-height: 0;
 }
@@ -336,13 +337,25 @@
     right: 0;
     background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    border-radius: 8px;
     margin-top: 0.25rem;
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 10000;
     display: none;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .email-suggestions.show {
@@ -350,29 +363,73 @@
 }
 
 .email-suggestions li {
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
     cursor: pointer;
     list-style: none;
     border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+.email-suggestions li .suggestion-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    flex-shrink: 0;
 }
 
 .email-suggestions li:hover {
-    background: #f9fafb;
+    background: #f3f4f6;
 }
 
 .email-suggestions li:last-child {
     border-bottom: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.email-suggestions li:first-child {
+    border-radius: 8px 8px 0 0;
 }
 
 .email-suggestions .suggestion-email {
-    font-weight: 500;
-    color: #1f2937;
+    font-weight: 400;
+    color: #6b7280;
+    display: block;
 }
 
 .email-suggestions .suggestion-name {
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-left: 0.5rem;
+    font-weight: 500;
+    color: #1f2937;
+    display: block;
+    margin-bottom: 2px;
+}
+
+/* Custom scrollbar for suggestions */
+.email-suggestions::-webkit-scrollbar {
+    width: 6px;
+}
+
+.email-suggestions::-webkit-scrollbar-track {
+    background: #f9fafb;
+    border-radius: 3px;
+}
+
+.email-suggestions::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.email-suggestions::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .participant-chip {
@@ -382,9 +439,10 @@
     padding: 0.25rem 0.5rem;
     background: #e0f2fe;
     color: #0369a1;
-    border-radius: 4px;
+    border-radius: 16px;
     font-size: 0.75rem;
-    height: 24px;
+    height: 28px;
+    min-height: 28px;
 }
 
 .participant-chip.department {
@@ -395,6 +453,19 @@
 .participant-chip .chip-label {
     font-weight: 500;
     line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.participant-chip .chip-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #cbd5e1;
+    flex-shrink: 0;
 }
 
 .participant-chip .chip-remove {
@@ -966,6 +1037,20 @@
 .fc-event-standard {
     background-color: #d1fae5 !important;
     color: #065f46 !important;
+}
+
+/* Google Calendar holiday events */
+.fc-event-holiday {
+    background-color: #FFD700 !important; /* Gold color for holidays */
+    border-color: #FFC107 !important;
+    color: #000000 !important; /* Black text for better readability on gold */
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px rgba(255, 215, 0, 0.4) !important;
+}
+
+.fc-event-holiday:hover {
+    background-color: #FFC107 !important; /* Slightly darker gold on hover */
+    box-shadow: 0 3px 6px rgba(255, 215, 0, 0.5) !important;
 }
 
 /* Mini calendar */

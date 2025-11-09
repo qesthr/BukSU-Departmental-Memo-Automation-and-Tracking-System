@@ -56,8 +56,10 @@ router.get('/events', isAuthenticated, async (req, res) => {
             return res.json([]); // Return empty array instead of error
         }
 
+        // Fetch user's Google Calendar events (requires OAuth)
         const items = await calendarService.listEvents(req.user, { timeMin, timeMax });
         // calendarService.listEvents always returns an array (empty on error)
+        // It also includes public holidays now
         return res.json(items || []);
     } catch (error) {
         console.error('❌ Error in /calendar/events:', error);

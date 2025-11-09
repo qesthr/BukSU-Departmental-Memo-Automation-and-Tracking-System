@@ -544,16 +544,24 @@ async function updateEventNotifications(event, updater) {
 
         const categoryLabels = {
             urgent: '🔴 Urgent',
-            today: '🟡 Today',
-            standard: '🟢 Standard'
+            high: '🟠 High Priority',
+            standard: '🟢 Standard',
+            meeting: '🟣 Meeting',
+            deadline: '⏰ Deadline',
+            reminder: '🔔 Reminder',
+            low: '🔵 Low Priority'
         };
         const categoryLabel = categoryLabels[event.category] || event.category;
 
         // Map calendar event category to memo priority
         const categoryToPriority = {
             urgent: 'urgent',
-            today: 'high',
-            standard: 'medium'
+            high: 'high',
+            meeting: 'high',
+            deadline: 'urgent',
+            reminder: 'medium',
+            standard: 'medium',
+            low: 'low'
         };
         const memoPriority = categoryToPriority[event.category] || 'medium';
 
@@ -660,16 +668,24 @@ async function notifyEventParticipants(event, creator) {
 
         const categoryLabels = {
             urgent: '🔴 Urgent',
-            today: '🟡 Today',
-            standard: '🟢 Standard'
+            high: '🟠 High Priority',
+            standard: '🟢 Standard',
+            meeting: '🟣 Meeting',
+            deadline: '⏰ Deadline',
+            reminder: '🔔 Reminder',
+            low: '🔵 Low Priority'
         };
         const categoryLabel = categoryLabels[event.category] || event.category;
 
         // Map calendar event category to memo priority
         const categoryToPriority = {
             urgent: 'urgent',
-            today: 'high',
-            standard: 'medium'
+            high: 'high',
+            meeting: 'high',
+            deadline: 'urgent',
+            reminder: 'medium',
+            standard: 'medium',
+            low: 'low'
         };
         const memoPriority = categoryToPriority[event.category] || 'medium';
 

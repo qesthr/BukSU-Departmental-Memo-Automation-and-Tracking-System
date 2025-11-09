@@ -309,7 +309,10 @@
   // Define custom buttons
   const customButtons = {};
   let leftButtons = 'title';
-  const rightButtons = ''; // No view toggles - only day view
+  // Add view toggle buttons in order: Today, Week, Month
+  // No Day view needed since Today button navigates to day view
+  // FullCalendar will automatically capitalize the button labels
+  const rightButtons = 'today timeGridWeek dayGridMonth';
 
   // ALWAYS show Add Event button - database calendar works without Google Calendar
   customButtons.addEventBtn = {
@@ -380,15 +383,26 @@
     return `${year}-${month}-${day}`;
   };
 
+  // Helper function to get today's date in Manila timezone as a Date object
+  const getTodayInManila = () => {
+    const now = new Date();
+    // Get date components in Manila timezone
+    const year = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' }));
+    const month = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' })) - 1; // Month is 0-indexed
+    const day = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' }));
+    // Create date at midnight in local timezone (will be interpreted correctly by FullCalendar with timeZone setting)
+    return new Date(year, month, day, 0, 0, 0, 0);
+  };
+
   // Mini calendar variables - declare early so they're available in calendar callbacks
-  const today = new Date();
+  const today = getTodayInManila(); // Use Manila timezone for today
   const miniCursor = new Date(today.getFullYear(), today.getMonth(), 1);
   let miniCalendarEvents = []; // Store events for mini calendar indicators
-  let selectedDate = new Date(); // Track the currently selected date (default to today)
+  let selectedDate = new Date(today); // Track the currently selected date (default to today in Manila timezone)
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'timeGridDay',
-    initialDate: new Date(), // Start with today
+    initialDate: today, // Start with today (in Manila timezone)
     timeZone: 'Asia/Manila', // Explicitly set to Philippines timezone (GMT+8)
     customButtons: customButtons,
     headerToolbar: {
@@ -403,11 +417,46 @@
     eventStartEditable: false,
     eventDurationEditable: false,
     nowIndicator: true,
-    allDaySlot: false, // Hide all-day section in day view
+    allDaySlot: true, // Enable all-day section to show holidays and all-day events
     slotDuration: '00:30:00', // 30-minute slots
-    slotMinTime: '00:00:00', // Start from midnight
+    slotMinTime: '01:00:00', // Start from 1 AM (matching Google Calendar default)
     slotMaxTime: '24:00:00', // Show full 24 hours
+    slotLabelInterval: '00:30:00', // Show time labels every 30 minutes (9:00, 9:30, 10:00, 10:30, etc.)
+    slotLabelFormat: {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    },
     scrollTime: getCurrentTime(), // Scroll to current time initially (makes it visible first)
+    // Configure views with custom button labels
+    views: {
+      timeGridDay: {
+        titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+        buttonText: 'Day'
+      },
+      timeGridWeek: {
+        titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+        slotDuration: '00:30:00',
+        slotMinTime: '01:00:00', // Start from 1 AM (matching Google Calendar default)
+        slotMaxTime: '24:00:00',
+        slotLabelInterval: '00:30:00', // Show time labels every 30 minutes
+        slotLabelFormat: {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        },
+        allDaySlot: true, // Enable all-day slot for week view to show events properly
+        buttonText: 'Week'
+      },
+      dayGridMonth: {
+        titleFormat: { year: 'numeric', month: 'long' },
+        buttonText: 'Month'
+      }
+    },
+    // Customize Today button text
+    buttonText: {
+      today: 'Today'
+    },
     eventDidMount: function(info) {
       console.log('🎨 Event rendered in calendar:', {
         id: info.event.id,
@@ -428,6 +477,24 @@
 
       // Update mini calendar when main calendar view changes
       renderMiniCalendar();
+
+      // Log view change for debugging
+      const currentViewType = dateInfo.view.type;
+      console.log(`📅 View changed to: ${currentViewType}`, {
+        start: dateInfo.start.toISOString(),
+        end: dateInfo.end.toISOString(),
+        startStr: dateInfo.startStr,
+        endStr: dateInfo.endStr
+      });
+
+      // Force refresh events when switching to week view to ensure they display
+      if (currentViewType === 'timeGridWeek') {
+        console.log('🔄 Week view detected - ensuring events are loaded...');
+        setTimeout(() => {
+          calendar.refetchEvents();
+          calendar.render();
+        }, 100);
+      }
 
       // Auto-scroll to current time or first event
       setTimeout(() => {
@@ -699,8 +766,17 @@
     },
       events: async function(fetchInfo, success, failure) {
       try {
-          const qs = new URLSearchParams({ start: fetchInfo.startStr, end: fetchInfo.endStr, onlyCreatedByMe: '1' });
+          // Remove onlyCreatedByMe filter to show all events user should see (created + participant)
+          const qs = new URLSearchParams({ start: fetchInfo.startStr, end: fetchInfo.endStr });
         console.log('🔍 Fetching events for date range:', fetchInfo.startStr, 'to', fetchInfo.endStr);
+        // Note: Cannot access calendar.view here as calendar is not yet initialized
+        // View type will be available after calendar is created
+        console.log('📅 View date range:', {
+          start: fetchInfo.start ? new Date(fetchInfo.start).toISOString() : 'N/A',
+          end: fetchInfo.end ? new Date(fetchInfo.end).toISOString() : 'N/A',
+          startStr: fetchInfo.startStr,
+          endStr: fetchInfo.endStr
+        });
         const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
         if (!res.ok) {
           const errorText = await res.text();
@@ -855,13 +931,59 @@
               return null;
             }
 
-            // For FullCalendar with timeZone, we can pass Date objects directly
-            // FullCalendar will handle timezone conversion internally
+            // For FullCalendar with timeZone, ensure dates are properly formatted
+            // FullCalendar with timeZone expects Date objects that represent the correct moment in time
+            // IMPORTANT: For month view, we need to ensure the date represents the correct day in Manila timezone
+            // to prevent events from appearing on the wrong day due to timezone conversion
+
+            // Get the date in Manila timezone (same logic as mini calendar uses)
+            const eventDateInManila = formatDateManila(finalStartDate);
+            const [year, month, day] = eventDateInManila.split('-').map(Number);
+
+            // For month view, FullCalendar determines which day cell to use based on the date component
+            // We need to ensure the Date object represents the correct day when FullCalendar converts it
+            // Create a date that represents the correct day in Manila timezone
+            // This ensures month view shows events on the same day as mini calendar
+            let dateForDisplay = finalStartDate;
+
+            if (!isAllDay) {
+              // For timed events, we need to ensure the date component is correct for month view
+              // Extract date components in Manila timezone (same as mini calendar logic)
+              const manilaYear = parseInt(finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', year: 'numeric' }));
+              const manilaMonth = parseInt(finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: '2-digit' })) - 1; // 0-indexed
+              const manilaDay = parseInt(finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', day: '2-digit' }));
+              const manilaHours = parseInt(finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false }));
+              const manilaMinutes = parseInt(finalStartDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' }));
+
+              // Create a new date with the correct date components in local timezone
+              // This ensures FullCalendar's month view places the event on the correct day
+              // We use the local timezone constructor but with Manila timezone values
+              // FullCalendar will then convert this correctly with its timeZone setting
+              dateForDisplay = new Date(manilaYear, manilaMonth, manilaDay, manilaHours, manilaMinutes, 0);
+
+              // Verify the date is still correct
+              const verifiedDate = formatDateManila(dateForDisplay);
+              if (verifiedDate !== eventDateInManila) {
+                console.warn(`⚠️ Date correction issue for event "${e.title}": Expected ${eventDateInManila}, got ${verifiedDate}. Using original date.`);
+                dateForDisplay = finalStartDate; // Fallback to original
+              }
+            }
+
+            // Log the date for debugging month view issues
+            console.log(`📅 Event "${e.title}" - Date in Manila timezone: ${eventDateInManila}`, {
+              originalStart: e.start,
+              parsedStart: finalStartDate.toISOString(),
+              displayDate: dateForDisplay.toISOString(),
+              manilaDate: eventDateInManila,
+              verified: formatDateManila(dateForDisplay)
+            });
+
             const eventObj = {
               id: String(e._id), // Ensure ID is a string
               title: isAllDay ? e.title : eventTitle, // Don't add time for all-day events
-              start: finalStartDate, // Use validated Date objects - FullCalendar handles timezone
-              end: finalEndDate,
+              // Use the corrected date for display to ensure month view shows correct day
+              start: dateForDisplay instanceof Date ? dateForDisplay : new Date(dateForDisplay),
+              end: finalEndDate instanceof Date ? finalEndDate : new Date(finalEndDate),
               allDay: isAllDay,
               backgroundColor: categoryColor(e.category),
               borderColor: categoryColor(e.category),
@@ -877,6 +999,17 @@
                 isCreator: e.isCreator !== false // Store creator flag
               }
             };
+
+            // Additional validation: ensure dates are valid and not NaN
+            if (isNaN(eventObj.start.getTime()) || isNaN(eventObj.end.getTime())) {
+              console.error(`❌ Event "${e.title}" has invalid dates after final conversion:`, {
+                start: eventObj.start,
+                end: eventObj.end,
+                startISO: eventObj.start.toISOString(),
+                endISO: eventObj.end.toISOString()
+              });
+              return null;
+            }
 
             // Final validation - ensure the event object is valid
             if (!eventObj.id || !eventObj.title || !eventObj.start || !eventObj.end) {
@@ -897,17 +1030,13 @@
             // Note: This warning is informational - FullCalendar will still render events
             // that are slightly outside the range if they're close enough
             // The warning helps debug why events might not appear
+            // IMPORTANT: We don't filter events here - let FullCalendar handle rendering
+            // FullCalendar will automatically show/hide events based on the view's date range
             if (!isInRange) {
-              const eventDateStr = eventStart.toLocaleDateString('en-US', { timeZone: 'Asia/Manila' });
-              const requestedDateStr = requestedStart.toLocaleDateString('en-US', { timeZone: 'Asia/Manila' });
+              const eventDateStr = formatDateManila(eventStart);
+              const requestedDateStr = formatDateManila(requestedStart);
               console.warn(`⚠️ Event "${e.title}" date (${eventDateStr}) is outside requested range (${requestedDateStr})`);
               console.warn('   This is normal if you navigate to a different date. FullCalendar will fetch events when you navigate.');
-              console.warn('   Details:', {
-                eventStart: eventStart.toISOString(),
-                eventEnd: eventEnd.toISOString(),
-                requestedStart: requestedStart.toISOString(),
-                requestedEnd: requestedEnd.toISOString()
-              });
             }
 
             // Enhanced logging with date information
@@ -978,19 +1107,65 @@
                 // Google Calendar API returns RFC3339 strings, FullCalendar can parse them
                 // Ensure allDay is explicitly set
                 const isGoogleAllDay = ev.start.date ? true : false;
+                const isHoliday = ev.isHoliday === true;
+
+                // Style holidays differently - use gold color for holidays
+                const backgroundColor = isHoliday ? '#FFD700' : '#4285F4'; // Gold for holidays, blue for regular events
+                const borderColor = isHoliday ? '#FFC107' : '#4285F4';
+                const textColor = isHoliday ? '#000000' : '#ffffff'; // Black text on gold for better readability
+
+                // For all-day events, Google Calendar uses exclusive end dates
+                // FullCalendar expects inclusive end dates, so we need to adjust
+                let eventStart = isGoogleAllDay ? ev.start.date : ev.start.dateTime;
+                let eventEnd = isGoogleAllDay ? ev.end.date : ev.end.dateTime;
+
+                // For all-day events, convert date strings to Date objects for proper month view display
+                if (isGoogleAllDay) {
+                  // Adjust end date (Google uses exclusive, FullCalendar uses inclusive)
+                  if (eventEnd) {
+                    const endDate = new Date(eventEnd);
+                    endDate.setDate(endDate.getDate() - 1); // Subtract one day
+                    eventEnd = endDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+                  }
+
+                  // Convert start date string to Date object for month view compatibility
+                  // Use midnight in local timezone to ensure correct day display
+                  if (eventStart && typeof eventStart === 'string') {
+                    const [year, month, day] = eventStart.split('-').map(Number);
+                    eventStart = new Date(year, month - 1, day, 0, 0, 0, 0); // Create Date in local timezone
+                  }
+
+                  // Convert end date string to Date object
+                  if (eventEnd && typeof eventEnd === 'string') {
+                    const [year, month, day] = eventEnd.split('-').map(Number);
+                    eventEnd = new Date(year, month - 1, day, 23, 59, 59, 999); // End of day
+                  }
+                }
+
+                if (isHoliday) {
+                  console.log(`🎉 Processing holiday: "${ev.summary}"`, {
+                    start: eventStart,
+                    end: eventEnd,
+                    allDay: isGoogleAllDay,
+                    originalStart: ev.start.date,
+                    originalEnd: ev.end.date
+                  });
+                }
+
                 return {
                   id: 'gcal_' + ev.id,
-                  title: ev.summary || '(no title)',
-                  start: isGoogleAllDay ? ev.start.date : ev.start.dateTime,
-                  end: isGoogleAllDay ? ev.end.date : ev.end.dateTime,
+                  title: isHoliday ? `🎉 ${ev.summary || '(no title)'}` : (ev.summary || '(no title)'),
+                  start: eventStart,
+                  end: eventEnd,
                   allDay: isGoogleAllDay,
-                  backgroundColor: '#4285F4', // Google Calendar blue
-                  borderColor: '#4285F4',
-                  textColor: '#ffffff',
-                  classNames: ['fc-event-google'],
+                  backgroundColor: backgroundColor,
+                  borderColor: borderColor,
+                  textColor: textColor,
+                  classNames: isHoliday ? ['fc-event-google', 'fc-event-holiday'] : ['fc-event-google'],
                   editable: false, // Google Calendar events are not editable in Memofy
                   extendedProps: {
                     source: 'google',
+                    isHoliday: isHoliday,
                     htmlLink: ev.htmlLink,
                     description: ev.description
                   }
@@ -1195,20 +1370,42 @@
                   try {
                     const existing = calendar.getEventById(evt.id);
                     if (!existing) {
-                      // Ensure event dates are valid Date objects
+                      // Ensure event dates are valid Date objects and properly formatted
+                      const startDate = evt.start instanceof Date ? evt.start : new Date(evt.start);
+                      const endDate = evt.end instanceof Date ? evt.end : new Date(evt.end);
+
+                      // Validate dates before adding
+                      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                        console.error(`   ❌ Event "${evt.title}" has invalid dates, skipping manual add`);
+                        return;
+                      }
+
                       const eventToAdd = {
                         ...evt,
-                        start: evt.start instanceof Date ? evt.start : new Date(evt.start),
-                        end: evt.end instanceof Date ? evt.end : new Date(evt.end)
+                        start: startDate,
+                        end: endDate
                       };
-                      calendar.addEvent(eventToAdd);
-                      console.log(`   ✅ Manually added event: "${evt.title}"`);
+
+                      // Use addEvent with proper date objects
+                      const addedEvent = calendar.addEvent(eventToAdd);
+                      if (addedEvent) {
+                        console.log(`   ✅ Manually added event: "${evt.title}" at ${startDate.toISOString()}`);
+                      } else {
+                        console.warn(`   ⚠️ addEvent returned null for "${evt.title}"`);
+                      }
                     } else {
                       console.log(`   ℹ️ Event "${evt.title}" already exists in calendar`);
                     }
                   } catch (err) {
                     console.error(`   ❌ Failed to manually add event "${evt.title}":`, err);
-                    console.error('   Event data:', evt);
+                    console.error('   Event data:', {
+                      id: evt.id,
+                      title: evt.title,
+                      start: evt.start,
+                      end: evt.end,
+                      startType: typeof evt.start,
+                      endType: typeof evt.end
+                    });
                   }
                 });
 
@@ -1243,27 +1440,40 @@
                 console.error('   4. Timezone conversion issue');
 
                 // Check if events are in the current view's date range
-                const currentView = calendar.view;
-                const viewStart = currentView.activeStart;
-                const viewEnd = currentView.activeEnd;
-                console.error('   Current view date range:', {
-                  start: viewStart.toISOString(),
-                  end: viewEnd.toISOString(),
-                  viewType: currentView.type
-                });
-
-                validEvents.forEach(evt => {
-                  const evtStart = evt.start instanceof Date ? evt.start : new Date(evt.start);
-                  const evtEnd = evt.end instanceof Date ? evt.end : new Date(evt.end);
-                  const isInView = evtStart < viewEnd && evtEnd > viewStart;
-                  console.error(`   Event "${evt.title}":`, {
-                    start: evtStart.toISOString(),
-                    end: evtEnd.toISOString(),
-                    isInView: isInView,
-                    viewStart: viewStart.toISOString(),
-                    viewEnd: viewEnd.toISOString()
+                // Note: calendar.view is available here as this runs after calendar is initialized
+                let currentView = null;
+                let viewStart = null;
+                let viewEnd = null;
+                try {
+                  currentView = calendar.view;
+                  viewStart = currentView.activeStart;
+                  viewEnd = currentView.activeEnd;
+                  console.error('   Current view date range:', {
+                    start: viewStart.toISOString(),
+                    end: viewEnd.toISOString(),
+                    viewType: currentView.type
                   });
-                });
+                } catch (err) {
+                  // Calendar might not be fully initialized yet
+                  console.warn('⚠️ Calendar view not available yet:', err);
+                }
+
+                if (viewStart && viewEnd) {
+                  validEvents.forEach(evt => {
+                    const evtStart = evt.start instanceof Date ? evt.start : new Date(evt.start);
+                    const evtEnd = evt.end instanceof Date ? evt.end : new Date(evt.end);
+                    const isInView = evtStart < viewEnd && evtEnd > viewStart;
+                    console.error(`   Event "${evt.title}":`, {
+                      start: evtStart.toISOString(),
+                      end: evtEnd.toISOString(),
+                      isInView: isInView,
+                      viewStart: viewStart.toISOString(),
+                      viewEnd: viewEnd.toISOString()
+                    });
+                  });
+                } else {
+                  console.warn('⚠️ Cannot check event date range - calendar view not available');
+                }
               } else if (eventElements.length > 0 || timeGridEvents.length > 0) {
                 console.log(`✅ DOM check passed: ${eventElements.length + timeGridEvents.length} event elements found`);
               }
@@ -1354,9 +1564,16 @@
 
   function getEventsForDate(date) {
     if (!miniCalendarEvents || miniCalendarEvents.length === 0) {return [];}
+    const now = new Date();
     // Compare dates in Asia/Manila timezone to avoid timezone conversion issues
     const dateStr = formatDateManila(date);
     return miniCalendarEvents.filter(event => {
+      // Filter out past events - only show events that haven't ended yet
+      const eventEnd = new Date(event.end);
+      if (eventEnd < now) {
+        return false;
+      }
+      // Match events for the specific date
       const eventDateStr = formatDateManila(event.start);
       return eventDateStr === dateStr;
     });
@@ -1366,15 +1583,19 @@
     switch (category) {
       case 'urgent': return '#fee2e2'; // Light red
       case 'today': return '#fed7aa'; // Light orange
+      case 'holiday': return '#FEF3C7'; // Light gold/yellow for holidays
       case 'standard': return '#d1fae5'; // Light green
       default: return '#d1fae5'; // Default to light green
     }
   }
 
   function getHighestPriorityCategory(events) {
-    // Priority: urgent > today > standard
+    // Priority: urgent > holiday > today > standard
     if (events.some(e => e.category === 'urgent' || e.extendedProps?.category === 'urgent')) {
       return 'urgent';
+    }
+    if (events.some(e => e.category === 'holiday' || e.extendedProps?.category === 'holiday' || e.extendedProps?.isHoliday)) {
+      return 'holiday';
     }
     if (events.some(e => e.category === 'today' || e.extendedProps?.category === 'today')) {
       return 'today';
@@ -1458,13 +1679,16 @@
       const startStr = formatForAPI(firstDay);
       const endStr = formatForAPI(lastDay);
 
-      const qs = new URLSearchParams({ start: startStr, end: endStr, onlyCreatedByMe: '1' });
+      // Fetch database events
+      const qs = new URLSearchParams({ start: startStr, end: endStr });
       const res = await fetch(`/api/calendar/events?${qs.toString()}`, { credentials: 'same-origin' });
+
+      let allEvents = [];
 
       if (res.ok) {
         const data = await res.json();
-        // Convert to FullCalendar format for consistency
-        miniCalendarEvents = data.map(e => ({
+        // Convert database events to mini calendar format
+        const dbEvents = data.map(e => ({
           id: e._id,
           start: e.start,
           end: e.end,
@@ -1473,9 +1697,81 @@
             category: e.category || 'standard'
           }
         }));
-        // Re-render mini calendar with event indicators
-        renderMiniCalendar();
+        allEvents = [...allEvents, ...dbEvents];
       }
+
+      // Also fetch Google Calendar events (including holidays) - same as main calendar
+      if (window.calendarConnected) {
+        try {
+          // Format dates for Google Calendar API (RFC3339 with timezone)
+          const formatForGoogleAPI = (dateStr) => {
+            if (!dateStr) return dateStr;
+            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {
+              return dateStr;
+            }
+            if (dateStr.includes('T')) {
+              return `${dateStr}+08:00`;
+            }
+            return `${dateStr}T00:00:00+08:00`;
+          };
+
+          const timeMin = formatForGoogleAPI(startStr);
+          const timeMax = formatForGoogleAPI(endStr);
+
+          const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
+          if (r2.ok) {
+            const gItems = await r2.json();
+            console.log(`📅 Mini calendar: Received ${gItems.length} Google Calendar events (including holidays)`);
+
+            // Convert Google Calendar events (including holidays) to mini calendar format
+            const googleEvents = gItems.map(ev => {
+              const isGoogleAllDay = ev.start.date ? true : false;
+              const isHoliday = ev.isHoliday === true;
+
+              // For all-day events, adjust end date (Google uses exclusive, we need inclusive)
+              let eventStart = isGoogleAllDay ? ev.start.date : ev.start.dateTime;
+              let eventEnd = isGoogleAllDay ? ev.end.date : ev.end.dateTime;
+
+              if (isGoogleAllDay && eventEnd) {
+                const endDate = new Date(eventEnd);
+                endDate.setDate(endDate.getDate() - 1);
+                eventEnd = endDate.toISOString().split('T')[0];
+              }
+
+              return {
+                id: 'gcal_' + ev.id,
+                start: eventStart,
+                end: eventEnd,
+                category: isHoliday ? 'holiday' : 'standard',
+                extendedProps: {
+                  category: isHoliday ? 'holiday' : 'standard',
+                  isHoliday: isHoliday,
+                  source: 'google'
+                }
+              };
+            });
+
+            allEvents = [...allEvents, ...googleEvents];
+          }
+        } catch (err) {
+          console.warn('⚠️ Error fetching Google Calendar events for mini calendar:', err);
+        }
+      }
+
+      const now = new Date();
+
+      // Filter out past events and convert to mini calendar format
+      miniCalendarEvents = allEvents
+        .filter(e => {
+          // Only include events that haven't ended yet
+          const eventEnd = new Date(e.end);
+          return eventEnd >= now;
+        });
+
+      console.log(`📅 Mini calendar: Loaded ${miniCalendarEvents.length} total events (${allEvents.length - miniCalendarEvents.length} past events filtered)`);
+
+      // Re-render mini calendar with event indicators
+      renderMiniCalendar();
     } catch (err) {
       console.error('Error loading events for mini calendar:', err);
     }
@@ -1510,8 +1806,11 @@
       const dayNumber = iter.getDate();
       el.textContent = String(dayNumber);
 
-      const today = new Date();
-      if (today.toDateString() === iter.toDateString()) { el.classList.add('mini-today'); }
+      // Check if this day is today in Manila timezone
+      const todayInManila = getTodayInManila();
+      const iterDateStr = formatDateManila(iter);
+      const todayDateStr = formatDateManila(todayInManila);
+      if (iterDateStr === todayDateStr) { el.classList.add('mini-today'); }
 
       // Highlight selected date (default to today)
       const iterDate = new Date(iter.getFullYear(), iter.getMonth(), iter.getDate());
@@ -1541,6 +1840,9 @@
       }
 
       el.addEventListener('click', () => {
+        // Capture events for this day at click time
+        const clickedDayEvents = getEventsForDate(iter);
+
         // Update selected date
         selectedDate = new Date(year, month, dayNumber);
 
@@ -1548,8 +1850,6 @@
         renderMiniCalendar();
 
         // Create date object that represents the clicked day
-        // Since FullCalendar is configured with timeZone: 'Asia/Manila',
-        // we need to create a Date object that FullCalendar will interpret correctly
         const clickedYear = year;
         const clickedMonth = month; // JavaScript month is 0-indexed
         const clickedDay = dayNumber;
@@ -1557,47 +1857,25 @@
         // Create date string in YYYY-MM-DD format
         const dateString = `${clickedYear}-${String(clickedMonth + 1).padStart(2, '0')}-${String(clickedDay).padStart(2, '0')}`;
 
-        // Try passing date string directly to FullCalendar
-        // FullCalendar's gotoDate can accept date strings in YYYY-MM-DD format
-        // and will interpret them in the configured timezone (Asia/Manila)
+        // Create Date object for the clicked date
         let clickedDate;
         try {
           // Use date string - FullCalendar interprets it in Asia/Manila timezone
           calendar.gotoDate(dateString);
-
-          // Create Date object in Manila timezone (not UTC)
-          // Create date at midnight in Manila timezone
           clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 0, 0, 0, 0);
-
-          // Verify the date represents the correct date in Manila timezone
-          const dateInManila = clickedDate.toLocaleDateString('en-US', {
-            timeZone: 'Asia/Manila',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          const expectedDate = `${String(clickedMonth + 1).padStart(2, '0')}/${String(clickedDay).padStart(2, '0')}/${clickedYear}`;
-
-          if (dateInManila !== expectedDate) {
-            // Adjust if needed to ensure correct date in Manila timezone
-            const parts = dateInManila.split('/');
-            const actualDay = parseInt(parts[1]);
-            if (actualDay !== clickedDay) {
-              // Adjust the date to match the intended day
-              clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 12, 0, 0, 0);
-            }
-          }
         } catch (e) {
           // Fallback: create date in Manila timezone
           clickedDate = new Date(clickedYear, clickedMonth, clickedDay, 0, 0, 0, 0);
           calendar.gotoDate(clickedDate);
         }
 
-        console.log('Mini calendar clicked:');
-        console.log('  Day clicked:', clickedDay, 'Month:', clickedMonth + 1, 'Year:', clickedYear);
-        console.log('  Date string:', dateString);
-        console.log('  Date object created:', clickedDate);
-        console.log('  Date in Manila:', clickedDate.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'long' }));
+        console.log('📅 Mini calendar clicked:', {
+          day: clickedDay,
+          month: clickedMonth + 1,
+          year: clickedYear,
+          dateString: dateString,
+          eventsOnThisDay: clickedDayEvents.length
+        });
 
         // Ensure view is set correctly
         if (calendar.view.type !== 'timeGridDay') {
@@ -1607,74 +1885,90 @@
         // Force a render to ensure the date is displayed correctly
         calendar.render();
 
-        // Force refresh events for the selected date
+        // Function to scroll to event time (with retry mechanism)
+        const scrollToEventTime = (retryCount = 0) => {
+          // Get events from the calendar (after they've been loaded)
+          const allEvents = calendar.getEvents();
+          const dateStr = formatDateManila(clickedDate);
+          const sameDayEvents = Array.from(allEvents).filter(e => {
+            const eventDateStr = formatDateManila(e.start);
+            return eventDateStr === dateStr && !e.allDay;
+          });
+
+          console.log(`📊 Scroll attempt ${retryCount + 1}: Found ${sameDayEvents.length} events for ${dateStr}`);
+
+          // If we have events from mini calendar but not from main calendar yet, retry
+          if (clickedDayEvents.length > 0 && sameDayEvents.length === 0 && retryCount < 5) {
+            console.log(`⏳ Events not loaded yet, retrying in 300ms... (attempt ${retryCount + 1}/5)`);
+            setTimeout(() => scrollToEventTime(retryCount + 1), 300);
+            return;
+          }
+
+          // Check if clicked date is today
+          const isToday = (date) => {
+            const today = new Date();
+            const todayStr = formatDateManila(today);
+            const dateStr = formatDateManila(date);
+            return todayStr === dateStr;
+          };
+
+          let scrollTime = null;
+          let scrollReason = '';
+
+          if (sameDayEvents.length > 0) {
+            // Scroll to first event time if date has events
+            sameDayEvents.sort((a, b) => a.start - b.start);
+            const firstEvent = sameDayEvents[0];
+            const eventTime = new Date(firstEvent.start);
+
+            // Get time in Manila timezone
+            const hours = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+            const minutes = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+            scrollTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+            scrollReason = `first event: "${firstEvent.title}"`;
+          } else if (clickedDayEvents.length > 0) {
+            // Fallback: use mini calendar events if main calendar events aren't loaded yet
+            clickedDayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+            const firstEvent = clickedDayEvents[0];
+            const eventTime = new Date(firstEvent.start);
+
+            // Get time in Manila timezone
+            const hours = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false });
+            const minutes = eventTime.toLocaleString('en-US', { timeZone: 'Asia/Manila', minute: '2-digit' });
+            scrollTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+            scrollReason = 'first event (from mini calendar data)';
+          } else if (isToday(clickedDate)) {
+            // Scroll to current time for today if no events
+            scrollTime = getCurrentTime();
+            scrollReason = 'current time (today, no events)';
+          } else {
+            // Scroll to a reasonable default time (8am) if no events
+            scrollTime = '08:00:00';
+            scrollReason = 'default time (8am, no events)';
+          }
+
+          if (scrollTime) {
+            console.log(`📅 Scrolling to ${scrollTime} - ${scrollReason}`);
+            try {
+              calendar.scrollToTime(scrollTime);
+              // Force render after scroll to ensure it's visible
+              setTimeout(() => {
+                calendar.render();
+              }, 100);
+            } catch (err) {
+              console.error('❌ Error scrolling to time:', err);
+            }
+          }
+        };
+
+        // Force refresh events for the selected date, then scroll
         setTimeout(() => {
           console.log('🔄 Refreshing events after mini calendar date click:', dateString);
           calendar.refetchEvents();
           calendar.render();
 
-          // Double-check after a delay
-          setTimeout(() => {
-            const allEvents = calendar.getEvents();
-            console.log(`📊 Calendar has ${allEvents.length} events after mini calendar click`);
-            if (allEvents.length > 0) {
-              console.log('   Events:', allEvents.map(e => ({
-                title: e.title,
-                date: formatDateManila(e.start)
-              })));
-            }
-          }, 500);
-
-          const currentDate = calendar.view.currentStart;
-
-          // Compare dates by extracting date components in Philippines timezone
-          const getDateInPH = (date) => {
-            // Use toLocaleString to get date in Philippines timezone
-            const phDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-            const year = phDate.getFullYear();
-            const month = String(phDate.getMonth() + 1).padStart(2, '0');
-            const day = String(phDate.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          };
-
-          const clickedDateStr = getDateInPH(clickedDate);
-          const currentDateStr = getDateInPH(currentDate);
-
-          console.log('Date comparison - Clicked:', clickedDateStr, 'Current:', currentDateStr);
-
-          if (clickedDateStr !== currentDateStr) {
-            console.log('Date mismatch, forcing gotoDate. Expected:', clickedDateStr, 'Got:', currentDateStr);
-            calendar.gotoDate(clickedDate);
-            // Refresh again after navigation
-            setTimeout(() => {
-              calendar.refetchEvents();
-              calendar.render();
-            }, 100);
-          }
-
-          // Scroll to appropriate time after events load
-          setTimeout(() => {
-            // Check if clicked date is today using Manila timezone
-            const isToday = (date) => {
-              const today = new Date();
-              const todayStr = formatDateManila(today);
-              const dateStr = formatDateManila(date);
-              return todayStr === dateStr;
-            };
-
-            if (isToday(clickedDate)) {
-              // Scroll to current time for today
-              const currentTime = getCurrentTime();
-              console.log('📅 Mini calendar: Scrolling to current time:', currentTime);
-              calendar.scrollToTime(currentTime);
-            } else if (dayEvents.length > 0) {
-              // Scroll to first event time if date has events
-              scrollToFirstEventTime(clickedDate, dayEvents);
-            } else {
-              // Scroll to a reasonable default time (8am) if no events
-              calendar.scrollToTime('08:00:00');
-            }
-          }, 300);
+          // Start scrolling after events have time to load
+          setTimeout(() => scrollToEventTime(), 600);
         }, 100);
       });
       mini.appendChild(el);
@@ -1687,8 +1981,12 @@
 
   // Set initial selected date (today) in mini calendar and sync main calendar
   setTimeout(() => {
-    const currentToday = new Date();
-    currentToday.setHours(0, 0, 0, 0);
+    // Get today's date in Manila timezone
+    const currentToday = getTodayInManila();
+
+    // Get date string in Manila timezone for comparison
+    const todayDateStr = formatDateManila(currentToday);
+    console.log('📅 Initializing calendar with today (Manila timezone):', todayDateStr);
 
     // Set selected date to today
     selectedDate = new Date(currentToday.getFullYear(), currentToday.getMonth(), currentToday.getDate());
@@ -1707,9 +2005,11 @@
     renderMiniCalendar();
 
     // Ensure main calendar shows today's date in day view
-    calendar.gotoDate(currentToday);
+    // Use date string format to ensure FullCalendar interprets it correctly in Manila timezone
+    const todayDateString = `${currentToday.getFullYear()}-${String(currentToday.getMonth() + 1).padStart(2, '0')}-${String(currentToday.getDate()).padStart(2, '0')}`;
+    calendar.gotoDate(todayDateString);
     if (calendar.view.type !== 'timeGridDay') {
-      calendar.changeView('timeGridDay', currentToday);
+      calendar.changeView('timeGridDay', todayDateString);
     }
     calendar.render();
 
@@ -1953,6 +2253,15 @@
   // Auto-refresh events every 60s
   setInterval(() => {
     try { calendar.refetchEvents(); } catch (e) { /* ignore */ }
+  }, 60000);
+
+  // Auto-refresh mini calendar every 60s to remove past events
+  setInterval(() => {
+    try {
+      loadEventsForMiniCalendar();
+    } catch (e) {
+      console.error('Error refreshing mini calendar:', e);
+    }
   }, 60000);
 
   form.addEventListener('submit', async (e) => {
