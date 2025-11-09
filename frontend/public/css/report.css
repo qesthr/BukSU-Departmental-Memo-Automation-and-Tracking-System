@@ -1,5 +1,18 @@
 /* Report & Analytics Page Styles */
 
+/* Enable scrolling for report page */
+.dashboard-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: calc(100vh - 4rem);
+    max-height: calc(100vh - 4rem);
+}
+
+.content-wrapper {
+    min-height: 100%;
+    padding-bottom: 2rem;
+}
+
 .content-header {
     display: flex;
     justify-content: space-between;

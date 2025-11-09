@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="/css/admin-dashboard.css">
     <!--<link rel="stylesheet" href="/css/sidebar.css">-->
     <link rel="stylesheet" href="/css/admintopbar.css">
+    <link rel="stylesheet" href="/css/calendar.css">
+    <link rel="stylesheet" href="/css/custom-calendar.css">
     <!--<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
 
@@ -28,6 +30,8 @@
             email: '<%= user.email %>',
             role: '<%= user.role %>'
         };
+        // Set calendar connection status for mini calendar
+        window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
     </script>
 
     <!-- Font Awesome -->
@@ -175,11 +179,14 @@
                     <!-- Calendar and Analytics -->
                     <div class="side-grid">
                         <div class="calendar-section">
-                            <div style="padding: 20px; background: white; border-radius: 12px; text-align: center;">
-                                <i data-lucide="calendar" style="width: 48px; height: 48px; color: #6366f1; margin: 0 auto 12px;"></i>
-                                <h3 style="margin: 0 0 8px; color: #1f2937;">Calendar</h3>
-                                <p style="margin: 0; color: #6b7280;">Coming soon</p>
+                            <div class="mini-cal-header" style="margin-bottom: 12px;">
+                                <h3 id="dashboardMiniCalMonth" style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">Calendar</h3>
+                                <div class="mini-cal-nav">
+                                    <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
+                                    <button id="dashboardMiniNext" class="btn-icon" aria-label="Next" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
+                                </div>
                             </div>
+                            <div id="dashboardMiniCalendar" class="mini-calendar"></div>
                         </div>
                         <div class="backup-section">
                             <i data-lucide="cloud" class="backup-icon"></i>
@@ -248,7 +255,28 @@
             }
         }
     </script>
+    <!-- Date Details Modal for Mini Calendar -->
+    <div id="dashboardDateModal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-overlay"></div>
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h3 id="dashboardDateModalTitle">Date Details</h3>
+                <button class="custom-modal-close" id="dashboardDateModalClose">&times;</button>
+            </div>
+            <div class="custom-modal-body">
+                <div id="dashboardDateModalContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="custom-modal-footer">
+                <button class="custom-modal-btn custom-modal-btn-secondary" id="dashboardDateModalCancel">Close</button>
+                <button class="custom-modal-btn custom-modal-btn-primary" id="dashboardDateModalViewCalendar">View Full Calendar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/freezeZoom.js"></script>
+    <script src="/js/dashboard-mini-calendar.js"></script>
     <!-- Removed kit script (CSP). Font Awesome is loaded via jsDelivr CSS above. -->
 
 </body>

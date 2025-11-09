@@ -250,28 +250,63 @@ async function getRecentActivity(limit = 50) {
         const activities = await Memo.find(memoFilter)
             .populate('sender', 'firstName lastName email department')
             .populate('recipient', 'firstName lastName email department')
+            .populate('recipients', 'firstName lastName email department')
             .sort({ createdAt: -1 })
             .limit(limit)
-            .select('subject status priority department createdAt sender recipient');
+            .select('subject status priority department departments createdAt sender recipient recipients');
 
-        return activities.map(activity => ({
-            id: activity._id,
-            date: activity.createdAt,
-            subject: activity.subject,
-            sender: activity.sender ? {
-                name: `${activity.sender.firstName} ${activity.sender.lastName}`,
-                email: activity.sender.email,
-                department: activity.sender.department
-            } : null,
-            recipient: activity.recipient ? {
-                name: `${activity.recipient.firstName} ${activity.recipient.lastName}`,
-                email: activity.recipient.email,
-                department: activity.recipient.department
-            } : null,
-            status: activity.status,
-            priority: activity.priority,
-            department: activity.department
-        }));
+        return activities.map(activity => {
+            // Get recipient departments
+            let recipientDepartments = [];
+
+            // If departments array exists, use those
+            if (activity.departments && Array.isArray(activity.departments) && activity.departments.length > 0) {
+                recipientDepartments = [...new Set(activity.departments)]; // Remove duplicates
+            }
+            // If recipients array exists, get their departments
+            else if (activity.recipients && Array.isArray(activity.recipients) && activity.recipients.length > 0) {
+                const deptSet = new Set();
+                activity.recipients.forEach(recipient => {
+                    if (recipient && recipient.department) {
+                        deptSet.add(recipient.department);
+                    }
+                });
+                recipientDepartments = Array.from(deptSet);
+            }
+            // If single recipient exists, use their department
+            else if (activity.recipient && activity.recipient.department) {
+                recipientDepartments = [activity.recipient.department];
+            }
+            // Fallback to memo's department field
+            else if (activity.department) {
+                recipientDepartments = [activity.department];
+            }
+
+            return {
+                id: activity._id,
+                date: activity.createdAt,
+                subject: activity.subject,
+                sender: activity.sender ? {
+                    name: `${activity.sender.firstName} ${activity.sender.lastName}`,
+                    email: activity.sender.email,
+                    department: activity.sender.department
+                } : null,
+                recipient: activity.recipient ? {
+                    name: `${activity.recipient.firstName} ${activity.recipient.lastName}`,
+                    email: activity.recipient.email,
+                    department: activity.recipient.department
+                } : null,
+                recipients: activity.recipients ? activity.recipients.map(r => ({
+                    name: r ? `${r.firstName} ${r.lastName}` : 'Unknown',
+                    email: r ? r.email : '',
+                    department: r ? r.department : ''
+                })) : [],
+                status: activity.status,
+                priority: activity.priority,
+                department: activity.department,
+                departments: recipientDepartments
+            };
+        });
     } catch (error) {
         console.error('Error fetching recent activity:', error);
         throw error;

@@ -869,14 +869,55 @@ function displayRecentActivity(activities) {
         const action = activity.status === 'sent' ? 'Sent' :
                       activity.status === 'read' ? 'Read' :
                       activity.status === 'pending' ? 'Pending' : activity.status;
-        const department = activity.department || activity.sender?.department || 'Admin';
+
+        // Determine department display
+        let departmentDisplay = '';
+
+        // If departments array exists and has values, use those
+        if (activity.departments && Array.isArray(activity.departments) && activity.departments.length > 0) {
+            // If multiple departments, join them with comma
+            if (activity.departments.length > 1) {
+                departmentDisplay = activity.departments.join(', ');
+            } else {
+                departmentDisplay = activity.departments[0];
+            }
+        }
+        // If recipients array exists, get unique departments from recipients
+        else if (activity.recipients && Array.isArray(activity.recipients) && activity.recipients.length > 0) {
+            const deptSet = new Set();
+            activity.recipients.forEach(recipient => {
+                if (recipient && recipient.department) {
+                    deptSet.add(recipient.department);
+                }
+            });
+            const deptArray = Array.from(deptSet);
+            if (deptArray.length > 0) {
+                departmentDisplay = deptArray.length > 1 ? deptArray.join(', ') : deptArray[0];
+            }
+        }
+        // If single recipient exists, use their department
+        else if (activity.recipient && activity.recipient.department) {
+            departmentDisplay = activity.recipient.department;
+        }
+        // Fallback to memo's department field
+        else if (activity.department) {
+            departmentDisplay = activity.department;
+        }
+        // If sender is Admin and no department info, leave blank
+        else if (activity.sender && activity.sender.department === 'Admin') {
+            departmentDisplay = '';
+        }
+        // Final fallback
+        else {
+            departmentDisplay = activity.sender?.department || '';
+        }
 
         return `
             <tr>
                 <td>${date}</td>
                 <td>${senderName}</td>
                 <td>${action}</td>
-                <td>${department}</td>
+                <td>${departmentDisplay}</td>
                 <td><span class="status-badge status-${activity.status}">${action}</span></td>
             </tr>
         `;
