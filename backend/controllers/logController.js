@@ -13,13 +13,15 @@ exports.getAllMemos = async (req, res) => {
         let query = {};
 
         if (folder === 'inbox') {
-            // For admins, show both system activity logs AND received memos
+            // For admins, show both sent and received memos
             const user = await User.findById(userId);
             if (user.role === 'admin') {
-                // Admin inbox: show received memos (not just activity logs)
-                // Users receive memos sent TO them, regardless of activityType
+                // Admin inbox: show both memos sent BY admin and received BY admin
                 query = {
-                    recipient: userId,
+                    $or: [
+                        { sender: userId },
+                        { recipient: userId }
+                    ],
                     status: { $nin: ['deleted','archived'] }
                 };
             } else {
@@ -67,7 +69,16 @@ exports.getAllMemos = async (req, res) => {
             .populate('recipient', 'firstName lastName email profilePicture department role')
             .sort({ createdAt: -1 });
 
-        res.json({ success: true, memos });
+        // Ensure signatures are included in all memos
+        const memosWithSignatures = memos.map(memo => {
+            const memoObj = memo.toObject ? memo.toObject() : memo;
+            if (!memoObj.signatures) {
+                memoObj.signatures = [];
+            }
+            return memoObj;
+        });
+
+        res.json({ success: true, memos: memosWithSignatures });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error fetching memos:', error);
@@ -111,7 +122,15 @@ exports.getMemo = async (req, res) => {
             await memo.save();
         }
 
-        res.json({ success: true, memo });
+        // Convert to plain object to ensure all fields including signatures are included
+        const memoObj = memo.toObject ? memo.toObject() : memo;
+
+        // Ensure signatures array is included (even if empty)
+        if (!memoObj.signatures) {
+            memoObj.signatures = [];
+        }
+
+        res.json({ success: true, memo: memoObj });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error fetching memo:', error);
@@ -602,10 +621,14 @@ exports.getMemoTemplates = async (req, res) => {
 exports.getAllowedSignatures = async (req, res) => {
     try {
         const Signature = require('../models/Signature');
+        // Get all active signatures - no additional filtering
         const signatures = await Signature.find({ isActive: true })
             .select('_id roleTitle displayName imageUrl order')
             .sort({ order: 1, createdAt: -1 })
             .lean();
+
+        // eslint-disable-next-line no-console
+        console.log(`  📝 Found ${signatures.length} active signature(s) for template dropdown`);
 
         // Transform to match frontend expectations
         const formatted = signatures.map(sig => ({
@@ -619,6 +642,7 @@ exports.getAllowedSignatures = async (req, res) => {
 
         res.json({ success: true, signatures: formatted });
     } catch (e) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching signatures:', e);
         res.json({ success: true, signatures: [] });
     }

@@ -102,7 +102,6 @@ exports.list = async (req, res, next) => {
         console.log(`📋 Total events before filtering: ${allEvents.length}`);
 
         const filteredEvents = allEvents.filter(event => {
-            // Show if user created the event (handle both ObjectId and string)
             // Convert createdBy to string reliably - handle all cases
             let eventCreatorId = null;
 
@@ -156,15 +155,21 @@ exports.list = async (req, res, next) => {
             console.log(`   Current User ID: ${userIdStr}`);
             console.log(`   Match: ${isCreator}`);
 
+            // If onlyCreatedByMe flag is set, ONLY show events created by the user
+            if (onlyCreatedByMe === '1' || onlyCreatedByMe === 'true') {
+                if (isCreator) {
+                    console.log(`   ✅ SHOWN - User is creator (onlyCreatedByMe mode)`);
+                    return true;
+                } else {
+                    console.log('   ❌ FILTERED OUT - onlyCreatedByMe flag set, user is not the creator');
+                    return false;
+                }
+            }
+
+            // If onlyCreatedByMe is NOT set, show events where user is creator OR participant
             if (isCreator) {
                 console.log(`   ✅ SHOWN - User is creator`);
                 return true;
-            }
-
-            // If onlyCreatedByMe flag is set, hide non-creator events
-            if (onlyCreatedByMe === '1' || onlyCreatedByMe === 'true') {
-                console.log('   ❌ FILTERED OUT - onlyCreatedByMe flag set, user is not the creator');
-                return false;
             }
 
             // Check if user is a participant

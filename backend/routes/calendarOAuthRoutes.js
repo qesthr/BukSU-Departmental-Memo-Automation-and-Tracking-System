@@ -49,15 +49,22 @@ router.get('/auth/callback', isAuthenticated, async (req, res) => {
 router.get('/events', isAuthenticated, async (req, res) => {
     try {
         const { timeMin, timeMax } = req.query;
+
+        // Validate required parameters
+        if (!timeMin || !timeMax) {
+            console.warn('⚠️ Missing timeMin or timeMax in /calendar/events request');
+            return res.json([]); // Return empty array instead of error
+        }
+
         const items = await calendarService.listEvents(req.user, { timeMin, timeMax });
-        return res.json(items);
+        // calendarService.listEvents always returns an array (empty on error)
+        return res.json(items || []);
     } catch (error) {
         console.error('❌ Error in /calendar/events:', error);
         console.error('Error stack:', error.stack);
-        return res.status(500).json({
-            message: 'Failed to load calendar events',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        // Return empty array instead of 500 error - Google Calendar is optional
+        // This prevents the calendar from breaking if Google Calendar API fails
+        return res.json([]);
     }
 });
 

@@ -10,28 +10,35 @@ function createOAuthClient() {
 }
 
 async function getAuthenticatedClient(user) {
-    const oauth2 = createOAuthClient();
-    if (user.calendarAccessToken) {
-        oauth2.setCredentials({
-            access_token: user.calendarAccessToken,
-            refresh_token: user.calendarRefreshToken,
-            expiry_date: user.calendarTokenExpiry ? user.calendarTokenExpiry.getTime() : undefined
-        });
-    } else if (user.calendarRefreshToken) {
-        oauth2.setCredentials({ refresh_token: user.calendarRefreshToken });
-    }
-    oauth2.on('tokens', async (tokens) => {
-        try {
-            const updates = {};
-            if (tokens.access_token) { updates.calendarAccessToken = tokens.access_token; }
-            if (tokens.refresh_token) { updates.calendarRefreshToken = tokens.refresh_token; }
-            if (tokens.expiry_date) { updates.calendarTokenExpiry = new Date(tokens.expiry_date); }
-            if (Object.keys(updates).length > 0) {
-                await User.findByIdAndUpdate(user._id, updates);
+    try {
+        const oauth2 = createOAuthClient();
+        if (user && user.calendarAccessToken) {
+            oauth2.setCredentials({
+                access_token: user.calendarAccessToken,
+                refresh_token: user.calendarRefreshToken,
+                expiry_date: user.calendarTokenExpiry ? user.calendarTokenExpiry.getTime() : undefined
+            });
+        } else if (user && user.calendarRefreshToken) {
+            oauth2.setCredentials({ refresh_token: user.calendarRefreshToken });
+        }
+        oauth2.on('tokens', async (tokens) => {
+            try {
+                const updates = {};
+                if (tokens.access_token) { updates.calendarAccessToken = tokens.access_token; }
+                if (tokens.refresh_token) { updates.calendarRefreshToken = tokens.refresh_token; }
+                if (tokens.expiry_date) { updates.calendarTokenExpiry = new Date(tokens.expiry_date); }
+                if (Object.keys(updates).length > 0 && user && user._id) {
+                    await User.findByIdAndUpdate(user._id, updates);
+                }
+            } catch (err) {
+                console.error('Error updating user tokens:', err);
             }
-        } catch {}
-    });
-    return oauth2;
+        });
+        return oauth2;
+    } catch (error) {
+        console.error('Error creating authenticated client:', error);
+        throw error;
+    }
 }
 
 async function listEvents(user, { timeMin, timeMax }) {

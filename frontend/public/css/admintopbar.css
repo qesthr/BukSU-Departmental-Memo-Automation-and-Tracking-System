@@ -82,6 +82,8 @@
     /* above hero/other content */
     overflow: visible;
     /* prevent clipping */
+    margin-left: auto;
+    /* ✅ Always align to the right, even when search is hidden */
 }
 
 /* 🔹 Notification Button */
