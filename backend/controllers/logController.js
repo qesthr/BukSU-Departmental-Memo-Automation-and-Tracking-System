@@ -135,7 +135,77 @@ exports.createMemo = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await User.findById(userId);
-        const { recipientEmail, subject, content, departments, priority } = req.body;
+        const { recipientEmail, subject, content, departments, priority, template } = req.body;
+
+        // Handle signatories - FormData sends arrays as multiple fields with same name
+        let signatories = req.body.signatories;
+        if (!Array.isArray(signatories)) {
+            // If it's a string (single value) or not an array, convert to array
+            if (signatories) {
+                signatories = [signatories];
+            } else {
+                signatories = [];
+            }
+        }
+
+        // Extract and process signatures
+        const Signature = require('../models/Signature');
+        let processedSignatures = [];
+        const templateValue = template || 'none';
+
+        if (templateValue && templateValue !== 'none') {
+            try {
+                // Template can be comma-separated signature IDs
+                const signatureIds = templateValue.split(',').filter(id => id && id !== 'none');
+                if (signatureIds.length > 0) {
+                    const dbSignatures = await Signature.find({ _id: { $in: signatureIds }, isActive: true }).lean();
+                    processedSignatures = dbSignatures.map(sig => ({
+                        signatureId: sig._id,
+                        role: sig.roleTitle || '',
+                        displayName: sig.displayName || sig.roleTitle || '',
+                        roleTitle: sig.roleTitle || '',
+                        imageUrl: sig.imageUrl || ''
+                    }));
+                }
+            } catch (e) {
+                console.error('Error loading signatures from template:', e);
+            }
+        }
+
+        // Also check signatories array (from form submission) - use as fallback
+        if (signatories && signatories.length > 0) {
+            try {
+                const sigIds = signatories
+                    .map(s => {
+                        try {
+                            return typeof s === 'string' ? JSON.parse(s) : s;
+                        } catch {
+                            return s;
+                        }
+                    })
+                    .map(s => s.signatureId)
+                    .filter(Boolean);
+
+                if (sigIds.length > 0) {
+                    const dbSignatures = await Signature.find({ _id: { $in: sigIds }, isActive: true }).lean();
+                    // Merge with template signatures, avoiding duplicates
+                    const existingIds = processedSignatures.map(s => s.signatureId.toString());
+                    dbSignatures.forEach(sig => {
+                        if (!existingIds.includes(sig._id.toString())) {
+                            processedSignatures.push({
+                                signatureId: sig._id,
+                                role: sig.roleTitle || '',
+                                displayName: sig.displayName || sig.roleTitle || '',
+                                roleTitle: sig.roleTitle || '',
+                                imageUrl: sig.imageUrl || ''
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error processing signatories:', e);
+            }
+        }
 
         // Validation: At least one recipient or department required
         // Handle multiple recipient emails (comma-separated)
@@ -256,7 +326,9 @@ exports.createMemo = async (req, res) => {
                         departments: departmentsArray,
                         priority: priority || 'medium',
                         attachments: processedAttachments,
-                        recipients: recipientIds
+                        recipients: recipientIds,
+                        signatures: processedSignatures,
+                        template: templateValue
                     }
                 });
                 createdMemos = [workflowMemo];
@@ -278,6 +350,8 @@ exports.createMemo = async (req, res) => {
                     priority: priority || 'medium',
                     createdBy: userId,
                     attachments: processedAttachments,
+                    signatures: processedSignatures,
+                    template: templateValue,
                     status: 'sent',
                     folder: 'sent'
                 });
@@ -510,6 +584,155 @@ exports.rejectMemo = async (req, res) => {
     } catch (error) {
         console.error('Error rejecting memo:', error);
         res.status(500).json({ success: false, message: 'Error rejecting memo' });
+    }
+};
+
+// --- Templates & Signatures (minimal endpoints) ---
+exports.getMemoTemplates = async (req, res) => {
+    // Static minimal set for now; can be persisted later
+    const templates = [
+        { id: 'none', name: 'None' },
+        { id: 'dean', name: 'Dean' },
+        { id: 'faculty_president', name: 'Faculty President' },
+        { id: 'dean_and_faculty_president', name: 'Dean + Faculty President' }
+    ];
+    res.json({ success: true, templates });
+};
+
+exports.getAllowedSignatures = async (req, res) => {
+    try {
+        const Signature = require('../models/Signature');
+        const signatures = await Signature.find({ isActive: true })
+            .select('_id roleTitle displayName imageUrl order')
+            .sort({ order: 1, createdAt: -1 })
+            .lean();
+
+        // Transform to match frontend expectations
+        const formatted = signatures.map(sig => ({
+            id: sig._id.toString(),
+            _id: sig._id.toString(),
+            displayName: sig.displayName,
+            roleTitle: sig.roleTitle,
+            imageUrl: sig.imageUrl,
+            order: sig.order || 0
+        }));
+
+        res.json({ success: true, signatures: formatted });
+    } catch (e) {
+        console.error('Error fetching signatures:', e);
+        res.json({ success: true, signatures: [] });
+    }
+};
+
+exports.previewMemo = async (req, res) => {
+    try {
+        const {
+            subject = '',
+            content = '',
+            priority = 'medium',
+            departments = [],
+            template = 'none',
+            signatures = [],
+            inlineImages = []
+        } = req.body || {};
+
+        // Resolve signatures from database if template contains signature IDs (comma-separated)
+        const Signature = require('../models/Signature');
+        let signatureBlocks = [];
+
+        if (template && template !== 'none'){
+            try{
+                // Template can be comma-separated IDs for multiple signatures
+                const signatureIds = template.split(',').filter(id => id && id !== 'none');
+                if (signatureIds.length > 0){
+                    const dbSignatures = await Signature.find({ _id: { $in: signatureIds }, isActive: true }).lean();
+                    signatureBlocks = dbSignatures.map(sig => ({
+                        role: sig.roleTitle || '',
+                        displayName: sig.displayName || sig.roleTitle || '',
+                        img: sig.imageUrl || ''
+                    }));
+                }
+            }catch(e){
+                // Invalid ID or not found, ignore
+            }
+        }
+
+        // Also check signatures array (for backward compatibility)
+        if (signatureBlocks.length === 0 && signatures && signatures.length > 0){
+            const signatureIds = signatures.map(s => s.signatureId).filter(Boolean);
+            if (signatureIds.length > 0){
+                const dbSignatures = await Signature.find({ _id: { $in: signatureIds }, isActive: true }).lean();
+                signatureBlocks = dbSignatures.map(sig => ({
+                    role: sig.roleTitle || '',
+                    displayName: sig.displayName || sig.roleTitle || '',
+                    img: sig.imageUrl || ''
+                }));
+            }
+        }
+
+        const esc = (t) => String(t || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        // Get signature names for preview meta
+        let templateDisplay = '';
+        if (signatureBlocks.length > 0){
+            const names = signatureBlocks.map(b => esc(b.displayName || b.role)).join(', ');
+            templateDisplay = ` • Signatures: ${names}`;
+        }
+
+        const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Memo Preview</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; color:#111827; margin:40px; }
+    .header { border-bottom:1px solid #e5e7eb; padding-bottom:12px; margin-bottom:20px; }
+    .meta { font-size: 12px; color:#6b7280; }
+    h1 { font-size:20px; margin:0 0 8px 0; }
+    .content { white-space: pre-wrap; line-height:1.6; margin-top: 12px; }
+    .signatories { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:32px; }
+    .sig { text-align:center; }
+    .sig img { width: 220px; height: 70px; object-fit: contain; }
+    .sig .name { font-weight:700; margin-top:6px; }
+    .sig .title { color:#6b7280; font-size:13px; }
+    .footer { margin-top:40px; font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb; padding-top:8px; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  </head>
+<body>
+  <div class="header">
+    <h1>${esc(subject) || 'Untitled Memo'}</h1>
+    <div class="meta">Priority: ${esc(priority)}${departments?.length ? ` • Departments: ${departments.map(esc).join(', ')}` : ''}${templateDisplay}</div>
+  </div>
+  <div class="content">${esc(content)}</div>
+  ${ Array.isArray(inlineImages) && inlineImages.length ? `
+  <div style="margin-top:20px; display:flex; gap:16px; flex-wrap:wrap; justify-content:flex-start;">
+    ${ inlineImages.map(u => `<img src="${u}" alt="attachment" style="max-width:600px; max-height:400px; width:auto; height:auto; object-fit:contain; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">`).join('') }
+  </div>` : '' }
+  ${ signatureBlocks.length ? `
+  <div class="signatories">
+    ${signatureBlocks.map(b => `
+      <div class="sig">
+        ${ b.img ? `<img src="${b.img}" alt="${esc(b.role)} signature" />` : '' }
+        <div class="name">${esc(b.displayName || b.role)}</div>
+        <div class="title">${esc(b.role)}</div>
+      </div>
+    `).join('')}
+  </div>` : '' }
+  <div class="footer">Preview only • Not yet sent</div>
+</body>
+</html>`;
+
+        const b64 = Buffer.from(html, 'utf8').toString('base64');
+        const previewUrl = `data:text/html;base64,${b64}`;
+        return res.json({ success: true, previewUrl, html });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: 'Failed to build preview.' });
     }
 };
 

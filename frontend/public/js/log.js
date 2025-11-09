@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     fetchMemos();
     loadDepartments();
+    preloadTemplatesAndSignatures();
 
     // Initialize Lucide icons for date filter clear button
     if (typeof lucide !== 'undefined' && clearDateFilter) {
@@ -58,8 +59,300 @@ document.addEventListener('DOMContentLoaded', () => {
                 const modal = document.getElementById('composeModal');
                 if (modal) {
                     initCustomDepartmentDropdown(modal);
+                    attachTemplateHandlers(modal);
                 }
             }, 200);
+        });
+    }
+    // Preload templates and signatures that the current user can use
+    async function preloadTemplatesAndSignatures(){
+        try{
+            const [tplRes, sigRes] = await Promise.all([
+                fetch('/api/log/memos/templates', { credentials: 'same-origin' }),
+                fetch('/api/log/memos/signatures/allowed', { credentials: 'same-origin' })
+            ]);
+            const tplData = await tplRes.json().catch(()=>({templates:[]}));
+            const sigData = await sigRes.json().catch(()=>({signatures:[]}));
+            window.memoTemplates = tplData.templates || [];
+            window.allowedSignatures = sigData.signatures || [];
+        }catch(e){ /* ignore */ }
+    }
+
+    function renderSignatoryBlocks(modal, selectedSignatureIds){
+        const section = modal.querySelector('#signatorySection');
+        if (!section) {return;}
+        section.innerHTML = '';
+        if (!Array.isArray(selectedSignatureIds) || selectedSignatureIds.length === 0 || selectedSignatureIds.includes('none')) {
+            section.style.display = 'none';
+            return;
+        }
+        // Filter out 'none' and get signatures
+        const validIds = selectedSignatureIds.filter(id => id !== 'none');
+        const sigs = (window.allowedSignatures||[]).filter(s => validIds.includes(s.id||s._id));
+        sigs.forEach(sig => {
+            const name = sig.displayName || sig.roleTitle || '';
+            const title = sig.roleTitle || '';
+            const imgSrc = sig.imageUrl || '';
+            const sigId = sig.id || sig._id || '';
+            const block = document.createElement('div');
+            block.className = 'signatory-block';
+            block.innerHTML = `
+                ${ imgSrc ? `<img class="signatory-signature" src="${imgSrc}" alt="${name}" onerror="this.style.display='none'">` : `<div style="height:60px;"></div>` }
+                <div class="signatory-name">${name}</div>
+                <div class="signatory-title">${title}</div>
+                <input type="hidden" class="signatory-meta" data-signature-id="${sigId}" data-role="${title}">
+            `;
+            section.appendChild(block);
+        });
+        section.style.display = 'grid';
+    }
+
+    function attachTemplateHandlers(modal){
+        const dropdownBtn = modal.querySelector('#templateDropdownBtn');
+        const dropdownMenu = modal.querySelector('#templateDropdownMenu');
+        const container = modal.querySelector('#templateSignaturesContainer');
+        const addBtn = modal.querySelector('#addSignatureBtn');
+        if (!dropdownBtn || !dropdownMenu || !container) {return;}
+
+        const dropdown = dropdownBtn.closest('.custom-dropdown');
+        if (!dropdown) {return;}
+
+        // Load signatures and populate dropdown
+        function populateTemplateDropdown(){
+            const signatures = window.allowedSignatures || [];
+            container.innerHTML = '';
+            if (signatures.length === 0) {
+                container.innerHTML = '<div style="padding:8px; color:#6b7280; font-size:12px; text-align:center;">No signatures available</div>';
+            } else {
+                signatures.forEach(sig => {
+                    const label = document.createElement('label');
+                    label.className = 'dept-checkbox-label';
+                    label.style.cursor = 'pointer';
+                    label.innerHTML = `
+                        <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}">
+                        <span>${sig.displayName || sig.roleTitle}</span>
+                    `;
+                    container.appendChild(label);
+                });
+            }
+        }
+
+        populateTemplateDropdown();
+
+        // Toggle dropdown
+        dropdownBtn.addEventListener('click', (e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+            // Close department dropdown if open
+            const deptBtn = modal.querySelector('#deptDropdownBtn');
+            const deptDropdown = deptBtn ? deptBtn.closest('.custom-dropdown') : null;
+            if (deptDropdown) { deptDropdown.classList.remove('open'); }
+            dropdown.classList.toggle('open');
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e)=>{
+            if (!dropdown.contains(e.target)){
+                dropdown.classList.remove('open');
+            }
+        });
+
+        // Handle checkbox changes (multiple selection)
+        let selectedIds = [];
+        dropdownMenu.addEventListener('change', (e)=>{
+            if (e.target.classList.contains('template-checkbox')){
+                const checkboxes = dropdownMenu.querySelectorAll('.template-checkbox');
+                selectedIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+                // If "none" is checked, uncheck all others and vice versa
+                const noneCheckbox = dropdownMenu.querySelector('input[value="none"]');
+                if (e.target.value === 'none' && e.target.checked){
+                    // Uncheck all signature checkboxes
+                    checkboxes.forEach(cb => {
+                        if (cb.value !== 'none') {cb.checked = false;}
+                    });
+                    selectedIds = ['none'];
+                } else if (e.target.value !== 'none' && e.target.checked){
+                    // Uncheck "none" if a signature is selected
+                    if (noneCheckbox) {noneCheckbox.checked = false;}
+                    selectedIds = selectedIds.filter(id => id !== 'none');
+                }
+
+                // Update selected IDs after "none" logic
+                selectedIds = Array.from(dropdownMenu.querySelectorAll('.template-checkbox:checked')).map(cb => cb.value);
+
+                renderSignatoryBlocks(modal, selectedIds);
+
+                // Update button text
+                const placeholder = dropdownBtn.querySelector('.template-placeholder');
+                if (placeholder){
+                    const validIds = selectedIds.filter(id => id !== 'none');
+                    if (validIds.length === 0){
+                        placeholder.textContent = 'Template: None';
+                    } else if (validIds.length === 1){
+                        const sig = (window.allowedSignatures||[]).find(s => (s.id||s._id) === validIds[0]);
+                        placeholder.textContent = `Template: ${sig?.displayName || sig?.roleTitle || 'Selected'}`;
+                    } else {
+                        placeholder.textContent = `${validIds.length} signatures selected`;
+                    }
+                }
+            }
+        });
+
+        // Add Signature button handler
+        if (addBtn){
+            addBtn.addEventListener('click', (e)=>{
+                e.preventDefault();
+                e.stopPropagation();
+                const addModal = document.getElementById('addSignatureModal');
+                if (addModal){
+                    addModal.style.display = 'flex';
+                }
+            });
+        }
+
+        // Reset on modal open
+        const placeholder = dropdownBtn.querySelector('.template-placeholder');
+        if (placeholder) {placeholder.textContent = 'Template: None';}
+        const noneCheckbox = dropdownMenu.querySelector('input[value="none"]');
+        if (noneCheckbox) {noneCheckbox.checked = true;}
+        dropdownMenu.querySelectorAll('.template-checkbox').forEach(cb => {
+            if (cb.value !== 'none') {cb.checked = false;}
+        });
+        renderSignatoryBlocks(modal, ['none']);
+
+        const previewBtn = modal.querySelector('#previewMemoBtn');
+        if (previewBtn){
+            previewBtn.addEventListener('click', async ()=>{
+                try{
+                    const payload = collectMemoPayload(modal, { preview: true });
+                    // If there are image attachments selected but not yet uploaded, upload for preview
+                    if (Array.isArray(selectedFiles) && selectedFiles.length > 0){
+                        const imageFiles = selectedFiles.filter(f => (f.type||'').startsWith('image/'));
+                        if (imageFiles.length){
+                            const uploaded = [];
+                            for (const img of imageFiles){
+                                const fd = new FormData();
+                                fd.append('image', img);
+                                try{
+                                    const up = await fetch('/api/log/upload-image', { method: 'POST', body: fd, credentials: 'same-origin' });
+                                    const upData = await up.json().catch(()=>({}));
+                                    if (up.ok && upData?.url){ uploaded.push(upData.url); }
+                                }catch(e){ /* ignore preview upload errors */ }
+                            }
+                            if (uploaded.length){ payload.inlineImages = uploaded; }
+                        }
+                    }
+                    const res = await fetch('/api/log/memos/preview', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin', body: JSON.stringify(payload)
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (data?.previewUrl || data?.html){
+                        const overlay = document.getElementById('previewOverlay');
+                        const frame = document.getElementById('previewFrame');
+                        const closeBtn = document.querySelector('.close-preview');
+                        if (overlay && frame){
+                            if (data.html){
+                                // Prefer srcdoc to avoid browser blocking data: URLs
+                                frame.removeAttribute('src');
+                                frame.srcdoc = data.html;
+                            } else {
+                                frame.removeAttribute('srcdoc');
+                                frame.src = data.previewUrl;
+                            }
+                            overlay.style.display = 'flex';
+                            if (closeBtn){
+                                closeBtn.onclick = () => { overlay.style.display = 'none'; frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); };
+                            }
+                            overlay.addEventListener('click', (e)=>{
+                                if (e.target === overlay){ overlay.style.display = 'none'; frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); }
+                            });
+                        } else {
+                            alert('Preview container missing');
+                        }
+                    } else { alert(data.message || 'Preview unavailable'); }
+                }catch(err){ alert('Preview failed'); }
+            });
+        }
+    }
+
+    function collectMemoPayload(modal, opts){
+        const subject = modal.querySelector('#subject')?.value || '';
+        const content = modal.querySelector('#content')?.value || '';
+        const priority = modal.querySelector('#prioritySelect')?.value || 'medium';
+        const departments = (modal.querySelector('#selectedDepartments')?.value || '').split(',').filter(Boolean);
+        const selectedCheckboxes = Array.from(modal.querySelectorAll('.template-checkbox:checked'));
+        const selectedSignatureIds = selectedCheckboxes.map(cb => cb.value).filter(id => id !== 'none');
+        const signatures = Array.from(modal.querySelectorAll('.signatory-meta')).map(i=>({ role: i.dataset.role, signatureId: i.getAttribute('data-signature-id')||null }));
+        return { subject, content, priority, departments, template: selectedSignatureIds.length > 0 ? selectedSignatureIds.join(',') : 'none', signatures, preview: !!opts?.preview };
+    }
+
+    // Add Signature form handler
+    const addSignatureForm = document.getElementById('addSignatureForm');
+    if (addSignatureForm){
+        addSignatureForm.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const form = e.target;
+            const nameInput = form.querySelector('#signatureName');
+            const titleInput = form.querySelector('#signatureTitle');
+            const imageInput = form.querySelector('#signatureImage');
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            if (!nameInput || !titleInput || !imageInput || !imageInput.files[0]){
+                alert('Please fill all fields including signature image');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('displayName', nameInput.value.trim());
+            formData.append('roleTitle', titleInput.value.trim());
+            formData.append('image', imageInput.files[0]);
+
+            if (submitBtn) {submitBtn.disabled = true;}
+
+            try{
+                const res = await fetch('/api/signatures/', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const data = await res.json().catch(()=>({}));
+                if (res.ok && data.success){
+                    // Reload signatures
+                    await preloadTemplatesAndSignatures();
+                    // Refresh template dropdown in all open compose modals
+                    const composeModal = document.getElementById('composeModal');
+                    if (composeModal){
+                        const container = composeModal.querySelector('#templateSignaturesContainer');
+                        if (container){
+                            const signatures = window.allowedSignatures || [];
+                            container.innerHTML = '';
+                            signatures.forEach(sig => {
+                                const label = document.createElement('label');
+                                label.className = 'dept-checkbox-label';
+                                label.style.cursor = 'pointer';
+                                label.innerHTML = `
+                                    <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}">
+                                    <span>${sig.displayName || sig.roleTitle}</span>
+                                `;
+                                container.appendChild(label);
+                            });
+                        }
+                    }
+                    // Close modal and reset form
+                    const addModal = document.getElementById('addSignatureModal');
+                    if (addModal) {addModal.style.display = 'none';}
+                    form.reset();
+                    alert('Signature added successfully!');
+                } else {
+                    alert(data.message || 'Failed to add signature');
+                }
+            }catch(err){
+                alert('Error adding signature');
+            }finally{
+                if (submitBtn) {submitBtn.disabled = false;}
+            }
         });
     }
 
@@ -578,6 +871,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const priority = prioritySelect ? prioritySelect.value : 'medium';
             formData.append('priority', priority);
 
+            // Template (selected signature IDs) and signatures (if any)
+            const selectedCheckboxes = composeModal.querySelectorAll('.template-checkbox:checked');
+            const selectedSignatureIds = Array.from(selectedCheckboxes).map(cb => cb.value).filter(id => id !== 'none');
+            formData.append('template', selectedSignatureIds.length > 0 ? selectedSignatureIds.join(',') : 'none');
+            const signatoryInputs = composeModal.querySelectorAll('.signatory-meta');
+            signatoryInputs.forEach(input => {
+                const role = input.getAttribute('data-role') || '';
+                const sigId = input.getAttribute('data-signature-id') || '';
+                if (role && sigId) {
+                    formData.append('signatories', JSON.stringify({ role: role, signatureId: sigId }));
+                }
+            });
+
             // Add files directly (not pre-uploaded URLs)
             selectedFiles.forEach(file => {
                 formData.append('attachments', file);
@@ -798,18 +1104,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scoped to compose modal only to avoid conflicts with other dropdowns
     function initCustomDepartmentDropdown(composeModal) {
         if (!composeModal) {
-            // Fallback: try to find compose modal
             composeModal = document.getElementById('composeModal');
             if (!composeModal) {return;}
         }
 
-        const dropdown = composeModal.querySelector('.custom-dropdown');
         const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
         const dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
         const selectAll = composeModal.querySelector('#selectAllDepts');
         let deptOptions = composeModal.querySelectorAll('.dept-option');
 
-        if (!dropdown || !dropdownBtn || !dropdownMenu) {
+        if (!dropdownBtn || !dropdownMenu) {
             return;
         }
 
@@ -817,59 +1121,50 @@ document.addEventListener('DOMContentLoaded', () => {
         const newBtn = dropdownBtn.cloneNode(true);
         dropdownBtn.parentNode.replaceChild(newBtn, dropdownBtn);
         const freshBtn = composeModal.querySelector('#deptDropdownBtn');
+        const deptDropdown = freshBtn.closest('.custom-dropdown');
 
         // Toggle dropdown on button click
         freshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const currentDropdown = composeModal.querySelector('.custom-dropdown');
-            if (currentDropdown) {
-                currentDropdown.classList.toggle('open');
+            // Close other open dropdowns inside compose modal (e.g., template)
+            composeModal.querySelectorAll('.custom-dropdown.open').forEach(dd => {
+                if (dd !== deptDropdown) { dd.classList.remove('open'); }
+            });
+            if (deptDropdown) {
+                deptDropdown.classList.toggle('open');
             }
         });
 
-        // Also handle clicks on the placeholder text - ensure clicks pass through
+        // Ensure clicks on placeholder don't interfere
         const placeholder = freshBtn.querySelector('.dept-placeholder');
         if (placeholder) {
             placeholder.style.pointerEvents = 'none';
         }
 
-        // Close dropdown when clicking outside
+        // Close this dropdown when clicking outside
         const handleOutsideClick = (e) => {
-            const currentDropdown = composeModal.querySelector('.custom-dropdown');
-            if (currentDropdown && !currentDropdown.contains(e.target)) {
-                currentDropdown.classList.remove('open');
+            if (deptDropdown && !deptDropdown.contains(e.target)) {
+                deptDropdown.classList.remove('open');
             }
         };
-
-        // Use capture phase for outside clicks
         document.addEventListener('click', handleOutsideClick, true);
-
-        // Store handler for cleanup if needed
-        if (dropdown) {
-            dropdown._outsideClickHandler = handleOutsideClick;
-        }
+        deptDropdown._outsideClickHandler = handleOutsideClick;
 
         // Select All functionality
         if (selectAll) {
             selectAll.addEventListener('change', () => {
-                deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
-                deptOptions.forEach(cb => {
-                    cb.checked = selectAll.checked;
-                });
+                deptOptions = composeModal.querySelectorAll('.dept-option');
+                deptOptions.forEach(cb => { cb.checked = selectAll.checked; });
                 updateDeptButtonLabel();
             });
         }
 
-        // Individual department checkboxes
         function attachCheckboxListeners() {
-            deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
+            deptOptions = composeModal.querySelectorAll('.dept-option');
             deptOptions.forEach(cb => {
                 cb.addEventListener('change', () => {
-                    if (selectAll && !cb.checked) {
-                        selectAll.checked = false;
-                    }
-                    // Check if all are selected
+                    if (selectAll && !cb.checked) { selectAll.checked = false; }
                     if (selectAll) {
                         const allChecked = Array.from(deptOptions).every(opt => opt.checked);
                         selectAll.checked = allChecked;
@@ -881,45 +1176,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachCheckboxListeners();
 
-        // Update button label - scoped to compose modal
         function updateDeptButtonLabel() {
-            deptOptions = composeModal.querySelectorAll('.dept-option'); // Refresh, scoped to modal
-            const selected = Array.from(composeModal.querySelectorAll('.dept-option:checked'))
-                .map(cb => cb.value);
+            deptOptions = composeModal.querySelectorAll('.dept-option');
+            const selected = Array.from(composeModal.querySelectorAll('.dept-option:checked')).map(cb => cb.value);
             const total = deptOptions.length;
-            const placeholder = dropdownBtn.querySelector('.dept-placeholder');
+            const ph = freshBtn.querySelector('.dept-placeholder');
 
             if (selected.length === 0) {
-                if (placeholder) {
-                    placeholder.textContent = 'Department';
-                } else {
-                    dropdownBtn.textContent = 'Department';
-                }
-                dropdownBtn.classList.add('empty');
+                if (ph) { ph.textContent = 'Department'; } else { freshBtn.textContent = 'Department'; }
+                freshBtn.classList.add('empty');
             } else {
-                dropdownBtn.classList.remove('empty');
-                if (placeholder) {
-                    if (selected.length === total && selectAll) {
-                        placeholder.textContent = 'All Departments';
-                    } else if (selected.length === 1) {
-                        placeholder.textContent = selected[0];
-                    } else {
-                        placeholder.textContent = `${selected.length} departments selected`;
-                    }
+                freshBtn.classList.remove('empty');
+                if (ph) {
+                    if (selected.length === total && selectAll) { ph.textContent = 'All Departments'; }
+                    else if (selected.length === 1) { ph.textContent = selected[0]; }
+                    else { ph.textContent = `${selected.length} departments selected`; }
                 } else {
-                    if (selected.length === total && selectAll) {
-                        dropdownBtn.textContent = 'All Departments';
-                    } else if (selected.length === 1) {
-                        dropdownBtn.textContent = selected[0];
-                    } else {
-                        dropdownBtn.textContent = `${selected.length} departments selected`;
-                    }
+                    if (selected.length === total && selectAll) { freshBtn.textContent = 'All Departments'; }
+                    else if (selected.length === 1) { freshBtn.textContent = selected[0]; }
+                    else { freshBtn.textContent = `${selected.length} departments selected`; }
                 }
             }
         }
-
-        // Expose update function for external use
-        window.updateDeptButtonLabel = updateDeptButtonLabel;
     }
 
     // Initialize multi-select department UI
@@ -1650,7 +1928,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Display memo
     function displayMemo(index) {
-        const memo = filteredMemos[index];
+        let memo = filteredMemos[index];
 
         // Validate memo exists
         if (!memo) {
@@ -1660,15 +1938,35 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Debug logging
-        // eslint-disable-next-line no-console
-        console.log('Displaying memo:', memo);
-        // eslint-disable-next-line no-console
-        console.log('Memo content:', memo?.content);
-        // eslint-disable-next-line no-console
-        console.log('Memo attachments:', memo?.attachments);
-        // eslint-disable-next-line no-console
-        console.log('Index:', index);
+        // If memo doesn't have signatures but has an ID, fetch full memo to get signatures
+        if (memo._id && (!memo.signatures || memo.signatures.length === 0)) {
+            fetch(`/api/log/memos/${memo._id}`, { credentials: 'same-origin' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.memo) {
+                        // Update the memo in filteredMemos with full data including signatures
+                        const memoIndex = filteredMemos.findIndex(m => m._id === memo._id);
+                        if (memoIndex !== -1) {
+                            filteredMemos[memoIndex] = data.memo;
+                            memo = data.memo;
+                        }
+                        // Continue with display
+                        displayMemoContent(memo);
+                    } else {
+                        displayMemoContent(memo);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching full memo:', err);
+                    displayMemoContent(memo);
+                });
+            return;
+        }
+
+        displayMemoContent(memo);
+    }
+
+    function displayMemoContent(memo) {
 
         // Show viewer first before trying to access elements
         showMemoViewer();
@@ -1800,6 +2098,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 htmlContent += '</div>';
             }
 
+            // Add signatures if present
+            if (memo.signatures && Array.isArray(memo.signatures) && memo.signatures.length > 0) {
+                htmlContent += '<div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">';
+                htmlContent += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 1rem;">';
+
+                memo.signatures.forEach(sig => {
+                    const name = sig.displayName || sig.roleTitle || sig.role || '';
+                    const title = sig.roleTitle || sig.role || '';
+                    const imgSrc = sig.imageUrl || '';
+
+                    htmlContent += '<div style="text-align: center;">';
+                    if (imgSrc) {
+                        htmlContent += `<img src="${imgSrc}" alt="${name}" style="max-width: 180px; max-height: 60px; object-fit: contain; margin-bottom: 8px;" onerror="this.style.display='none'">`;
+                    } else {
+                        htmlContent += '<div style="height: 60px; margin-bottom: 8px;"></div>';
+                    }
+                    htmlContent += `<div style="font-weight: 600; color: #111827; margin-top: 4px;">${name}</div>`;
+                    htmlContent += `<div style="font-size: 13px; color: #6b7280; margin-top: 2px;">${title}</div>`;
+                    htmlContent += '</div>';
+                });
+
+                htmlContent += '</div></div>';
+            }
+
             // Always set innerHTML, even if empty, to ensure display
             memoBodyContent.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
 
@@ -1913,14 +2235,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeModal(modal) {
         modal.style.display = 'none';
+        // Reset Add Signature form if closing that modal
+        if (modal.id === 'addSignatureModal'){
+            const form = document.getElementById('addSignatureForm');
+            if (form) {form.reset();}
+        }
     }
 
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const modal = e.target.closest('.modal');
-            closeModal(modal);
+            const modalId = btn.getAttribute('data-modal');
+            if (modalId){
+                const modal = document.getElementById(modalId);
+                if (modal) {closeModal(modal);}
+            } else {
+                const modal = e.target.closest('.modal');
+                if (modal) {closeModal(modal);}
+            }
         });
     });
+
+    // Close Add Signature modal when clicking outside
+    const addSignatureModal = document.getElementById('addSignatureModal');
+    if (addSignatureModal){
+        addSignatureModal.addEventListener('click', (e)=>{
+            if (e.target === addSignatureModal){
+                closeModal(addSignatureModal);
+            }
+        });
+    }
 
 
     // Notification helper with toast implementation
@@ -2132,4 +2475,5 @@ document.addEventListener('DOMContentLoaded', () => {
         document.head.appendChild(style);
     }
 });
+
 

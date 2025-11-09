@@ -88,6 +88,20 @@ const memoSchema = new mongoose.Schema({
         size: Number,
         mimetype: String
     }],
+    signatures: [{
+        signatureId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Signature'
+        },
+        role: String,
+        displayName: String,
+        roleTitle: String,
+        imageUrl: String
+    }],
+    template: {
+        type: String, // Comma-separated signature IDs or 'none'
+        default: 'none'
+    },
     googleDriveFileId: {
         type: String,
         sparse: true

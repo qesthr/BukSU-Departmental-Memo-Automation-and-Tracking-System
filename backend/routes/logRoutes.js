@@ -7,10 +7,15 @@ const dashboardController = require('../controllers/dashboardController');
 const notificationController = require('../controllers/notificationController');
 const upload = require('../middleware/upload');
 
+// Templates & signatures (place BEFORE parameterized routes like /memos/:id)
+router.get('/memos/templates', [isAuthenticated], logController.getMemoTemplates);
+router.get('/memos/signatures/allowed', [isAuthenticated], logController.getAllowedSignatures);
+router.post('/memos/preview', [isAuthenticated], logController.previewMemo);
+
 // Get all memos
 router.get('/memos', [isAuthenticated], logController.getAllMemos);
 
-// Get single memo
+// Get single memo (keep AFTER static routes to avoid conflicts)
 router.get('/memos/:id', [isAuthenticated], logController.getMemo);
 
 // Create memo (attachments are files, converted server-side)

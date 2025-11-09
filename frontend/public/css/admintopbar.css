@@ -20,6 +20,12 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-bottom: 0.5rem;
+    position: relative;
+    /* ensure stacking context */
+    z-index: 101;
+    /* sit above page content */
+    overflow: visible;
+    /* allow dropdowns to overflow */
 }
 
 /* 🔹 Search Bar */
@@ -70,6 +76,12 @@
     align-items: center;
     /* ✅ Centers vertically */
     gap: 1.5rem;
+    position: relative;
+    /* anchor dropdown positioning */
+    z-index: 102;
+    /* above hero/other content */
+    overflow: visible;
+    /* prevent clipping */
 }
 
 /* 🔹 Notification Button */
@@ -86,16 +98,29 @@
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
+    overflow: visible;
+    /* 🔹 make sure badge isn't clipped */
+    z-index: 105;
+    /* higher stacking */
 }
 
 .notification-btn:hover {
     background-color: var(--bg-main);
 }
 
+/* Ensure icon inside button doesn't block clicks */
+.notification-btn i,
+.notification-btn svg {
+    pointer-events: none;
+    user-select: none;
+}
+
 .notification-badge {
     position: absolute;
-    top: -2px;
-    right: -2px;
+    top: -6px;
+    /* 🔹 move badge slightly outside */
+    right: -6px;
+    /* 🔹 pull it out more to the right */
     background: #dc2626;
     color: white;
     border-radius: 50%;
@@ -106,7 +131,13 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+    z-index: 999;
+    /* 🔹 ensure it's always above */
 }
+
+
 
 
 /* 🔹 Profile Section */

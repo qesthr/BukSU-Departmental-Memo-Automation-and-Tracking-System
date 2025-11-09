@@ -1,0 +1,42 @@
+<%
+// Google Analytics tracking component
+// propertyId can be passed explicitly or accessed from res.locals
+let trackingId = null;
+
+// Check if propertyId was passed as a parameter
+if (typeof propertyId !== 'undefined' && propertyId) {
+    trackingId = propertyId;
+}
+// Try to access from parent scope (res.locals) - use try-catch to avoid ReferenceError
+else {
+    try {
+        if (typeof gaPropertyId !== 'undefined' && gaPropertyId) {
+            trackingId = gaPropertyId;
+        }
+    } catch(e) {
+        // gaPropertyId not available, use null
+        trackingId = null;
+    }
+}
+
+if (trackingId && !trackingId.startsWith('G-')) {
+    trackingId = 'G-' + trackingId;
+}
+%>
+<% if (trackingId) { %>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=<%= trackingId %>"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '<%= trackingId %>', {
+    anonymize_ip: true,
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false,
+    respect_dnt: true
+  });
+</script>
+<% } %>
+
+

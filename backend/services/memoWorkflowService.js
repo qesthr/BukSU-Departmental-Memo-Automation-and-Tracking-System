@@ -29,6 +29,8 @@ async function createBySecretary({ user, payload }) {
     departments: Array.isArray(payload.departments) ? payload.departments : (payload.departments ? [payload.departments] : []),
     priority: payload.priority || 'medium',
     attachments: payload.attachments || [],
+    signatures: payload.signatures || [],
+    template: payload.template || 'none',
     status: MEMO_STATUS.PENDING_ADMIN,
     folder: 'drafts',
     metadata: Object.assign({}, payload.metadata)
@@ -147,6 +149,8 @@ async function deliver({ memo, actor }) {
     priority: memo.priority || 'medium',
     createdBy: memo.createdBy || memo.sender,
     attachments: memo.attachments || [],
+    signatures: memo.signatures || [],
+    template: memo.template || 'none',
     status: MEMO_STATUS.SENT,
     folder: MEMO_STATUS.SENT,
     metadata: { originalMemoId: memo._id.toString(), eventType: 'memo_delivered' }

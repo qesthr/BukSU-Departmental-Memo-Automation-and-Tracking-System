@@ -10,6 +10,10 @@
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link rel="stylesheet" href="/css/report.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Google Charts API for data visualization -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -125,9 +129,14 @@
                             <div class="chart-header">
                                 <h2>User Activity Over Time</h2>
                                 <select id="activityMetric" class="metric-select">
-                                    <option value="users">Active Users</option>
-                                    <option value="sessions">Sessions</option>
-                                    <option value="pageviews">Page Views</option>
+                                    <option value="all">All Activities</option>
+                                    <option value="user_activity">User Activities</option>
+                                    <option value="system_notification">System Notifications</option>
+                                    <option value="user_deleted">User Deleted</option>
+                                    <option value="memo_sent">Memo Sent</option>
+                                    <option value="memo_approved">Memo Approved</option>
+                                    <option value="memo_rejected">Memo Rejected</option>
+                                    <option value="pending_memo">Pending Memos</option>
                                 </select>
                             </div>
                             <div id="activityChart" class="chart"></div>
