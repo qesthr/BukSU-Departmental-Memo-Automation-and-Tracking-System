@@ -1,47 +1,35 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const User = require('../models/User');
 
-const listUsers = async () => {
+async function listUsers() {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('Connected to MongoDB');
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/buksu-memo');
+        console.log('✅ Connected to MongoDB\n');
 
-        // Get all users
-        const users = await User.find({}, {
-            password: 0,
-            loginAttempts: 0,
-            lockUntil: 0
-        }).sort({ createdAt: -1 });
+        const users = await User.find({}).select('email firstName lastName role calendarAccessToken calendarRefreshToken').lean();
 
-        console.log('\n📋 Users in Database:');
-        console.log('='.repeat(80));
+        console.log(`📊 Total Users: ${users.length}\n`);
 
         if (users.length === 0) {
-            console.log('No users found in database.');
+            console.log('No users found in the database.');
         } else {
             users.forEach((user, index) => {
-                console.log(`${index + 1}. ${user.fullName}`);
-                console.log(`   Email: ${user.email}`);
-                console.log(`   Role: ${user.role}`);
-                console.log(`   Employee ID: ${user.employeeId || 'N/A'}`);
-                console.log(`   Department: ${user.department || 'N/A'}`);
-                console.log(`   Status: ${user.isActive ? 'Active' : 'Inactive'}`);
-                console.log(`   Last Login: ${user.lastLogin ? user.lastLogin.toLocaleString() : 'Never'}`);
-                console.log(`   Created: ${user.createdAt.toLocaleString()}`);
-                console.log('-'.repeat(40));
+                console.log(`${index + 1}. ${user.email}`);
+                console.log(`   Name: ${user.firstName} ${user.lastName}`);
+                console.log(`   Role: ${user.role || 'N/A'}`);
+                console.log(`   Google Calendar Connected: ${user.calendarAccessToken || user.calendarRefreshToken ? 'Yes' : 'No'}`);
+                console.log('');
             });
-
-            console.log(`\nTotal users: ${users.length}`);
         }
 
+        await mongoose.connection.close();
+        process.exit(0);
     } catch (error) {
-        console.error('❌ Error listing users:', error);
-    } finally {
-        await mongoose.disconnect();
-        console.log('\nDisconnected from MongoDB');
+        console.error('❌ Error:', error);
+        process.exit(1);
     }
-};
+}
 
-// Run the script
 listUsers();

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>My Memos | Memofy</title>
+    <link rel="stylesheet" href="/css/faculty-memos.css">
+    <link rel="stylesheet" href="/css/log.css">
+	<link rel="stylesheet" href="/css/fal-topbar.css">
+	<link rel="stylesheet" href="/css/fal-nav.css">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<!-- Google Analytics Tracking -->
+	<%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+	<script src="/js/lucide.min.js"></script>
+</head>
+
+<body>
+	<div class="dashboard-container">
+		<%- include('../components/fal-nav'); %>
+
+		<main class="main-content">
+			<%- include('../components/fal-topbar'); %>
+
+            <div class="dashboard-content">
+                <div class="log-layout">
+
+                    <!-- Memo List Area -->
+                    <section class="memo-list-area" style="flex:1 1 auto;">
+                        <div class="memo-container">
+                            <div class="memo-list-header">
+                                <div class="header-controls">
+                                    <div class="checkbox-control">
+                                        <input type="checkbox" id="selectAllMemos" />
+                                        <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
+                                            <i data-lucide="rotate-cw"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="department-filters">
+                                    <div class="department-dropdown-wrapper">
+                                        <select id="deptFilterDropdown" class="dept-filter-dropdown">
+                                            <option value="all">All Departments</option>
+                                        </select>
+                                    </div>
+                                    <div class="priority-dropdown-wrapper">
+                                        <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                            <option value="all">All Priorities</option>
+                                            <option value="urgent">🔴 Urgent</option>
+                                            <option value="high">🟠 High</option>
+                                            <option value="medium">🟡 Medium</option>
+                                            <option value="low">🔵 Low</option>
+                                        </select>
+                                    </div>
+                                    <div class="sort-dropdown-wrapper">
+                                        <select id="sortDropdown" class="sort-dropdown">
+                                            <option value="newest">Newest</option>
+                                            <option value="oldest">Oldest</option>
+                                            <option value="priority">Priority</option>
+                                            <option value="subject">Subject (A-Z)</option>
+                                            <option value="sender">Sender (A-Z)</option>
+                                        </select>
+                                    </div>
+                                    <div class="date-filter-wrapper">
+                                        <input type="date" id="dateFilterInput" class="date-filter-input" title="Filter by date">
+                                        <button id="clearDateFilter" class="date-filter-clear" title="Clear date filter" style="display: none;">
+                                            <i data-lucide="x"></i>
+                                        </button>
+                                    </div>
+                                    <!-- No Compose button for faculty -->
+                                </div>
+                            </div>
+
+                            <div id="memoList" class="memo-list"></div>
+                        </div>
+                    </section>
+
+                    <!-- Viewer Area (admin-like slide-in with PDF-style header) -->
+                    <section id="memoViewerArea" class="memo-viewer-area">
+                        <div id="emptyState" class="empty-state-view">
+                            <i data-lucide="inbox"></i>
+                            <p>Select a memo to view</p>
+                        </div>
+                        <div id="memoViewer" class="memo-viewer">
+                            <div class="viewer-header">
+                                <button id="backBtn" class="icon-btn"><i data-lucide="arrow-left"></i></button>
+                                <div class="nav-buttons">
+                                    <button id="prevBtn" class="icon-btn"><i data-lucide="chevron-left"></i></button>
+                                    <span id="memoCounter" class="memo-counter">0 of 0</span>
+                                    <button id="nextBtn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
+                                </div>
+                                <div class="viewer-actions">
+                                    <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
+                                    <button id="deleteBtn" class="icon-btn" title="Delete"><i data-lucide="trash-2"></i></button>
+                                </div>
+                            </div>
+                            <div class="memo-content">
+                                <div class="memo-pdf-header">
+                                    <h1 class="memo-title">MEMO</h1>
+                                    <div class="memo-details">
+                                        <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span id="memoDetailSubject" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span id="memoDetailFrom" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span id="memoDetailTo" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span id="memoDetailDepartment" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span id="memoDetailPriority" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span id="memoDetailDate" class="memo-detail-value"></span></div>
+                                    </div>
+                                    <div class="memo-separator"></div>
+                                </div>
+                                <div class="memo-body"><div id="memoBodyContent"></div></div>
+                                <div id="attachments" class="memo-attachments"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+			</div>
+		</main>
+	</div>
+
+    <script>
+        window.currentUser = {
+            id: '<%= user._id %>',
+            email: '<%= user.email %>',
+            role: '<%= user.role %>',
+            department: '<%= user.department || "" %>'
+        };
+    </script>
+    <script src="/js/log.js"></script>
+    <script src="/js/log-viewer.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
+

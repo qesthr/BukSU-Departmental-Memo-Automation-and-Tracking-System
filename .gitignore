@@ -52,3 +52,17 @@ out/
 temp/
 *.tmp
 
+# Uploaded files
+uploads/
+
+# Documentation files
+docs/
+
+
+# Local utility/test scripts (not used at runtime)
+backend/scripts/
+backend/test-scripts/
+
+# Local editor/workbench test files at repo root
+test-email.js
+

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invalid or Expired Invitation | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+    <div class="container">
+        <div class="right-panel" style="width: 100%; max-width: 520px; margin: 0 auto;">
+            <div class="login-card" style="display:block;">
+                <img src="/images/memofy-logo.png" alt="Logo Icon" class="small-logo">
+                <h2>Invitation Link Error</h2>
+                <p class="welcome"><%= typeof message !== 'undefined' ? message : 'This invitation link is invalid or has expired.' %></p>
+                <p class="welcome" style="margin-top:8px; font-size:14px; opacity:.85;">
+                    If you believe this is a mistake, please contact your department administrator to request a new invitation.
+                </p>
+                <div style="margin-top:12px; text-align:center;">
+                    <a href="/" class="login-btn" style="display:inline-block; text-decoration:none;">Go to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+<script src="/js/message-modal.js"></script>
+<div id="messageModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-logo-section">
+                <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                <span class="modal-title" id="messageModalTitle">Message</span>
+            </div>
+            <span class="close" id="closeMessageModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="message-icon" id="messageIcon"></div>
+            <p class="message-text" id="messageText"></p>
+            <div class="message-actions">
+                <a href="/" class="btn-primary" onclick="closeMessageModal()" style="text-decoration:none;">OK</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.showMessageModal) {
+        window.showMessageModal('Invalid Link', 'Link is not valid any more', 'error');
+    } else {
+        alert('Link is not valid any more');
+    }
+});
+</script>
+</html>
+

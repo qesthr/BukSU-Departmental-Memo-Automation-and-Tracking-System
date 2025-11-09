@@ -6,7 +6,7 @@ const createUsers = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to MongoDB');
-        
+
         // Define users to create - only the specified admin account
         const users = [
             {
@@ -16,14 +16,14 @@ const createUsers = async () => {
                 lastName: 'Acero',
                 role: 'admin',
                 employeeId: 'ADMIN001',
-                department: 'IT Department'
+                department: '' // Admins cannot belong to any department
             }
         ];
 
         for (const userData of users) {
             // Check if user already exists
             const existingUser = await User.findOne({ email: userData.email });
-            
+
             if (existingUser) {
                 console.log(`User ${userData.email} already exists`);
                 continue;

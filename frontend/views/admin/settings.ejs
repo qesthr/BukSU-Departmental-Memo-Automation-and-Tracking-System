@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Memofy</title>
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+    <script src="/js/lucide.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+        <main class="main-content">
+            <%- include('../../components/admintopbar'); %>
+
+            <section class="settings-section">
+                <h2>Coming Soon</h2>
+                <p>Settings and configuration features are under development</p>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

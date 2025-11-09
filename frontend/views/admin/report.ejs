@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link rel="stylesheet" href="/css/report.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+    <script src="/js/lucide.min.js"></script>
+    <!-- Google Charts API for data visualization -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <%- include('../../components/admintopbar') %>
+
+            <div class="dashboard-content">
+                <div class="content-wrapper">
+                    <!-- Header -->
+                    <div class="content-header">
+                        <div class="header-title">
+                            <h1>Reports & Analytics</h1>
+                            <p class="header-subtitle">Database statistics and Google Analytics insights</p>
+                        </div>
+                        <div class="header-actions">
+                            <button id="refreshDataBtn" class="btn btn-secondary">
+                                <i data-lucide="refresh-cw"></i>
+                                <span>Refresh Data</span>
+                            </button>
+                            <button id="exportReportBtn" class="btn btn-primary">
+                                <i data-lucide="download"></i>
+                                <span>Export Report</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Date Range Selector -->
+                    <div class="date-range-section">
+                        <div class="date-range-controls">
+                            <label for="dateRange">Time Period:</label>
+                            <select id="dateRange" class="date-range-select">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                                <option value="365">Last year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                            <div id="customDateRange" class="custom-date-range" style="display: none;">
+                                <input type="date" id="startDate" class="date-input">
+                                <span>to</span>
+                                <input type="date" id="endDate" class="date-input">
+                                <button id="applyDateRange" class="btn btn-primary btn-sm">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Google Analytics Connection Status -->
+                    <div id="gaConnectionStatus" class="connection-status">
+                        <div class="status-indicator">
+                            <div class="status-dot"></div>
+                            <span id="statusText">Connecting to Google Analytics...</span>
+                        </div>
+                        <button id="connectGABtn" class="btn btn-primary btn-sm" style="display: none;">
+                            <i data-lucide="link"></i>
+                            <span>Connect Google Analytics</span>
+                        </button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #e0f2fe;">
+                                <i data-lucide="users" style="color: #0284c7;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalUsers">-</h3>
+                                <p>Total Users</p>
+                                <span class="stat-change positive" id="usersChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #fef3c7;">
+                                <i data-lucide="file-text" style="color: #d97706;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalMemos">-</h3>
+                                <p>Total Memos</p>
+                                <span class="stat-change" id="memosChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #dbeafe;">
+                                <i data-lucide="trending-up" style="color: #2563eb;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="pageViews">-</h3>
+                                <p>Page Views</p>
+                                <span class="stat-change positive" id="viewsChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #d1fae5;">
+                                <i data-lucide="activity" style="color: #059669;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="activeUsers">-</h3>
+                                <p>Active Users</p>
+                                <span class="stat-change positive" id="activeChange">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h2>User Activity Over Time</h2>
+                                <select id="activityMetric" class="metric-select">
+                                    <option value="all">All Activities</option>
+                                    <option value="user_activity">User Activities</option>
+                                    <option value="system_notification">System Notifications</option>
+                                    <option value="user_deleted">User Deleted</option>
+                                    <option value="memo_sent">Memo Sent</option>
+                                    <option value="memo_approved">Memo Approved</option>
+                                    <option value="memo_rejected">Memo Rejected</option>
+                                    <option value="pending_memo">Pending Memos</option>
+                                </select>
+                            </div>
+                            <div id="activityChart" class="chart"></div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h2>Memo Statistics</h2>
+                            </div>
+                            <div id="memoChart" class="chart"></div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h2>Department Activity</h2>
+                            </div>
+                            <div id="departmentChart" class="chart"></div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h2>Top Pages</h2>
+                            </div>
+                            <div id="topPagesChart" class="chart"></div>
+                        </div>
+                    </div>
+
+                    <!-- Data Tables Section -->
+                    <div class="tables-section">
+                        <div class="table-container">
+                            <div class="table-header">
+                                <h2>Recent Activity</h2>
+                                <button id="viewAllActivity" class="btn btn-link">View All</button>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th>Department</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activityTableBody">
+                                        <tr>
+                                            <td colspan="5" class="loading-state">Loading data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Google Analytics Setup Modal -->
+    <div id="gaSetupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Connect Google Analytics</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setup-instructions">
+                    <p>To connect Google Analytics, you'll need to:</p>
+                    <ol>
+                        <li>Create a Google Cloud Project</li>
+                        <li>Enable Google Analytics API</li>
+                        <li>Create OAuth 2.0 credentials</li>
+                        <li>Enter your credentials below</li>
+                    </ol>
+                </div>
+                <form id="gaSetupForm">
+                    <div class="form-group">
+                        <label for="gaPropertyId">Google Analytics Property ID</label>
+                        <input type="text" id="gaPropertyId" placeholder="G-XXXXXXXXXX" required>
+                        <small class="input-hint">Your GA4 Property ID</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="gaClientId">OAuth Client ID</label>
+                        <input type="text" id="gaClientId" placeholder="xxxxx.apps.googleusercontent.com" required>
+                        <small class="input-hint">Your OAuth 2.0 Client ID from Google Cloud Console</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="gaClientSecret">OAuth Client Secret</label>
+                        <input type="password" id="gaClientSecret" placeholder="Enter client secret" required>
+                        <small class="input-hint">Your OAuth 2.0 Client Secret from Google Cloud Console</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Connect</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics JavaScript -->
+    <script src="/js/analytics.js"></script>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Load Google Charts
+        google.charts.load('current', {'packages':['corechart', 'table', 'bar']});
+    </script>
+    <script src="/js/freezeZoom.js"></script>
+</body>
+
+</html>
+

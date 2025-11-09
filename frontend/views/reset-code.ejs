@@ -1,0 +1,35 @@
+<div class="container">
+    <div class="left-panel">
+        <div class="logo">
+            <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
+        </div>
+        <p class="tagline">Educate. Innovate. Lead.</p>
+    </div>
+
+    <div class="right-panel">
+        <!-- Layers start inactive (animated by JS) -->
+        <div class="layer layer1"></div>
+        <div class="layer layer2"></div>
+        <div class="layer layer3"></div>
+
+        <!-- Reset Code Card -->
+        <div class="login-card" id="resetCodeCard">
+            <img src="/images/memofy-logo.png" alt="Logo Icon" class="small-logo">
+            <h2>Enter Reset Code</h2>
+            <p class="welcome">Enter the 6-digit code sent to your email.</p>
+
+            <form id="resetCodeForm" action="/reset-code" method="POST">
+                <div class="input-group">
+                    <img src="/images/memofy-logo.png" alt="Code Icon" class="input-icon">
+                    <input type="text" name="resetCode" placeholder="Enter 6-digit code" required maxlength="6" pattern="[0-9]{6}">
+                </div>
+                <button type="submit" class="login-btn">Verify Code</button>
+            </form>
+
+            <div class="divider"></div>
+            <a href="forgot-password" class="back-to-login">← Back to Email</a>
+        </div>
+    </div>
+</div>
+
+<script src="/js/reset-code-page.js"></script>

@@ -36,22 +36,26 @@ This system streamlines the process of creating, managing, and tracking departme
 ### Setup Steps
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/qesthr/BukSU-Departmental-Memo-Automation-and-Tracking-System.git
    cd BukSU-Departmental-Memo-Automation-and-Tracking-System
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment variables**
+
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` and fill in your configuration:
+
    - `SESSION_SECRET` - Generate a strong random secret
    - `GOOGLE_CLIENT_ID` - From Google Cloud Console
    - `GOOGLE_CLIENT_SECRET` - From Google Cloud Console
@@ -59,6 +63,7 @@ This system streamlines the process of creating, managing, and tracking departme
    - `ALLOWED_EMAIL_DOMAIN` - buksu.edu.ph
 
 4. **Set up Google OAuth**
+
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select existing
    - Enable Google+ API
@@ -66,10 +71,11 @@ This system streamlines the process of creating, managing, and tracking departme
    - Add authorized redirect URIs
 
 5. **Run the application**
+
    ```bash
    npm start
    ```
-   
+
    The server will start at `http://localhost:5000`
 
 ## 🔧 Development
@@ -85,6 +91,7 @@ This uses nodemon for automatic restarts on file changes.
 ### Code Quality
 
 Run ESLint to check code quality:
+
 ```bash
 npx eslint .
 ```
@@ -111,14 +118,18 @@ npx eslint .
 └── .vscode/                    # VSCode configuration
 ```
 
-## 📝 Code Analysis
+## 📚 Documentation
 
-A comprehensive code analysis has been performed. See [CODE_ANALYSIS.md](./CODE_ANALYSIS.md) for:
-- Code quality assessment
-- Security issues and fixes
-- Recommendations for improvement
-- Missing features
-- Best practices
+All project documentation is available in the [`docs/`](./docs) folder:
+
+- 📄 [README](./README.md) - Main project overview
+- 📋 [Quick Start](./docs/QUICK_START.md) - Get started quickly
+- 📁 [Project Structure](./docs/PROJECT_STRUCTURE.md) - Project layout
+- 📊 [Code Analysis](./docs/CODE_ANALYSIS.md) - Code quality assessment
+- ☁️ [Google Drive Setup](./docs/GOOGLE_DRIVE_SETUP.md) - Drive integration guide
+- 📧 [Email Setup](./docs/EMAIL_SETUP_GUIDE.md) - Email configuration
+- 🔐 [Security Guide](./docs/SECURITY_ALERT.md) - Security best practices
+- 📝 [TODO](./docs/TODO.md) - Current tasks and roadmap
 
 ## 🔒 Security
 

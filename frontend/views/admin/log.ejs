@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/log.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+    <script src="/js/lucide.min.js"></script>
+    <script>
+        // Pass user data to JavaScript
+        window.currentUser = {
+            id: '<%= user._id %>',
+            email: '<%= user.email %>',
+            role: '<%= user.role %>',
+            department: '<%= user.department || "" %>',
+            canCrossSend: <%= user.canCrossSend || false %>
+        };
+    </script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <%- include('../../components/admintopbar') %>
+
+                    <div class="log-layout">
+
+                        <!-- Memo List Area -->
+                        <section class="memo-list-area">
+                            <div class="memo-container">
+                                <div class="memo-list-header">
+                                    <div class="header-controls">
+                                        <div class="checkbox-control">
+                                            <input type="checkbox" id="selectAllMemos">
+                                            <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
+                                                <i data-lucide="rotate-cw"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="department-filters">
+                                        <div class="department-dropdown-wrapper">
+                                            <select id="deptFilterDropdown" class="dept-filter-dropdown">
+                                                <option value="all">All Departments</option>
+                                                <option value="Food Technology">Food Technology</option>
+                                                <option value="Electronics Technology">Electronics Technology</option>
+                                                <option value="Automotive Technology">Automotive Technology</option>
+                                                <option
+                                                    value="Information Technology and Entertainment Multimedia Computing">
+                                                    Information Technology and Entertainment Multimedia Computing
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="priority-dropdown-wrapper">
+                                            <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                                <option value="all">All Priorities</option>
+                                                <option value="urgent">🔴 Urgent</option>
+                                                <option value="high">🟠 High</option>
+                                                <option value="medium">🟡 Medium</option>
+                                                <option value="low">🔵 Low</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="sort-dropdown-wrapper">
+                                            <select id="sortDropdown" class="sort-dropdown">
+                                                <option value="newest">Newest</option>
+                                                <option value="oldest">Oldest</option>
+                                                <option value="priority">Priority</option>
+                                                <option value="subject">Subject (A-Z)</option>
+                                                <option value="sender">Sender/Recipient (A-Z)</option>
+                                                <option value="sent">Sent by Me</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="date-filter-wrapper">
+                                            <input type="date" id="dateFilterInput" class="date-filter-input"
+                                                title="Filter by date">
+                                            <button id="clearDateFilter" class="date-filter-clear"
+                                                title="Clear date filter" style="display: none;">
+                                                <i data-lucide="x"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Compose button moved here -->
+                                        <div class="compose-control">
+                                            <button class="compose-btn">
+                                                <i data-lucide="pen-tool"></i>
+                                                <span>Compose</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="memoList" class="memo-list">
+                                    <!-- Memos will be loaded here -->
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="memoViewerArea" class="memo-viewer-area">
+
+                            <div id="emptyState" class="empty-state-view">
+                                <i data-lucide="inbox"></i>
+                                <p>Select a memo to view</p>
+                            </div>
+
+
+                            <div id="memoViewer" class="memo-viewer">
+                                <div class="viewer-header">
+                                    <button id="backBtn" class="icon-btn">
+                                        <i data-lucide="arrow-left"></i>
+                                    </button>
+                                    <div class="nav-buttons">
+                                        <button id="prevBtn" class="icon-btn">
+                                            <i data-lucide="chevron-left"></i>
+                                        </button>
+                                        <span id="memoCounter" class="memo-counter">0 of 0</span>
+                                        <button id="nextBtn" class="icon-btn">
+                                            <i data-lucide="chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div class="viewer-actions">
+                                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
+                                        <button id="deleteBtn" class="icon-btn" title="Delete"><i data-lucide="trash-2"></i></button>
+                                    </div>
+                                </div>
+
+                                <div class="memo-content">
+                                    <!-- Memo Header (PDF-style format) -->
+                                    <div class="memo-pdf-header">
+                                        <h1 class="memo-title">MEMO</h1>
+                                        <div class="memo-details">
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Subject:</span>
+                                                <span id="memoDetailSubject" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">From:</span>
+                                                <span id="memoDetailFrom" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">To:</span>
+                                                <span id="memoDetailTo" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Department:</span>
+                                                <span id="memoDetailDepartment" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Priority:</span>
+                                                <span id="memoDetailPriority" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Date:</span>
+                                                <span id="memoDetailDate" class="memo-detail-value"></span>
+                                            </div>
+                                        </div>
+                                        <div class="memo-separator"></div>
+                                    </div>
+                                    <div class="memo-body">
+                                        <div id="memoBodyContent"></div>
+                                    </div>
+                                    <div id="attachments" class="memo-attachments"></div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+            </main>
+    </div>
+
+    <!-- Compose Modal -->
+    <div id="composeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Compose Memo</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="composeForm">
+                    <!-- Gmail-style compact header fields -->
+                    <div class="compose-header-fields">
+                        <div class="recipient-input-container">
+                            <label class="recipient-label">To</label>
+                            <div class="recipient-input-wrapper">
+                                <div id="recipient-chips" class="recipient-chips-wrapper"></div>
+                                <input type="text" id="recipients" name="recipients" class="recipient-input"
+                                    placeholder="">
+                            </div>
+                        </div>
+                        <div class="compose-field-wrapper">
+                            <label class="compose-field-label" style="display: none;">Subject</label>
+                            <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
+                        </div>
+                        <div class="compose-inline-fields">
+                            <div class="custom-dropdown compose-field-dropdown compose-field-inline">
+                                <button id="templateDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
+                                    <span class="template-placeholder">Template: None</span>
+                                </button>
+                                <div id="templateDropdownMenu" class="dept-dropdown-menu" style="max-height:300px;">
+                                    <label class="dept-checkbox-label">
+                                        <input type="checkbox" class="template-checkbox" value="none" checked>
+                                        <span>None</span>
+                                    </label>
+                                    <div id="templateSignaturesContainer">
+                                        <!-- Signatures loaded dynamically -->
+                                    </div>
+                                    <hr class="dept-dropdown-hr">
+                                    <button type="button" id="addSignatureBtn" class="add-signature-btn" style="width:100%; padding:8px; margin-top:4px; background:#f3f4f6; border:1px dashed #d1d5db; border-radius:6px; cursor:pointer; color:#2563eb; font-size:13px; font-weight:500;">
+                                        + Add Signature
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="custom-dropdown compose-field-dropdown compose-field-inline">
+                                <button id="deptDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
+                                    <span class="dept-placeholder">Department</span>
+                                </button>
+                                <div id="deptDropdownMenu" class="dept-dropdown-menu">
+                                    <label class="dept-checkbox-label">
+                                        <input type="checkbox" id="selectAllDepts" class="dept-checkbox">
+                                        <span>Select All</span>
+                                    </label>
+                                    <hr class="dept-dropdown-hr">
+                                    <div id="deptCheckboxesContainer">
+                                        <!-- Departments loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="compose-field-wrapper compose-field-inline">
+                                <select id="prioritySelect" name="priority"
+                                    class="compose-field compose-priority-select">
+                                    <option value="medium">🟡 Medium</option>
+                                    <option value="urgent">🔴 Urgent</option>
+                                    <option value="high">🟠 High</option>
+                                    <option value="low">🔵 Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <input type="hidden" id="selectedDepartments" name="departments">
+                    </div>
+
+                    <!-- Signatory section (auto-filled by template selection) -->
+                    <div id="signatorySection" class="signatory-section" style="display:none; padding: 0 16px 8px;">
+                        <!-- Signatory blocks will be injected here -->
+                    </div>
+
+                    <!-- Content area with drag-and-drop support -->
+                    <div class="compose-content-area" id="composeContentArea">
+                        <textarea id="content" name="content" class="compose-textarea"
+                            placeholder="Enter memo content (plain text)..."></textarea>
+                        <!-- Attachments preview (Gmail style - inline below text, no separator) -->
+                        <div id="attachment-preview" class="attachment-preview-container" style="display: none;">
+                            <!-- Attachment preview items will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Fixed action buttons at bottom (Attach | Cancel | Send) -->
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-attach" id="attachBtn" title="Attach File or Image">
+                            <i data-lucide="paperclip"></i>
+                        </button>
+                        <input type="file" id="attachments" name="attachments" style="display: none;" multiple>
+                        <button type="button" class="btn btn-secondary close-modal"
+                            style="padding: 23px 50px;">Cancel</button>
+                        <button type="button" class="btn btn-secondary" id="previewMemoBtn" title="Preview PDF" style="padding: 23px 28px;">Preview</button>
+                        <button type="submit" class="btn btn-primary" id="sendMemoBtn">
+                            <span class="btn-text">Send</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="spinner"></span> Sending...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading Modal -->
+                <div id="sendingModal" class="sending-modal" style="display: none;">
+                    <div class="sending-modal-content">
+                        <div class="sending-spinner"></div>
+                        <p>Sending memo...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Signature Modal -->
+    <div id="addSignatureModal" class="modal" style="display:none;">
+        <div class="modal-content signature-modal" style="max-width:520px;">
+            <div class="modal-header">
+                <h2>Add Signature</h2>
+                <button class="close-modal" data-modal="addSignatureModal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addSignatureForm">
+                    <div class="signature-form-content">
+                        <div class="form-group">
+                            <label for="signatureName">Name</label>
+                            <input type="text" id="signatureName" name="displayName" class="signature-input" placeholder="e.g., Dr. John Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signatureTitle">Title/Role</label>
+                            <input type="text" id="signatureTitle" name="roleTitle" class="signature-input" placeholder="e.g., University President" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signatureImage">Signature Image</label>
+                            <div class="file-upload-wrapper">
+                                <input type="file" id="signatureImage" name="image" accept="image/*" required class="file-input">
+                                <label for="signatureImage" class="file-label">
+                                    <span class="file-icon">📎</span>
+                                    <span class="file-text">Choose File</span>
+                                    <span class="file-name" id="fileName">No file chosen</span>
+                                </label>
+                            </div>
+                            <small class="file-hint">PNG or JPG, transparent background recommended</small>
+                        </div>
+                    </div>
+                    <div class="form-actions signature-actions">
+                        <button type="button" class="btn btn-secondary close-modal" data-modal="addSignatureModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Signature</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logoutTimer;
+        function resetTimer() {
+            clearTimeout(logoutTimer);
+            logoutTimer = setTimeout(() => {
+                window.location.href = '/auth/logout';
+            }, 24 * 60 * 60 * 1000);
+        }
+        document.addEventListener('mousemove', resetTimer);
+        document.addEventListener('keypress', resetTimer);
+        document.addEventListener('click', resetTimer);
+        resetTimer();
+    </script>
+
+    <script src="/js/log.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    <script src="/js/log-viewer.js"></script>
+
+    <!-- In-modal preview overlay -->
+    <div id="previewOverlay" class="preview-overlay" style="display:none;">
+        <div class="preview-content">
+            <button type="button" class="close-preview" aria-label="Close preview">&times;</button>
+            <iframe id="previewFrame" title="Memo Preview"></iframe>
+        </div>
+    </div>
+
+</body>
+
+</html>

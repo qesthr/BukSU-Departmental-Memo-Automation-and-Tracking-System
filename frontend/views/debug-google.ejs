@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Auth Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .info {
+            color: blue;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Google Authentication Debug Page</h1>
+
+    <div class="debug-section">
+        <h2>Page Load Status</h2>
+        <div id="pageStatus">Loading...</div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Google Script Status</h2>
+        <div id="googleStatus">Checking...</div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Backend Connection</h2>
+        <div id="backendStatus">Testing...</div>
+        <button onclick="testBackend()">Test Backend</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>Google Sign-In Test</h2>
+        <div id="googleSigninContainer"></div>
+        <button onclick="testGoogleSignIn()">Test Google Sign-In</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>Console Logs</h2>
+        <div id="consoleLogs"></div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const logs = [];
+
+        console.log = function (...args) {
+            logs.push({ type: 'log', message: args.join(' '), time: new Date().toISOString() });
+            originalLog.apply(console, args);
+            updateConsoleLogs();
+        };
+
+        console.error = function (...args) {
+            logs.push({ type: 'error', message: args.join(' '), time: new Date().toISOString() });
+            originalError.apply(console, args);
+            updateConsoleLogs();
+        };
+
+        function updateConsoleLogs() {
+            const container = document.getElementById('consoleLogs');
+            container.innerHTML = logs.slice(-10).map(log =>
+                `<div class="${log.type}">[${log.time}] ${log.message}</div>`
+            ).join('');
+        }
+
+        function clearLogs() {
+            logs.length = 0;
+            updateConsoleLogs();
+        }
+
+        // Page load status
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('pageStatus').innerHTML = '<span class="success">✓ Page loaded successfully</span>';
+            console.log('Debug page loaded');
+
+            // Check Google script
+            setTimeout(checkGoogleScript, 1000);
+
+            // Test backend
+            testBackend();
+        });
+
+        function checkGoogleScript() {
+            const status = document.getElementById('googleStatus');
+            if (typeof google !== 'undefined' && google.accounts) {
+                status.innerHTML = '<span class="success">✓ Google Identity Services loaded</span>';
+                console.log('Google Identity Services available');
+            } else {
+                status.innerHTML = '<span class="error">✗ Google Identity Services not loaded</span>';
+                console.error('Google Identity Services not available');
+            }
+        }
+
+        function testBackend() {
+            const status = document.getElementById('backendStatus');
+            status.innerHTML = 'Testing backend connection...';
+
+            fetch('/auth/google/modal')
+                .then(response => {
+                    console.log('Backend response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Backend response:', data);
+                    if (data.success && data.clientId) {
+                        status.innerHTML = '<span class="success">✓ Backend connected, Client ID: ' + data.clientId + '</span>';
+                    } else {
+                        status.innerHTML = '<span class="error">✗ Backend error: ' + JSON.stringify(data) + '</span>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Backend test failed:', error);
+                    status.innerHTML = '<span class="error">✗ Backend connection failed: ' + error.message + '</span>';
+                });
+        }
+
+        function testGoogleSignIn() {
+            const container = document.getElementById('googleSigninContainer');
+            container.innerHTML = 'Initializing Google Sign-In...';
+
+            if (typeof google === 'undefined' || !google.accounts) {
+                container.innerHTML = '<span class="error">Google Identity Services not available</span>';
+                return;
+            }
+
+            // Get client ID first
+            fetch('/auth/google/modal')
+                .then(response => response.json())
+                .then(config => {
+                    if (!config.success || !config.clientId) {
+                        throw new Error('Failed to get client ID');
+                    }
+
+                    console.log('Initializing Google Sign-In with client ID:', config.clientId);
+
+                    google.accounts.id.initialize({
+                        client_id: config.clientId,
+                        callback: function (response) {
+                            console.log('Google callback triggered:', response);
+                            container.innerHTML = '<span class="success">✓ Google Sign-In callback received!</span>';
+                        },
+                        auto_select: false,
+                        cancel_on_tap_outside: false
+                    });
+
+                    google.accounts.id.renderButton(container, {
+                        theme: 'outline',
+                        size: 'large',
+                        text: 'signin_with',
+                        shape: 'rectangular',
+                        logo_alignment: 'left',
+                        width: '100%'
+                    });
+
+                    console.log('Google Sign-In button rendered');
+                })
+                .catch(error => {
+                    console.error('Google Sign-In test failed:', error);
+                    container.innerHTML = '<span class="error">✗ Google Sign-In test failed: ' + error.message + '</span>';
+                });
+        }
+    </script>
+</body>
+
+</html>
