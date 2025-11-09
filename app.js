@@ -176,33 +176,8 @@ app.use(express.static(path.join(__dirname, 'frontend/public')));
 app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
-<<<<<<< HEAD
-app.use(express.static(path.join(__dirname, 'frontend/components')));
-=======
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
->>>>>>> 24a06b666f6b0504be8e4daa1ac7cad27a20491d
 
-<<<<<<< HEAD
-// Set up EJS
-app.use(expressLayouts);
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'frontend/views'));
-app.set('layout', path.join(__dirname, 'frontend/components/layouts/Loginlayout.ejs'));
-app.set("views", [
-  path.join(__dirname, "frontend", "views"),
-  path.join(__dirname, "frontend", "components")
-]);
-
-
-// Pass environment variables and path to views
-app.use((req, res, next) => {
-    res.locals.RECAPTCHA_SITE_KEY = process.env.RECAPTCHA_SITE_KEY;
-    res.locals.path = req.path; // Make current path available to all views
-    next();
-});
-
-=======
->>>>>>> 12296b711bccd9b277f31c8a8449872a802fb55f
 // Routes
 app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
