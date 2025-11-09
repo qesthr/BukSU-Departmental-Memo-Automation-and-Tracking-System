@@ -26,16 +26,10 @@ body {
 }
 
 .dashboard-container {
-    display: flex;
+    grid-column: 1;
+    grid-row: 2;
     min-height: 100vh;
     background: var(--bg-main);
-}
-
-/* Main Content */
-.main-content {
-    flex: 1;
-    overflow-y: auto;
-    background: white;
 }
 
 /* Sidebar */
@@ -240,8 +234,14 @@ body {
 .main-content {
     margin-left: 250px;
     height: 100vh;
-    overflow-y: auto;
+    overflow-y: hidden;
     padding: 2rem;
+}
+
+/* dashboard-content - mao ni ang status informations*/
+.dashboard-content {
+    grid-column: 1;
+    grid-row: 2;
 }
 
 /* Stats Grid */
@@ -300,14 +300,16 @@ body {
 /* Hover effect for stat cards */
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.   15);
 }
 
 /* Main Grid Layout */
 .main-grid {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: 1fr 500px;
+    grid-template-rows: 260px 130px 1fr;
     gap: 1.5rem;
+    margin-top: 20px;
 }
 
 /* Recent Memos Section */
@@ -316,9 +318,11 @@ body {
     padding: 1.65rem;
     border-radius: 0.75rem;
     border: 1px solid var(--border);
-    height: 75vh;
-    width: 59.2vw;
+    height: auto;
+    width: auto;
     overflow-y: auto;
+    grid-column: 1;
+    grid-row: 3;
 }
 
 .recent-memos-section h2 {
@@ -418,7 +422,8 @@ body {
 
 .side-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-column: 2;
+    grid-row: 1 / 4;
     gap: -0.5rem;
 }
 
@@ -433,6 +438,7 @@ body {
 
 /* Backup Section */
 .backup-section {
+    background-color: white;
     padding: 1.5rem;
     border-radius: 0.75rem;
     border: 1px solid var(--border);
@@ -449,6 +455,8 @@ body {
     /* Use flexible height so the section adapts to available space */
     min-height: 320px;
     max-width: 100%;
+    grid-column: 1;
+    grid-row: 3;
 }
 
 .recent-memos-section h2 {
@@ -483,38 +491,71 @@ body {
 
 /* Header section styling */
 .hero-header {
-  background: #0A0E3F;
-  height: 250px;
-  width: 67.5vw;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  border-radius: 15px;
-  color: #ffffff;
-  overflow: hidden;
+    background: #0A0E3F;
+    height: auto;
+    width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 15px;
+    color: #ffffff;
+    overflow: hidden;
 }
 
 /* Overlay to make text readable */
 .hero-overlay {
-  background: rgba(0, 0, 0, 0.5); /* adds a soft dark overlay */
-  text-align: center;
-  padding: 20px 40px;
-  border-radius: 15px;
+    max-height: 100%;
+    max-width: 100%;
+    text-align: center;
+    border-radius: 15px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+
 }
 
 /* Text styling */
 .hero-overlay h1 {
-  font-size: 1.8rem;
-  margin: 0;
-  letter-spacing: 1px;
+    font-size: 1rem;
+    grid-column: 1;
+    grid-row: 1;
 }
 
 .hero-overlay p {
-  font-size: 1rem;
-  margin-top: 10px;
-  opacity: 0.9;
+    font-size: 1rem;
+    margin-top: 10px;
+    opacity: 0.9;
+    grid-column: 1;
+    grid-row: 1;
 }
+
+.hero-img {
+    background-color: #0A0E3F;
+    grid-column: 2;
+    grid-row: 1 / 2;
+    height: 20vh;
+    width: 20vw;
+    margin: 40px 0px 0px 50px;
+}
+
+.hero-texts {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.navigations {
+    position: fixed;
+}
+
+
+
+
 
 /* Responsive tweaks for larger and smaller screens */
 @media (min-width: 1200px) {

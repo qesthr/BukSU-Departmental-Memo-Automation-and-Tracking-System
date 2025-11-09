@@ -37,23 +37,33 @@
 
 <body>
     <div class="dashboard-container">
-        <%- include('../components/nav'); %>
+        <!--naviations-->
+        <div class="navigations">
+            <%- include('../components/nav'); %>
+        </div>
 
-            <!-- Main Content -->
-            <main class="main-content">
-                <!-- Header -->
-                <%- include('../components/admintopbar'); %>
-
-                    <!-- Dashboard Content -->
-                    <div class="dashboard-content">
-                        <!-- Header -->
-                        <header class="hero-header">
-                            <div class="hero-overlay">
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <%- include('../components/admintopbar'); %>
+            <div class="content-area">
+                <!-- Main Grid -->
+                <div class="main-grid">
+                    <!-- Header -->
+                    <header class="hero-header">
+                        <div class="hero-overlay">
+                            <div class="hero-texts">
                                 <h1>Admin Dashboard</h1>
                                 <p>Welcome back, <%= user.firstName %>!</p>
                             </div>
-                        </header>
+                            <div class="hero-img-container">
+                                <img src="/uploads/hero-header.png" class="hero-img" alt="hero-img">
+                            </div>
+                        </div>
+                    </header>
 
+                    <!-- Dashboard Content -->
+                    <div class="dashboard-content">
                         <!-- Stats Cards -->
                         <div class="stats-grid">
                             <div class="stat-card-container">
@@ -112,22 +122,19 @@
                         </div>
                     </div>
 
-
-                        <!-- Main Grid -->
-                        <div class="main-grid">
-                            <!-- Recent Memos Section -->
-                            <section class="recent-memos-section">
-                                <h2>Recent Memos</h2>
+                    <!-- Recent Memos Section -->
+                    <section class="recent-memos-section">
+                        <h2>Recent Memos</h2>
                         <div class="memo-container">
                             <div class="memo-list">
                                 <% const sortedMemos = (allMemos||[]).slice().sort(function(a,b){
-                                     const pa = (a.status === 'pending') ? 1 : 0;
-                                     const pb = (b.status === 'pending') ? 1 : 0;
-                                     if (pb !== pa) return pb - pa; // pending first
-                                     const ad = new Date(a.createdAt||0).getTime();
-                                     const bd = new Date(b.createdAt||0).getTime();
-                                     return bd - ad; // newest next
-                                   }); %>
+                                    const pa = (a.status === 'pending') ? 1 : 0;
+                                    const pb = (b.status === 'pending') ? 1 : 0;
+                                    if (pb !== pa) return pb - pa; // pending first
+                                    const ad = new Date(a.createdAt||0).getTime();
+                                    const bd = new Date(b.createdAt||0).getTime();
+                                    return bd - ad; // newest next
+                                }); %>
 
                                 <% if ((sortedMemos||[]).length === 0) { %>
                                     <div class="memo-item">
@@ -162,29 +169,29 @@
                                 <% }); %>
                             </div>
                         </div>
-                            </section>
+                    </section>
 
 
-                            <!-- Calendar and Analytics -->
-                            <div class="side-grid">
-                                <div class="calendar-section">
-                                    <div style="padding: 20px; background: white; border-radius: 12px; text-align: center;">
-                                        <i data-lucide="calendar" style="width: 48px; height: 48px; color: #6366f1; margin: 0 auto 12px;"></i>
-                                        <h3 style="margin: 0 0 8px; color: #1f2937;">Calendar</h3>
-                                        <p style="margin: 0; color: #6b7280;">Coming soon</p>
-                                    </div>
-                                </div>
-                                <div class="backup-section">
-                                    <i data-lucide="cloud" class="backup-icon"></i>
-                                    <div class="backup-info">
-                                        <h3>System Status</h3>
-                                        <p>All systems operational</p>
-                                    </div>
-                                </div>
+                    <!-- Calendar and Analytics -->
+                    <div class="side-grid">
+                        <div class="calendar-section">
+                            <div style="padding: 20px; background: white; border-radius: 12px; text-align: center;">
+                                <i data-lucide="calendar" style="width: 48px; height: 48px; color: #6366f1; margin: 0 auto 12px;"></i>
+                                <h3 style="margin: 0 0 8px; color: #1f2937;">Calendar</h3>
+                                <p style="margin: 0; color: #6b7280;">Coming soon</p>
+                            </div>
+                        </div>
+                        <div class="backup-section">
+                            <i data-lucide="cloud" class="backup-icon"></i>
+                            <div class="backup-info">
+                                <h3>System Status</h3>
+                                <p>All systems operational</p>
                             </div>
                         </div>
                     </div>
-            </main>
+                </div>
+            </div>
+        </main>
     </div>
     </main>
     </div>
