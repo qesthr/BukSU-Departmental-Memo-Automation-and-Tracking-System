@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let users = [];
     let currentFilter = 'all';
     let currentUserId = null;
+    let currentEditingUserId = null;
 
     // Invitation Modal (vanilla JS): spinner -> success checkmark
     function ensureInviteModal() {
@@ -101,16 +102,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Fetch and render users
+    let userLocks = {};
     async function fetchUsers(role = 'all') {
         try {
             const response = await fetch(`/api/users?role=${role}`);
             const data = await response.json();
             users = data.users;
+            // Load lock states for each user so UI can indicate editing/disable actions
+            await loadLockStates(users);
             updateUserCounts(data.stats);
             renderUsers();
         } catch (error) {
             showNotification('Error fetching users', 'error');
         }
+    }
+
+    async function loadLockStates(list) {
+        userLocks = {};
+        try {
+            await Promise.all((list || []).map(async (u) => {
+                try {
+                    const r = await fetch(`/api/users/locks/${u._id}/state`);
+                    const j = await r.json();
+                    userLocks[u._id] = j || { locked: false };
+                } catch {
+                    userLocks[u._id] = { locked: false };
+                }
+            }));
+        } catch {
+            // ignore lock loading errors; leave map empty
+        }
+    }
+
+    function isLockedByOther(userId) {
+        const l = userLocks && userLocks[userId];
+        if (!l || !l.locked) { return false; }
+        const by = l.lockedBy != null ? String(l.lockedBy) : null;
+        const me = window.currentUserId != null ? String(window.currentUserId) : null;
+        return by && me && by !== me;
     }
 
     // Update user counts in filter buttons
@@ -174,7 +203,15 @@ function normalizeDepartment(dept) {
             return matchesSearch && matchesFilter;
         });
 
-        usersList.innerHTML = filteredUsers.map(user => `
+        usersList.innerHTML = filteredUsers.map(user => {
+            const lock = userLocks[user._id] || {};
+            const lockedByOther = !!(lock.locked && (String(lock.lockedBy || '') !== String(window.currentUserId || '')));
+            const lockBadge = lockedByOther ? `<span class="lock-badge" style="margin-right:8px;color:#ef4444;font-size:.8rem;display:inline-flex;align-items:center;">Editing…</span>` : '';
+            const editDisabled = lockedByOther ? 'disabled style="opacity:.5;cursor:not-allowed"' : '';
+            const editTitle = lockedByOther ? 'Another admin is editing' : 'Edit';
+            const deleteDisabled = lockedByOther ? 'disabled style="opacity:.5;cursor:not-allowed"' : '';
+            const deleteTitle = lockedByOther ? 'Unavailable while editing' : 'Delete';
+            return `
             <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
                 <div class="name-cell">
                     <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
@@ -190,15 +227,16 @@ function normalizeDepartment(dept) {
                     <span class="role-badge ${user.role}">${user.role}</span>
                 </div>
                 <div class="actions-cell">
-                    <button class="btn-icon edit-user" data-id="${user._id}" title="Edit">
+                    ${lockBadge}
+                    <button class="btn-icon edit-user" data-id="${user._id}" title="${editTitle}" ${editDisabled}>
                         <i data-lucide="edit-2"></i>
                     </button>
                     ${ (window.currentUserId && String(window.currentUserId) === String(user._id))
                         ? `<button class="btn-icon" title="You cannot delete your own account" disabled style="opacity:.5;cursor:not-allowed"><i data-lucide="trash-2"></i></button>`
-                        : `<button class="btn-icon delete-user" data-id="${user._id}" title="Delete"><i data-lucide="trash-2"></i></button>` }
+                        : `<button class="btn-icon delete-user" data-id="${user._id}" title="${deleteTitle}" ${deleteDisabled}><i data-lucide="trash-2"></i></button>` }
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 
         // Reinitialize Lucide icons if available
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -260,26 +298,11 @@ function normalizeDepartment(dept) {
 
             if (!response.ok) {
                 if (response.status === 409) {
-                    const data = await response.json().catch(() => ({}));
-                    showConflictModal(data && data.wait ? data.wait : 30, async () => {
-                        // Refresh user data then reopen modal
-                        try {
-                            const r = await fetch(`/api/users/${userId}`);
-                            const j = await r.json();
-                            const u = j && j.user ? j.user : null;
-                            if (u) {
-                                document.getElementById('editUserId').value = u._id;
-                                document.getElementById('editFirstName').value = u.firstName;
-                                document.getElementById('editLastName').value = u.lastName;
-                                document.getElementById('editDepartment').value = u.department || '';
-                                document.getElementById('editRole').value = u.role;
-                                const lu = document.getElementById('editLastUpdatedAt');
-                                if (lu) { lu.value = u.lastUpdatedAt || u.updatedAt || ''; }
-                                openModal(editUserModal);
-                            }
-                        } catch (e) { /* ignore */ }
-                    });
-                    throw new Error('Conflict');
+                    // No conflict modal; just refresh & notify
+                    try { await fetchUsers(currentFilter); } catch {}
+                    await closeEditModal();
+                    showToast('Update blocked: another admin has already updated this user.');
+                    return;
                 } else {
                     const error = await response.json();
                     throw new Error(error.message || 'Error updating user');
@@ -287,9 +310,7 @@ function normalizeDepartment(dept) {
             }
 
             await fetchUsers(currentFilter);
-            const id = document.getElementById('editUserId').value;
-            try { if (id) { await fetch(`/api/users/unlock-user/${id}`, { method: 'POST' }); } } catch {}
-            closeModal(editUserModal);
+            await closeEditModal();
             showInviteSuccess('User updated successfully', '', 'Done');
         } catch (error) {
             // show inline error on edit modal and re-enable form
@@ -310,9 +331,6 @@ function normalizeDepartment(dept) {
             }
             setFormDisabled(editUserForm, false);
             closeInviteModal();
-            // ensure lock release on error as well
-            const id = document.getElementById('editUserId').value;
-            try { if (id) { await fetch(`/api/users/unlock-user/${id}`, { method: 'POST' }); } } catch {}
         }
     }
 
@@ -388,6 +406,10 @@ function normalizeDepartment(dept) {
         // Handle edit
         if (e.target.closest('.edit-user')) {
             e.stopPropagation();
+            if (isLockedByOther(userId)) {
+                showToast('Another admin is editing this user.');
+                return;
+            }
             if (user) {
                 const acquired = await acquireEditLock(user._id);
                 if (!acquired) { return; }
@@ -399,6 +421,10 @@ function normalizeDepartment(dept) {
         // Handle delete
         if (e.target.closest('.delete-user')) {
             e.stopPropagation();
+            if (isLockedByOther(userId)) {
+                showToast('Cannot delete while another admin is editing this user.');
+                return;
+            }
             currentUserId = userId;
             resetDeleteModal();
             openModal(deleteModal);
@@ -578,11 +604,48 @@ function normalizeDepartment(dept) {
         setTimeout(() => { modal.style.display = 'none'; }, 200);
     }
 
+    function cleanupEditLockState() {
+        if (editCountdownTimer) {
+            clearInterval(editCountdownTimer);
+            editCountdownTimer = null;
+        }
+        if (editInactivityTimer) {
+            clearTimeout(editInactivityTimer);
+            editInactivityTimer = null;
+        }
+        secondsRemaining = 30;
+        window.__editArmed = false;
+    }
+
+    async function releaseEditLock(userId) {
+        if (!userId) { return; }
+        try { await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST' }); } catch {}
+    }
+
+    async function closeEditModal({ release = true } = {}) {
+        cleanupEditLockState();
+        const id = currentEditingUserId || document.getElementById('editUserId').value;
+        currentEditingUserId = null;
+        if (release && id) {
+            await releaseEditLock(id);
+        }
+        if (id) {
+            userLocks[id] = { locked: false };
+            renderUsers();
+        }
+        setFormDisabled(editUserForm, false);
+        closeModal(editUserModal);
+    }
+
     // Close modals when clicking outside or on close button
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal || e.target.classList.contains('close-modal')) {
-                closeModal(modal);
+                if (modal === editUserModal) {
+                    closeEditModal();
+                } else {
+                    closeModal(modal);
+                }
             }
         });
     });
@@ -612,6 +675,7 @@ function normalizeDepartment(dept) {
                 showLockBusyModal((data && data.remaining) || 30, userId);
                 return false;
             }
+            currentEditingUserId = userId;
             startEditTimers(userId);
             return true;
         } catch {
@@ -651,8 +715,11 @@ function normalizeDepartment(dept) {
     function resetInactivity(userId) {
         if (editInactivityTimer) {clearTimeout(editInactivityTimer);}
         secondsRemaining = 30;
-        fetch(`/api/users/lock-user/${userId}/refresh`, { method: 'POST' }).catch(() => {});
-        editInactivityTimer = setTimeout(() => autoCloseEdit(userId, 'Session expired — no activity detected.'), 30000);
+        const targetId = userId || currentEditingUserId;
+        if (targetId) {
+            fetch(`/api/users/lock-user/${targetId}/refresh`, { method: 'POST' }).catch(() => {});
+            editInactivityTimer = setTimeout(() => autoCloseEdit(targetId, 'Session expired — no activity detected.'), 30000);
+        }
     }
 
     function ensureEditCountdownBadge() {
@@ -670,8 +737,8 @@ function normalizeDepartment(dept) {
     }
 
     async function autoCloseEdit(userId, message) {
-        try { await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST' }); } catch {}
-        closeModal(editUserModal);
+        await releaseEditLock(userId);
+        await closeEditModal({ release: false });
         showToast(message || 'Session ended');
     }
 
@@ -773,6 +840,12 @@ function normalizeDepartment(dept) {
             });
             es.addEventListener('lock_released', (ev) => {
                 try { const d = JSON.parse(ev.data); /* could update lock UI */ } catch {}
+                // Refresh to reflect availability
+                fetchUsers(currentFilter);
+            });
+            es.addEventListener('lock_acquired', (ev) => {
+                // Another admin started editing: refresh to disable buttons
+                fetchUsers(currentFilter);
             });
         } catch {}
     })();
@@ -801,38 +874,7 @@ function normalizeDepartment(dept) {
 
     // Pre-locking removed; both admins can open the edit modal freely
 
-    // Conflict modal
-    function ensureConflictModal() {
-        if (document.getElementById('conflictModalOverlay')) { return; }
-        const style = document.createElement('style');
-        style.textContent = `#conflictModalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:10000;opacity:0;transition:opacity .2s ease}#conflictModalOverlay.open{display:flex;opacity:1}#conflictModal{background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.2);width:100%;max-width:480px;padding:24px;text-align:center}#conflictModal h3{margin:12px 0 6px 0;color:#0f172a;font-weight:600;font-size:20px}#conflictModal p{margin:0;color:#475569}.conflict-actions{margin-top:12px;display:flex;gap:8px;justify-content:center}#retryConflict{background:#1c89e3;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer}#closeConflict{background:#e2e8f0;border:1px solid #cbd5e1;border-radius:8px;padding:8px 14px;cursor:pointer}`;
-        document.head.appendChild(style);
-        const overlay = document.createElement('div');
-        overlay.id = 'conflictModalOverlay';
-        overlay.innerHTML = `<div id="conflictModal" role="dialog" aria-modal="true"><div class="warn"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><h3>Update Conflict Detected</h3><p id="conflictMsg">Another admin has just updated this user’s information. Please wait <span id='conflictCountdown'>30</span>s before trying again.</p><div class="conflict-actions"><button id="closeConflict">Close</button><button id="retryConflict" disabled>Retry</button></div></div>`;
-        document.body.appendChild(overlay);
-        document.getElementById('closeConflict').onclick = () => overlay.classList.remove('open');
-    }
-
-    function showConflictModal(seconds, onRetry) {
-        ensureConflictModal();
-        const overlay = document.getElementById('conflictModalOverlay');
-        const cd = document.getElementById('conflictCountdown');
-        const retry = document.getElementById('retryConflict');
-        let remaining = Math.max(1, seconds || 30);
-        retry.disabled = true;
-        cd.textContent = String(remaining);
-        const t = setInterval(() => {
-            remaining -= 1;
-            cd.textContent = String(remaining);
-            if (remaining <= 0) {
-                clearInterval(t);
-                retry.disabled = false;
-            }
-        }, 1000);
-        retry.onclick = () => { overlay.classList.remove('open'); if (onRetry) { onRetry(); } };
-        requestAnimationFrame(() => overlay.classList.add('open'));
-    }
+    // Conflict modal removed; we use toast + refresh instead
 
     // Prompt to change department
     // Open change department modal
