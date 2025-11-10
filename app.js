@@ -306,6 +306,29 @@ app.get('/secretary/memos', async (req, res) => {
     }
 });
 
+// Secretary archive page - only for secretaries
+app.get('/secretary/archive', async (req, res) => {
+    if (!req.isAuthenticated()) { return res.redirect('/'); }
+    if (!req.user || req.user.role !== 'secretary') { return res.redirect('/admin-dashboard'); }
+    try {
+        // Get archived memos OR sent/approved memos that can be archived
+        // Include memos where the secretary is the sender but NOT the recipient
+        // Exclude the tracking memo where recipient equals sender
+        const archivedMemos = await Memo.find({
+            sender: req.user._id,
+            recipient: { $ne: req.user._id }, // Exclude memos sent to the secretary themselves
+            status: { $in: ['archived', 'sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .populate('recipient', 'firstName lastName email profilePicture department');
+        return res.render('secretary-archive', { user: req.user, path: '/secretary/archive', archivedMemos: archivedMemos || [] });
+    } catch (e) {
+        console.error('Error fetching archived memos:', e);
+        return res.render('secretary-archive', { user: req.user, path: '/secretary/archive', archivedMemos: [] });
+    }
+});
+
 // Faculty memos page - only for faculty
 app.get('/faculty/memos', async (req, res) => {
     if (!req.isAuthenticated()) { return res.redirect('/'); }

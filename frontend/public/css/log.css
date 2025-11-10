@@ -99,6 +99,8 @@
     border-bottom: 1px solid #e5e7eb;
     position: relative;
     overflow: visible;
+    z-index: 1;
+    background: #fff;
 }
 
 .header-controls {
@@ -109,12 +111,23 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure checkbox-control only appears in memo list, not in compose modal or preview */
+#composeModal .checkbox-control,
+#previewOverlay .checkbox-control,
+.preview-overlay .checkbox-control {
+    display: none !important;
 }
 
 .checkbox-control input[type="checkbox"] {
     width: 18px;
     height: 18px;
     cursor: pointer;
+    position: relative;
+    z-index: 1;
 }
 
 /* Select Dropdown Styles */
@@ -174,6 +187,15 @@
 
 .select-dropdown-wrapper.open .select-dropdown-menu {
     display: block;
+}
+
+/* Ensure select dropdown doesn't appear in compose modal or preview */
+#composeModal .select-dropdown-wrapper,
+#composeModal .select-dropdown-menu,
+#previewOverlay .select-dropdown-wrapper,
+#previewOverlay .select-dropdown-menu {
+    display: none !important;
+    visibility: hidden !important;
 }
 
 .select-dropdown-item {
@@ -1771,6 +1793,7 @@
     align-items: center;
     justify-content: center;
     z-index: 2000;
+    isolation: isolate;
 }
 
 #previewOverlay .preview-content {
@@ -1784,6 +1807,8 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    isolation: isolate;
+    z-index: 1;
 }
 
 #previewOverlay .close-preview {
@@ -1795,13 +1820,17 @@
     font-size: 28px;
     color: #6b7280;
     cursor: pointer;
-    z-index: 1;
+    z-index: 10;
 }
 
 #previewOverlay #previewFrame {
     border: none;
     width: 100%;
     height: 100%;
+    isolation: isolate;
+    position: relative;
+    z-index: 1;
+    background: #fff;
 }
 
 .dept-checkbox-label {

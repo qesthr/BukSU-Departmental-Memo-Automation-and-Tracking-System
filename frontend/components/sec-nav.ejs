@@ -24,6 +24,12 @@
 						<span>Memos</span>
 					</a>
 				</li>
+				<li class="<%= path === '/secretary/archive' ? 'active' : '' %>">
+					<a href="/secretary/archive">
+						<i data-lucide="archive" style="width: 20px; height: 20px; color: <%= path === '/secretary/archive' ? '#1C89E3' : '#64748b' %>;"></i>
+						<span>Archive</span>
+					</a>
+				</li>
 				<li class="<%= path === '/calendar' ? 'active' : '' %>">
 					<a href="/secretary/calendar">
 						<img src="<%= path === '/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>" alt="Calendar" class="nav-icon">

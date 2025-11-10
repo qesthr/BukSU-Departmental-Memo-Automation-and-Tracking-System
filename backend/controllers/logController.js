@@ -53,6 +53,15 @@ exports.getAllMemos = async (req, res) => {
                 recipient: userId,
                 activityType: { $ne: null } // Show all system activity logs
             };
+        } else if (folder === 'archive') {
+            // For archive folder, show archived, sent, or approved memos sent by user
+            // Exclude memos where user is the recipient (tracking memos)
+            query = {
+                sender: userId,
+                recipient: { $ne: userId }, // Exclude memos sent to the user themselves
+                status: { $in: ['archived', 'sent', 'approved'] },
+                activityType: { $ne: 'system_notification' }
+            };
         } else if (folder === 'deleted') {
             // For deleted folder, show only memos that were manually deleted from Inbox/Sent
             query = {
@@ -1111,15 +1120,29 @@ exports.getAllowedSignatures = async (req, res) => {
 
 exports.previewMemo = async (req, res) => {
     try {
-        const {
+        // Extract ONLY compose form data - exclude any UI elements
+        let {
             subject = '',
             content = '',
             priority = 'medium',
             departments = [],
+            recipients = [],
             template = 'none',
             signatures = [],
             inlineImages = []
         } = req.body || {};
+
+        // Ensure content is a string and strip any accidental HTML
+        if (typeof content !== 'string') {
+            content = String(content || '');
+        }
+        // Remove any HTML tags that might have been accidentally included
+        content = content.replace(/<[^>]*>/g, '');
+
+        // Ensure recipients is an array
+        if (!Array.isArray(recipients)) {
+            recipients = [];
+        }
 
         // Resolve signatures from database if template contains signature IDs (comma-separated)
         const Signature = require('../models/Signature');
@@ -1155,10 +1178,20 @@ exports.previewMemo = async (req, res) => {
             }
         }
 
-        const esc = (t) => String(t || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+        // Enhanced escape function that also removes HTML tags and special characters
+        const esc = (t) => {
+            if (!t) return '';
+            let str = String(t);
+            // First, remove any HTML tags completely
+            str = str.replace(/<[^>]*>/g, '');
+            // Then escape remaining special characters
+            str = str.replace(/&/g, '&amp;')
+                     .replace(/</g, '&lt;')
+                     .replace(/>/g, '&gt;')
+                     .replace(/"/g, '&quot;')
+                     .replace(/'/g, '&#39;');
+            return str;
+        };
 
         // Get signature names for preview meta
         let templateDisplay = '';
@@ -1167,23 +1200,174 @@ exports.previewMemo = async (req, res) => {
             templateDisplay = ` • Signatures: ${names}`;
         }
 
+        // Clean content - remove any HTML and ensure it's plain text
+        let cleanContent = String(content || '').trim();
+
+        // First, aggressively remove all HTML tags and form elements
+        cleanContent = cleanContent
+            // Remove complete form elements with their content (non-greedy)
+            .replace(/<select[^>]*>[\s\S]*?<\/select>/gi, '')
+            .replace(/<input[^>]*>[\s\S]*?<\/input>/gi, '')
+            .replace(/<input[^>]*\/?>/gi, '')
+            .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '')
+            .replace(/<textarea[^>]*>[\s\S]*?<\/textarea>/gi, '')
+            .replace(/<label[^>]*>[\s\S]*?<\/label>/gi, '')
+            .replace(/<div[^>]*class[^>]*select[^>]*>[\s\S]*?<\/div>/gi, '')
+            .replace(/<div[^>]*class[^>]*dropdown[^>]*>[\s\S]*?<\/div>/gi, '')
+            .replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, '')
+            .replace(/<li[^>]*>[\s\S]*?<\/li>/gi, '')
+            // Remove any remaining HTML tags
+            .replace(/<[^>]+>/g, '');
+
+        // Remove checkbox/radio Unicode characters that might appear as boxes
+        cleanContent = cleanContent
+            .replace(/[☐☑☒✓✔✗✘]/g, '')
+            .replace(/[\u2610-\u2612]/g, '') // Box drawing checkboxes
+            .replace(/[\u2713-\u2717]/g, ''); // Check marks
+
+        // Decode HTML entities that might be in the content
+        cleanContent = cleanContent
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#x27;/g, "'");
+
+        // Then escape it properly for display
+        cleanContent = esc(cleanContent);
+
         const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>Memo Preview</title>
   <style>
-    body { font-family: Inter, Arial, sans-serif; color:#111827; margin:40px; }
-    .header { border-bottom:1px solid #e5e7eb; padding-bottom:12px; margin-bottom:20px; }
-    .meta { font-size: 12px; color:#6b7280; }
-    h1 { font-size:20px; margin:0 0 8px 0; }
-    .content { white-space: pre-wrap; line-height:1.6; margin-top: 12px; }
-    .signatories { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:32px; }
-    .sig { text-align:center; }
-    .sig img { width: 220px; height: 70px; object-fit: contain; }
-    .sig .name { font-weight:700; margin-top:6px; }
-    .sig .title { color:#6b7280; font-size:13px; }
-    .footer { margin-top:40px; font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb; padding-top:8px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+    }
+    body {
+      font-family: Inter, Arial, sans-serif;
+      color:#111827;
+      margin:40px;
+      background: #fff;
+      overflow-x: hidden;
+    }
+    .header {
+      border-bottom:1px solid #e5e7eb;
+      padding-bottom:12px;
+      margin-bottom:20px;
+    }
+    .meta {
+      font-size: 12px;
+      color:#6b7280;
+      line-height: 1.8;
+    }
+    .meta div {
+      margin-bottom: 4px;
+    }
+    .meta strong {
+      color: #374151;
+      font-weight: 600;
+    }
+    h1 {
+      font-size:20px;
+      margin:0 0 8px 0;
+    }
+    .content {
+      white-space: pre-wrap;
+      line-height:1.6;
+      margin-top: 12px;
+      position: relative;
+      overflow: visible;
+      word-wrap: break-word;
+    }
+    .content::before,
+    .content::after {
+      display: none !important;
+      content: none !important;
+    }
+    /* Hide ALL form elements and dropdowns anywhere in the document */
+    input,
+    button,
+    select,
+    textarea,
+    [type="checkbox"],
+    [type="radio"],
+    .dropdown,
+    .select,
+    .custom-dropdown,
+    .dept-dropdown-menu,
+    .template-dropdown-menu,
+    .checkbox-control,
+    .select-dropdown-wrapper,
+    .select-dropdown-btn,
+    .select-dropdown-menu {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      position: absolute !important;
+      left: -9999px !important;
+      pointer-events: none !important;
+    }
+    .content input,
+    .content button,
+    .content select,
+    .content textarea,
+    .content [type="checkbox"],
+    .content [type="radio"],
+    .content .dropdown,
+    .content .select {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      position: absolute !important;
+      left: -9999px !important;
+    }
+    .content [data-lucide],
+    .content i[class*="lucide"],
+    .content svg,
+    .content .lucide-icon {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .signatories {
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap:16px;
+      margin-top:32px;
+    }
+    .sig {
+      text-align:center;
+    }
+    .sig img {
+      width: 220px;
+      height: 70px;
+      object-fit: contain;
+    }
+    .sig .name {
+      font-weight:700;
+      margin-top:6px;
+    }
+    .sig .title {
+      color:#6b7280;
+      font-size:13px;
+    }
+    .footer {
+      margin-top:40px;
+      font-size:12px;
+      color:#6b7280;
+      border-top:1px solid #e5e7eb;
+      padding-top:8px;
+    }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1192,9 +1376,14 @@ exports.previewMemo = async (req, res) => {
 <body>
   <div class="header">
     <h1>${esc(subject) || 'Untitled Memo'}</h1>
-    <div class="meta">Priority: ${esc(priority)}${departments?.length ? ` • Departments: ${departments.map(esc).join(', ')}` : ''}${templateDisplay}</div>
+    <div class="meta">
+      ${recipients && recipients.length > 0 ? `<div style="margin-bottom:8px;"><strong>To:</strong> ${recipients.map(r => esc(r.name || r.email || '')).filter(Boolean).join(', ')}</div>` : ''}
+      <div><strong>Priority:</strong> ${esc(priority)}</div>
+      ${departments?.length ? `<div><strong>Department(s):</strong> ${departments.map(esc).join(', ')}</div>` : ''}
+      ${templateDisplay ? `<div>${templateDisplay}</div>` : ''}
+    </div>
   </div>
-  <div class="content">${esc(content)}</div>
+  <div class="content">${cleanContent}</div>
   ${ Array.isArray(inlineImages) && inlineImages.length ? `
   <div style="margin-top:20px; display:flex; gap:16px; flex-wrap:wrap; justify-content:flex-start;">
     ${ inlineImages.map(u => `<img src="${u}" alt="attachment" style="max-width:600px; max-height:400px; width:auto; height:auto; object-fit:contain; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">`).join('') }

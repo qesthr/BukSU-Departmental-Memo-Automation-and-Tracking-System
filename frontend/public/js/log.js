@@ -311,14 +311,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function collectMemoPayload(modal, opts){
+        // Extract only compose form data - no UI elements
         const subject = modal.querySelector('#subject')?.value || '';
-        const content = modal.querySelector('#content')?.value || '';
+        const contentEl = modal.querySelector('#content');
+        let content = '';
+        if (contentEl) {
+            // Get the raw value from textarea - ensure it's plain text
+            content = contentEl.value || '';
+            // If somehow innerHTML or textContent is being used, get the value directly
+            if (typeof content !== 'string') {
+                content = String(content);
+            }
+            // Strip any HTML tags that might have been accidentally included
+            content = content.replace(/<[^>]*>/g, '');
+            // Remove any form elements that might be in the content string
+            content = content.replace(/<input[^>]*>/gi, '')
+                             .replace(/<select[^>]*>.*?<\/select>/gi, '')
+                             .replace(/<button[^>]*>.*?<\/button>/gi, '');
+        }
         const priority = modal.querySelector('#prioritySelect')?.value || 'medium';
         const departments = (modal.querySelector('#selectedDepartments')?.value || '').split(',').filter(Boolean);
         const selectedCheckboxes = Array.from(modal.querySelectorAll('.template-checkbox:checked'));
         const selectedSignatureIds = selectedCheckboxes.map(cb => cb.value).filter(id => id !== 'none');
         const signatures = Array.from(modal.querySelectorAll('.signatory-meta')).map(i=>({ role: i.dataset.role, signatureId: i.getAttribute('data-signature-id')||null }));
-        return { subject, content, priority, departments, template: selectedSignatureIds.length > 0 ? selectedSignatureIds.join(',') : 'none', signatures, preview: !!opts?.preview };
+
+        // Collect recipient information (To field) - only from compose form
+        let recipients = [];
+        if (window.recipientData && Array.isArray(window.recipientData)) {
+            recipients = window.recipientData.map(u => ({
+                name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+                email: u.email
+            }));
+        }
+
+        return {
+            subject,
+            content,
+            priority,
+            departments,
+            recipients,
+            template: selectedSignatureIds.length > 0 ? selectedSignatureIds.join(',') : 'none',
+            signatures,
+            preview: !!opts?.preview
+        };
     }
 
     // Add Signature form handler
@@ -2343,6 +2378,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show viewer first before trying to access elements
         showMemoViewer();
         if (downloadBtn) {downloadBtn.disabled = false;}
+
+        // Update archive buttons if function exists (for secretary memos page)
+        if (typeof updateArchiveButtons === 'function') {
+            updateArchiveButtons(memo);
+        }
 
         // Detect calendar event memos and toggle the MEMO header visibility
         const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
