@@ -122,3 +122,62 @@ exports.getDashboardStats = async (req, res) => {
     }
 };
 
+// Get dashboard stats for secretary
+exports.getSecretaryDashboardStats = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        // Get current month start date
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Drafted Memos: memos with status 'draft' created by the secretary
+        const draftedMemos = await Memo.countDocuments({
+            createdBy: userId,
+            status: 'draft',
+            activityType: { $ne: 'system_notification' }
+        });
+
+        // Sent Memos: memos sent by secretary this month (status 'sent' or 'approved')
+        const sentMemosThisMonth = await Memo.countDocuments({
+            sender: userId,
+            status: { $in: ['sent', 'approved'] },
+            createdAt: { $gte: startOfMonth },
+            activityType: { $ne: 'system_notification' }
+        });
+
+        // Acknowledged: memos sent by secretary that have been read/acknowledged
+        const acknowledgedMemos = await Memo.countDocuments({
+            sender: userId,
+            $or: [
+                { status: 'read' },
+                { status: 'approved', isRead: true }
+            ],
+            activityType: { $ne: 'system_notification' }
+        });
+
+        // Pending: memos sent by secretary that are pending approval (status 'pending' means pending admin approval for secretary-created memos)
+        const pendingMemos = await Memo.countDocuments({
+            sender: userId,
+            status: 'pending',
+            activityType: { $ne: 'system_notification' }
+        });
+
+        res.json({
+            success: true,
+            stats: {
+                drafted: draftedMemos,
+                sent: sentMemosThisMonth,
+                acknowledged: acknowledgedMemos,
+                pending: pendingMemos
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching secretary dashboard stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching secretary dashboard statistics'
+        });
+    }
+};
+

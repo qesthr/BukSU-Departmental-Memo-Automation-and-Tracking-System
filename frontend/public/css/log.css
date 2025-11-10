@@ -758,6 +758,11 @@
     box-sizing: border-box;
 }
 
+/* Allow compose modal to show overflow for dropdowns */
+#composeModal.modal {
+    overflow: visible !important;
+}
+
 .modal-content {
     background-color: #fff;
     margin: 20px auto;
@@ -781,7 +786,7 @@
 
 /* For compose modal specifically, allow header area to overflow for dropdowns */
 #composeModal .modal-content {
-    overflow: visible;
+    overflow: visible !important;
 }
 
 .modal-header {
@@ -833,6 +838,11 @@
     box-sizing: border-box;
 }
 
+/* Allow compose modal body to show overflow for dropdowns */
+#composeModal .modal-body {
+    overflow: visible !important;
+}
+
 /* For compose modal, allow header fields area to overflow for dropdowns */
 /* Keep modal-body with overflow hidden for scrolling, but header fields can overflow */
 #composeModal .compose-header-fields {
@@ -863,6 +873,11 @@
     min-height: 0;
     overflow: hidden;
     max-height: 100%;
+}
+
+/* Allow compose modal form to show overflow for dropdowns */
+#composeModal .modal-body form {
+    overflow: visible !important;
 }
 
 /* Gmail-style compact header fields */
@@ -1010,6 +1025,52 @@
     gap: 4px;
     min-height: 32px;
     position: relative;
+    overflow: visible !important; /* Allow dropdown to overflow */
+}
+
+/* Ensure recipient container allows overflow for dropdown */
+.recipient-input-container {
+    overflow: visible !important; /* Allow dropdown to overflow */
+}
+
+/* Department Members Dropdown */
+.dept-members-dropdown {
+    /* Default styles - positioned below button, centered horizontally */
+    position: absolute !important;
+    top: calc(100% + 4px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    z-index: 99999 !important; /* Very high z-index to appear above modal */
+    overflow-y: auto;
+    overflow-x: visible;
+}
+
+/* Ensure dropdown is visible in compose modal */
+#composeModal .recipient-input-wrapper,
+#composeModal .recipient-input-container {
+    overflow: visible !important;
+}
+
+.dept-members-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
 }
 
 .recipient-chips-wrapper {
@@ -2267,7 +2328,7 @@ input[type="file"]::file-selector-button:hover {
     box-sizing: border-box;
     height: auto;
     max-height: 750px;
-    overflow-y: auto;
+    overflow: hidden; /* Removed overflow-y: auto to prevent double scrollbar - inner .memo-list-container handles scrolling */
 }
 
 

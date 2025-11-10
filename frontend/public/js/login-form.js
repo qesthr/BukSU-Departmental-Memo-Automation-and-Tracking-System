@@ -58,6 +58,34 @@ document.addEventListener('DOMContentLoaded', () => {
         loginButton.style.cursor = 'not-allowed';
     }
 
+    // Initialize button state after a short delay to ensure reCAPTCHA widget is ready
+    setTimeout(() => {
+        updateButtonStateWithCaptcha();
+    }, 1000);
+
+    // Also check when reCAPTCHA is ready
+    if (window.grecaptcha && typeof window.grecaptcha.ready === 'function') {
+        window.grecaptcha.ready(() => {
+            setTimeout(() => {
+                updateButtonStateWithCaptcha();
+            }, 500);
+        });
+    }
+
+    // Global callbacks for reCAPTCHA checkbox state changes
+    // These will be called by the reCAPTCHA widget when checked/unchecked
+    window.onRecaptchaVerified = function() {
+        // eslint-disable-next-line no-console
+        console.log('reCAPTCHA verified - updating button state');
+        updateButtonStateWithCaptcha();
+    };
+
+    window.onRecaptchaExpired = function() {
+        // eslint-disable-next-line no-console
+        console.log('reCAPTCHA expired - updating button state');
+        updateButtonStateWithCaptcha();
+    };
+
     // Helper: get token from the single Google reCAPTCHA checkbox (shared widget)
     async function getSharedRecaptchaToken() {
         try {
@@ -90,7 +118,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
                     sitekey: sitekey,
-                    size: 'normal'
+                    size: 'normal',
+                    callback: function() {
+                        // Called when reCAPTCHA is verified
+                        if (window.onRecaptchaVerified) {
+                            window.onRecaptchaVerified();
+                        }
+                        updateButtonStateWithCaptcha();
+                    },
+                    'expired-callback': function() {
+                        // Called when reCAPTCHA expires
+                        if (window.onRecaptchaExpired) {
+                            window.onRecaptchaExpired();
+                        }
+                        updateButtonStateWithCaptcha();
+                    }
                 });
                 document.getElementById('googleRecaptchaWidget').setAttribute('data-widget-id', widgetId);
             }
@@ -145,7 +187,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!sitekey || !window.grecaptcha) return null;
                 widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
                     sitekey: sitekey,
-                    size: 'normal'
+                    size: 'normal',
+                    callback: function() {
+                        // Called when reCAPTCHA is verified
+                        if (window.onRecaptchaVerified) {
+                            window.onRecaptchaVerified();
+                        }
+                        updateButtonStateWithCaptcha();
+                    },
+                    'expired-callback': function() {
+                        // Called when reCAPTCHA expires
+                        if (window.onRecaptchaExpired) {
+                            window.onRecaptchaExpired();
+                        }
+                        updateButtonStateWithCaptcha();
+                    }
                 });
                 document.getElementById('googleRecaptchaWidget').setAttribute('data-widget-id', widgetId);
             }
@@ -170,6 +226,14 @@ document.addEventListener('DOMContentLoaded', () => {
             loginButton.style.opacity = enable ? '1' : '0.6';
             loginButton.style.cursor = enable ? 'pointer' : 'not-allowed';
         }
+
+        // Clear hint message when reCAPTCHA is verified
+        const recaptchaHint = document.getElementById('googleRecaptchaHint');
+        if (captchaOk && recaptchaHint) {
+            recaptchaHint.style.display = 'none';
+            recaptchaHint.style.color = '#666';
+            recaptchaHint.textContent = 'Please complete the reCAPTCHA before continuing';
+        }
     }
 
     // Set up listeners and polling
@@ -177,6 +241,84 @@ document.addEventListener('DOMContentLoaded', () => {
     passwordInput.addEventListener('input', updateButtonStateWithCaptcha);
     // Light polling to catch checkbox changes
     setInterval(updateButtonStateWithCaptcha, 500);
+
+    // Direct click handler on login button to check reCAPTCHA before form submission
+    if (loginButton) {
+        loginButton.addEventListener('click', async (e) => {
+            // Only check if button is not disabled (to avoid duplicate checks)
+            if (loginButton.disabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            // Check reCAPTCHA status before allowing form submission
+            const widgetId = await ensureSharedRecaptchaWidget();
+            let recaptchaVerified = false;
+
+            if (widgetId && window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+                const token = window.grecaptcha.getResponse(widgetId);
+                recaptchaVerified = !!(token && token.length > 0);
+            }
+
+            // If reCAPTCHA is not verified, show alert and prevent login
+            if (!recaptchaVerified) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Show error modal
+                if (typeof window.showMessageModal === 'function') {
+                    window.showMessageModal(
+                        'reCAPTCHA Verification Required',
+                        'You must verify the reCAPTCHA before logging in. Please check the "I\'m not a robot" box below the Google Sign-In button.',
+                        'warning'
+                    );
+                } else {
+                    alert('You must verify the reCAPTCHA before logging in. Please check the "I\'m not a robot" box below the Google Sign-In button.');
+                }
+
+                // Highlight and scroll to reCAPTCHA section
+                const recaptchaSection = document.getElementById('googleRecaptchaSection');
+                const recaptchaHint = document.getElementById('googleRecaptchaHint');
+
+                if (recaptchaSection) {
+                    // Add visual highlight
+                    recaptchaSection.style.border = '2px solid #ff6b6b';
+                    recaptchaSection.style.borderRadius = '4px';
+                    recaptchaSection.style.padding = '8px';
+                    recaptchaSection.style.backgroundColor = '#fff5f5';
+                    recaptchaSection.style.transition = 'all 0.3s ease';
+
+                    // Scroll to reCAPTCHA section
+                    recaptchaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // Remove highlight after 5 seconds
+                    setTimeout(() => {
+                        recaptchaSection.style.border = '';
+                        recaptchaSection.style.borderRadius = '';
+                        recaptchaSection.style.padding = '';
+                        recaptchaSection.style.backgroundColor = '';
+                    }, 5000);
+                }
+
+                // Show hint message
+                if (recaptchaHint) {
+                    recaptchaHint.style.display = 'block';
+                    recaptchaHint.style.color = '#ff6b6b';
+                    recaptchaHint.textContent = '⚠️ Please verify the reCAPTCHA to continue';
+                    recaptchaHint.style.fontWeight = '600';
+                }
+
+                // Ensure button is disabled
+                loginButton.disabled = true;
+                loginButton.style.opacity = '0.6';
+                loginButton.style.cursor = 'not-allowed';
+
+                // Re-check button state
+                updateButtonStateWithCaptcha();
+            }
+        });
+    }
 
     // Handle login submission
     loginForm.addEventListener('submit', async (e) => {
@@ -190,6 +332,45 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prevent any potential page reload or redirect
         if (e.defaultPrevented === false) {
             e.preventDefault();
+        }
+
+        // Additional safety check: if button is disabled, prevent submission
+        if (loginButton && loginButton.disabled) {
+            // Check why it's disabled - likely missing reCAPTCHA
+            const widgetId = await ensureSharedRecaptchaWidget();
+            let recaptchaVerified = false;
+
+            if (widgetId && window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+                const token = window.grecaptcha.getResponse(widgetId);
+                recaptchaVerified = !!(token && token.length > 0);
+            }
+
+            if (!recaptchaVerified) {
+                if (typeof window.showMessageModal === 'function') {
+                    window.showMessageModal(
+                        'reCAPTCHA Verification Required',
+                        'You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.',
+                        'warning'
+                    );
+                }
+
+                // Highlight reCAPTCHA section
+                const recaptchaSection = document.getElementById('googleRecaptchaSection');
+                if (recaptchaSection) {
+                    recaptchaSection.style.border = '2px solid #ff6b6b';
+                    recaptchaSection.style.borderRadius = '4px';
+                    recaptchaSection.style.padding = '8px';
+                    recaptchaSection.style.backgroundColor = '#fff5f5';
+                    recaptchaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => {
+                        recaptchaSection.style.border = '';
+                        recaptchaSection.style.borderRadius = '';
+                        recaptchaSection.style.padding = '';
+                        recaptchaSection.style.backgroundColor = '';
+                    }, 5000);
+                }
+            }
+            return;
         }
 
         const email = emailInput.value.trim();
@@ -210,13 +391,77 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Get token from shared reCAPTCHA (Google section)
+        // Check reCAPTCHA verification status first
+        const widgetId = await ensureSharedRecaptchaWidget();
+        let recaptchaVerified = false;
+
+        if (widgetId && window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+            const token = window.grecaptcha.getResponse(widgetId);
+            recaptchaVerified = !!(token && token.length > 0);
+        }
+
+        // If reCAPTCHA is not verified, show error and highlight the reCAPTCHA section
+        if (!recaptchaVerified) {
+            // Show error message
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal(
+                    'reCAPTCHA Verification Required',
+                    'You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.',
+                    'warning'
+                );
+            } else {
+                alert('You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.');
+            }
+
+            // Highlight and scroll to reCAPTCHA section
+            const recaptchaSection = document.getElementById('googleRecaptchaSection');
+            const recaptchaHint = document.getElementById('googleRecaptchaHint');
+
+            if (recaptchaSection) {
+                // Add visual highlight
+                recaptchaSection.style.border = '2px solid #ff6b6b';
+                recaptchaSection.style.borderRadius = '4px';
+                recaptchaSection.style.padding = '8px';
+                recaptchaSection.style.backgroundColor = '#fff5f5';
+                recaptchaSection.style.transition = 'all 0.3s ease';
+
+                // Scroll to reCAPTCHA section
+                recaptchaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Remove highlight after 5 seconds
+                setTimeout(() => {
+                    recaptchaSection.style.border = '';
+                    recaptchaSection.style.borderRadius = '';
+                    recaptchaSection.style.padding = '';
+                    recaptchaSection.style.backgroundColor = '';
+                }, 5000);
+            }
+
+            // Show hint message
+            if (recaptchaHint) {
+                recaptchaHint.style.display = 'block';
+                recaptchaHint.style.color = '#ff6b6b';
+                recaptchaHint.textContent = '⚠️ Please verify the reCAPTCHA to continue';
+                recaptchaHint.style.fontWeight = '600';
+            }
+
+            // Re-enable button state check
+            updateButtonStateWithCaptcha();
+            return;
+        }
+
+        // Get token from shared reCAPTCHA (Google section) - should be verified at this point
         const recaptchaToken = await getSharedRecaptchaToken();
         if (!recaptchaToken) {
+            // Fallback check - this shouldn't happen if above check passed, but just in case
             if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('reCAPTCHA Required', 'Please complete the reCAPTCHA below the Google Sign-In before logging in.', 'warning');
+                window.showMessageModal(
+                    'reCAPTCHA Verification Failed',
+                    'reCAPTCHA verification failed. Please reload the page and try again.',
+                    'error'
+                );
             } else {
-                alert('Please complete the reCAPTCHA below the Google Sign-In before logging in.');
+                alert('reCAPTCHA verification failed. Please reload the page and try again.');
             }
             return;
         }

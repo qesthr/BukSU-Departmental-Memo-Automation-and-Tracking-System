@@ -1221,21 +1221,43 @@ exports.previewMemo = async (req, res) => {
     }
 };
 
-// Department users (for secretary search)
+// Department users (for secretary search) - Only fetch faculty members
 exports.getDepartmentUsers = async (req, res) => {
     try {
         const department = req.user.department;
+        console.log('getDepartmentUsers - User department:', department);
+        console.log('getDepartmentUsers - User ID:', req.user._id);
+        console.log('getDepartmentUsers - User role:', req.user.role);
+
         if (!department) {
+            console.log('getDepartmentUsers - No department found for user');
             return res.json({ success: true, users: [] });
         }
+
         const User = require('../models/User');
-        const users = await User.find({ department, role: { $ne: 'admin' } })
-            .select('_id email firstName lastName role department')
+
+        // Trim and normalize department name for comparison (case-insensitive)
+        const normalizedDept = department.trim();
+
+        // Only fetch faculty members from the department (case-insensitive match)
+        const users = await User.find({
+            role: 'faculty',
+            department: { $regex: new RegExp(`^${normalizedDept}$`, 'i') }
+        })
+            .select('_id email firstName lastName role department profilePicture')
             .sort({ firstName: 1, lastName: 1 });
+
+        console.log('getDepartmentUsers - Found users:', users.length);
+        console.log('getDepartmentUsers - Users:', users.map(u => ({ name: `${u.firstName} ${u.lastName}`, email: u.email, dept: u.department })));
+
+        // Also check what departments exist in the database for debugging
+        const allDepts = await User.distinct('department', { role: 'faculty' });
+        console.log('getDepartmentUsers - All departments with faculty:', allDepts);
+
         res.json({ success: true, users });
     } catch (e) {
         console.error('Error fetching department users:', e);
-        res.status(500).json({ success: false, message: 'Error fetching department users' });
+        res.status(500).json({ success: false, message: 'Error fetching department users', error: e.message });
     }
 };
 

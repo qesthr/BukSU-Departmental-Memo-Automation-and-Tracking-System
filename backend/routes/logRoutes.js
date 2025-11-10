@@ -48,6 +48,9 @@ router.post('/memos/distribute', [isAuthenticated], logController.distributeMemo
 // Dashboard stats (admin only)
 router.get('/dashboard/stats', [isAuthenticated, isAdmin], dashboardController.getDashboardStats);
 
+// Secretary dashboard stats
+router.get('/dashboard/stats/secretary', [isAuthenticated], dashboardController.getSecretaryDashboardStats);
+
 // Notifications
 router.get('/notifications', [isAuthenticated], notificationController.getNotifications);
 router.put('/notifications/:id/read', [isAuthenticated], notificationController.markAsRead);

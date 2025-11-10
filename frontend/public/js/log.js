@@ -39,7 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.disabled = true;
     }
     // Initialize
-    fetchMemos();
+    // Only fetch memos if we're on a page with memo list (not dashboard)
+    if (memoList || !window.isDashboardPage) {
+        fetchMemos();
+    }
     loadDepartments();
     preloadTemplatesAndSignatures();
 
@@ -516,10 +519,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Refresh button
-    refreshBtn.addEventListener('click', () => {
-        fetchMemos();
-        showNotification('Refreshing...', 'success');
-    });
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            fetchMemos();
+            showNotification('Refreshing...', 'success');
+        });
+    }
 
     // Select dropdown functionality - initialize after a short delay to ensure DOM is ready
     setTimeout(() => {
@@ -651,6 +656,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const recipientChipsContainer = document.getElementById('recipient-chips');
     const recipientData = []; // Store full user data, not just emails
 
+    // Expose recipientData globally for dashboard integration
+    window.recipientData = recipientData;
+
     function renderRecipientChips() {
         if (!recipientChipsContainer) {return;}
 
@@ -687,6 +695,9 @@ document.addEventListener('DOMContentLoaded', () => {
             recipientChipsContainer.appendChild(createRecipientChip(user, index));
         });
     }
+
+    // Expose renderRecipientChips globally for dashboard integration
+    window.renderRecipientChips = renderRecipientChips;
 
     function createRecipientChip(user, index) {
         const chip = document.createElement('span');
@@ -1590,24 +1601,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Back button
-    backBtn.addEventListener('click', () => {
-        showDefaultView();
-    });
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            showDefaultView();
+        });
+    }
 
     // Navigation buttons
-    prevBtn.addEventListener('click', () => {
-        if (currentMemoIndex > 0) {
-            currentMemoIndex--;
-            displayMemo(currentMemoIndex);
-        }
-    });
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentMemoIndex > 0) {
+                currentMemoIndex--;
+                displayMemo(currentMemoIndex);
+            }
+        });
+    }
 
-    nextBtn.addEventListener('click', () => {
-        if (currentMemoIndex < filteredMemos.length - 1) {
-            currentMemoIndex++;
-            displayMemo(currentMemoIndex);
-        }
-    });
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (currentMemoIndex < filteredMemos.length - 1) {
+                currentMemoIndex++;
+                displayMemo(currentMemoIndex);
+            }
+        });
+    }
 
     if (downloadBtn) {
         downloadBtn.addEventListener('click', async () => {
@@ -1684,8 +1701,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Delete button
-    deleteBtn.addEventListener('click', async () => {
-        if (!currentMemoId) {return;}
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            if (!currentMemoId) {return;}
 
         // Store the memo for potential undo
         const memoToDelete = filteredMemos[currentMemoIndex];
@@ -1722,10 +1740,15 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error:', error);
             showNotification('Error deleting memo', 'error');
         }
-    });
+        });
+    }
 
     // Fetch memos
     async function fetchMemos() {
+        // Only fetch if memoList exists (we're on memos page, not dashboard)
+        if (!memoList) {
+            return;
+        }
         try {
             // If "Sent by Me" filter is active, fetch from sent folder
             const folderToFetch = currentSort === 'sent' ? 'sent' : currentFolder;
@@ -1746,6 +1769,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Apply filters (department, priority, search, date, sent) and sorting
     function applyFilters() {
+        // Only apply filters if memoList exists (we're on memos page, not dashboard)
+        if (!memoList) {
+            return;
+        }
         // Start with all memos
         filteredMemos = [...memos];
 
@@ -1881,6 +1908,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render memo list
     function renderMemoList() {
+        // Only render if memoList exists (we're on memos page, not dashboard)
+        if (!memoList) {
+            return;
+        }
         if (filteredMemos.length === 0) {
             memoList.innerHTML = '<div style="padding: 40px; text-align: center; color: #9ca3af;">No memos found</div>';
             return;
