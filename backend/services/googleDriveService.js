@@ -236,14 +236,89 @@ async function uploadMemoToDrive(memo) {
 
         pdfDoc.moveDown(1.5);
 
+        // Helper functions for HTML processing
+        function sanitizeHTML(html) {
+            if (!html) {return '';}
+            return html
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/javascript:/gi, '')
+                .replace(/<iframe/gi, '&lt;iframe');
+        }
+
+        function htmlToPlainText(html) {
+            if (!html) {return '';}
+            let text = html;
+            text = text.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/p>/gi, '\n\n');
+            text = text.replace(/<\/div>/gi, '\n');
+            text = text.replace(/<li>/gi, '\n• ');
+            text = text.replace(/<\/li>/gi, '');
+            text = text.replace(/&nbsp;/gi, ' ');
+            text = text.replace(/&amp;/gi, '&');
+            text = text.replace(/&lt;/gi, '<');
+            text = text.replace(/&gt;/gi, '>');
+            text = text.replace(/&quot;/gi, '"');
+            text = text.replace(/&#39;/gi, '\'');
+            text = text.replace(/<[^>]+>/g, '');
+            text = text.replace(/\r/g, '');
+            text = text.replace(/\n{3,}/g, '\n\n');
+            return text.trim();
+        }
+
+        // Process content: convert HTML to plain text and extract inline images
+        const sanitizedContent = sanitizeHTML(memo.content);
+        const plainContent = htmlToPlainText(sanitizedContent);
+
+        // Extract inline images from HTML content
+        const inlineImages = [];
+        if (sanitizedContent) {
+            const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+            let match;
+            while ((match = imgRegex.exec(sanitizedContent)) !== null) {
+                const imgSrc = match[1];
+                if (imgSrc && !imgSrc.startsWith('data:')) {
+                    inlineImages.push(imgSrc);
+                }
+            }
+        }
+
         // Content - PDFKit's text() method automatically handles page breaks
-        if (memo.content) {
+        if (plainContent) {
             // Ensure we have some space before adding content
             ensureSpace(100);
-            pdfDoc.fontSize(11).text(memo.content, { align: 'left', lineGap: 2 });
+            pdfDoc.fontSize(11).text(plainContent, { align: 'left', lineGap: 4 });
         } else {
             ensureSpace(50);
             pdfDoc.fontSize(11).text('(No content)', { align: 'left', italic: true });
+        }
+
+        // Embed inline images from content
+        if (inlineImages.length > 0) {
+            pdfDoc.moveDown(1);
+            for (const imgSrc of inlineImages) {
+                try {
+                    let imagePath = imgSrc;
+                    if (imgSrc.startsWith('/uploads/')) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    } else if (imgSrc.startsWith('uploads/')) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    } else if (!path.isAbsolute(imgSrc)) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    }
+
+                    if (fs.existsSync(imagePath)) {
+                        ensureSpace(400);
+                        const maxWidth = 450;
+                        const maxHeight = 400;
+                        pdfDoc.image(imagePath, 50, pdfDoc.y, { fit: [maxWidth, maxHeight], align: 'left' });
+                        pdfDoc.moveDown(1);
+                    }
+                } catch (imgError) {
+                    // eslint-disable-next-line no-console
+                    console.warn('Could not embed inline image:', imgError.message);
+                }
+            }
         }
 
         // Ensure we have space after content before attachments

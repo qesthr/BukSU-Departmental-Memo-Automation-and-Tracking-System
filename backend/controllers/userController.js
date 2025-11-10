@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const LOCK_TTL_MS = 30000; // 30 seconds
 const UserLock = require('../models/UserLock');
+const { audit } = require('../middleware/auditLogger');
 
 exports.acquireUserLock = async (req, res) => {
     try {
@@ -26,6 +27,8 @@ exports.acquireUserLock = async (req, res) => {
         );
         // Notify others a lock has been acquired
         try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_acquired', { userId, lockedBy: req.user._id, name: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() }); } catch (e) {}
+        // Persist audit log
+        try { await audit(req.user, 'user_lock_acquired', 'User edit lock acquired', `Lock acquired for user ${userId}`, { targetUserId: userId, ttl_seconds: 30 }); } catch (e) {}
         return res.json({ ok: true, ttl: 30 });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to acquire lock' });
@@ -45,6 +48,8 @@ exports.refreshUserLock = async (req, res) => {
         lock.lockTime = new Date();
         lock.expiresAt = new Date(Date.now() + LOCK_TTL_MS);
         await lock.save();
+        // Persist audit log (lightweight)
+        try { await audit(req.user, 'user_lock_refreshed', 'User edit lock refreshed', `Lock refreshed for user ${userId}`, { targetUserId: userId, ttl_seconds: 30 }); } catch (e) {}
         return res.json({ ok: true, ttl: 30 });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to refresh lock' });
@@ -60,6 +65,8 @@ exports.releaseUserLock = async (req, res) => {
         }
         await UserLock.deleteOne({ userId });
         try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_released', { userId }); } catch (e) {}
+        // Persist audit log
+        try { await audit(req.user, 'user_lock_released', 'User edit lock released', `Lock released for user ${userId}`, { targetUserId: userId }); } catch (e) {}
         return res.json({ ok: true });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to release lock' });
@@ -142,6 +149,8 @@ exports.addUser = async (req, res) => {
         const user = new User(userData);
 
         await user.save();
+        // Audit create
+        try { await audit(req.user, 'user_created', 'User Created', `Created user ${user.email}`, { targetUserId: user._id, role: user.role, department: user.department }); } catch (e) {}
         // Release any lock and notify success
         try {
             await UserLock.deleteOne({ userId: id });
@@ -220,6 +229,8 @@ exports.deleteUser = async (req, res) => {
 
         // Delete the user
         await User.findByIdAndDelete(id);
+        // Audit delete
+        try { await audit(req.user, 'user_deleted', 'User Deleted', `Deleted user ${deletedUser.email}`, { targetUserId: id, role: deletedUser.role, department: deletedUser.department }); } catch (e) {}
 
         // Create log entry for user deletion (non-blocking)
         try {
@@ -323,6 +334,8 @@ exports.updateUser = async (req, res) => {
         }
 
         await user.save();
+        // Audit update
+        try { await audit(req.user, 'user_updated', 'User Updated', `Updated user ${user.email}`, { targetUserId: user._id, fields: Object.keys(req.body || {}) }); } catch (e) {}
 
         res.json({
             success: true,

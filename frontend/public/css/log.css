@@ -535,6 +535,12 @@
     color: #2563eb;
 }
 
+.icon-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    color: #9ca3af;
+}
+
 .icon-btn i {
     width: 20px;
     height: 20px;

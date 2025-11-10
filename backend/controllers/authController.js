@@ -156,7 +156,7 @@ const login = async (req, res, next) => {
         const body = req.body || {};
         const { email, password, recaptchaToken, 'g-recaptcha-response': recaptchaResponse } = body;
         const token = recaptchaToken || recaptchaResponse;
-        const isDevBypass = (process.env.BYPASS_RECAPTCHA === 'true') || (req.headers && req.headers['x-dev-bypass-recaptcha'] === 'true');
+        const isDevBypass = process.env.BYPASS_RECAPTCHA === 'true';
 
         // Validate input
         if (!email || !password) {
@@ -507,7 +507,7 @@ module.exports.updateMe = async (req, res) => {
         }
         const updates = {};
         const allowed = ['firstName', 'lastName', 'email'];
-        allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+        allowed.forEach(k => { if (req.body[k] !== undefined) {updates[k] = req.body[k];} });
         const User = require('../models/User');
         const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
         return res.json({ success: true, message: 'Profile updated successfully', user });

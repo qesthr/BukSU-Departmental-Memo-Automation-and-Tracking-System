@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const starBtn = document.getElementById('starBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const memoCounter = document.getElementById('memoCounter');
     const refreshBtn = document.getElementById('refreshBtn');
@@ -34,6 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMemoIndex = -1;
     let currentMemoId = null;
 
+    if (downloadBtn) {
+        downloadBtn.disabled = true;
+    }
     // Initialize
     fetchMemos();
     loadDepartments();
@@ -1605,6 +1609,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', async () => {
+            if (!currentMemoId || currentMemoIndex < 0 || !filteredMemos[currentMemoIndex]) {return;}
+
+            try {
+                downloadBtn.disabled = true;
+
+                const memo = filteredMemos[currentMemoIndex];
+                const response = await fetch(`/api/log/memos/${currentMemoId}/download`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ message: 'Failed to download memo' }));
+                    throw new Error(error.message || 'Failed to download memo');
+                }
+
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                const safeSubject = (memo.subject || 'Memo')
+                    .replace(/[\\/:*?"<>|]+/g, '')
+                    .trim()
+                    .replace(/\s+/g, '_')
+                    .substring(0, 80) || 'Memo';
+                link.download = `${safeSubject}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error('Download error:', error);
+                showNotification(error.message || 'Error downloading memo', 'error');
+            } finally {
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                }
+            }
+        });
+    }
+
     // Star button
     if (starBtn) {
     starBtn.addEventListener('click', async () => {
@@ -2264,6 +2311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show viewer first before trying to access elements
         showMemoViewer();
+        if (downloadBtn) {downloadBtn.disabled = false;}
 
         // Detect calendar event memos and toggle the MEMO header visibility
         const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
@@ -2467,6 +2515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (memoViewer) {memoViewer.style.display = 'none';}
         currentMemoIndex = -1;
         currentMemoId = null;
+        if (downloadBtn) {downloadBtn.disabled = true;}
     }
 
     // Hide memo viewer

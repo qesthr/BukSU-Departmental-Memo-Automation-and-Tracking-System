@@ -16,6 +16,7 @@ router.post('/memos/preview', [isAuthenticated], logController.previewMemo);
 router.get('/memos', [isAuthenticated], logController.getAllMemos);
 
 // Get single memo (keep AFTER static routes to avoid conflicts)
+router.get('/memos/:id/download', [isAuthenticated], logController.downloadMemo);
 router.get('/memos/:id', [isAuthenticated], logController.getMemo);
 
 // Create memo (attachments are files, converted server-side)

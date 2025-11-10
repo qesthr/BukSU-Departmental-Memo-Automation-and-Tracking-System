@@ -138,6 +138,426 @@ exports.getMemo = async (req, res) => {
     }
 };
 
+// Download memo as PDF
+exports.downloadMemo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid memo id' });
+        }
+
+        const memo = await Memo.findById(id)
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role');
+
+        if (!memo) {
+            return res.status(404).json({ success: false, message: 'Memo not found' });
+        }
+
+        const userId = req.user._id.toString();
+        const isAdmin = req.user.role === 'admin';
+        const isPendingAdmin = memo.status === 'pending' || memo.status === 'PENDING_ADMIN' || memo.status === 'pending_admin';
+        const isSender = memo.sender?._id?.toString() === userId;
+        const isRecipient = memo.recipient?._id?.toString() === userId;
+
+        if (!isSender && !isRecipient && !(isAdmin && isPendingAdmin)) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        if (memo.recipient?._id && memo.recipient._id.toString() === userId && !memo.isRead) {
+            memo.isRead = true;
+            memo.readAt = new Date();
+            await memo.save();
+        }
+
+        const memoObj = memo.toObject ? memo.toObject() : memo;
+        memoObj.attachments = memoObj.attachments || [];
+        memoObj.signatures = memoObj.signatures || [];
+
+        const sanitizedContent = sanitizeHTML(memoObj.content);
+        const plainContent = htmlToPlainText(sanitizedContent);
+
+        // Extract inline images from HTML content
+        const inlineImages = [];
+        if (sanitizedContent) {
+            const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+            let match;
+            while ((match = imgRegex.exec(sanitizedContent)) !== null) {
+                const imgSrc = match[1];
+                if (imgSrc && !imgSrc.startsWith('data:')) {
+                    inlineImages.push(imgSrc);
+                }
+            }
+        }
+
+        const PDFDocument = require('pdfkit');
+        const fs = require('fs');
+        const path = require('path');
+        const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+        const chunks = [];
+        let pdfError = null;
+
+        // Helper function to ensure space on page
+        const ensureSpace = (requiredHeight) => {
+            const pageHeight = doc.page.height;
+            const bottomMargin = 50;
+            const currentY = doc.y;
+            const availableHeight = pageHeight - currentY - bottomMargin;
+            if (availableHeight < requiredHeight) {
+                doc.addPage();
+                return true;
+            }
+            return false;
+        };
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('error', (err) => {
+            pdfError = err;
+            // eslint-disable-next-line no-console
+            console.error('Error generating memo PDF:', err);
+        });
+
+        doc.on('end', () => {
+            if (pdfError) {
+                if (!res.headersSent) {
+                    res.status(500).json({ success: false, message: 'Error generating memo PDF' });
+                }
+                return;
+            }
+            const pdfBuffer = Buffer.concat(chunks);
+            const filename = `${createSafeFilename(memoObj.subject || 'Memo')}.pdf`;
+            if (!res.headersSent) {
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+                res.setHeader('Content-Length', pdfBuffer.length);
+            }
+            res.send(pdfBuffer);
+        });
+
+        // Title - larger and bold
+        doc.font('Helvetica-Bold').fontSize(24).fillColor('#111827').text('MEMO', { align: 'center' });
+        doc.moveDown(2);
+
+        const senderName = memo.sender ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim() : 'N/A';
+        const recipientName = memo.recipient ? `${memo.recipient.firstName || ''} ${memo.recipient.lastName || ''}`.trim() : 'N/A';
+        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+        // Memo details with better spacing
+        doc.font('Helvetica').fontSize(12).fillColor('#111827')
+            .text(`Subject: ${memoObj.subject || 'No subject'}`)
+            .moveDown(0.4)
+            .text(`From: ${senderName || 'N/A'}${memo.sender?.email ? ` (${memo.sender.email})` : ''}`)
+            .moveDown(0.4)
+            .text(`To: ${recipientName || 'N/A'}${memo.recipient?.email ? ` (${memo.recipient.email})` : ''}`)
+            .moveDown(0.4)
+            .text(`Department: ${memoObj.department || 'N/A'}`)
+            .moveDown(0.4)
+            .text(`Priority: ${memoObj.priority || 'medium'}`)
+            .moveDown(0.4)
+            .text(`Date: ${memoObj.createdAt ? new Date(memoObj.createdAt).toLocaleString() : new Date().toLocaleString()}`);
+
+        doc.moveDown(1.5);
+        doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+        doc.moveDown(1.5);
+
+        // Content with better formatting
+        if (plainContent) {
+            doc.fontSize(12).fillColor('#111827').text(plainContent, { align: 'left', lineGap: 6, paragraphGap: 8 });
+        } else {
+            doc.fontSize(12).fillColor('#6b7280').font('Helvetica-Oblique').text('(No memo content)');
+            doc.font('Helvetica');
+        }
+
+        // Embed inline images from content
+        if (inlineImages.length > 0) {
+            doc.moveDown(1.5);
+            for (const imgSrc of inlineImages) {
+                try {
+                    let imagePath = imgSrc;
+                    if (imgSrc.startsWith('/uploads/')) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    } else if (imgSrc.startsWith('uploads/')) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    } else if (!path.isAbsolute(imgSrc)) {
+                        imagePath = path.join(__dirname, '../../uploads', path.basename(imgSrc));
+                    }
+
+                    if (fs.existsSync(imagePath)) {
+                        ensureSpace(450);
+                        const maxWidth = 450;
+                        const maxHeight = 400;
+                        const imageY = doc.y;
+
+                        // Embed the image
+                        doc.image(imagePath, 50, imageY, { fit: [maxWidth, maxHeight], align: 'left' });
+
+                        // Move down by max possible height plus minimal spacing
+                        // Reduced spacing to allow signatures to use available space below
+                        doc.y = imageY + maxHeight + 15; // Use maxHeight + 15px minimal spacing
+
+                        // Double-check: if we somehow went past the page, add a new page
+                        const pageHeight = doc.page.height;
+                        const bottomMargin = 50;
+                        if (doc.y > pageHeight - bottomMargin) {
+                            doc.addPage();
+                        }
+                    }
+                } catch (imgError) {
+                    // eslint-disable-next-line no-console
+                    console.warn('Could not embed inline image:', imgError.message);
+                }
+            }
+        }
+
+        if (memoObj.attachments.length > 0) {
+            doc.moveDown(2);
+            // Removed "Attachments:" label as requested
+            for (const attachment of memoObj.attachments) {
+                const filename = attachment.filename || 'attachment';
+                const sizeInfo = attachment.size ? ` (${formatBytes(attachment.size)})` : '';
+                let attachmentUrl = attachment.url || `/uploads/${encodeURIComponent(filename)}`;
+                if (!/^https?:\/\//i.test(attachmentUrl)) {
+                    attachmentUrl = `${baseUrl}${attachmentUrl.startsWith('/') ? '' : '/'}${attachmentUrl}`;
+                }
+
+                const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+                if (isImage) {
+                    // Try to find the file
+                    let filePath = attachment.path;
+                    if (!filePath || !fs.existsSync(filePath)) {
+                        filePath = path.join(__dirname, '../../uploads', filename);
+                    }
+                    if (!fs.existsSync(filePath)) {
+                        filePath = path.join(__dirname, '../../uploads', path.basename(filename));
+                    }
+
+                    if (fs.existsSync(filePath)) {
+                        try {
+                            // Ensure we have enough space for the image
+                            ensureSpace(450);
+                            const maxWidth = 450;
+                            const maxHeight = 400;
+                            const imageY = doc.y;
+
+                            // Embed the image - PDFKit will scale it to fit within maxWidth x maxHeight
+                            doc.image(filePath, 50, imageY, { fit: [maxWidth, maxHeight], align: 'left' });
+
+                            // Move down by max possible height plus minimal spacing
+                            // Reduced spacing to allow signatures to use available space below
+                            doc.y = imageY + maxHeight + 15; // Use maxHeight + 15px minimal spacing
+
+                            // Double-check: if we somehow went past the page, add a new page
+                            const pageHeight = doc.page.height;
+                            const bottomMargin = 50;
+                            if (doc.y > pageHeight - bottomMargin) {
+                                doc.addPage();
+                            }
+                        } catch (imgError) {
+                            // eslint-disable-next-line no-console
+                            console.warn(`Could not embed image ${filename}:`, imgError.message);
+                            // If image can't be embedded, just show filename without link
+                            doc.moveDown(0.4);
+                            doc.fontSize(11).fillColor('#111827').text(`• ${filename}${sizeInfo}`);
+                            doc.moveDown(0.5);
+                        }
+                    } else {
+                        // File not found - just show filename without link
+                        doc.moveDown(0.4);
+                        doc.fontSize(11).fillColor('#111827').text(`• ${filename}${sizeInfo}`);
+                        doc.moveDown(0.5);
+                    }
+                } else {
+                    // Non-image attachments - show filename with link (for PDFs, docs, etc.)
+                    doc.moveDown(0.4);
+                    doc.fontSize(11).fillColor('#111827').text(`• ${filename}${sizeInfo}`);
+                    doc.fontSize(10).fillColor('#2563eb').text(attachmentUrl, {
+                        link: attachmentUrl,
+                        underline: true
+                    });
+                    doc.fillColor('#111827');
+                    doc.moveDown(0.5);
+                }
+            }
+            // Removed extra spacing - use available space for signatures
+        }
+
+        if (memoObj.signatures.length > 0) {
+            // Smart signature placement: use available space below images, only add new page if needed
+            const pageHeight = doc.page.height;
+            const bottomMargin = 50;
+            const currentY = doc.y;
+            const availableHeight = pageHeight - currentY - bottomMargin;
+
+            // Estimate required space for signatures (depends on number of signatures)
+            const numSignatures = memoObj.signatures.length;
+            const numRows = Math.ceil(numSignatures / 2);
+            const signatureSectionHeight = (numRows * 120) + 50; // ~120px per row + spacing
+
+            // Only add new page if we truly don't have enough space
+            // Otherwise, use the available space below images
+            if (availableHeight < signatureSectionHeight) {
+                doc.addPage();
+            } else {
+                // Use available space - just add a small gap
+                doc.moveDown(1);
+            }
+
+            // Add divider before signatures
+            doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+            doc.moveDown(1.5);
+
+            // Removed "Signatories:" label as requested
+            // Start directly with signatures
+
+            // Display signatures in a grid layout (2 per row, centered)
+            const signatureWidth = numSignatures === 1 ? 220 : 220; // Consistent width
+            const signatureSpacing = numSignatures > 1 ? 50 : 0;
+            // Center single signature, or align left for multiple
+            const startX = numSignatures === 1 ? (297.5 - signatureWidth / 2) : 50; // Center on page if only one
+
+            for (let i = 0; i < numSignatures; i += 2) {
+                const sig1 = memoObj.signatures[i];
+                const sig2 = memoObj.signatures[i + 1];
+
+                ensureSpace(150);
+                const rowStartY = doc.y;
+
+                // Process first signature
+                if (sig1) {
+                    const sig1X = startX;
+                    let currentY = rowStartY;
+
+                    // Embed signature image first
+                    if (sig1.imageUrl) {
+                        try {
+                            let sigImagePath = sig1.imageUrl;
+                            if (sigImagePath.startsWith('/uploads/') || sigImagePath.startsWith('uploads/')) {
+                                sigImagePath = path.join(__dirname, '../../uploads', path.basename(sigImagePath));
+                            } else if (!path.isAbsolute(sigImagePath)) {
+                                sigImagePath = path.join(__dirname, '../../uploads', path.basename(sigImagePath));
+                            }
+
+                            if (fs.existsSync(sigImagePath)) {
+                                const imageHeight = 60;
+                                doc.image(sigImagePath, sig1X, currentY, {
+                                    fit: [signatureWidth, imageHeight]
+                                });
+                                currentY += imageHeight + 8;
+                            }
+                        } catch (sigError) {
+                            // eslint-disable-next-line no-console
+                            console.warn('Could not embed signature image:', sigError.message);
+                            currentY += 60 + 8;
+                        }
+                    } else {
+                        currentY += 60 + 8;
+                    }
+
+                    // Add name (centered)
+                    const name = sig1.displayName || sig1.role || 'Signature';
+                    doc.fontSize(11).font('Helvetica-Bold').fillColor('#111827')
+                        .text(name, sig1X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    currentY += 15;
+
+                    // Add title (centered, gray)
+                    const title = sig1.roleTitle || sig1.role || '';
+                    if (title) {
+                        doc.fontSize(9).font('Helvetica').fillColor('#6b7280')
+                            .text(title, sig1X, currentY, {
+                                width: signatureWidth,
+                                align: 'center'
+                            });
+                    }
+                    doc.fillColor('#111827');
+                }
+
+                // Process second signature (if exists)
+                if (sig2) {
+                    const sig2X = startX + signatureWidth + signatureSpacing;
+                    let currentY = rowStartY;
+
+                    // Embed signature image first
+                    if (sig2.imageUrl) {
+                        try {
+                            let sigImagePath = sig2.imageUrl;
+                            if (sigImagePath.startsWith('/uploads/') || sigImagePath.startsWith('uploads/')) {
+                                sigImagePath = path.join(__dirname, '../../uploads', path.basename(sigImagePath));
+                            } else if (!path.isAbsolute(sigImagePath)) {
+                                sigImagePath = path.join(__dirname, '../../uploads', path.basename(sigImagePath));
+                            }
+
+                            if (fs.existsSync(sigImagePath)) {
+                                const imageHeight = 60;
+                                doc.image(sigImagePath, sig2X, currentY, {
+                                    fit: [signatureWidth, imageHeight]
+                                });
+                                currentY += imageHeight + 8;
+                            }
+                        } catch (sigError) {
+                            // eslint-disable-next-line no-console
+                            console.warn('Could not embed signature image:', sigError.message);
+                            currentY += 60 + 8;
+                        }
+                    } else {
+                        currentY += 60 + 8;
+                    }
+
+                    // Add name (centered)
+                    const name = sig2.displayName || sig2.role || 'Signature';
+                    doc.fontSize(11).font('Helvetica-Bold').fillColor('#111827')
+                        .text(name, sig2X, currentY, {
+                            width: signatureWidth,
+                            align: 'center'
+                        });
+                    currentY += 15;
+
+                    // Add title (centered, gray)
+                    const title = sig2.roleTitle || sig2.role || '';
+                    if (title) {
+                        doc.fontSize(9).font('Helvetica').fillColor('#6b7280')
+                            .text(title, sig2X, currentY, {
+                                width: signatureWidth,
+                                align: 'center'
+                            });
+                    }
+                    doc.fillColor('#111827');
+                }
+
+                // Calculate max height for this row
+                let sig1Height = 0;
+                let sig2Height = 0;
+
+                if (sig1) {
+                    sig1Height = 60 + 8; // Image + spacing
+                    sig1Height += 15; // Name
+                    if (sig1.roleTitle) sig1Height += 12; // Title
+                }
+
+                if (sig2) {
+                    sig2Height = 60 + 8; // Image + spacing
+                    sig2Height += 15; // Name
+                    if (sig2.roleTitle) sig2Height += 12; // Title
+                }
+
+                const maxHeight = Math.max(sig1Height, sig2Height);
+                doc.y = rowStartY + maxHeight + 20;
+            }
+        }
+
+        doc.end();
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error preparing memo download:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, message: 'Error generating memo PDF' });
+        }
+    }
+};
+
 // Basic HTML sanitization function
 function sanitizeHTML(html) {
     if (!html) {return '';}
@@ -147,6 +567,47 @@ function sanitizeHTML(html) {
         .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
         .replace(/javascript:/gi, '')
         .replace(/<iframe/gi, '&lt;iframe');
+}
+
+function htmlToPlainText(html) {
+    if (!html) {return '';}
+    let text = html;
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/p>/gi, '\n\n');
+    text = text.replace(/<\/div>/gi, '\n');
+    text = text.replace(/<li>/gi, '\n• ');
+    text = text.replace(/<\/li>/gi, '');
+    text = text.replace(/&nbsp;/gi, ' ');
+    text = text.replace(/&amp;/gi, '&');
+    text = text.replace(/&lt;/gi, '<');
+    text = text.replace(/&gt;/gi, '>');
+    text = text.replace(/&quot;/gi, '"');
+    text = text.replace(/&#39;/gi, '\'');
+    text = text.replace(/<[^>]+>/g, '');
+    text = text.replace(/\r/g, '');
+    text = text.replace(/\n{3,}/g, '\n\n');
+    return text.trim();
+}
+
+function formatBytes(bytes) {
+    if (!bytes || Number.isNaN(bytes)) {return '0 B';}
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return `${size < 10 && unitIndex > 0 ? size.toFixed(1) : Math.round(size)} ${units[unitIndex]}`;
+}
+
+function createSafeFilename(subject) {
+    if (!subject) {return 'Memo';}
+    return subject
+        .replace(/[\\/:*?"<>|]+/g, '')
+        .replace(/\s+/g, '_')
+        .trim()
+        .substring(0, 80) || 'Memo';
 }
 
 // Create a new memo
