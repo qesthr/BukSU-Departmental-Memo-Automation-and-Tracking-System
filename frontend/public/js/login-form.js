@@ -51,62 +51,132 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn(' Error: showAccountLockoutModal is not defined. Make sure account-lockout-modal.js is loaded.');
     }
 
-    // Track reCAPTCHA verification state
-    let recaptchaVerified = false;
-
-    // Show reCAPTCHA when user starts typing password
-    if (passwordInput && recaptchaContainer) {
-        passwordInput.addEventListener('input', function() {
-            if (this.value.trim().length > 0) {
-                recaptchaContainer.style.display = 'block';
-                // eslint-disable-next-line no-console
-                console.log(' Info: Password entered - reCAPTCHA shown');
-            } else {
-                recaptchaContainer.style.display = 'none';
-                recaptchaVerified = false;
-                updateLoginButton();
-            }
-        });
+    // Initial state: disabled until captcha + fields are valid
+    if (loginButton) {
+        loginButton.disabled = true;
+        loginButton.style.opacity = '0.6';
+        loginButton.style.cursor = 'not-allowed';
     }
 
-    // Function to enable/disable login button based on reCAPTCHA state
-    function updateLoginButton() {
-        if (loginButton) {
-            if (recaptchaVerified) {
-                loginButton.disabled = false;
-                loginButton.style.opacity = '1';
-                loginButton.style.cursor = 'pointer';
-                // eslint-disable-next-line no-console
-                console.log(' Success: Login button ENABLED');
-            } else {
-                loginButton.disabled = true;
-                loginButton.style.opacity = '0.6';
-                loginButton.style.cursor = 'not-allowed';
-                // eslint-disable-next-line no-console
-                console.log(' Error: Login button DISABLED - Complete reCAPTCHA first');
+    // Helper: get token from the single Google reCAPTCHA checkbox (shared widget)
+    async function getSharedRecaptchaToken() {
+        try {
+            // Ensure widget exists; if not, render it in the Google section
+            const existing = document.getElementById('googleRecaptchaWidget');
+            let widgetId = existing ? existing.getAttribute('data-widget-id') : null;
+
+            if (!widgetId) {
+                const container = document.getElementById('googleRecaptchaContainer');
+                if (!container) {
+                    throw new Error('Shared reCAPTCHA container not found');
+                }
+                const div = document.createElement('div');
+                div.id = 'googleRecaptchaWidget';
+                container.appendChild(div);
+
+                // Wait for grecaptcha to be ready
+                let tries = 0;
+                while ((!window.grecaptcha || typeof window.grecaptcha.render !== 'function') && tries < 10) {
+                    // 3 seconds total
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                    tries++;
+                }
+
+                const sitekey = container.getAttribute('data-sitekey');
+                if (!sitekey) {
+                    throw new Error('Missing reCAPTCHA site key');
+                }
+
+                widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
+                    sitekey: sitekey,
+                    size: 'normal'
+                });
+                document.getElementById('googleRecaptchaWidget').setAttribute('data-widget-id', widgetId);
             }
+
+            // If already checked
+            const token = window.grecaptcha.getResponse(widgetId);
+            if (token && token.length > 0) return token;
+
+            // Prompt user to check the box
+            const hint = document.getElementById('googleRecaptchaHint');
+            if (hint) {
+                hint.style.display = 'block';
+                hint.textContent = 'Please check the box to continue';
+            }
+            document.getElementById('googleRecaptchaWidget')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            return await new Promise((resolve) => {
+                const interval = setInterval(() => {
+                    const t = window.grecaptcha.getResponse(widgetId);
+                    if (t && t.length > 0) {
+                        clearInterval(interval);
+                        resolve(t);
+                    }
+                }, 300);
+            });
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('reCAPTCHA acquire error:', e);
+            return '';
         }
     }
 
-    // Initialize button state on load
-    updateLoginButton();
+    // Ensure the shared reCAPTCHA is rendered and return widget id (string)
+    async function ensureSharedRecaptchaWidget() {
+        try {
+            const existing = document.getElementById('googleRecaptchaWidget');
+            let widgetId = existing ? existing.getAttribute('data-widget-id') : null;
+            if (!widgetId) {
+                const container = document.getElementById('googleRecaptchaContainer');
+                if (!container) return null;
+                const div = document.createElement('div');
+                div.id = 'googleRecaptchaWidget';
+                container.appendChild(div);
 
-    // Track when reCAPTCHA is completed (called by reCAPTCHA widget)
-    // eslint-disable-next-line no-unused-vars
-    window.enableSubmit = function enableSubmit(token) {
-        recaptchaVerified = true;
-        updateLoginButton();
-        // eslint-disable-next-line no-console
-        console.log(' Success: reCAPTCHA verified - button enabled');
-    };
+                let tries = 0;
+                while ((!window.grecaptcha || typeof window.grecaptcha.render !== 'function') && tries < 10) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                    tries++;
+                }
+                const sitekey = container.getAttribute('data-sitekey');
+                if (!sitekey || !window.grecaptcha) return null;
+                widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
+                    sitekey: sitekey,
+                    size: 'normal'
+                });
+                document.getElementById('googleRecaptchaWidget').setAttribute('data-widget-id', widgetId);
+            }
+            return widgetId;
+        } catch {
+            return null;
+        }
+    }
 
-    // Track when reCAPTCHA expires or is reset (called by reCAPTCHA widget)
-    window.disableSubmit = function disableSubmit() {
-        recaptchaVerified = false;
-        updateLoginButton();
-        // eslint-disable-next-line no-console
-        console.log(' Error: reCAPTCHA expired - button disabled');
-    };
+    // Enable login button only when email+password filled and captcha checked
+    async function updateButtonStateWithCaptcha() {
+        const emailOk = !!emailInput.value.trim();
+        const passwordOk = !!passwordInput.value;
+        const widgetId = await ensureSharedRecaptchaWidget();
+        let captchaOk = false;
+        if (widgetId && window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+            captchaOk = !!window.grecaptcha.getResponse(widgetId);
+        }
+        const enable = emailOk && passwordOk && captchaOk;
+        if (loginButton) {
+            loginButton.disabled = !enable;
+            loginButton.style.opacity = enable ? '1' : '0.6';
+            loginButton.style.cursor = enable ? 'pointer' : 'not-allowed';
+        }
+    }
+
+    // Set up listeners and polling
+    emailInput.addEventListener('input', updateButtonStateWithCaptcha);
+    passwordInput.addEventListener('input', updateButtonStateWithCaptcha);
+    // Light polling to catch checkbox changes
+    setInterval(updateButtonStateWithCaptcha, 500);
 
     // Handle login submission
     loginForm.addEventListener('submit', async (e) => {
@@ -140,45 +210,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Check if reCAPTCHA is loaded
-        if (typeof window.grecaptcha === 'undefined' || !window.grecaptcha) {
+        // Get token from shared reCAPTCHA (Google section)
+        const recaptchaToken = await getSharedRecaptchaToken();
+        if (!recaptchaToken) {
             if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('reCAPTCHA Error', 'reCAPTCHA is not loaded. Please refresh the page and try again.', 'error');
+                window.showMessageModal('reCAPTCHA Required', 'Please complete the reCAPTCHA below the Google Sign-In before logging in.', 'warning');
             } else {
-                alert('reCAPTCHA Error: reCAPTCHA is not loaded. Please refresh the page and try again.');
+                alert('Please complete the reCAPTCHA below the Google Sign-In before logging in.');
             }
             return;
         }
-
-        // Get reCAPTCHA token and verify it's completed
-        let recaptchaToken = '';
-        try {
-            if (typeof window.grecaptcha.getResponse === 'function') {
-                recaptchaToken = window.grecaptcha.getResponse();
-            }
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Error getting reCAPTCHA response:', error);
-        }
-
-        // If no token, show error immediately and STOP
-        if (!recaptchaToken || recaptchaToken.trim() === '') {
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('reCAPTCHA Required', 'Please verify the reCAPTCHA before logging in.', 'warning');
-            } else {
-                alert('Please verify the reCAPTCHA before logging in.');
-            }
-            // Focus on the reCAPTCHA to help user
-            const recaptchaContainer = document.getElementById('recaptchaContainer');
-            if (recaptchaContainer) {
-                recaptchaContainer.style.display = 'block';
-                recaptchaContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            return;
-        }
-
-        // eslint-disable-next-line no-console
-        console.log(' Success: reCAPTCHA token obtained, verifying on server...');
 
         // Show loading state
         loginButton.disabled = true;
@@ -215,11 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     alert('Server Error: Unable to process login response. Please try again.');
                 }
-                recaptchaVerified = false;
-                if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-                    window.grecaptcha.reset();
-                }
-                window.disableSubmit();
                 return;
             }
 
@@ -317,12 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Reset reCAPTCHA on error
-                recaptchaVerified = false;
-                if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-                    window.grecaptcha.reset();
-                }
-                window.disableSubmit();
+
             }
         } catch (error) {
             // eslint-disable-next-line no-console
@@ -331,11 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.showMessageModal('Network Error', 'Network error. Please try again.', 'error');
             } else {
                 alert('Network Error: Network error. Please try again.');
-            }
-            // Reset reCAPTCHA on network error
-            recaptchaVerified = false;
-            if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-                window.grecaptcha.reset();
             }
         } finally {
             // Re-enable button on failure

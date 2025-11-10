@@ -170,15 +170,7 @@
                             <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
                             <input type="password" name="password" id="passwordInput" placeholder="Password" required>
                         </div>
-                        <div id="recaptchaContainer" style="display: none;  margin: 15px 0;text-align: center;">
-                            <div id="recaptcha" class="g-recaptcha" data-sitekey="<%= RECAPTCHA_SITE_KEY %>"
-                                data-callback="enableSubmit" data-expired-callback="disableSubmit" data-theme="light"
-                                style="display: inline-block;">
-                            </div>
-                            <p style="color: #666; font-size: 13px; margin-top: 1px;">Please complete the reCAPTCHA to
-                                continue</p>
-                        </div>
-                        <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
+                        <button type="submit" class="login-btn" id="loginButton">Login</button>
 
                         <div class="forgot-password-link">
                             <a href="/forgot-password" id="forgotPasswordLink" style="text-decoration:none;">Forgot

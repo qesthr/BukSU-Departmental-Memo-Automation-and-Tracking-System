@@ -166,7 +166,7 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Verify reCAPTCHA (skip in dev bypass mode)
+        // Verify reCAPTCHA (shared checkbox) unless bypassed in dev
         if (!isDevBypass) {
             if (!token) {
                 return res.status(400).json({
@@ -174,11 +174,7 @@ const login = async (req, res, next) => {
                     message: 'Please complete reCAPTCHA verification.'
                 });
             }
-
             try {
-                // Verify reCAPTCHA token with Google
-                console.log('Verifying reCAPTCHA token...');
-
                 const response = await axios({
                     method: 'POST',
                     url: 'https://www.google.com/recaptcha/api/siteverify',
@@ -188,27 +184,18 @@ const login = async (req, res, next) => {
                     }
                 });
 
-                console.log('reCAPTCHA verification response:', response.data);
-
                 if (!response.data.success) {
-                    console.error('reCAPTCHA verification failed:', response.data['error-codes']);
                     return res.status(400).json({
                         success: false,
                         message: 'reCAPTCHA verification failed. Please try again.'
                     });
                 }
-
-                console.log('✅ reCAPTCHA verified successfully');
             } catch (error) {
-                console.error('reCAPTCHA verification error:', error.message);
-                console.error('Error details:', error.response?.data);
                 return res.status(500).json({
                     success: false,
                     message: 'Error verifying reCAPTCHA. Please try again.'
                 });
             }
-        } else {
-            console.log('⚠️  reCAPTCHA verification bypassed (dev mode).');
         }
 
         // First check if user exists at all (regardless of active status)
