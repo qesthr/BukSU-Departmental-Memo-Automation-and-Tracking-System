@@ -19,8 +19,9 @@
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    margin-bottom: 0.5rem;
+    margin-top: -35px;
     position: relative;
+
     /* ensure stacking context */
     z-index: 101;
     /* sit above page content */

@@ -13,7 +13,7 @@
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 0.75rem;
+    padding: 0.2rem;
     overflow-y: auto;
     position: relative;
     z-index: 1;
@@ -688,6 +688,7 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: .5rem;
+
 }
 
 .mini-cal-nav .btn-icon {

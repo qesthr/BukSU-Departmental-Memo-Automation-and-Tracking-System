@@ -13,6 +13,11 @@
     margin: 0 auto;
 }
 
+/* Users page specific: prevent main content from scrolling */
+.main-content {
+    overflow-y: hidden;
+}
+
 /* ===== Header ===== */
 .content-header {
     display: flex;
@@ -25,7 +30,8 @@
 .header-title h1 {
     font-size: 1.5rem;
     font-weight: 600;
-    color: var(--text-dark);
+    color: rgb(3, 3, 3);
+    margin-left: 15px;
 }
 
 .header-actions {
@@ -120,7 +126,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: var(--primary);
+    /* background: var(--primary); */
     color: white;
     border: none;
     padding: 0.65rem 1rem;
@@ -129,12 +135,8 @@
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-}
-
-#addUserBtn:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    position: relative;
+    right: 20px;
 }
 
 #addUserBtn i {
