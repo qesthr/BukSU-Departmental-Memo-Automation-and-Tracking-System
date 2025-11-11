@@ -8,15 +8,20 @@
 
 :root {
     --primary: #0066ff;
+    --primary-dark: #0052cc;
+    --primary-light: #dbeafe;
     --secondary: #64748b;
     --bg-main: #FAFAFA;
+    --bg-hover: #f8fafc;
     --bg-sidebar: #02021e;
     --text-light: #94a3b8;
     --text-dark: #1e293b;
     --border: #e2e8f0;
     --danger: #dc2626;
     --warning: #f59e0b;
+    --warning-light: #fef3c7;
     --success: #10b981;
+    --success-light: #d1fae5;
 }
 
 body {

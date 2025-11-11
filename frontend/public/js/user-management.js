@@ -353,6 +353,29 @@ function normalizeDepartment(dept) {
         const role = document.getElementById('role');
         if (dept && !dept.value) { dept.value = ''; }
         if (role && !role.value) { role.value = 'faculty'; }
+
+        // Apply role -> department UI rules for Add form
+        (function initAddRoleRules(){
+            const roleSel = document.getElementById('role');
+            const depSel = document.getElementById('department');
+            if (!roleSel || !depSel) {return;}
+            function apply(){
+                if (roleSel.value === 'admin') {
+                    depSel.disabled = true;
+                    depSel.value = '';
+                } else {
+                    depSel.disabled = false;
+                }
+            }
+            // initialize current state
+            apply();
+            // avoid duplicate listeners
+            if (!roleSel.__wiredAddRoleChange) {
+                roleSel.addEventListener('change', apply);
+                roleSel.__wiredAddRoleChange = true;
+            }
+        })();
+
         // Email hint behavior
         const emailInputEl = document.getElementById('email');
         const emailHintEl = document.getElementById('emailHint');
@@ -798,11 +821,11 @@ function normalizeDepartment(dept) {
         const ccGroup = document.getElementById('editCanCrossSendGroup');
         const ccBox = document.getElementById('editCanCrossSend');
         if (user.role === 'secretary') {
-            if (ccGroup) ccGroup.style.display = 'flex';
-            if (ccBox) ccBox.checked = !!user.canCrossSend;
+            if (ccGroup) {ccGroup.style.display = 'flex';}
+            if (ccBox) {ccBox.checked = !!user.canCrossSend;}
         } else {
-            if (ccGroup) ccGroup.style.display = 'none';
-            if (ccBox) ccBox.checked = false;
+            if (ccGroup) {ccGroup.style.display = 'none';}
+            if (ccBox) {ccBox.checked = false;}
         }
         const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
         const note = document.getElementById('selfEditNote');
@@ -824,21 +847,21 @@ function normalizeDepartment(dept) {
     // Update canCrossSend visibility on role change in the edit form
     (function wireRoleChange(){
         const roleSel = document.getElementById('editRole');
-        if (!roleSel) return;
+        if (!roleSel) {return;}
         roleSel.addEventListener('change', () => {
             const ccGroup = document.getElementById('editCanCrossSendGroup');
             const ccBox = document.getElementById('editCanCrossSend');
             const depSel = document.getElementById('editDepartment');
             if (roleSel.value === 'secretary') {
-                if (ccGroup) ccGroup.style.display = 'flex';
-                if (depSel) depSel.disabled = false;
+                if (ccGroup) {ccGroup.style.display = 'flex';}
+                if (depSel) {depSel.disabled = false;}
             } else {
-                if (ccGroup) ccGroup.style.display = 'none';
-                if (ccBox) ccBox.checked = false;
+                if (ccGroup) {ccGroup.style.display = 'none';}
+                if (ccBox) {ccBox.checked = false;}
                 if (roleSel.value === 'admin') {
                     if (depSel) { depSel.disabled = true; depSel.value = ''; }
                 } else {
-                    if (depSel) depSel.disabled = false;
+                    if (depSel) {depSel.disabled = false;}
                 }
             }
         });
