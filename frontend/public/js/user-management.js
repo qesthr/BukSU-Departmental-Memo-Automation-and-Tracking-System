@@ -474,6 +474,11 @@ function normalizeDepartment(dept) {
             role: document.getElementById('editRole').value,
             lastUpdatedAt: document.getElementById('editLastUpdatedAt').value
         };
+        // Include isActive flag
+        const activeBox = document.getElementById('editIsActive');
+        if (activeBox) {
+            formData.isActive = !!activeBox.checked;
+        }
         // Include canCrossSend only when role is secretary
         const roleVal = formData.role;
         const canCrossEl = document.getElementById('editCanCrossSend');
@@ -777,6 +782,11 @@ function normalizeDepartment(dept) {
         depSel.value = user.department || '';
         const roleSel = document.getElementById('editRole');
         roleSel.value = user.role;
+        // Active checkbox (show and set state)
+        const activeBox = document.getElementById('editIsActive');
+        const activeGroup = document.getElementById('editActiveGroup');
+        if (activeGroup) { activeGroup.style.display = 'flex'; }
+        if (activeBox) { activeBox.checked = (user.isActive !== false); }
         // Disable/clear department for admins
         if (user.role === 'admin') {
             depSel.disabled = true;
@@ -798,9 +808,12 @@ function normalizeDepartment(dept) {
         const note = document.getElementById('selfEditNote');
         if (isSelf) {
             roleSel.disabled = true;
+            // Prevent self-deactivation
+            if (activeBox) { activeBox.checked = true; activeBox.disabled = true; }
             if (note) { note.style.display = 'block'; }
         } else {
             roleSel.disabled = false;
+            if (activeBox) { activeBox.disabled = false; }
             if (note) { note.style.display = 'none'; }
         }
         const lu = document.getElementById('editLastUpdatedAt');

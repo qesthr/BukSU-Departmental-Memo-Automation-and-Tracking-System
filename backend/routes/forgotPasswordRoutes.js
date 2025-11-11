@@ -6,7 +6,7 @@ const emailService = require('../services/emailService');
 
 // Forgot Password Page
 router.get('/forgot-password', (req, res) => {
-    res.render('forgot-password', { layout: 'ForgotPasswordLayout' });
+    res.render('forgot-password', { layout: 'layouts/ForgotPasswordLayout' });
 });
 
 // Handle Forgot Password Request
@@ -64,7 +64,7 @@ router.post('/forgot-password', async (req, res) => {
 
 // Reset Code Page
 router.get('/reset-code', (req, res) => {
-    res.render('reset-code', { layout: 'ForgotPasswordLayout' });
+    res.render('reset-code', { layout: 'layouts/ForgotPasswordLayout' });
 });
 
 // Handle Reset Code Verification
@@ -108,7 +108,7 @@ router.get('/reset-password', (req, res) => {
     if (!req.session.resetUserId) {
         return res.redirect('/forgot-password');
     }
-    res.render('reset-password', { layout: 'ForgotPasswordLayout' });
+    res.render('reset-password', { layout: 'layouts/ForgotPasswordLayout' });
 });
 
 // Handle Password Reset

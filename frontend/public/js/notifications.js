@@ -8,6 +8,7 @@
 
         let notifications = [];
         let unreadCount = 0;
+        let currentTab = 'memos'; // 'memos' | 'audit'
 
         // Check if notification button exists
         if (!notificationBtn) {
@@ -45,6 +46,10 @@
                         <i data-lucide="check" style="width: 16px; height: 16px;"></i>
                         <span>Mark All Read</span>
                     </button>
+                </div>
+                <div class="notif-tabs" style="display:flex; gap:.5rem; padding:.5rem 1rem; border-bottom:1px solid #e2e8f0;">
+                    <button id="notifTabMemos" class="notif-tab active" style="padding:.4rem .65rem; border:none; background:#eef2f7; border-radius:6px; font-size:.85rem; cursor:pointer;">For You</button>
+                    <button id="notifTabAudit" class="notif-tab" style="padding:.4rem .65rem; border:none; background:transparent; border-radius:6px; font-size:.85rem; cursor:pointer;">System Activity</button>
                 </div>
                 <div class="notification-list" id="notificationList" style="max-height: 450px; overflow-y: auto;"></div>
                 <div class="notification-footer">
@@ -130,12 +135,22 @@
                 flex-shrink: 0;
                 width: 40px;
                 height: 40px;
-                border-radius: 8px;
+                border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: #f1f5f9;
                 color: #1C89E3;
+            }
+
+            .notification-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                object-fit: cover;
+                display: block;
+                border: 1px solid #e2e8f0;
+                background: #fff;
             }
 
             .notification-content {
@@ -279,7 +294,22 @@
             return;
         }
 
-        list.innerHTML = notifications.map(notif => {
+        const filtered = notifications.filter(n => currentTab === 'audit' ? n.type === 'user_log' : n.type !== 'user_log');
+
+        if (filtered.length === 0) {
+            list.innerHTML = `
+                <div style="padding: 3rem 2rem; text-align: center; color: #64748b;">
+                    <i data-lucide="bell-off" style="width: 64px; height: 64px; color: #cbd5e1; margin: 0 auto 1rem; display: block;"></i>
+                    <p style="margin: 0; font-size: 0.875rem;">No ${currentTab === 'audit' ? 'system activity' : 'notifications'} to show</p>
+                </div>
+            `;
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+            return;
+        }
+
+        list.innerHTML = filtered.map(notif => {
             // Check if this is a calendar event notification
             const isCalendarEvent = (notif.title && notif.title.includes('Calendar Event')) ||
                                    (notif.title && notif.title.includes('📅'));
@@ -344,11 +374,16 @@
                 }
             }
 
+            // Try to resolve sender avatar if present
+            const senderAvatar = (notif.sender && (notif.sender.profilePicture || notif.sender.avatar || notif.sender.photoURL)) || '';
+            const showAvatar = !!senderAvatar;
+
             return `
                 <div class="notification-item ${notif.isRead ? '' : 'unread'}" data-id="${notif.id}" data-memo-id="${notificationMemoId}" data-original-memo-id="${originalMemoId}" data-notification-type="${isCalendarEvent ? 'memo_received' : notif.type}">
-                    <div class="notification-icon">
-                        <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
-                    </div>
+                    ${showAvatar
+                        ? `<img class="notification-avatar" src="${senderAvatar}" alt="${(notif.sender && notif.sender.name) ? notif.sender.name : 'Sender'}">`
+                        : `<div class="notification-icon"><i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i></div>`
+                    }
                     <div class="notification-content">
                         <div class="notification-title">${isCalendarEvent ? (notif.title || 'Calendar Event') : (notif.title || 'Notification')}</div>
                         <div class="notification-message">${displayMessage}</div>
@@ -445,7 +480,7 @@
             e.stopPropagation();
             try {
                 // Mark all unread notifications as read
-                const unreadNotifications = notifications.filter(n => !n.isRead);
+                const unreadNotifications = notifications.filter(n => !n.isRead && (currentTab === 'audit' ? n.type === 'user_log' : n.type !== 'user_log'));
                 const promises = unreadNotifications.map(notif => markAsRead(notif.id));
                 await Promise.all(promises);
             } catch (error) {
@@ -455,12 +490,36 @@
         });
     }
 
+    // Tabs handlers
+    const tabMemos = document.getElementById('notifTabMemos');
+    const tabAudit = document.getElementById('notifTabAudit');
+    if (tabMemos && tabAudit) {
+        tabMemos.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentTab = 'memos';
+            tabMemos.classList.add('active');
+            tabAudit.classList.remove('active');
+            renderNotifications();
+        });
+        tabAudit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentTab = 'audit';
+            tabAudit.classList.add('active');
+            tabMemos.classList.remove('active');
+            renderNotifications();
+        });
+    }
+
     // Mark notification as read
     async function markAsRead(id) {
         try {
             await fetch(`/api/log/notifications/${id}/read`, { method: 'PUT', credentials: 'same-origin' });
-            unreadCount = Math.max(0, unreadCount - 1);
-            updateBadge();
+            // Decrement badge only for items that are counted (exclude audit logs)
+            const notif = notifications.find(n => String(n.id) === String(id));
+            if (notif && notif.type !== 'user_log') {
+                unreadCount = Math.max(0, unreadCount - 1);
+                updateBadge();
+            }
             const item = document.querySelector(`.notification-item[data-id="${id}"]`);
             if (item) {
                 item.classList.remove('unread');

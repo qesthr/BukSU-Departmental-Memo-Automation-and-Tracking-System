@@ -10,6 +10,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailInput = document.querySelector('input[name="email"]');
     const passwordInput = document.querySelector('input[name="password"]');
     const recaptchaContainer = document.getElementById('recaptchaContainer');
+    const inlineError = document.getElementById('loginInlineError');
+    const emailInlineError = document.getElementById('loginEmailError');
+
+    function showInlineError(message) {
+        if (!inlineError) { return; }
+        inlineError.textContent = message || '';
+        inlineError.style.display = message ? 'block' : 'none';
+        if (passwordInput) {
+            passwordInput.setAttribute('aria-invalid', 'true');
+            passwordInput.style.border = '2px solid #ef4444';
+            passwordInput.style.outline = 'none';
+        }
+    }
+
+    function showEmailError(message) {
+        if (!emailInlineError) { return; }
+        emailInlineError.textContent = message || '';
+        emailInlineError.style.display = message ? 'block' : 'none';
+        if (emailInput) {
+            emailInput.setAttribute('aria-invalid', 'true');
+            emailInput.style.border = '2px solid #ef4444';
+            emailInput.style.outline = 'none';
+        }
+    }
+
+    function clearEmailError() {
+        if (emailInlineError) {
+            emailInlineError.textContent = '';
+            emailInlineError.style.display = 'none';
+        }
+        if (emailInput) {
+            emailInput.removeAttribute('aria-invalid');
+            emailInput.style.border = '';
+            emailInput.style.outline = '';
+        }
+    }
+
+    function clearInlineError() {
+        if (inlineError) {
+            inlineError.textContent = '';
+            inlineError.style.display = 'none';
+        }
+        if (passwordInput) {
+            passwordInput.removeAttribute('aria-invalid');
+            passwordInput.style.border = '';
+            passwordInput.style.outline = '';
+        }
+    }
 
     // eslint-disable-next-line no-console
     console.log('Login form found:', !!loginForm);
@@ -106,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let tries = 0;
                 while ((!window.grecaptcha || typeof window.grecaptcha.render !== 'function') && tries < 10) {
                     // 3 seconds total
-                    // eslint-disable-next-line no-await-in-loop
+
                     await new Promise((resolve) => setTimeout(resolve, 300));
                     tries++;
                 }
@@ -139,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If already checked
             const token = window.grecaptcha.getResponse(widgetId);
-            if (token && token.length > 0) return token;
+            if (token && token.length > 0) {return token;}
 
             // Prompt user to check the box
             const hint = document.getElementById('googleRecaptchaHint');
@@ -172,19 +220,19 @@ document.addEventListener('DOMContentLoaded', () => {
             let widgetId = existing ? existing.getAttribute('data-widget-id') : null;
             if (!widgetId) {
                 const container = document.getElementById('googleRecaptchaContainer');
-                if (!container) return null;
+                if (!container) {return null;}
                 const div = document.createElement('div');
                 div.id = 'googleRecaptchaWidget';
                 container.appendChild(div);
 
                 let tries = 0;
                 while ((!window.grecaptcha || typeof window.grecaptcha.render !== 'function') && tries < 10) {
-                    // eslint-disable-next-line no-await-in-loop
+
                     await new Promise((resolve) => setTimeout(resolve, 300));
                     tries++;
                 }
                 const sitekey = container.getAttribute('data-sitekey');
-                if (!sitekey || !window.grecaptcha) return null;
+                if (!sitekey || !window.grecaptcha) {return null;}
                 widgetId = window.grecaptcha.render('googleRecaptchaWidget', {
                     sitekey: sitekey,
                     size: 'normal',
@@ -237,8 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Set up listeners and polling
-    emailInput.addEventListener('input', updateButtonStateWithCaptcha);
-    passwordInput.addEventListener('input', updateButtonStateWithCaptcha);
+    emailInput.addEventListener('input', () => { clearInlineError(); clearEmailError(); updateButtonStateWithCaptcha(); });
+    passwordInput.addEventListener('input', () => { clearInlineError(); updateButtonStateWithCaptcha(); });
     // Light polling to catch checkbox changes
     setInterval(updateButtonStateWithCaptcha, 500);
 
@@ -261,21 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 recaptchaVerified = !!(token && token.length > 0);
             }
 
-            // If reCAPTCHA is not verified, show alert and prevent login
+            // If reCAPTCHA is not verified, prevent login and show inline hint
             if (!recaptchaVerified) {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Show error modal
-                if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal(
-                        'reCAPTCHA Verification Required',
-                        'You must verify the reCAPTCHA before logging in. Please check the "I\'m not a robot" box below the Google Sign-In button.',
-                        'warning'
-                    );
-                } else {
-                    alert('You must verify the reCAPTCHA before logging in. Please check the "I\'m not a robot" box below the Google Sign-In button.');
-                }
+                // Inline banner under the form instead of modal/toast
+                showInlineError('Please complete the reCAPTCHA before continuing.');
 
                 // Highlight and scroll to reCAPTCHA section
                 const recaptchaSection = document.getElementById('googleRecaptchaSection');
@@ -346,13 +386,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!recaptchaVerified) {
-                if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal(
-                        'reCAPTCHA Verification Required',
-                        'You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.',
-                        'warning'
-                    );
-                }
+                // Inline banner under the form instead of modal/toast
+                showInlineError('Please complete the reCAPTCHA before continuing.');
 
                 // Highlight reCAPTCHA section
                 const recaptchaSection = document.getElementById('googleRecaptchaSection');
@@ -381,13 +416,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // eslint-disable-next-line no-console
         console.log('Password entered:', password ? 'YES' : 'NO');
 
+        // Clear any previous inline error
+        clearInlineError();
+        clearEmailError();
+
         // Basic validation
         if (!email || !password) {
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('Missing Information', 'Please enter both email and password', 'warning');
-            } else {
-                alert('Please enter both email and password');
-            }
+            showInlineError('Please enter both email and password.');
             return;
         }
 
@@ -403,15 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // If reCAPTCHA is not verified, show error and highlight the reCAPTCHA section
         if (!recaptchaVerified) {
             // Show error message
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal(
-                    'reCAPTCHA Verification Required',
-                    'You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.',
-                    'warning'
-                );
-            } else {
-                alert('You must verify the reCAPTCHA before logging in. Please check the reCAPTCHA box below the Google Sign-In button.');
-            }
+            showInlineError('Please complete the reCAPTCHA before continuing.');
 
             // Highlight and scroll to reCAPTCHA section
             const recaptchaSection = document.getElementById('googleRecaptchaSection');
@@ -453,16 +480,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get token from shared reCAPTCHA (Google section) - should be verified at this point
         const recaptchaToken = await getSharedRecaptchaToken();
         if (!recaptchaToken) {
-            // Fallback check - this shouldn't happen if above check passed, but just in case
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal(
-                    'reCAPTCHA Verification Failed',
-                    'reCAPTCHA verification failed. Please reload the page and try again.',
-                    'error'
-                );
-            } else {
-                alert('reCAPTCHA verification failed. Please reload the page and try again.');
-            }
+            // Fallback check - inline message only
+            showInlineError('reCAPTCHA verification failed. Please reload the page and try again.');
             return;
         }
 
@@ -480,6 +499,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // eslint-disable-next-line no-console
             console.log('📤 Sending login request to server...');
+
+            // Show loading modal while authenticating
+            if (typeof window.showMessageModal === 'function') {
+                window.showMessageModal('Signing you in…', 'Please wait a moment.', 'loading');
+            }
 
             const response = await fetch('/auth/login', {
                 method: 'POST',
@@ -509,8 +533,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.success) {
                 loginSuccessful = true;
-                if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal('Login Successful', data.message, 'success');
+                if (typeof window.updateMessageModal === 'function') {
+                    window.updateMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
+                } else if (typeof window.showMessageModal === 'function') {
+                    window.showMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
                 }
                 loginButton.textContent = 'Success! Redirecting...';
 
@@ -524,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // eslint-disable-next-line no-console
                 console.log(' Info: Redirecting to:', redirectUrl, 'for role:', userRole);
 
-                window.location.href = redirectUrl;
+                setTimeout(() => { window.location.href = redirectUrl; }, 650);
             } else {
                 // Set loginSuccessful to false to prevent any redirects
                 loginSuccessful = false;
@@ -533,21 +559,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Handle different types of errors
                 if (data.errorCode === 'ACCOUNT_NOT_FOUND') {
-                    // Account not found - user hasn't been invited/added by admin
-                    // eslint-disable-next-line no-console
-                    console.log('🔍 Showing ACCOUNT_NOT_FOUND modal');
-                    const errorMessage = 'Your account has not been added by an administrator. Please contact your administrator to create your account.';
-
-                    // Call modal directly - it should be available after DOMContentLoaded
-                    if (typeof window.showMessageModal === 'function') {
-                        // eslint-disable-next-line no-console
-                        console.log('✅ Calling showMessageModal for ACCOUNT_NOT_FOUND with message:', errorMessage);
-                        window.showMessageModal('Account Not Found', errorMessage, 'error');
-                    } else {
-                        // eslint-disable-next-line no-console
-                        console.error('showMessageModal is not available, using alert');
-                        alert('Account Not Found: ' + errorMessage);
-                    }
+                    // Inline message for non-existent account (wrong email)
+                    showEmailError('Couldn’t find your account. Please check your email or contact the administrator.');
+                    showInlineError(''); // clear password error
+                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
                 } else if (data.errorCode === 'ACCOUNT_INACTIVE') {
                     // Account exists but is inactive
                     // eslint-disable-next-line no-console
@@ -555,9 +570,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const inactiveMessage = data.message || 'Your account has been deactivated. Please contact your administrator.';
 
                     // Call modal directly
-                    if (typeof window.showMessageModal === 'function') {
-                        // eslint-disable-next-line no-console
-                        console.log('✅ Calling showMessageModal for ACCOUNT_INACTIVE');
+                    if (typeof window.updateMessageModal === 'function') {
+                        window.updateMessageModal('Account Deactivated', inactiveMessage, 'error');
+                    } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('Account Deactivated', inactiveMessage, 'error');
                     } else {
                         // eslint-disable-next-line no-console
@@ -568,6 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Account locked - show modal
                     if (data.lockTimeRemaining && typeof showAccountLockoutModal === 'function') {
                         showAccountLockoutModal(data.lockTimeRemaining);
+                    } else if (typeof window.updateMessageModal === 'function') {
+                        window.updateMessageModal('Account Locked', data.message, 'error');
                     } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('Account Locked', data.message, 'error');
                     } else {
@@ -575,27 +592,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (response.status === 429) {
                     // IP locked - show modal
-                    if (typeof window.showMessageModal === 'function') {
+                    if (typeof window.updateMessageModal === 'function') {
+                        window.updateMessageModal('IP Blocked', data.message, 'error');
+                    } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('IP Blocked', data.message, 'error');
                     } else {
                         alert('IP Blocked: ' + data.message);
                     }
+                } else if (data.errorCode === 'INVALID_CREDENTIALS') {
+                    // Inline message for wrong email/password
+                    showInlineError('Wrong password. Try again or click "Forgot password?" for more options.');
+                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
+                } else if (data.errorCode === 'GOOGLE_ONLY') {
+                    if (typeof window.updateMessageModal === 'function') {
+                        window.updateMessageModal('Use Google Sign-In', data.message || 'Please sign in with Google for this account.', 'warning');
+                    } else if (typeof window.showMessageModal === 'function') {
+                        window.showMessageModal('Use Google Sign-In', data.message || 'Please sign in with Google for this account.', 'warning');
+                    } else {
+                        alert('Use Google Sign-In: ' + (data.message || 'Please sign in with Google for this account.'));
+                    }
                 } else if (data.attemptsRemaining !== undefined) {
-                    // Show remaining attempts in modal
-                    if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('Login Failed', data.message, 'warning');
-                    } else {
-                        alert('Login Failed: ' + data.message);
-                    }
+                    // Inline message with remaining attempts
+                    showInlineError(data.message || 'Invalid email or password.');
+                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
                 } else {
-                    // Other errors in modal
-                    // eslint-disable-next-line no-console
-                    console.log('🔍 Showing generic error modal');
-                    if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('Login Error', data.message || 'Invalid email or password', 'error');
-                    } else {
-                        alert('Login Error: ' + (data.message || 'Invalid email or password'));
-                    }
+                    // Generic inline fallback for unknown errors
+                    showInlineError(data.message || 'Login error. Please try again.');
+                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
                 }
 
 
@@ -603,11 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error('Login error:', error);
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('Network Error', 'Network error. Please try again.', 'error');
-            } else {
-                alert('Network Error: Network error. Please try again.');
-            }
+            showInlineError('Network error. Please try again.');
         } finally {
             // Re-enable button on failure
             if (!loginSuccessful) {

@@ -1,0 +1,29 @@
+        <!-- Reset Code Modal -->
+        <div id="resetCodeModal" class="forgot-modal" style="display: none;">
+            <div class="forgot-modal-content">
+                <div class="forgot-modal-header">
+                    <div class="forgot-logo-section">
+                        <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
+                        <span class="forgot-title">Enter Reset Code</span>
+                    </div>
+                    <button id="closeResetCodeModal" class="close-forgot-modal">&times;</button>
+                </div>
+                <div class="forgot-modal-body">
+                    <h2 class="forgot-heading">Password Reset Code</h2>
+                    <p class="forgot-subtitle">Enter the reset code sent to your email.</p>
+
+                    <form id="resetCodeForm">
+                        <div class="input-group">
+                            <img src="/images/bin.png" alt="Code Icon" class="input-icon">
+                            <input type="text" name="resetCode" placeholder="Enter Reset Code" required>
+                        </div>
+                        <button type="submit" class="login-btn">Verify Code</button>
+                    </form>
+
+                    <div class="forgot-back-link">
+                        <a href="#" id="backToEmailLink">← Back to Email</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+

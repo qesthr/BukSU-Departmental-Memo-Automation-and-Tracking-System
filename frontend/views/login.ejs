@@ -166,9 +166,13 @@
                             <img src="/images/email.png" alt="Email Icon" class="input-icon">
                             <input type="email" name="email" placeholder="Email" required>
                         </div>
+                        <div id="loginEmailError" class="inline-error" role="alert" aria-live="polite" style="display:none;color:#ef4444;font-size:13px;margin-top:6px;line-height:1.4;">
+                        </div>
                         <div class="input-group">
                             <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
                             <input type="password" name="password" id="passwordInput" placeholder="Password" required>
+                        </div>
+                        <div id="loginInlineError" class="inline-error" role="alert" aria-live="polite" style="display:none;color:#ef4444;font-size:13px;margin-top:6px;line-height:1.4;">
                         </div>
                         <button type="submit" class="login-btn" id="loginButton">Login</button>
 
@@ -196,96 +200,13 @@
             </div>
         </div>
 
-        <!-- Forgot Password Modal -->
-        <div id="forgotPasswordModal" class="forgot-modal" style="display: none;">
-            <div class="forgot-modal-content">
-                <div class="forgot-modal-header">
-                    <div class="forgot-logo-section">
-                        <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
-                        <span class="forgot-title">Reset Your Password</span>
-                    </div>
-                    <button id="closeForgotModal" class="close-forgot-modal">&times;</button>
-                </div>
-                <div class="forgot-modal-body">
-                    <h2 class="forgot-heading">Reset Your Password</h2>
-                    <p class="forgot-subtitle">Enter your email to receive a reset link.</p>
-
-                    <form id="forgotForm">
-                        <div class="input-group">
-                            <img src="/images/email.png" alt="Email Icon" class="input-icon">
-                            <input type="email" name="email" placeholder="Email" required>
-                        </div>
-                        <button type="submit" class="login-btn">Send Reset Link</button>
-                    </form>
-
-                    <div class="forgot-back-link">
-                        <a href="javascript:void(0)" onclick="closeForgotPasswordModal()">← Back to Login</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <%- include('modals/forgot-password-modal') %>
 
         <!-- Reset Code Modal -->
-        <div id="resetCodeModal" class="forgot-modal" style="display: none;">
-            <div class="forgot-modal-content">
-                <div class="forgot-modal-header">
-                    <div class="forgot-logo-section">
-                        <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
-                        <span class="forgot-title">Enter Reset Code</span>
-                    </div>
-                    <button id="closeResetCodeModal" class="close-forgot-modal">&times;</button>
-                </div>
-                <div class="forgot-modal-body">
-                    <h2 class="forgot-heading">Password Reset Code</h2>
-                    <p class="forgot-subtitle">Enter the reset code sent to your email.</p>
-
-                    <form id="resetCodeForm">
-                        <div class="input-group">
-                            <img src="/images/bin.png" alt="Code Icon" class="input-icon">
-                            <input type="text" name="resetCode" placeholder="Enter Reset Code" required>
-                        </div>
-                        <button type="submit" class="login-btn">Verify Code</button>
-                    </form>
-
-                    <div class="forgot-back-link">
-                        <a href="javascript:void(0)" onclick="showForgotPasswordModal()">← Back to Email</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <%- include('modals/reset-code-modal') %>
 
         <!-- Reset Password Modal -->
-        <div id="resetPasswordModal" class="forgot-modal" style="display: none;">
-            <div class="forgot-modal-content">
-                <div class="forgot-modal-header">
-                    <div class="forgot-logo-section">
-                        <img src="/images/memofy-logo.png" alt="Logo" class="forgot-small-logo">
-                        <span class="forgot-title">Set New Password</span>
-                    </div>
-                    <button id="closeResetPasswordModal" class="close-forgot-modal">&times;</button>
-                </div>
-                <div class="forgot-modal-body">
-                    <h2 class="forgot-heading">Set New Password</h2>
-                    <p class="forgot-subtitle">Enter your new password below.</p>
-
-                    <form id="resetPasswordForm">
-                        <div class="input-group">
-                            <img src="/images/unlock.png" alt="Password Icon" class="input-icon">
-                            <input type="password" name="newPassword" placeholder="New Password" required>
-                        </div>
-                        <div class="input-group">
-                            <img src="/images/bin.png" alt="Confirm Password Icon" class="input-icon">
-                            <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
-                        </div>
-                        <button type="submit" class="login-btn">Reset Password</button>
-                    </form>
-
-                    <div class="forgot-back-link">
-                        <a href="javascript:void(0)" onclick="showResetCodeModal()">← Back to Code</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <%- include('modals/reset-password-modal') %>
 
         <!-- Account Lockout Modal -->
         <div id="accountLockoutModal" class="modal" style="display: none;">
@@ -334,29 +255,7 @@
             </div>
         </div>
 
-        <!-- Generic Message Modal -->
-        <div id="messageModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="modal-logo-section">
-                        <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
-                        <span class="modal-title" id="messageModalTitle">Message</span>
-                    </div>
-                    <span class="close" id="closeMessageModal">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="message-icon" id="messageIcon">
-                        <!-- Icon will be set dynamically -->
-                    </div>
-                    <p class="message-text" id="messageText">
-                        <!-- Message will be set dynamically -->
-                    </p>
-                    <div class="message-actions">
-                        <button type="button" class="btn-primary" onclick="closeMessageModal()">OK</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Generic Message Modal removed on login page; using inline errors instead -->
 
         <!-- reCAPTCHA Error Modal -->
         <div id="recaptchaErrorModal" class="modal" style="display: none;">
@@ -432,7 +331,7 @@
         <script src="/js/forgot-password-modal.js"></script>
         <script src="/js/google-auth-modal.js"></script>
         <script src="/js/account-lockout-modal.js"></script>
-        <script src="/js/message-modal.js"></script>
+        <!-- message-modal.js not used on login page -->
 
         <!-- Google reCAPTCHA -->
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
@@ -625,10 +524,11 @@
         <% if (typeof showMessageModal !=='undefined' && showMessageModal) { %>
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
-                    if (window.showMessageModal) {
-                        window.showMessageModal('<%= modalTitle || "Invalid Link" %>', '<%= modalMessage || "Link is not valid any more" %>', '<%= modalType || "error" %>');
-                    } else {
-                        alert('<%= modalMessage || "Link is not valid any more" %>');
+                    // Fallback inline message banner for invalid links
+                    var banner = document.getElementById('loginInlineError');
+                    if (banner) {
+                        banner.style.display = 'block';
+                        banner.textContent = '<%= (modalMessage || "Link is not valid any more").replace(/'/g, "\\'") %>';
                     }
                 });
             </script>
@@ -636,6 +536,37 @@
                 <% } %>
 
                     <script>
+                        // Override global showMessageModal to display inline on the login form
+                        (function () {
+                            function setInlineMessage(text) {
+                                try {
+                                    var el = document.getElementById('loginInlineError');
+                                    if (!el) return;
+                                    el.style.display = 'block';
+                                    el.textContent = text || '';
+                                    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+                                } catch (_) {}
+                            }
+                            window.showMessageModal = function (_title, message, _type) {
+                                setInlineMessage(message || '');
+                            };
+                            window.closeMessageModal = function () {
+                                var el = document.getElementById('loginInlineError');
+                                if (el) { el.style.display = 'none'; el.textContent = ''; }
+                            };
+                        })();
+
+                        // Auto-open Forgot Password modal when redirected with ?forgot=1
+                        (function () {
+                            try {
+                                var params = new URLSearchParams(window.location.search || '');
+                                if (params.get('forgot') === '1' && typeof window.showForgotPasswordModal === 'function') {
+                                    // Defer to ensure modal script is loaded
+                                    setTimeout(function(){ window.showForgotPasswordModal(); }, 50);
+                                }
+                            } catch (_) { /* ignore */ }
+                        })();
+
                         // Helper to reset and hide all captcha widgets and UI
                         function resetCaptchaUI() {
                             try {

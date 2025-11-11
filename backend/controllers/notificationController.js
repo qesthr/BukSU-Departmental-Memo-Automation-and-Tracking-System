@@ -21,6 +21,19 @@ exports.getNotifications = async (req, res) => {
         let auditLogs = [];
         if (req.user && req.user.role === 'admin') {
             auditLogs = await AuditLog.find({}).sort({ createdAt: -1 }).limit(10).lean();
+
+            // Enrich audit logs with user profile pictures if possible
+            const emails = Array.from(new Set((auditLogs || []).map(l => l.email).filter(Boolean)));
+            if (emails.length > 0) {
+                const auditUsers = await User.find({ email: { $in: emails } })
+                    .select('email firstName lastName profilePicture')
+                    .lean();
+                const emailToUser = Object.fromEntries(auditUsers.map(u => [u.email, u]));
+                auditLogs = auditLogs.map(l => {
+                    const u = emailToUser[l.email];
+                    return u ? { ...l, _senderUser: u } : l;
+                });
+            }
         }
 
         // Format notifications - prioritize unread, then include activity logs
@@ -56,9 +69,10 @@ exports.getNotifications = async (req, res) => {
                     title: memo.subject || 'New Memo',
                     message: memo.content || (memo.activityType ? 'System notification' : 'You have a new memo'),
                     sender: memo.sender ? {
-                        name: `${memo.sender.firstName} ${memo.sender.lastName}`,
+                        name: `${memo.sender.firstName} ${memo.sender.lastName}`.trim(),
                         email: memo.sender.email,
-                        department: memo.sender.department
+                        department: memo.sender.department,
+                        profilePicture: memo.sender.profilePicture || null
                     } : null,
                     timestamp: memo.createdAt,
                     isRead: memo.isRead || false,
@@ -71,24 +85,30 @@ exports.getNotifications = async (req, res) => {
                 };
             });
 
-        const formattedAuditNotifications = auditLogs.map(l => ({
-            id: l._id,
-            type: 'user_log',
-            title: l.subject || 'User Activity',
-            message: l.message || '',
-            sender: { name: l.email || 'System' },
-            timestamp: l.createdAt,
-            isRead: !!l.isRead,
-            hasAttachments: false,
-            metadata: { audit: true }
-        }));
+        const formattedAuditNotifications = auditLogs.map(l => {
+            const u = l._senderUser;
+            return {
+                id: l._id,
+                type: 'user_log',
+                title: l.subject || 'User Activity',
+                message: l.message || '',
+                sender: u
+                    ? { name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || (u.email || 'System'), email: u.email, profilePicture: u.profilePicture || null }
+                    : { name: l.email || 'System' },
+                timestamp: l.createdAt,
+                isRead: !!l.isRead,
+                hasAttachments: false,
+                metadata: { audit: true }
+            };
+        });
 
-        // Count unread (all unread memos, not just activity logs)
-        const unreadCount = await Memo.countDocuments({
+        // Count unread targeted to this user (memos only, per-user)
+        const unreadMemos = await Memo.countDocuments({
             recipient: userId,
             isRead: false,
             status: { $ne: 'deleted' }
         });
+        const unreadCount = unreadMemos;
 
         res.json({
             success: true,
@@ -107,10 +127,20 @@ exports.markAsRead = async (req, res) => {
     try {
         const { id } = req.params;
 
-        await Memo.findByIdAndUpdate(id, {
+        // Try marking a memo notification as read
+        const memoResult = await Memo.findByIdAndUpdate(id, {
             isRead: true,
             readAt: new Date()
         });
+
+        // If no memo was updated, try audit log (admin notifications)
+        if (!memoResult) {
+            try {
+                await AuditLog.findByIdAndUpdate(id, { isRead: true });
+            } catch (_) {
+                // ignore - not an audit log
+            }
+        }
 
         res.json({ success: true });
     } catch (error) {

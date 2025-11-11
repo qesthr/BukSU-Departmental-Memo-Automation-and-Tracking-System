@@ -769,7 +769,7 @@
 .modal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 100000; /* ensure above any dashboard/topbar/calendar elements */
     left: 0;
     top: 0;
     width: 100%;
@@ -804,6 +804,7 @@
     /* Keep hidden for modal sizing, but allow header fields to overflow */
     /* Ensure modal doesn't grow beyond max-height */
     box-sizing: border-box;
+    z-index: 100001;
 }
 
 /* For compose modal specifically, allow header area to overflow for dropdowns */

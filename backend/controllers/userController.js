@@ -280,7 +280,7 @@ exports.deleteUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt, canCrossSend } = req.body;
+        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt, canCrossSend, isActive } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -309,6 +309,19 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        // Prevent deactivating yourself
+        if (String(req.user._id) === String(id) && (isActive === false)) {
+            return res.status(400).json({ message: 'You cannot deactivate your own account.' });
+        }
+
+        // Prevent deactivating last admin
+        if ((isActive === false) && user.role === 'admin') {
+            const adminCount = await User.countDocuments({ role: 'admin', isActive: true });
+            if (adminCount <= 1) {
+                return res.status(400).json({ message: 'Cannot deactivate the last active admin' });
+            }
+        }
+
         // Update fields if provided
         if (firstName !== undefined) {user.firstName = firstName;}
         if (lastName !== undefined) {user.lastName = lastName;}
@@ -316,6 +329,7 @@ exports.updateUser = async (req, res) => {
         if (department !== undefined) {user.department = department;}
         if (email !== undefined) {user.email = email;}
         if (profilePicture !== undefined) {user.profilePicture = profilePicture;}
+        if (isActive !== undefined) { user.isActive = !!isActive; user.status = isActive ? 'active' : 'disabled'; }
 
         // Handle canCrossSend: only meaningful for secretaries
         const targetRole = role !== undefined ? role : user.role;
@@ -347,6 +361,8 @@ exports.updateUser = async (req, res) => {
                 lastName: user.lastName,
                 role: user.role,
                 department: user.department,
+                isActive: user.isActive,
+                status: user.status,
                 canCrossSend: user.canCrossSend,
                 profilePicture: user.profilePicture
             }

@@ -4,7 +4,6 @@
     box-sizing: border-box;
     font-family: 'Inter', sans-serif;
     overflow-x: hidden;
-    overflow-y: hidden;
 }
 
 :root {
@@ -234,7 +233,7 @@ body {
 .main-content {
     margin-left: 250px;
     height: 100vh;
-    overflow-y: hidden;
+    overflow-y: auto;
     padding: 2rem;
 }
 
@@ -272,6 +271,8 @@ body {
   flex-direction: row;
   gap: 1rem;
   transition: all 0.3s ease;
+  position: relative; /* create local stacking context */
+  z-index: 1; /* keep below global modals */
 }
 
 .stat-icon {
@@ -501,6 +502,7 @@ body {
     border-radius: 15px;
     color: #ffffff;
     overflow: hidden;
+    margin-top: 0.75rem; /* ensure separation from the top bar */
 }
 
 /* Overlay to make text readable */
@@ -637,6 +639,13 @@ body {
 
     .stat-value {
         font-size: 1.25rem;
+    }
+
+    /* Hide stat cards while logout modal is visible (mobile breakpoint) */
+    @supports selector(body:has(#logoutModal)) {
+        body:has(#logoutModal[style*="display: block"]) .stat-card-container {
+            visibility: hidden !important;
+        }
     }
 
     .memo-item {

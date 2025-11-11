@@ -207,7 +207,7 @@ const login = async (req, res, next) => {
         if (!userExists) {
             return res.status(401).json({
                 success: false,
-                message: 'This account has not been added by an administrator. Please contact your administrator to create your account.',
+                message: 'This account has not been added by an administrator. Please contact the administrator to create your account.',
                 errorCode: 'ACCOUNT_NOT_FOUND'
             });
         }
@@ -222,7 +222,7 @@ const login = async (req, res, next) => {
         if (!user && userExists) {
             return res.status(401).json({
                 success: false,
-                message: 'Your account has been deactivated. Please contact your administrator.',
+                message: 'Your account has been deactivated. Please contact the administrator.',
                 errorCode: 'ACCOUNT_INACTIVE'
             });
         }
@@ -251,7 +251,8 @@ const login = async (req, res, next) => {
         if (!user.password) {
             return res.status(401).json({
                 success: false,
-                message: 'This account requires Google login'
+                message: 'This account requires Google login. Please sign in with Google.',
+                errorCode: 'GOOGLE_ONLY'
             });
         }
 
@@ -301,7 +302,8 @@ const login = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: message,
-                attemptsRemaining: attemptsRemaining
+                attemptsRemaining: attemptsRemaining,
+                errorCode: 'INVALID_CREDENTIALS'
             });
         }
 
