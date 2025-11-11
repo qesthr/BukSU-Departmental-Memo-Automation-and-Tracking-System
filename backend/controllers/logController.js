@@ -12,6 +12,15 @@ exports.getAllMemos = async (req, res) => {
 
         let query = {};
 
+        // System-generated activity types to exclude from memo inboxes
+        const systemActivityTypes = [
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            'password_reset',
+            'welcome_email'
+        ];
+
         if (folder === 'inbox') {
             // For admins, show both sent and received memos
             const user = await User.findById(userId);
@@ -22,12 +31,17 @@ exports.getAllMemos = async (req, res) => {
                         { sender: userId },
                         { recipient: userId }
                     ],
-                    status: { $nin: ['deleted','archived'] }
+                    status: { $nin: ['deleted','archived'] },
+                    activityType: { $nin: systemActivityTypes }
                 };
             } else {
                 // Regular users: only delivered memos (hide pending workflow items)
                 // Status filter already excludes pending, so secretaries won't see their own pending memos
-                query = { recipient: userId, status: { $in: ['sent','approved'] } };
+                query = {
+                    recipient: userId,
+                    status: { $in: ['sent','approved'] },
+                    activityType: { $nin: systemActivityTypes }
+                };
             }
         } else if (folder === 'sent') {
             // For sent folder, show memos sent by user

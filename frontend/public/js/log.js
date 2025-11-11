@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('nextBtn');
     const starBtn = document.getElementById('starBtn');
     const downloadBtn = document.getElementById('downloadBtn');
-    const deleteBtn = document.getElementById('deleteBtn');
+    const archiveBtn = document.getElementById('archiveBtn');
     const memoCounter = document.getElementById('memoCounter');
     const refreshBtn = document.getElementById('refreshBtn');
     const selectDropdownBtn = document.getElementById('selectDropdownBtn');
@@ -1735,36 +1735,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     }
 
-    // Delete button
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', async () => {
+    // Archive button
+    if (archiveBtn) {
+        archiveBtn.addEventListener('click', async () => {
             if (!currentMemoId) {return;}
 
         // Store the memo for potential undo
-        const memoToDelete = filteredMemos[currentMemoIndex];
-        const deletedMemoIndex = currentMemoIndex;
-        const deletedMemoId = currentMemoId;
+        const memoToArchive = filteredMemos[currentMemoIndex];
+        const archivedMemoIndex = currentMemoIndex;
+        const archivedMemoId = currentMemoId;
 
         try {
             const response = await fetch(`/api/log/memos/${currentMemoId}`, {
-                method: 'DELETE'
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'archived' })
             });
 
             const data = await response.json();
 
             if (data.success) {
                 // Show undo notification
-                showUndoNotification('Memo moved to Trash', () => {
-                    // Undo function - restore the memo
-                    undoDelete(deletedMemoIndex, memoToDelete);
+                showUndoNotification('Memo archived', () => {
+                    // Undo function - unarchive the memo (move back to sent)
+                    undoArchive(archivedMemoIndex, memoToArchive);
                 });
 
                 // Remove from lists
                 memos = memos.filter(m => m._id !== currentMemoId);
                 filteredMemos = filteredMemos.filter(m => m._id !== currentMemoId);
 
-                // If deleted memo was the current one, go to default view
-                if (currentMemoId === deletedMemoId) {
+                // If archived memo was the current one, go to default view
+                if (currentMemoId === archivedMemoId) {
                     showDefaultView();
                 }
 
@@ -1773,9 +1775,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error:', error);
-            showNotification('Error deleting memo', 'error');
+            showNotification('Error archiving memo', 'error');
         }
         });
+    }
+
+    // Undo archive -> set status back to 'sent' (or 'approved' if previously)
+    async function undoArchive(index, memoObj) {
+        try {
+            const response = await fetch(`/api/log/memos/${memoObj._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'sent' })
+            });
+            const data = await response.json();
+            if (data && data.success) {
+                // Insert back in lists
+                memos.splice(index, 0, memoObj);
+                filteredMemos.splice(index, 0, memoObj);
+                showNotification('Archive undone', 'success');
+                renderMemoList();
+                fetchMemos();
+            }
+        } catch (e) {
+            console.error('Undo archive failed:', e);
+            showNotification('Failed to undo archive', 'error');
+        }
     }
 
     // Fetch memos

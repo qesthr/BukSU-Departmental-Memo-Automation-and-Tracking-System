@@ -641,12 +641,7 @@ body {
         font-size: 1.25rem;
     }
 
-    /* Hide stat cards while logout modal is visible (mobile breakpoint) */
-    @supports selector(body:has(#logoutModal)) {
-        body:has(#logoutModal[style*="display: block"]) .stat-card-container {
-            visibility: hidden !important;
-        }
-    }
+
 
     .memo-item {
         flex-wrap: wrap;

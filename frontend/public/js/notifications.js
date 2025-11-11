@@ -6,6 +6,28 @@
         const notificationBtn = document.querySelector('.notification-btn');
         const notificationDropdown = document.getElementById('notificationDropdown');
 
+        // Helpers to hide/show Add User button while dropdown is open
+        function getAddBtn(){
+            return document.getElementById('addUserBtn');
+        }
+        function hideAddButton(){
+            const btn = getAddBtn();
+            if (!btn) return;
+            // store previous visibility only once
+            if (btn.dataset.prevVisibility == null) {
+                btn.dataset.prevVisibility = btn.style.visibility || '';
+            }
+            btn.style.visibility = 'hidden';
+            btn.style.pointerEvents = 'none';
+        }
+        function showAddButton(){
+            const btn = getAddBtn();
+            if (!btn) return;
+            btn.style.visibility = btn.dataset.prevVisibility || '';
+            btn.style.pointerEvents = '';
+            delete btn.dataset.prevVisibility;
+        }
+
         let notifications = [];
         let unreadCount = 0;
         let currentTab = 'memos'; // 'memos' | 'audit'
@@ -25,9 +47,9 @@
             dropdown.id = 'notificationDropdown';
             dropdown.className = 'notification-dropdown';
             dropdown.style.cssText = `
-                position: absolute;
-                top: 100%;
-                right: 0;
+                position: fixed;
+                top: 0; /* will be positioned on open */
+                right: 0; /* will be positioned on open */
                 width: 400px;
                 background: white;
                 border: 1px solid #e2e8f0;
@@ -36,7 +58,7 @@
                 max-height: 600px;
                 overflow: hidden;
                 display: none;
-                z-index: 1000;
+                z-index: 200000; /* ensure above any page UI */
                 margin-top: 0.5rem;
             `;
             dropdown.innerHTML = `
@@ -57,16 +79,8 @@
                 </div>
             `;
 
-            // Insert dropdown - append to header-actions container
-            const headerActions = notificationBtn.closest('.header-actions');
-            if (headerActions) {
-                // Make container relative for positioning
-                headerActions.style.position = 'relative';
-                headerActions.appendChild(dropdown);
-            } else {
-                // Fallback: append to body
-                document.body.appendChild(dropdown);
-            }
+            // Always append to body to escape local stacking contexts
+            document.body.appendChild(dropdown);
 
             // Add CSS
             const style = document.createElement('style');
@@ -215,11 +229,20 @@
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
                 const isOpen = dropdown.style.display === 'block';
+                if (!isOpen) {
+                    // Position dropdown relative to the bell with fixed coords
+                    const rect = notificationBtn.getBoundingClientRect();
+                    const spacing = 8;
+                    dropdown.style.top = `${Math.round(rect.bottom + spacing)}px`;
+                    // Align to the right edge of the viewport
+                    dropdown.style.right = `0px`;
+                    fetchNotifications();
+                    hideAddButton();
+                } else {
+                    showAddButton();
+                }
                 dropdown.style.display = isOpen ? 'none' : 'block';
                 console.log('🔔 Dropdown toggled:', isOpen ? 'closed' : 'opened');
-                if (!isOpen) {
-                    fetchNotifications();
-                }
             }
         }, true); // Use capture phase to catch event before it bubbles
     }
@@ -230,6 +253,8 @@
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
                 dropdown.style.display = 'none';
+                // Restore Add button when dropdown closes
+                const restore = true; restore && (function(){ const btn = document.getElementById('addUserBtn'); if (btn) { btn.style.visibility = btn.dataset.prevVisibility || ''; btn.style.pointerEvents = ''; delete btn.dataset.prevVisibility; } })();
             }
         }
     });
@@ -635,6 +660,9 @@
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
                 dropdown.style.display = 'none';
+                // Dropdown closed due to opening memo modal; restore Add button
+                const btn = document.getElementById('addUserBtn');
+                if (btn) { btn.style.visibility = btn.dataset.prevVisibility || ''; btn.style.pointerEvents = ''; delete btn.dataset.prevVisibility; }
             }
         } catch (error) {
             // eslint-disable-next-line no-console
