@@ -260,9 +260,9 @@
       if (window.calendarConnected) {
         try {
           const formatForGoogleAPI = (dateStr) => {
-            if (!dateStr) return dateStr;
-            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) return dateStr;
-            if (dateStr.includes('T')) return `${dateStr}+08:00`;
+            if (!dateStr) {return dateStr;}
+            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {return dateStr;}
+            if (dateStr.includes('T')) {return `${dateStr}+08:00`;}
             return `${dateStr}T00:00:00+08:00`;
           };
 
@@ -450,7 +450,7 @@
    * Initialize mini calendar
    */
   function initMiniCalendar() {
-    if (!mini) return;
+    if (!mini) {return;}
     loadEventsForMiniCalendar();
 
     if (miniPrev) {
@@ -512,9 +512,9 @@
       if (window.calendarConnected) {
         try {
           const formatForGoogleAPI = (dateStr) => {
-            if (!dateStr) return dateStr;
-            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) return dateStr;
-            if (dateStr.includes('T')) return `${dateStr}+08:00`;
+            if (!dateStr) {return dateStr;}
+            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {return dateStr;}
+            if (dateStr.includes('T')) {return `${dateStr}+08:00`;}
             return `${dateStr}T00:00:00+08:00`;
           };
 
@@ -527,7 +527,7 @@
             const googleEvents = gItems.map(ev => {
               const isGoogleAllDay = ev.start.date ? true : false;
               const isHoliday = ev.isHoliday === true;
-              let eventStart = isGoogleAllDay ? ev.start.date : ev.start.dateTime;
+              const eventStart = isGoogleAllDay ? ev.start.date : ev.start.dateTime;
               let eventEnd = isGoogleAllDay ? ev.end.date : ev.end.dateTime;
 
               if (isGoogleAllDay && eventEnd) {
@@ -571,7 +571,7 @@
    * Render mini calendar
    */
   function renderMiniCalendar() {
-    if (!mini) return;
+    if (!mini) {return;}
     mini.innerHTML = '';
     if (miniMonthEl) {
       miniMonthEl.textContent = miniCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -647,12 +647,12 @@
    * Get events for date
    */
   function getEventsForDate(date) {
-    if (!miniCalendarEvents || miniCalendarEvents.length === 0) return [];
+    if (!miniCalendarEvents || miniCalendarEvents.length === 0) {return [];}
     const now = new Date();
     const dateStr = formatDateManila(date);
     return miniCalendarEvents.filter(event => {
       const eventEnd = new Date(event.end);
-      if (eventEnd < now) return false;
+      if (eventEnd < now) {return false;}
       const eventDateStr = formatDateManila(new Date(event.start));
       return eventDateStr === dateStr;
     });
@@ -663,14 +663,14 @@
    */
   function getHighestPriorityCategory(events) {
     // Priority order: urgent > high > holiday > meeting > deadline > reminder > standard > low
-    if (events.some(e => e.category === 'urgent' || e.extendedProps?.category === 'urgent')) return 'urgent';
-    if (events.some(e => e.category === 'high' || e.extendedProps?.category === 'high')) return 'high';
-    if (events.some(e => e.category === 'holiday' || e.extendedProps?.category === 'holiday' || e.extendedProps?.isHoliday)) return 'holiday';
-    if (events.some(e => e.category === 'meeting' || e.extendedProps?.category === 'meeting')) return 'meeting';
-    if (events.some(e => e.category === 'deadline' || e.extendedProps?.category === 'deadline')) return 'deadline';
-    if (events.some(e => e.category === 'reminder' || e.extendedProps?.category === 'reminder')) return 'reminder';
-    if (events.some(e => e.category === 'standard' || e.extendedProps?.category === 'standard')) return 'standard';
-    if (events.some(e => e.category === 'low' || e.extendedProps?.category === 'low')) return 'low';
+    if (events.some(e => e.category === 'urgent' || e.extendedProps?.category === 'urgent')) {return 'urgent';}
+    if (events.some(e => e.category === 'high' || e.extendedProps?.category === 'high')) {return 'high';}
+    if (events.some(e => e.category === 'holiday' || e.extendedProps?.category === 'holiday' || e.extendedProps?.isHoliday)) {return 'holiday';}
+    if (events.some(e => e.category === 'meeting' || e.extendedProps?.category === 'meeting')) {return 'meeting';}
+    if (events.some(e => e.category === 'deadline' || e.extendedProps?.category === 'deadline')) {return 'deadline';}
+    if (events.some(e => e.category === 'reminder' || e.extendedProps?.category === 'reminder')) {return 'reminder';}
+    if (events.some(e => e.category === 'standard' || e.extendedProps?.category === 'standard')) {return 'standard';}
+    if (events.some(e => e.category === 'low' || e.extendedProps?.category === 'low')) {return 'low';}
     return 'standard';
   }
 
@@ -679,7 +679,7 @@
    */
   function openEventModal(prefilledDate = null) {
     const modal = document.getElementById('memoModal');
-    if (!modal) return;
+    if (!modal) {return;}
 
     document.getElementById('memoModalTitle').textContent = 'Add Event';
     if (form) {
@@ -691,9 +691,9 @@
       }
     }
 
-    if (editingSourceInput) editingSourceInput.value = '';
-    if (editingIdInput) editingIdInput.value = '';
-    if (deleteBtn) deleteBtn.style.display = 'none';
+    if (editingSourceInput) {editingSourceInput.value = '';}
+    if (editingIdInput) {editingIdInput.value = '';}
+    if (deleteBtn) {deleteBtn.style.display = 'none';}
 
     // Reset participants
     participantsData = { departments: [], emails: [] };
@@ -701,8 +701,8 @@
 
     if (prefilledDate) {
       const date = new Date(prefilledDate);
-      if (dateInput) dateInput.value = formatDateForInput(date);
-      if (startInput) startInput.value = formatTimeForInput(date);
+      if (dateInput) {dateInput.value = formatDateForInput(date);}
+      if (startInput) {startInput.value = formatTimeForInput(date);}
     }
 
     modal.style.display = 'block';
@@ -754,82 +754,113 @@
 
     console.log('✅ Initializing autocomplete for participant input');
 
-    // Remove existing listeners by cloning (avoids duplicate event listeners)
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    const newSuggestions = suggestions.cloneNode(true);
-    suggestions.parentNode.replaceChild(newSuggestions, suggestions);
+    const oldInput = input;
+    const oldSuggestions = suggestions;
+
+    const newInput = oldInput.cloneNode(true);
+    oldInput.parentNode.replaceChild(newInput, oldInput);
+    const newSuggestions = oldSuggestions.cloneNode(true);
+    if (!oldSuggestions.parentNode.classList.contains('participant-input-wrapper')) {
+      oldSuggestions.parentNode.replaceChild(newSuggestions, oldSuggestions);
+    } else {
+      oldSuggestions.parentNode.removeChild(oldSuggestions);
+      document.body.appendChild(newSuggestions);
+    }
 
     const participantEmailInput = newInput;
     const emailSuggestions = newSuggestions;
+    emailSuggestions.id = 'emailSuggestions';
+    emailSuggestions.style.position = 'fixed';
+    emailSuggestions.style.zIndex = '20010';
+    emailSuggestions.style.display = 'none';
 
     let suggestionTimeout;
     let selectedIndex = -1;
     let currentMatches = [];
 
-    // Show suggestions on focus if there's text
+    function positionSuggestions(){
+      const rect = participantEmailInput.getBoundingClientRect();
+      emailSuggestions.style.left = rect.left + 'px';
+      emailSuggestions.style.width = rect.width + 'px';
+      emailSuggestions.style.top = (rect.bottom + 4) + 'px';
+    }
+
     participantEmailInput.addEventListener('focus', () => {
-      if (participantEmailInput.value.trim() && registeredUsers.length > 0) {
-        showSuggestions(participantEmailInput.value);
+      positionSuggestions();
+      const q = (participantEmailInput.value || '').trim();
+      if (registeredUsers.length > 0) {
+        showSuggestions(q);
+      } else {
+        loadRegisteredUsers().then(() => {
+          positionSuggestions();
+          if (registeredUsers.length > 0) {
+            showSuggestions(q);
+          }
+        }).catch(() => {/* ignore */});
       }
     });
 
     participantEmailInput.addEventListener('input', (e) => {
       const query = e.target.value.trim();
       selectedIndex = -1;
+      positionSuggestions();
 
-      if (!query) {
-        emailSuggestions.classList.remove('show');
-        currentMatches = [];
+      if (registeredUsers.length === 0) {
+        loadRegisteredUsers().then(() => {
+          positionSuggestions();
+          showSuggestions(query);
+        });
         return;
       }
 
-      // Show suggestions immediately (reduced delay)
-      clearTimeout(suggestionTimeout);
-      suggestionTimeout = setTimeout(() => {
-        if (registeredUsers.length === 0) {
-          console.warn('⚠️ No registered users loaded yet. Total users:', registeredUsers.length);
-          console.log('🔄 Attempting to reload users...');
-          loadRegisteredUsers().then(() => {
-            if (registeredUsers.length > 0) {
-              showSuggestions(query);
-            }
-          });
-          return;
-        }
-        console.log('🔍 Searching', registeredUsers.length, 'users for:', query);
-        showSuggestions(query);
-      }, 100);
+      showSuggestions(query);
     });
+
+    window.addEventListener('resize', positionSuggestions);
+    window.addEventListener('scroll', positionSuggestions, true);
 
     function showSuggestions(query) {
       if (!registeredUsers || registeredUsers.length === 0) {
-        console.warn('⚠️ Registered users not loaded. Array length:', registeredUsers?.length || 0);
         return;
       }
 
-      const queryLower = query.toLowerCase();
-      console.log('🔍 Filtering', registeredUsers.length, 'users with query:', queryLower);
+      const queryLower = (query || '').toLowerCase();
+      const isSecretary = (window.currentUser && window.currentUser.role === 'secretary');
+      const myDept = (window.currentUser && (window.currentUser.department || '')).toLowerCase();
 
-      currentMatches = registeredUsers.filter(user => {
-        const email = (user.email || '').toLowerCase();
-        const firstName = (user.firstName || '').toLowerCase();
-        const lastName = (user.lastName || '').toLowerCase();
-        const fullName = `${firstName} ${lastName}`.toLowerCase();
+      let matches;
+      const inDept = (u) => String(u.department || '').toLowerCase() === myDept && !!myDept;
+      const nameOrEmailIncludes = (u) => {
+        const email = (u.email || '').toLowerCase();
+        const firstName = (u.firstName || '').toLowerCase();
+        const lastName = (u.lastName || '').toLowerCase();
+        const fullName = `${firstName} ${lastName}`.trim();
+        return !queryLower || email.includes(queryLower) || firstName.includes(queryLower) || lastName.includes(queryLower) || fullName.includes(queryLower);
+      };
 
-        // Match email, first name, last name, or full name
-        const matches = email.includes(queryLower) ||
-               firstName.includes(queryLower) ||
-               lastName.includes(queryLower) ||
-               fullName.includes(queryLower);
+      if (isSecretary) {
+        const deptUsers = registeredUsers.filter(u => inDept(u) && nameOrEmailIncludes(u));
+        if (!queryLower) {
+          // On empty query, suggest department users only
+          matches = deptUsers.slice(0, 8);
+        } else {
+          // When searching, show department users first, then others
+          const otherUsers = registeredUsers.filter(u => !inDept(u) && nameOrEmailIncludes(u));
+          matches = [...deptUsers, ...otherUsers].slice(0, 8);
+        }
+      } else {
+        // Admin/Faculty: normal behavior
+        if (!queryLower) {
+          matches = [...registeredUsers].slice(0, 8);
+        } else {
+          matches = registeredUsers.filter(nameOrEmailIncludes).slice(0, 8);
+        }
+      }
 
-        return matches;
-      }).slice(0, 8); // Show up to 8 results
-
-      console.log('✅ Found', currentMatches.length, 'matching users');
+      currentMatches = matches;
 
       if (currentMatches.length === 0) {
-        emailSuggestions.classList.remove('show');
+        emailSuggestions.style.display = 'none';
         return;
       }
 
@@ -851,70 +882,60 @@
         li.onclick = async () => {
           await addParticipant(user);
           participantEmailInput.value = '';
-          emailSuggestions.classList.remove('show');
+          emailSuggestions.style.display = 'none';
           currentMatches = [];
           selectedIndex = -1;
         };
         li.onmouseenter = () => {
-          // Remove highlight from all items
-          emailSuggestions.querySelectorAll('li').forEach(item => {
-            item.style.background = '';
-          });
-          // Highlight hovered item
+          emailSuggestions.querySelectorAll('li').forEach(item => { item.style.background = ''; });
           li.style.background = '#f3f4f6';
           selectedIndex = index;
         };
         emailSuggestions.appendChild(li);
       });
-      emailSuggestions.classList.add('show');
+      emailSuggestions.style.display = 'block';
     }
 
     // Keyboard navigation
     participantEmailInput.addEventListener('keydown', async (e) => {
-      // Handle Enter key - add email if valid
       if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
         e.stopPropagation();
         const email = participantEmailInput.value.trim();
 
-        console.log('Enter pressed, email:', email, 'Suggestions showing:', emailSuggestions.classList.contains('show'));
+        console.log('Enter pressed, email:', email, 'Suggestions showing:', emailSuggestions.style.display === 'block');
 
-        // If suggestions are showing and an item is selected, use that
-        if (emailSuggestions.classList.contains('show') && currentMatches.length > 0 && selectedIndex >= 0) {
+        if (emailSuggestions.style.display === 'block' && currentMatches.length > 0 && selectedIndex >= 0) {
           const items = emailSuggestions.querySelectorAll('li');
           if (items[selectedIndex]) {
             console.log('Selecting suggestion at index', selectedIndex);
             const selectedUser = currentMatches[selectedIndex];
             await addParticipant(selectedUser);
             participantEmailInput.value = '';
-            emailSuggestions.classList.remove('show');
+            emailSuggestions.style.display = 'none';
             currentMatches = [];
             selectedIndex = -1;
             return;
           }
         }
 
-        // Otherwise, try to add the typed email if it looks valid and is registered
         if (email) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (emailRegex.test(email.trim())) {
-            // Check if email is in registered users before allowing
             const isRegistered = registeredUsers.some(u => u.email?.toLowerCase() === email.toLowerCase());
             if (isRegistered) {
               console.log('Adding email manually:', email);
               await addParticipant(email);
               participantEmailInput.value = '';
-              emailSuggestions.classList.remove('show');
+              emailSuggestions.style.display = 'none';
               currentMatches = [];
               selectedIndex = -1;
             } else {
-              // Email is valid format but not registered
               await showAlertModal(
                 `"${email}" is not a registered user.\n\nPlease select a user from the suggestions list above.`,
                 'User Not Registered'
               );
-              // Keep the input value so user can see what they typed
-              emailSuggestions.classList.add('show');
+              emailSuggestions.style.display = 'block';
             }
           } else {
             await showAlertModal('Please enter a valid email address.\n\nExample: user@example.com', 'Invalid Email Format');
@@ -924,8 +945,7 @@
         return false;
       }
 
-      // Only handle arrow keys if suggestions are showing
-      if (!emailSuggestions.classList.contains('show') || currentMatches.length === 0) {
+      if (emailSuggestions.style.display !== 'block' || currentMatches.length === 0) {
         return;
       }
 
@@ -950,15 +970,14 @@
           items.forEach(item => item.style.background = '');
         }
       } else if (e.key === 'Escape') {
-        emailSuggestions.classList.remove('show');
+        emailSuggestions.style.display = 'none';
         selectedIndex = -1;
       }
     });
 
-    // Close suggestions when clicking outside
     const clickHandler = (e) => {
       if (!participantEmailInput.contains(e.target) && !emailSuggestions.contains(e.target)) {
-        emailSuggestions.classList.remove('show');
+        emailSuggestions.style.display = 'none';
         selectedIndex = -1;
       }
     };
@@ -1121,7 +1140,7 @@
     if (description && description.length > 2000) {
       restoreButtonState();
       await showAlertModal('Description is too long. Please keep it under 2000 characters.', 'Description Too Long');
-      if (descInput) descInput.focus();
+      if (descInput) {descInput.focus();}
       return;
     }
 
@@ -1132,7 +1151,7 @@
     };
 
     const startISO = formatDateTime(date, start);
-    let endISO = end ? formatDateTime(date, end) : formatDateTime(date, start.split(':').map((v, i) => i === 0 ? String((parseInt(v) + 1) % 24).padStart(2, '0') : v).join(':'));
+    const endISO = end ? formatDateTime(date, end) : formatDateTime(date, start.split(':').map((v, i) => i === 0 ? String((parseInt(v) + 1) % 24).padStart(2, '0') : v).join(':'));
 
     const participants = participantsHiddenInput ? participantsHiddenInput.value : JSON.stringify(participantsData);
 
@@ -1180,7 +1199,7 @@
             errorMessage = errorData.message || errorMessage;
           } catch {
             // If not JSON, use the text as is
-            if (errorText) errorMessage = errorText;
+            if (errorText) {errorMessage = errorText;}
           }
           restoreButtonState();
           await showAlertModal(errorMessage, 'Update Failed');
@@ -1214,7 +1233,7 @@
             errorMessage = errorData.message || errorMessage;
           } catch {
             // If not JSON, use the text as is
-            if (errorText) errorMessage = errorText;
+            if (errorText) {errorMessage = errorText;}
           }
           restoreButtonState();
           await showAlertModal(errorMessage, 'Save Failed');
@@ -1276,10 +1295,10 @@
     const editingId = editingIdInput.value;
     const editingSource = editingSourceInput.value;
 
-    if (!editingId) return;
+    if (!editingId) {return;}
 
     const confirmed = await showConfirmModal('Are you sure you want to delete this event?', 'Delete Event');
-    if (!confirmed) return;
+    if (!confirmed) {return;}
 
     try {
       if (editingSource === 'backend') {
@@ -1303,7 +1322,7 @@
   async function loadDepartments() {
     try {
       const res = await fetch('/api/users/departments', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Failed to load departments');
+      if (!res.ok) {throw new Error('Failed to load departments');}
       const data = await res.json();
       departmentsList = data.departments || [];
       renderDepartmentDropdown();
@@ -1316,7 +1335,7 @@
    * Render department dropdown
    */
   function renderDepartmentDropdown() {
-    if (!departmentList) return;
+    if (!departmentList) {return;}
     departmentList.innerHTML = '';
     departmentsList.forEach(dept => {
       const item = document.createElement('div');
@@ -1393,6 +1412,8 @@
   async function addParticipant(userOrEmail) {
     let email, userData;
 
+    // Revert: no hard restriction on departments here; validation focuses on format and registration
+
     if (typeof userOrEmail === 'string') {
       // Legacy: just email string
       email = userOrEmail.trim();
@@ -1420,7 +1441,7 @@
       } else {
         // User not found in registered users - prevent adding
         await showAlertModal(
-          `"${email}" is not a registered user in the system.\n\nPlease select a user from the suggestions list or enter a registered email address.`,
+          `"${email}" is not a registered user in the system.\n\nPlease select a registered user.`,
           'User Not Found'
         );
         console.warn('Attempted to add non-registered user:', email);
@@ -1500,7 +1521,7 @@
    * Render participant chips
    */
   function renderParticipantsChips() {
-    if (!participantsChipsContainer) return;
+    if (!participantsChipsContainer) {return;}
     participantsChipsContainer.innerHTML = '';
 
     participantsData.departments.forEach(dept => {

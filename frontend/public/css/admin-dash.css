@@ -503,7 +503,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
+    /* position: relative; */
     border-radius: 15px;
     color: #ffffff;
     overflow: hidden;

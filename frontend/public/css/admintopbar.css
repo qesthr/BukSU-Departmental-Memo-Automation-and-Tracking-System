@@ -20,7 +20,7 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-top: -35px;
-    position: relative;
+    /* position: relative; */
 
     /* ensure stacking context */
     z-index: 101;
@@ -38,6 +38,8 @@
     margin-right: 1rem;
     display: flex;
     align-items: center;
+    z-index: 1; /* keep below modals/dropdowns */
+    overflow: hidden; /* prevent visual overflow into dropdowns/modals */
 }
 
 
@@ -69,6 +71,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 0; /* stay within container clipping */
 }
 
 /* 🔹 Header Actions (Notifications + Profile) */
@@ -176,9 +179,9 @@
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--primary);
-    line-height: 1;
+
     /* ✅ Prevent vertical misalignment */
-    display: flex;
+    display: block;
     align-items: center;
     /* ✅ Vertically center text with image */
 }

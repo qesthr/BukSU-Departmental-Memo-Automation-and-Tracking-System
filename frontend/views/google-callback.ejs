@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth Complete</title>
 </head>
 <body>
@@ -30,24 +31,8 @@
         // Storage fallback so parent can detect success even if opener is missing
         try { localStorage.setItem('GOOGLE_AUTH_SUCCESS', '1'); } catch (e) {}
 
-        // Try to close the popup (multiple techniques for Edge)
-        setTimeout(() => {
-            console.log('🔄 Attempting to close popup');
-            try { window.focus(); } catch (e) {}
-            try { window.close(); } catch (e) {}
-            try { window.open('', '_self'); } catch (e) {}
-            try { window.close(); } catch (e) {}
-            let attempts = 0;
-            const interval = setInterval(() => {
-                attempts++;
-                if (attempts > 10) {
-                    clearInterval(interval);
-                }
-                try { window.focus(); } catch (e) {}
-                try { window.open('', '_self'); } catch (e) {}
-                try { window.close(); } catch (e) {}
-            }, 100);
-        }, 200);
+        // Try closing popup if possible
+        setTimeout(() => { try { window.close(); } catch (e) {} }, 200);
     </script>
 </body>
 </html>

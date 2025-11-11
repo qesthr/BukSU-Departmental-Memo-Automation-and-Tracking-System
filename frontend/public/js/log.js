@@ -758,8 +758,113 @@ document.addEventListener('DOMContentLoaded', () => {
         return chip;
     }
 
+    // Simple typeahead for recipients
+    let recipientSuggestEl = null;
+    let recipientSuggestItems = [];
+    let recipientSuggestIndex = -1;
+
+    function ensureRecipientSuggest(){
+        if (recipientSuggestEl) {return recipientSuggestEl;}
+        const wrapper = recipientsInput && recipientsInput.parentElement;
+        if (!wrapper) {return null;}
+        const ul = document.createElement('ul');
+        ul.id = 'recipientSuggestions';
+        ul.style.position = 'absolute';
+        ul.style.left = '0';
+        ul.style.right = '0';
+        ul.style.top = '100%';
+        ul.style.margin = '4px 0 0 0';
+        ul.style.padding = '4px 0';
+        ul.style.listStyle = 'none';
+        ul.style.background = '#fff';
+        ul.style.border = '1px solid #e2e8f0';
+        ul.style.borderRadius = '8px';
+        ul.style.boxShadow = '0 10px 20px rgba(2,6,23,.1)';
+        ul.style.maxHeight = '260px';
+        ul.style.overflowY = 'auto';
+        ul.style.zIndex = '10010';
+        ul.style.display = 'none';
+        wrapper.appendChild(ul);
+        recipientSuggestEl = ul;
+        return ul;
+    }
+
+    function closeRecipientSuggest(){
+        if (recipientSuggestEl) { recipientSuggestEl.style.display = 'none'; }
+        recipientSuggestItems = [];
+        recipientSuggestIndex = -1;
+    }
+
+    function openRecipientSuggest(items){
+        const ul = ensureRecipientSuggest();
+        if (!ul) {return;}
+        recipientSuggestItems = items;
+        recipientSuggestIndex = -1;
+        ul.innerHTML = items.map((u, i) => `
+            <li data-i="${i}" style="padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                <img src="${u.profilePicture || '/images/memofy-logo.png'}" onerror="this.src='/images/memofy-logo.png'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;"/>
+                <div style="display:flex;flex-direction:column;">
+                    <span style="font-size:13px;color:#0f172a;font-weight:600;">${(u.firstName||'') + ' ' + (u.lastName||'')}</span>
+                    <span style="font-size:12px;color:#64748b;">${u.email}</span>
+                </div>
+            </li>
+        `).join('');
+        ul.style.display = items.length ? 'block' : 'none';
+        // mouse selection
+        ul.querySelectorAll('li').forEach(li => {
+            li.addEventListener('mouseenter', () => {
+                const i = Number(li.dataset.i);
+                highlightRecipientSuggest(i);
+            });
+            li.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const i = Number(li.dataset.i);
+                chooseRecipientSuggest(i);
+            });
+        });
+    }
+
+    function highlightRecipientSuggest(i){
+        const ul = recipientSuggestEl; if (!ul) return;
+        recipientSuggestIndex = i;
+        Array.from(ul.children).forEach((li, idx) => {
+            li.style.background = (idx === i) ? '#eef2ff' : 'transparent';
+        });
+    }
+
+    function chooseRecipientSuggest(i){
+        const user = recipientSuggestItems[i];
+        if (!user) return;
+        // avoid duplicates
+        if (!recipientData.find(u => String(u.email).toLowerCase() === String(user.email).toLowerCase())) {
+            recipientData.push(user);
+            renderRecipientChips();
+        }
+        if (recipientsInput) { recipientsInput.value = ''; }
+        closeRecipientSuggest();
+    }
+
     if (recipientsInput && recipientChipsContainer) {
+        recipientsInput.addEventListener('input', () => {
+            const q = (recipientsInput.value || '').trim().toLowerCase();
+            if (!q) { closeRecipientSuggest(); return; }
+            // filter registered users not already selected
+            const picked = new Set(recipientData.map(u => String(u.email).toLowerCase()));
+            const results = (registeredUsers || []).filter(u => {
+                const name = `${u.firstName||''} ${u.lastName||''}`.toLowerCase();
+                const email = String(u.email||'').toLowerCase();
+                return !picked.has(email) && (name.includes(q) || email.includes(q));
+            }).slice(0, 8);
+            if (results.length) openRecipientSuggest(results); else closeRecipientSuggest();
+        });
+
         recipientsInput.addEventListener('keydown', (e) => {
+            if (recipientSuggestItems.length) {
+                if (e.key === 'ArrowDown') { e.preventDefault(); highlightRecipientSuggest(Math.min(recipientSuggestItems.length-1, recipientSuggestIndex+1)); return; }
+                if (e.key === 'ArrowUp')   { e.preventDefault(); highlightRecipientSuggest(Math.max(0, recipientSuggestIndex-1)); return; }
+                if (e.key === 'Enter' && recipientSuggestIndex >= 0) { e.preventDefault(); chooseRecipientSuggest(recipientSuggestIndex); return; }
+                if (e.key === 'Escape') { closeRecipientSuggest(); return; }
+            }
             if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault();
                 const email = recipientsInput.value.trim().toLowerCase();
@@ -791,14 +896,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 recipientData.push(user);
                 recipientsInput.value = '';
                 renderRecipientChips();
+                closeRecipientSuggest();
             }
+        });
+
+        recipientsInput.addEventListener('blur', () => {
+            setTimeout(closeRecipientSuggest, 100);
         });
 
         // Handle paste events for comma-separated emails
         recipientsInput.addEventListener('paste', (e) => {
             setTimeout(() => {
                 const pastedText = recipientsInput.value.trim();
-                const emails = pastedText.split(/[,\s]+/).filter(e => e.trim());
+                const emails = pastedText.split(/[\,\s]+/).filter(e => e.trim());
 
                 if (emails.length > 1) {
                     recipientsInput.value = '';
@@ -809,6 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                     renderRecipientChips();
+                    closeRecipientSuggest();
                 }
             }, 0);
         });
