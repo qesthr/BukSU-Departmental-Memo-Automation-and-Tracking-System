@@ -65,6 +65,8 @@ const memoSchema = new mongoose.Schema({
             'user_activity',
             'system_notification',
             'user_deleted',
+            'user_profile_edited',
+            'calendar_connected',
             null
         ],
         default: null

@@ -107,6 +107,82 @@ async function archivePendingAdminNotifications(originalMemoId) {
   }
 }
 
-module.exports = { notifyAdmin, notifySecretary, notifyRecipients, archivePendingAdminNotifications };
+async function notifyUserProfileEdited({ editedUser, adminUser }) {
+  // Notify the user whose profile was edited
+  // Also notify the admin who made the edit
+  try {
+    const User = require('../models/User');
+    const adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'An admin';
+    const editedUserName = `${editedUser.firstName || ''} ${editedUser.lastName || ''}`.trim() || editedUser.email || 'User';
+
+    // Notify the user being edited
+    await new Memo({
+      sender: adminUser._id,
+      recipient: editedUser._id,
+      subject: 'Your profile has been updated',
+      content: `${adminName} has updated your profile information.`,
+      activityType: 'user_profile_edited',
+      priority: 'medium',
+      status: 'sent',
+      metadata: {
+        eventType: 'user_profile_edited',
+        editedBy: adminUser._id?.toString?.() || String(adminUser._id || ''),
+        editedByEmail: adminUser.email || ''
+      }
+    }).save();
+
+    // Notify the admin who made the edit
+    await new Memo({
+      sender: adminUser._id,
+      recipient: adminUser._id,
+      subject: `User profile updated: ${editedUserName}`,
+      content: `You have updated the profile of ${editedUserName} (${editedUser.email || 'N/A'}).`,
+      activityType: 'user_profile_edited',
+      priority: 'medium',
+      status: 'sent',
+      metadata: {
+        eventType: 'user_profile_edited',
+        editedUserId: editedUser._id?.toString?.() || String(editedUser._id || ''),
+        editedUserEmail: editedUser.email || ''
+      }
+    }).save();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('notifyUserProfileEdited error:', e?.message || e);
+  }
+}
+
+async function notifyCalendarConnected({ user }) {
+  // Notify the user that they successfully connected their Google Calendar
+  try {
+    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+
+    await new Memo({
+      sender: user._id,
+      recipient: user._id,
+      subject: 'Google Calendar Connected',
+      content: `You have successfully connected your Google Calendar account (${user.email || 'N/A'}) to Memofy. Your calendar events will now sync automatically.`,
+      activityType: 'calendar_connected',
+      priority: 'medium',
+      status: 'sent',
+      metadata: {
+        eventType: 'calendar_connected',
+        userEmail: user.email || ''
+      }
+    }).save();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('notifyCalendarConnected error:', e?.message || e);
+  }
+}
+
+module.exports = {
+  notifyAdmin,
+  notifySecretary,
+  notifyRecipients,
+  archivePendingAdminNotifications,
+  notifyUserProfileEdited,
+  notifyCalendarConnected
+};
 
 

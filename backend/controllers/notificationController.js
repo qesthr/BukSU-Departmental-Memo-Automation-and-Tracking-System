@@ -36,9 +36,9 @@ exports.getNotifications = async (req, res) => {
             }
         }
 
-        // Format notifications - prioritize unread, then include activity logs
+        // Format notifications - only include activity logs (exclude pending acknowledgement/unread memos)
         const formattedMemoNotifications = memos
-            .filter(memo => !memo.isRead || memo.activityType !== null) // Show unread memos OR activity logs
+            .filter(memo => memo.activityType !== null) // Show only activity logs, exclude unread memos
             .slice(0, 10) // Limit to 10 most recent
             .map(memo => {
                 // Normalize type for workflow-related system notifications
@@ -102,11 +102,12 @@ exports.getNotifications = async (req, res) => {
             };
         });
 
-        // Count unread targeted to this user (memos only, per-user)
+        // Count unread activity logs only (exclude pending acknowledgement/unread memos)
         const unreadMemos = await Memo.countDocuments({
             recipient: userId,
             isRead: false,
-            status: { $ne: 'deleted' }
+            status: { $ne: 'deleted' },
+            activityType: { $ne: null } // Only count activity logs, not regular unread memos
         });
         const unreadCount = unreadMemos;
 

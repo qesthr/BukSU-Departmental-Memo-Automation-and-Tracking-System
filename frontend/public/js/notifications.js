@@ -359,6 +359,10 @@
                 iconName = 'check-circle';
             } else if (notif.type === 'memo_rejected') {
                 iconName = 'x-circle';
+            } else if (notif.type === 'user_profile_edited') {
+                iconName = 'user-cog';
+            } else if (notif.type === 'calendar_connected') {
+                iconName = 'calendar-check';
             }
 
             // Extract original memo id for workflow notifications (pending/approved/rejected)
@@ -820,27 +824,39 @@
                                (memo.subject && memo.subject.includes('Calendar Event')) ||
                                (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
 
-        const memoHeader = modal.querySelector('.notification-memo-body > div:first-child');
-
         // Detect user/audit log entries
         const isUserLog = (memo.activityType === 'user_activity') ||
                           ((memo.subject || '').toLowerCase().includes('user login')) ||
                           ((memo.subject || '').toLowerCase().includes('user activity'));
 
-        if ((isCalendarEvent || isUserLog) && memoHeader) {
-            // Hide MEMO header for calendar events
+        // Determine if this is a system notification (not an actual memo)
+        // Real memos: memo_received, memo_sent, or no activityType
+        // System notifications: everything else with activityType
+        const isSystemNotification = memo.activityType &&
+            memo.activityType !== 'memo_received' &&
+            memo.activityType !== 'memo_sent' &&
+            memo.activityType !== null;
+
+        const memoHeader = modal.querySelector('.notification-memo-body > div:first-child');
+        const memoDetails = modal.querySelector('.notification-memo-body > div:first-child > div:last-child'); // The details section
+
+        // Hide MEMO header and details for system notifications, calendar events, and user logs
+        if ((isSystemNotification || isCalendarEvent || isUserLog) && memoHeader) {
             memoHeader.style.display = 'none';
         }
 
+        // Only show memo details (Subject, From, To, etc.) for actual memos
+        const isActualMemo = !isSystemNotification && !isCalendarEvent && !isUserLog;
+
         // Subject
         const subjectEl = modal.querySelector('#notificationMemoSubject');
-        if (subjectEl && !isCalendarEvent && !isUserLog) {
+        if (subjectEl && isActualMemo) {
             subjectEl.textContent = memo.subject || '(No subject)';
         }
 
         // From (Sender)
         const fromEl = modal.querySelector('#notificationMemoFrom');
-        if (fromEl && !isCalendarEvent && !isUserLog) {
+        if (fromEl && isActualMemo) {
             const senderName = memo.sender
                 ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
                 : 'Unknown Sender';
@@ -850,7 +866,7 @@
 
         // To (Recipient)
         const toEl = modal.querySelector('#notificationMemoTo');
-        if (toEl) {
+        if (toEl && isActualMemo) {
             const recipientName = memo.recipient
                 ? `${memo.recipient.firstName || ''} ${memo.recipient.lastName || ''}`.trim()
                 : 'Unknown Recipient';
@@ -860,19 +876,19 @@
 
         // Department
         const departmentEl = modal.querySelector('#notificationMemoDepartment');
-        if (departmentEl) {
+        if (departmentEl && isActualMemo) {
             departmentEl.textContent = memo.department || 'N/A';
         }
 
         // Priority
         const priorityEl = modal.querySelector('#notificationMemoPriority');
-        if (priorityEl) {
+        if (priorityEl && isActualMemo) {
             priorityEl.textContent = memo.priority || 'medium';
         }
 
         // Date
         const dateEl = modal.querySelector('#notificationMemoDate');
-        if (dateEl && memo.createdAt) {
+        if (dateEl && memo.createdAt && isActualMemo) {
             const date = new Date(memo.createdAt);
             dateEl.textContent = date.toLocaleString();
         }
@@ -923,6 +939,56 @@
                     </div>
                     <div style="width:100%; height:1px; background:#e5e7eb; margin:16px 0;"></div>
                     <div style="white-space:pre-wrap; line-height:1.8; color:#111827; font-size:14px;">${body}</div>
+                `;
+            } else if (isSystemNotification) {
+                // System notification format: simple, clean format without memo structure
+                const titleEl = modal.querySelector('.notification-memo-header h2');
+                if (titleEl) {
+                    // Update title based on notification type
+                    if (memo.activityType === 'calendar_connected') {
+                        titleEl.textContent = 'Google Calendar Connected';
+                    } else if (memo.activityType === 'user_profile_edited') {
+                        titleEl.textContent = 'Profile Updated';
+                    } else if (memo.activityType === 'user_deleted') {
+                        titleEl.textContent = 'User Deleted';
+                    } else if (memo.activityType === 'password_reset') {
+                        titleEl.textContent = 'Password Reset';
+                    } else if (memo.activityType === 'welcome_email') {
+                        titleEl.textContent = 'Welcome to Memofy';
+                    } else if (memo.activityType === 'pending_memo') {
+                        titleEl.textContent = 'Memo Pending Approval';
+                    } else if (memo.activityType === 'memo_approved') {
+                        titleEl.textContent = 'Memo Approved';
+                    } else if (memo.activityType === 'memo_rejected') {
+                        titleEl.textContent = 'Memo Rejected';
+                    } else {
+                        titleEl.textContent = memo.subject || 'Notification';
+                    }
+                }
+
+                const dt = memo.createdAt ? new Date(memo.createdAt) : null;
+                const when = dt ? dt.toLocaleString() : '';
+                const safe = (s) => String(s || '')
+                    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+                htmlContent += `
+                    <div style="text-align:center;margin-top:20px;margin-bottom:24px;">
+                        <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#f0f9ff;margin-bottom:16px;">
+                            ${memo.activityType === 'calendar_connected' ? '<i data-lucide="calendar-check" style="width:32px;height:32px;color:#1C89E3;"></i>' : ''}
+                            ${memo.activityType === 'user_profile_edited' ? '<i data-lucide="user-cog" style="width:32px;height:32px;color:#1C89E3;"></i>' : ''}
+                            ${memo.activityType === 'user_deleted' ? '<i data-lucide="user-minus" style="width:32px;height:32px;color:#ef4444;"></i>' : ''}
+                            ${memo.activityType === 'password_reset' ? '<i data-lucide="key" style="width:32px;height:32px;color:#1C89E3;"></i>' : ''}
+                            ${memo.activityType === 'welcome_email' ? '<i data-lucide="mail" style="width:32px;height:32px;color:#1C89E3;"></i>' : ''}
+                            ${memo.activityType === 'pending_memo' ? '<i data-lucide="clock" style="width:32px;height:32px;color:#f59e0b;"></i>' : ''}
+                            ${memo.activityType === 'memo_approved' ? '<i data-lucide="check-circle" style="width:32px;height:32px;color:#16a34a;"></i>' : ''}
+                            ${memo.activityType === 'memo_rejected' ? '<i data-lucide="x-circle" style="width:32px;height:32px;color:#ef4444;"></i>' : ''}
+                            ${!['calendar_connected','user_profile_edited','user_deleted','password_reset','welcome_email','pending_memo','memo_approved','memo_rejected'].includes(memo.activityType) ? '<i data-lucide="bell" style="width:32px;height:32px;color:#1C89E3;"></i>' : ''}
+                        </div>
+                        <h3 style="margin:0 0 8px 0; font-size:20px; font-weight:600; color:#111827;">${safe(memo.subject || 'Notification')}</h3>
+                        <p style="margin:0; color:#6b7280; font-size:14px;">${safe(when)}</p>
+                    </div>
+                    <div style="width:100%; height:1px; background:#e5e7eb; margin:24px 0;"></div>
+                    <div style="white-space:pre-wrap; line-height:1.8; color:#111827; font-size:15px; padding:0 8px;">${safe(memo.content || '')}</div>
                 `;
             } else {
                 // Regular memo format
@@ -1157,7 +1223,7 @@
                 }
             }
 
-            // Reinitialize icons
+            // Reinitialize icons (especially important for system notifications)
             if (window.lucide) {
                 window.lucide.createIcons();
             }

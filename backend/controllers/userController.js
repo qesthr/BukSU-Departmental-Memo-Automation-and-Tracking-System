@@ -27,8 +27,12 @@ exports.acquireUserLock = async (req, res) => {
         );
         // Notify others a lock has been acquired
         try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_acquired', { userId, lockedBy: req.user._id, name: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() }); } catch (e) {}
-        // Persist audit log
-        try { await audit(req.user, 'user_lock_acquired', 'User edit lock acquired', `Lock acquired for user ${userId}`, { targetUserId: userId, ttl_seconds: 30 }); } catch (e) {}
+        // Persist audit log with user name
+        try {
+            const targetUser = await User.findById(userId).select('firstName lastName email').lean();
+            const targetUserName = targetUser ? `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email || 'Unknown User' : 'Unknown User';
+            await audit(req.user, 'user_lock_acquired', 'User edit lock acquired', `Lock acquired for user ${targetUserName} (${targetUser?.email || userId})`, { targetUserId: userId, ttl_seconds: 30 });
+        } catch (e) {}
         return res.json({ ok: true, ttl: 30 });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to acquire lock' });
@@ -48,8 +52,12 @@ exports.refreshUserLock = async (req, res) => {
         lock.lockTime = new Date();
         lock.expiresAt = new Date(Date.now() + LOCK_TTL_MS);
         await lock.save();
-        // Persist audit log (lightweight)
-        try { await audit(req.user, 'user_lock_refreshed', 'User edit lock refreshed', `Lock refreshed for user ${userId}`, { targetUserId: userId, ttl_seconds: 30 }); } catch (e) {}
+        // Persist audit log with user name
+        try {
+            const targetUser = await User.findById(userId).select('firstName lastName email').lean();
+            const targetUserName = targetUser ? `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email || 'Unknown User' : 'Unknown User';
+            await audit(req.user, 'user_lock_refreshed', 'User edit lock refreshed', `Lock refreshed for user ${targetUserName} (${targetUser?.email || userId})`, { targetUserId: userId, ttl_seconds: 30 });
+        } catch (e) {}
         return res.json({ ok: true, ttl: 30 });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to refresh lock' });
@@ -65,8 +73,12 @@ exports.releaseUserLock = async (req, res) => {
         }
         await UserLock.deleteOne({ userId });
         try { req.app.locals.broadcastEvent && req.app.locals.broadcastEvent('lock_released', { userId }); } catch (e) {}
-        // Persist audit log
-        try { await audit(req.user, 'user_lock_released', 'User edit lock released', `Lock released for user ${userId}`, { targetUserId: userId }); } catch (e) {}
+        // Persist audit log with user name
+        try {
+            const targetUser = await User.findById(userId).select('firstName lastName email').lean();
+            const targetUserName = targetUser ? `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email || 'Unknown User' : 'Unknown User';
+            await audit(req.user, 'user_lock_released', 'User edit lock released', `Lock released for user ${targetUserName} (${targetUser?.email || userId})`, { targetUserId: userId });
+        } catch (e) {}
         return res.json({ ok: true });
     } catch (e) {
         return res.status(500).json({ message: 'Failed to release lock' });
@@ -350,6 +362,20 @@ exports.updateUser = async (req, res) => {
         await user.save();
         // Audit update
         try { await audit(req.user, 'user_updated', 'User Updated', `Updated user ${user.email}`, { targetUserId: user._id, fields: Object.keys(req.body || {}) }); } catch (e) {}
+
+        // Notify user and admin about profile edit (only if admin is editing another user's profile)
+        if (String(req.user._id) !== String(id) && req.user.role === 'admin') {
+            try {
+                const notificationService = require('../services/notificationService');
+                await notificationService.notifyUserProfileEdited({
+                    editedUser: user,
+                    adminUser: req.user
+                });
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error('Error sending profile edit notification:', e?.message || e);
+            }
+        }
 
         res.json({
             success: true,

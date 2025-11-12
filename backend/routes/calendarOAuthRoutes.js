@@ -35,6 +35,19 @@ router.get('/auth/callback', isAuthenticated, async (req, res) => {
         };
         if (tokens.refresh_token) { updates.calendarRefreshToken = tokens.refresh_token; }
         await User.findByIdAndUpdate(req.user._id, updates);
+
+        // Notify user about successful calendar connection
+        try {
+            const updatedUser = await User.findById(req.user._id);
+            if (updatedUser) {
+                const notificationService = require('../services/notificationService');
+                await notificationService.notifyCalendarConnected({ user: updatedUser });
+            }
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Error sending calendar connection notification:', e?.message || e);
+        }
+
         // Redirect based on user role
         const redirectPath = req.user.role === 'secretary' ? '/secretary/calendar' : '/calendar';
         return res.redirect(redirectPath);
