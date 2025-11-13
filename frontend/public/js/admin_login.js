@@ -153,8 +153,10 @@ if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const email = document.querySelector('input[type="email"]').value.trim();
-    const password = document.getElementById('passwordInput').value;
+    const emailField = document.querySelector('input[type="email"]');
+    const passwordField = document.getElementById('passwordInput');
+    const email = emailField ? emailField.value.trim() : '';
+    const password = passwordField ? passwordField.value : '';
     const loginButton = document.querySelector(".login-btn");
 
     // Basic validation
@@ -170,16 +172,26 @@ if (loginForm) {
 
     // Check reCAPTCHA if it's visible
     const recaptchaContainer = document.getElementById("recaptchaContainer");
-    if (recaptchaContainer.style.display !== 'none') {
+    const shouldCheckRecaptcha = recaptchaContainer && recaptchaContainer.style.display !== 'none';
+    let recaptchaToken = '';
+    if (shouldCheckRecaptcha) {
         if (typeof window.grecaptcha === 'undefined' || !window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
             showMessageModal('reCAPTCHA Error', 'reCAPTCHA not available. Please try again later.', 'error');
             return;
         }
 
-        const recaptchaResponse = window.grecaptcha.getResponse();
-        if (!recaptchaResponse) {
+        recaptchaToken = window.grecaptcha.getResponse();
+        if (!recaptchaToken) {
             showMessageModal('reCAPTCHA Required', 'Please complete the reCAPTCHA', 'warning');
             return;
+        }
+    } else {
+        // Attempt to grab token from default widget if present (even when container hidden)
+        const recaptchaField = document.querySelector('textarea[name="g-recaptcha-response"]');
+        if (recaptchaField && recaptchaField.value) {
+            recaptchaToken = recaptchaField.value;
+        } else if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+            recaptchaToken = window.grecaptcha.getResponse() || '';
         }
     }
 
@@ -193,9 +205,11 @@ if (loginForm) {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify({
                 email: email,
-                password: password
+                password: password,
+                recaptchaToken: recaptchaToken
             })
         });
 
@@ -244,6 +258,46 @@ if (loginForm) {
 window.showAdminMessage = showMessageModal;
 
 function showMessageModal(title, message, type) {
+    const inlineError = document.getElementById('loginInlineError');
+    if (inlineError) {
+        const normalizedType = type || 'error';
+        const colors = {
+            success: '#15803d',
+            warning: '#f97316',
+            error: '#ef4444'
+        };
+        inlineError.textContent = message || title || 'Something went wrong. Please try again.';
+        inlineError.style.display = 'block';
+        inlineError.style.color = colors[normalizedType] || '#ef4444';
+        inlineError.style.backgroundColor = normalizedType === 'success'
+            ? 'rgba(34,197,94,0.12)'
+            : 'rgba(239,68,68,0.1)';
+        inlineError.style.border = `1px solid ${colors[normalizedType] || '#ef4444'}`;
+        inlineError.style.borderRadius = '6px';
+        inlineError.style.padding = '8px 12px';
+        inlineError.style.fontWeight = '600';
+        inlineError.style.marginTop = '8px';
+        inlineError.style.lineHeight = '1.5';
+        inlineError.setAttribute('role', 'alert');
+        inlineError.setAttribute('aria-live', 'assertive');
+
+        const passwordField = document.getElementById('passwordInput');
+        if (passwordField && normalizedType !== 'success') {
+            passwordField.setAttribute('aria-invalid', 'true');
+            passwordField.style.border = `2px solid ${colors[normalizedType] || '#ef4444'}`;
+            passwordField.style.outline = 'none';
+        }
+
+        try {
+            inlineError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_) { /* ignore */ }
+
+        // Remove any existing modal fallback inserted by previous calls
+        document.querySelectorAll('.message-modal').forEach((existingModal) => existingModal.remove());
+        return;
+    }
+
+    // Fallback: if inline container missing, use modal
     const modal = document.createElement('div');
     modal.className = `message-modal ${type}`;
     modal.innerHTML = `
