@@ -418,7 +418,15 @@
     }
     if (modalViewCalendar) {
       modalViewCalendar.onclick = () => {
-        window.location.href = '/admin/calendar';
+        // Check user role to determine calendar route
+        const userRole = window.currentUser?.role || '';
+        if (userRole === 'faculty') {
+          window.location.href = '/faculty/calendar';
+        } else if (userRole === 'secretary') {
+          window.location.href = '/secretary/calendar';
+        } else {
+          window.location.href = '/admin/calendar';
+        }
       };
     }
 

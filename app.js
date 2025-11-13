@@ -225,6 +225,13 @@ app.get('/secretary/calendar', isAuthenticated, (req, res) => {
     return res.redirect('/calendar');
 });
 
+// Faculty Calendar - view-only, no create/add
+app.get('/faculty/calendar', isAuthenticated, (req, res) => {
+    if (!req.isAuthenticated()) { return res.redirect('/'); }
+    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+    return res.render('faculty-calendar', { user: req.user, path: '/faculty/calendar' });
+});
+
 
 
 // Auth success route
@@ -284,7 +291,40 @@ app.get('/dashboard', async (req, res) => {
         }
     }
     if (role === 'faculty') {
-        return res.render('faculty-dashboard', { user: req.user, path: '/dashboard' });
+        try {
+            // Get memos received by faculty (only sent/approved status, not pending)
+            const receivedMemos = await Memo.find({
+                recipient: req.user._id,
+                status: { $in: ['sent', 'approved'] },
+                activityType: { $ne: 'system_notification' }
+            })
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .populate('sender', 'firstName lastName email profilePicture department')
+                .populate('recipient', 'firstName lastName email profilePicture department');
+
+            // Count total received memos
+            const totalReceived = await Memo.countDocuments({
+                recipient: req.user._id,
+                status: { $in: ['sent', 'approved'] },
+                activityType: { $ne: 'system_notification' }
+            });
+
+            return res.render('faculty-dashboard', {
+                user: req.user,
+                path: '/dashboard',
+                receivedMemos: receivedMemos || [],
+                totalReceived: totalReceived || 0
+            });
+        } catch (e) {
+            console.error('Error fetching faculty dashboard data:', e);
+            return res.render('faculty-dashboard', {
+                user: req.user,
+                path: '/dashboard',
+                receivedMemos: [],
+                totalReceived: 0
+            });
+        }
     }
     // Fallback for any other roles
     return res.redirect('/admin-dashboard');
@@ -367,6 +407,27 @@ app.get('/faculty/memos', async (req, res) => {
         return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received });
     } catch (e) {
         return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received: [] });
+    }
+});
+
+// Faculty archive page - only for faculty
+app.get('/faculty/archive', async (req, res) => {
+    if (!req.isAuthenticated()) { return res.redirect('/'); }
+    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+    try {
+        // Get archived memos received by faculty
+        const archivedMemos = await Memo.find({
+            recipient: req.user._id,
+            status: 'archived',
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .populate('sender', 'firstName lastName email profilePicture department')
+            .populate('recipient', 'firstName lastName email profilePicture department');
+        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: archivedMemos || [] });
+    } catch (e) {
+        console.error('Error fetching archived memos:', e);
+        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: [] });
     }
 });
 

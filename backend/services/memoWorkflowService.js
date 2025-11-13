@@ -130,22 +130,50 @@ async function deliver({ memo, actor }) {
     .filter(u => u.role === 'faculty')
     .map(u => u._id);
 
-  if (facultyRecipients.length === 0) {
+  // Deduplicate recipients array to prevent duplicates
+  const uniqueRecipients = [...new Set(facultyRecipients.map(r => String(r)))];
+
+  if (uniqueRecipients.length === 0) {
     // eslint-disable-next-line no-console
     console.warn('No faculty recipients found for memo delivery');
     return memo;
   }
 
+  // Check for existing memos to prevent duplicates
+  const originalMemoId = memo._id.toString();
+  const existingMemos = await Memo.find({
+    'metadata.originalMemoId': originalMemoId,
+    recipient: { $in: uniqueRecipients },
+    status: { $in: ['sent', 'approved', 'read'] }
+  }).select('recipient').lean();
+
+  const existingRecipientIds = new Set(
+    existingMemos.map(m => String(m.recipient))
+  );
+
+  // Only create memos for recipients who don't already have one
+  const recipientsToCreate = uniqueRecipients.filter(
+    r => !existingRecipientIds.has(String(r))
+  );
+
+  if (recipientsToCreate.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log(`All recipients already have memos for originalMemoId: ${originalMemoId}`);
+    return memo;
+  }
+
   // Create recipient memos - one memo per faculty recipient
   // This is necessary for individual inbox tracking
-  const createOps = facultyRecipients.map(r => new Memo({
+  // These memos serve as notifications to recipients
+  const createOps = recipientsToCreate.map(r => new Memo({
     sender: memo.sender,
     recipient: r,
     subject: memo.subject,
     content: memo.content || '',
+    htmlContent: memo.htmlContent || '',
     department: memo.department,
     departments: memo.departments,
-    recipients: facultyRecipients, // All recipients list
+    recipients: uniqueRecipients, // All recipients list
     priority: memo.priority || 'medium',
     createdBy: memo.createdBy || memo.sender,
     attachments: memo.attachments || [],
@@ -153,9 +181,18 @@ async function deliver({ memo, actor }) {
     template: memo.template || 'none',
     status: MEMO_STATUS.SENT,
     folder: MEMO_STATUS.SENT,
-    metadata: { originalMemoId: memo._id.toString(), eventType: 'memo_delivered' }
+    isRead: false, // Mark as unread so recipients see it as a new notification
+    metadata: {
+      originalMemoId: originalMemoId,
+      eventType: 'memo_delivered',
+      approvedAt: new Date().toISOString(),
+      approvedBy: actor?._id?.toString() || String(actor?._id || '')
+    }
   }).save());
-  await Promise.all(createOps);
+  const createdMemos = await Promise.all(createOps);
+
+  // Log notification to recipients
+  console.log(`✅ Notified ${createdMemos.length} recipients about approved memo: ${memo.subject}`);
 
   // Mark workflow memo as approved (not sent) and persist history
   memo.status = MEMO_STATUS.APPROVED;

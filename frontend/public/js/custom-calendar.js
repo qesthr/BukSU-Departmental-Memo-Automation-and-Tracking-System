@@ -17,6 +17,7 @@ class CustomCalendar {
     this.slotMaxTime = options.slotMaxTime || '24:00:00';
     this.currentView = options.initialView || 'timeGridDay';
     this.currentDate = options.initialDate || new Date();
+    this.viewOnly = options.viewOnly || false; // View-only mode (for faculty)
 
     // State
     this.events = [];
@@ -73,13 +74,15 @@ class CustomCalendar {
     // Left side: Add Event button and Google Calendar sync
     const leftSection = document.createElement('div');
     leftSection.className = 'toolbar-left';
-    const addEventBtn = document.createElement('button');
-    addEventBtn.className = 'btn btn-primary';
-    addEventBtn.textContent = 'Add Event';
-    addEventBtn.onclick = () => {
-      if (window.openModal) window.openModal();
-    };
-    leftSection.appendChild(addEventBtn);
+    if (!this.viewOnly) {
+      const addEventBtn = document.createElement('button');
+      addEventBtn.className = 'btn btn-primary';
+      addEventBtn.textContent = 'Add Event';
+      addEventBtn.onclick = () => {
+        if (window.openModal) window.openModal();
+      };
+      leftSection.appendChild(addEventBtn);
+    }
 
     // Google Calendar sync button
     const isGoogleCalendarConnected = window.calendarConnected === true;
@@ -734,6 +737,15 @@ class CustomCalendar {
    */
   handleSlotClick(e, time, date) {
     e.stopPropagation();
+    if (this.viewOnly) {
+      // View-only mode: show message instead of opening modal
+      if (window.showAlertModal) {
+        window.showAlertModal('Faculty can view calendar events but cannot create or edit them.', 'View Only');
+      } else {
+        alert('Faculty can view calendar events but cannot create or edit them.');
+      }
+      return;
+    }
     if (window.openModal) {
       // Open modal with pre-filled date and time
       const [hours, minutes] = time.split(':').map(Number);
@@ -744,6 +756,30 @@ class CustomCalendar {
   }
 
   handleEventClick(event) {
+    // View-only mode: show event details instead of edit modal
+    if (this.viewOnly) {
+      const title = event.title || 'Event';
+      const description = event.extendedProps?.description || 'No description';
+      const category = event.extendedProps?.category || 'standard';
+      const start = event.start ? new Date(event.start).toLocaleString() : '';
+      const end = event.end ? new Date(event.end).toLocaleString() : '';
+
+      let message = `<strong>${title}</strong><br/>`;
+      message += `Category: ${category}<br/>`;
+      message += `Start: ${start}<br/>`;
+      message += `End: ${end}<br/>`;
+      if (description) {
+        message += `<br/>${description}`;
+      }
+
+      if (window.showAlertModal) {
+        window.showAlertModal(message, 'Event Details');
+      } else {
+        alert(message);
+      }
+      return;
+    }
+
     // Open event details modal
     const modal = document.getElementById('memoModal');
     if (!modal) return;

@@ -198,10 +198,16 @@ exports.list = async (req, res, next) => {
                     return true;
                 }
 
-                // Check if user's email matches
-                if (userEmail && emails.length > 0 && emails.includes(userEmail)) {
-                    console.log(`   ✅ SHOWN - User's email "${userEmail}" matches participant emails`);
-                    return true;
+                // Check if user's email matches (case-insensitive comparison)
+                if (userEmail && emails.length > 0) {
+                    const emailMatches = emails.some(email => {
+                        const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : email;
+                        return normalizedEmail === userEmail;
+                    });
+                    if (emailMatches) {
+                        console.log(`   ✅ SHOWN - User's email "${userEmail}" matches participant emails`);
+                        return true;
+                    }
                 }
 
                 console.log(`   ❌ FILTERED OUT - User is not creator and not in participants`);
@@ -339,13 +345,39 @@ exports.create = async (req, res, next) => {
             return res.status(400).json({ message: 'Invalid end date format' });
         }
 
+        // Normalize participants data - ensure emails are lowercase and trimmed
+        let normalizedParticipants = participants || {};
+        if (normalizedParticipants && typeof normalizedParticipants === 'object' && !Array.isArray(normalizedParticipants)) {
+            // Normalize emails array
+            if (Array.isArray(normalizedParticipants.emails)) {
+                normalizedParticipants.emails = normalizedParticipants.emails.map(e => {
+                    if (typeof e === 'string') {
+                        return e.toLowerCase().trim();
+                    }
+                    return e;
+                });
+            }
+            // Ensure departments array exists
+            if (!Array.isArray(normalizedParticipants.departments)) {
+                normalizedParticipants.departments = [];
+            }
+        } else if (Array.isArray(normalizedParticipants)) {
+            // Legacy format - convert to new format
+            normalizedParticipants = {
+                departments: normalizedParticipants.filter(d => typeof d === 'string'),
+                emails: []
+            };
+        } else {
+            normalizedParticipants = { departments: [], emails: [] };
+        }
+
         const eventData = {
             title,
             start: startDate,
             end: endDate,
             allDay: !!allDay,
             category: category || 'standard',
-            participants: participants || [],
+            participants: normalizedParticipants,
             description: description || '',
             memoId: memoId || undefined,
             createdBy: req.user._id
@@ -394,6 +426,35 @@ exports.update = async (req, res, next) => {
         // Use the same date parsing function to preserve dates correctly
         if (updates.start) updates.start = parseDateTimePreservingDate(updates.start);
         if (updates.end) updates.end = parseDateTimePreservingDate(updates.end);
+
+        // Normalize participants data if provided
+        if (updates.participants) {
+            let normalizedParticipants = updates.participants;
+            if (normalizedParticipants && typeof normalizedParticipants === 'object' && !Array.isArray(normalizedParticipants)) {
+                // Normalize emails array
+                if (Array.isArray(normalizedParticipants.emails)) {
+                    normalizedParticipants.emails = normalizedParticipants.emails.map(e => {
+                        if (typeof e === 'string') {
+                            return e.toLowerCase().trim();
+                        }
+                        return e;
+                    });
+                }
+                // Ensure departments array exists
+                if (!Array.isArray(normalizedParticipants.departments)) {
+                    normalizedParticipants.departments = [];
+                }
+                updates.participants = normalizedParticipants;
+            } else if (Array.isArray(normalizedParticipants)) {
+                // Legacy format - convert to new format
+                updates.participants = {
+                    departments: normalizedParticipants.filter(d => typeof d === 'string'),
+                    emails: []
+                };
+            } else {
+                updates.participants = { departments: [], emails: [] };
+            }
+        }
 
         const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
         if (!event) return res.status(404).json({ message: 'Event not found' });

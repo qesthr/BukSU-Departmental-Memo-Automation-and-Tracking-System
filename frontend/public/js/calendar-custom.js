@@ -110,6 +110,9 @@
   }
 
   function init() {
+    // Check if view-only mode (for faculty)
+    const isViewOnly = window.calendarViewOnly === true || (window.currentUser && window.currentUser.role === 'faculty');
+
     // Initialize custom calendar
     const today = getTodayInManila();
     selectedDate = new Date(today);
@@ -121,8 +124,19 @@
       slotMinTime: '01:00:00',
       slotMaxTime: '24:00:00',
       initialView: 'timeGridDay',
-      initialDate: today
+      initialDate: today,
+      viewOnly: isViewOnly // Pass view-only flag to calendar
     });
+
+    // Hide Add Event button if view-only
+    if (isViewOnly) {
+      setTimeout(() => {
+        const addEventBtn = document.querySelector('.btn-primary');
+        if (addEventBtn && addEventBtn.textContent.includes('Add Event')) {
+          addEventBtn.style.display = 'none';
+        }
+      }, 100);
+    }
 
     // Load events
     loadEvents();
@@ -130,16 +144,31 @@
     // Initialize mini calendar
     initMiniCalendar();
 
-    // Set up event handlers
-    setupEventHandlers();
+    // Set up event handlers (only if not view-only)
+    if (!isViewOnly) {
+      setupEventHandlers();
+      // Load departments and users (only needed for creating events)
+      loadDepartments();
+      loadRegisteredUsers();
+    }
 
-    // Load departments and users
-    loadDepartments();
-    loadRegisteredUsers();
+    // Override openModal for view-only mode
+    if (isViewOnly) {
+      window.openModal = () => {
+        if (window.showAlertModal) {
+          window.showAlertModal('Faculty can view calendar events but cannot create or edit them.', 'View Only');
+        } else {
+          alert('Faculty can view calendar events but cannot create or edit them.');
+        }
+      };
+      window.openEventModal = window.openModal;
+    } else {
+      // Expose global functions for normal mode
+      window.openModal = openEventModal;
+      window.openEventModal = openEventModal;
+    }
 
     // Expose global functions
-    window.openModal = openEventModal;
-    window.openEventModal = openEventModal;
     window.showConfirmModal = showConfirmModal;
     window.showAlertModal = showAlertModal;
     window.customCalendar = customCalendar;
