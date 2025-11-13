@@ -428,8 +428,19 @@
     margin-top: -34px;
 }
 
-.form-group {
-    margin-bottom: 1.5rem;
+/* Remove scrollbar for profile modal */
+#profileEditModal.modal {
+    overflow: hidden !important;
+}
+
+#profileEditModal .modal-content {
+    max-height: none;
+    overflow: visible;
+}
+
+#profileEditModal .modal-body {
+    max-height: none;
+    overflow: visible;
 }
 
 .form-group label {
@@ -460,6 +471,54 @@
     justify-content: flex-end;
     gap: 1rem;
     margin-top: 2rem;
+}
+
+/* Button Styles for Profile Modal */
+#profileEditModal .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 120px;
+}
+
+#profileEditModal .btn-primary {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 102, 255, 0.2);
+}
+
+#profileEditModal .btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 102, 255, 0.3);
+}
+
+#profileEditModal .btn-primary:active {
+    transform: translateY(0);
+}
+
+#profileEditModal .btn-secondary {
+    background: #fff;
+    color: var(--text-dark);
+    border: 1.5px solid var(--border);
+}
+
+#profileEditModal .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+#profileEditModal .btn-secondary:active {
+    transform: translateY(0);
 }
 
 /* Input hint styling */

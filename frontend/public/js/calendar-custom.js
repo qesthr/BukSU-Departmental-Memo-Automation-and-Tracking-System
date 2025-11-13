@@ -739,37 +739,40 @@
    */
   function initializeAutocomplete() {
     // Get elements fresh each time (in case modal wasn't ready before)
-    const input = document.getElementById('participantEmailInput');
-    const suggestions = document.getElementById('emailSuggestions');
+    const participantEmailInput = document.getElementById('participantEmailInput');
+    const emailSuggestions = document.getElementById('emailSuggestions');
 
-    if (!input) {
+    if (!participantEmailInput) {
       console.warn('⚠️ Participant input element not found');
       return;
     }
 
-    if (!suggestions) {
+    if (!emailSuggestions) {
       console.warn('⚠️ Email suggestions element not found');
       return;
     }
 
-    console.log('✅ Initializing autocomplete for participant input');
-
-    const oldInput = input;
-    const oldSuggestions = suggestions;
-
-    const newInput = oldInput.cloneNode(true);
-    oldInput.parentNode.replaceChild(newInput, oldInput);
-    const newSuggestions = oldSuggestions.cloneNode(true);
-    if (!oldSuggestions.parentNode.classList.contains('participant-input-wrapper')) {
-      oldSuggestions.parentNode.replaceChild(newSuggestions, oldSuggestions);
-    } else {
-      oldSuggestions.parentNode.removeChild(oldSuggestions);
-      document.body.appendChild(newSuggestions);
+    if (participantEmailInput.dataset.autocompleteInitialized === 'true') {
+      // Already wired up; just reposition suggestions for current modal state
+      setTimeout(() => {
+        const rect = participantEmailInput.getBoundingClientRect();
+        emailSuggestions.style.left = rect.left + 'px';
+        emailSuggestions.style.width = rect.width + 'px';
+        emailSuggestions.style.top = (rect.bottom + 4) + 'px';
+      }, 0);
+      return;
     }
 
-    const participantEmailInput = newInput;
-    const emailSuggestions = newSuggestions;
-    emailSuggestions.id = 'emailSuggestions';
+    participantEmailInput.dataset.autocompleteInitialized = 'true';
+
+    console.log('✅ Initializing autocomplete for participant input');
+
+    // Move suggestions panel to body so it can float above modals
+    if (emailSuggestions.parentElement !== document.body) {
+      emailSuggestions.parentElement.removeChild(emailSuggestions);
+      document.body.appendChild(emailSuggestions);
+    }
+
     emailSuggestions.style.position = 'fixed';
     emailSuggestions.style.zIndex = '20010';
     emailSuggestions.style.display = 'none';
@@ -826,7 +829,7 @@
 
       const queryLower = (query || '').toLowerCase();
       const isSecretary = (window.currentUser && window.currentUser.role === 'secretary');
-      const myDept = (window.currentUser && (window.currentUser.department || '')).toLowerCase();
+      const myDept = (window.currentUser && window.currentUser.department ? String(window.currentUser.department).toLowerCase() : '');
 
       let matches;
       const inDept = (u) => String(u.department || '').toLowerCase() === myDept && !!myDept;
@@ -975,13 +978,12 @@
       }
     });
 
-    const clickHandler = (e) => {
+    document.addEventListener('click', (e) => {
       if (!participantEmailInput.contains(e.target) && !emailSuggestions.contains(e.target)) {
         emailSuggestions.style.display = 'none';
         selectedIndex = -1;
       }
-    };
-    document.addEventListener('click', clickHandler);
+    });
   }
 
   /**

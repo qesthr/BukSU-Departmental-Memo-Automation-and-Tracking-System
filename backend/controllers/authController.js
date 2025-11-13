@@ -271,9 +271,8 @@ const login = async (req, res, next) => {
 
             // Lock account after 5 attempts with progressive lockout times
             if (newAttempts >= 5) {
-                const lockoutTimes = [10, 30, 60, 120, 240]; // minutes
                 const violationCount = user.violationCount || 0;
-                const lockoutMinutes = lockoutTimes[Math.min(violationCount, lockoutTimes.length - 1)];
+                const lockoutMinutes = 5; // minutes
 
                 updates.$set.lockUntil = now + (lockoutMinutes * 60 * 1000);
                 updates.$set.violationCount = violationCount + 1;
@@ -285,9 +284,7 @@ const login = async (req, res, next) => {
             if (attemptsRemaining > 0) {
                 message += `. ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before account lockout.`;
             } else {
-                const violationCount = (user.violationCount || 0) + 1;
-                const lockoutTimes = [10, 30, 60, 120, 240];
-                const lockoutMinutes = lockoutTimes[Math.min(violationCount, lockoutTimes.length - 1)];
+                const lockoutMinutes = 5;
                 message += `. Account has been locked for ${lockoutMinutes} minutes due to too many failed attempts.`;
             }
 

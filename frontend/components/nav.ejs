@@ -37,6 +37,12 @@
                         <span>Memos</span>
                     </a>
                 </li>
+                <li class="<%= path === '/admin/archive' ? 'active' : '' %>">
+                    <a href="/admin/archive">
+                        <i data-lucide="archive" style="width: 20px; height: 20px; color: <%= path === '/admin/archive' ? '#1C89E3' : '#64748b' %>;"></i>
+                        <span>Archive</span>
+                    </a>
+                </li>
                 <li class="<%= path === '/calendar' ? 'active' : '' %>">
                     <a href="/admin/calendar">
                         <img src="<%= path === '/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>"
@@ -118,6 +124,11 @@
                 <div class="form-group">
                     <label for="editProfileEmail">Email</label>
                     <input type="email" id="editProfileEmail" value="<%= user.email || '' %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editProfileDepartment">Department</label>
+                    <input type="text" id="editProfileDepartment" value="<%= user.department || 'N/A' %>" disabled>
                 </div>
 
                 <div class="form-actions">

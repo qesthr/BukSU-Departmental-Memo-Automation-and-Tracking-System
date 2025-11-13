@@ -57,6 +57,14 @@
                         </section>
                         <script>
                             window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
+                            window.currentUser = {
+                                id: '<%= user._id %>',
+                                email: '<%= user.email %>',
+                                firstName: '<%= user.firstName || "" %>',
+                                lastName: '<%= user.lastName || "" %>',
+                                role: '<%= user.role %>',
+                                department: '<%= user.department || "" %>'
+                            };
                         </script>
                     </div>
             </main>
@@ -111,7 +119,7 @@
                             <label class="participant-label">Participants / Recipients:</label>
                             <div class="participant-input-wrapper">
                                 <div id="participantsChips" class="participant-chips-wrapper"></div>
-                                <input type="text" id="participantEmailInput" class="participant-input" placeholder=""
+                                <input type="text" id="participantEmailInput" class="participant-input" placeholder="Type name or email to search recipients..."
                                     autocomplete="off" />
                                 <ul id="emailSuggestions" class="email-suggestions"></ul>
                             </div>

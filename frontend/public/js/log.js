@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function highlightRecipientSuggest(i){
-        const ul = recipientSuggestEl; if (!ul) return;
+        const ul = recipientSuggestEl; if (!ul) {return;}
         recipientSuggestIndex = i;
         Array.from(ul.children).forEach((li, idx) => {
             li.style.background = (idx === i) ? '#eef2ff' : 'transparent';
@@ -834,7 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function chooseRecipientSuggest(i){
         const user = recipientSuggestItems[i];
-        if (!user) return;
+        if (!user) {return;}
         // avoid duplicates
         if (!recipientData.find(u => String(u.email).toLowerCase() === String(user.email).toLowerCase())) {
             recipientData.push(user);
@@ -845,17 +845,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (recipientsInput && recipientChipsContainer) {
+        const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
+        const myDept = (isSecretary && window.currentUser && window.currentUser.department)
+            ? String(window.currentUser.department).toLowerCase()
+            : '';
+
         recipientsInput.addEventListener('input', () => {
             const q = (recipientsInput.value || '').trim().toLowerCase();
             if (!q) { closeRecipientSuggest(); return; }
-            // filter registered users not already selected
+
             const picked = new Set(recipientData.map(u => String(u.email).toLowerCase()));
             const results = (registeredUsers || []).filter(u => {
-                const name = `${u.firstName||''} ${u.lastName||''}`.toLowerCase();
-                const email = String(u.email||'').toLowerCase();
-                return !picked.has(email) && (name.includes(q) || email.includes(q));
+                const email = String(u.email || '').toLowerCase();
+                if (!email || picked.has(email)) { return false; }
+
+                const role = String(u.role || '').toLowerCase();
+                if (role === 'admin') { return false; } // prevent sending to admins
+
+                const name = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+                const matchesQuery = name.includes(q) || email.includes(q);
+                if (!matchesQuery) { return false; }
+
+                if (isSecretary && myDept) {
+                    const userDept = String(u.department || '').toLowerCase();
+                    if (userDept !== myDept) { return false; }
+                    // Secretaries primarily send to faculty within their department
+                    if (role && role !== 'faculty') { return false; }
+                }
+
+                return true;
             }).slice(0, 8);
-            if (results.length) openRecipientSuggest(results); else closeRecipientSuggest();
+            if (results.length) {openRecipientSuggest(results);} else {closeRecipientSuggest();}
         });
 
         recipientsInput.addEventListener('keydown', (e) => {
@@ -883,6 +903,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!user) {
                     showNotification(`Email "${email}" is not registered.`, 'error');
                     return;
+                }
+
+                const role = String(user.role || '').toLowerCase();
+                if (role === 'admin') {
+                    showNotification('Admins cannot be selected as memo recipients.', 'error');
+                    return;
+                }
+
+                if (window.currentUser && window.currentUser.role === 'secretary') {
+                    const myDept = window.currentUser.department ? String(window.currentUser.department).toLowerCase() : '';
+                    const userDept = String(user.department || '').toLowerCase();
+                    if (myDept && userDept !== myDept) {
+                        showNotification('Secretaries may only send memos to recipients within their department.', 'error');
+                        return;
+                    }
+                    if (role !== 'faculty') {
+                        showNotification('Secretaries may only send memos to faculty members.', 'error');
+                        return;
+                    }
                 }
 
                 // Check if already added
@@ -913,8 +952,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (emails.length > 1) {
                     recipientsInput.value = '';
                     emails.forEach(email => {
-                        const user = window.registeredUsersMap?.get(email.toLowerCase());
-                        if (user && !recipientData.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+                        const lookupEmail = email.toLowerCase();
+                        const user = window.registeredUsersMap?.get(lookupEmail);
+                        if (!user) { return; }
+
+                        const role = String(user.role || '').toLowerCase();
+                        if (role === 'admin') { return; }
+
+                        if (window.currentUser && window.currentUser.role === 'secretary') {
+                            const myDept = window.currentUser.department ? String(window.currentUser.department).toLowerCase() : '';
+                            const userDept = String(user.department || '').toLowerCase();
+                            if (myDept && userDept !== myDept) { return; }
+                            if (role !== 'faculty') { return; }
+                        }
+
+                        if (!recipientData.find(u => u.email.toLowerCase() === lookupEmail)) {
                             recipientData.push(user);
                         }
                     });

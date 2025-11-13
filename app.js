@@ -329,6 +329,27 @@ app.get('/secretary/archive', async (req, res) => {
     }
 });
 
+// Admin archive page - only for admins
+app.get('/admin/archive', isAdmin, async (req, res) => {
+    try {
+        // Get archived memos OR sent/approved memos that can be archived
+        // Include memos where the admin is the sender but NOT the recipient
+        // Exclude the tracking memo where recipient equals sender
+        const archivedMemos = await Memo.find({
+            sender: req.user._id,
+            recipient: { $ne: req.user._id }, // Exclude memos sent to the admin themselves
+            status: { $in: ['archived', 'sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .populate('recipient', 'firstName lastName email profilePicture department');
+        return res.render('admin-archive', { user: req.user, path: '/admin/archive', archivedMemos: archivedMemos || [] });
+    } catch (e) {
+        console.error('Error fetching archived memos:', e);
+        return res.render('admin-archive', { user: req.user, path: '/admin/archive', archivedMemos: [] });
+    }
+});
+
 // Faculty memos page - only for faculty
 app.get('/faculty/memos', async (req, res) => {
     if (!req.isAuthenticated()) { return res.redirect('/'); }
