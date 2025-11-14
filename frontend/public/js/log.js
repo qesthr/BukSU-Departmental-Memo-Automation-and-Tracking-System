@@ -83,6 +83,73 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 200);
         });
     }
+
+    // Calendar/Schedule button handler
+    const calendarBtn = document.getElementById('calendarBtn');
+    const scheduleModal = document.getElementById('scheduleModal');
+    if (calendarBtn && scheduleModal) {
+        calendarBtn.addEventListener('click', () => {
+            // Load current values if any
+            const memoDate = document.getElementById('memoDate');
+            const memoTime = document.getElementById('memoTime');
+            const allDayEvent = document.getElementById('allDayEvent');
+            const scheduleDate = document.getElementById('scheduleDate');
+            const scheduleTime = document.getElementById('scheduleTime');
+            const scheduleAllDay = document.getElementById('scheduleAllDay');
+
+            if (memoDate && memoDate.value) {
+                scheduleDate.value = memoDate.value;
+            }
+            if (memoTime && memoTime.value) {
+                scheduleTime.value = memoTime.value;
+            }
+            if (allDayEvent) {
+                scheduleAllDay.checked = allDayEvent.value === 'true';
+                if (scheduleAllDay.checked) {
+                    scheduleTime.disabled = true;
+                }
+            }
+
+            openModal(scheduleModal);
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    }
+
+    // Handle all-day checkbox in schedule modal
+    const scheduleAllDay = document.getElementById('scheduleAllDay');
+    const scheduleTime = document.getElementById('scheduleTime');
+    if (scheduleAllDay && scheduleTime) {
+        scheduleAllDay.addEventListener('change', (e) => {
+            scheduleTime.disabled = e.target.checked;
+            if (e.target.checked) {
+                scheduleTime.value = '';
+            }
+        });
+    }
+
+    // Schedule modal save and clear button handlers
+    const saveScheduleBtn = document.getElementById('saveScheduleBtn');
+    const clearScheduleBtn = document.getElementById('clearScheduleBtn');
+    if (saveScheduleBtn) {
+        saveScheduleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            saveSchedule();
+        });
+    }
+    if (clearScheduleBtn) {
+        clearScheduleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearSchedule();
+            if (scheduleModal) {
+                scheduleModal.style.display = 'none';
+            }
+        });
+    }
+
     // Preload templates and signatures that the current user can use
     async function preloadTemplatesAndSignatures(){
         try{
@@ -1282,6 +1349,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('attachments', file);
             });
 
+            // Add optional date and time for calendar event
+            const memoDate = composeModal.querySelector('#memoDate');
+            const memoTime = composeModal.querySelector('#memoTime');
+            const allDayEvent = composeModal.querySelector('#allDayEvent');
+
+            if (memoDate && memoDate.value) {
+                formData.append('eventDate', memoDate.value);
+
+                if (allDayEvent && allDayEvent.value === 'true') {
+                    formData.append('allDay', 'true');
+                } else if (memoTime && memoTime.value) {
+                    formData.append('eventTime', memoTime.value);
+                    formData.append('allDay', 'false');
+                } else {
+                    formData.append('allDay', 'true'); // Default to all day if date but no time
+                }
+            }
+
             // Show loading state
             const sendBtn = document.getElementById('sendMemoBtn');
             const btnText = sendBtn ? sendBtn.querySelector('.btn-text') : null;
@@ -1375,6 +1460,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (dropdown) {
                             dropdown.classList.remove('open');
                         }
+
+                        // Reset date/time fields
+                        clearSchedule();
                     }
 
                     // Reset button state
@@ -3078,4 +3166,110 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Schedule modal functions (global scope for onclick handlers)
+function saveSchedule() {
+    try {
+        const scheduleDate = document.getElementById('scheduleDate');
+        const scheduleTime = document.getElementById('scheduleTime');
+        const scheduleAllDay = document.getElementById('scheduleAllDay');
+        const scheduleModal = document.getElementById('scheduleModal');
+        const memoDate = document.getElementById('memoDate');
+        const memoTime = document.getElementById('memoTime');
+        const allDayEvent = document.getElementById('allDayEvent');
+        const calendarBtn = document.getElementById('calendarBtn');
+        const calendarBtnText = document.getElementById('calendarBtnText');
+
+        if (!scheduleDate) {
+            console.error('scheduleDate element not found');
+            return;
+        }
+
+        if (scheduleDate.value) {
+            // Save date
+            if (memoDate) {
+                memoDate.value = scheduleDate.value;
+            }
+
+            // Save time (only if not all-day)
+            if (memoTime) {
+                if (scheduleAllDay && scheduleAllDay.checked) {
+                    memoTime.value = '';
+                } else if (scheduleTime && scheduleTime.value) {
+                    memoTime.value = scheduleTime.value;
+                } else {
+                    memoTime.value = '';
+                }
+            }
+
+            // Save all-day flag
+            if (allDayEvent) {
+                allDayEvent.value = (scheduleAllDay && scheduleAllDay.checked) ? 'true' : 'false';
+            }
+
+            // Update button appearance
+            if (calendarBtn) {
+                calendarBtn.classList.add('scheduled');
+                if (calendarBtnText) {
+                    const date = new Date(scheduleDate.value + 'T00:00:00');
+                    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    if (scheduleAllDay && scheduleAllDay.checked) {
+                        calendarBtnText.textContent = dateStr;
+                    } else if (scheduleTime && scheduleTime.value) {
+                        // Format time (HH:MM to HH:MM AM/PM)
+                        const [hours, minutes] = scheduleTime.value.split(':');
+                        const hour24 = parseInt(hours, 10);
+                        const hour12 = hour24 === 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
+                        const ampm = hour24 >= 12 ? 'PM' : 'AM';
+                        const timeStr = `${hour12}:${minutes} ${ampm}`;
+                        calendarBtnText.textContent = `${dateStr} ${timeStr}`;
+                    } else {
+                        calendarBtnText.textContent = dateStr;
+                    }
+                }
+            }
+        } else {
+            // Clear if no date
+            clearSchedule();
+        }
+
+        // Close modal
+        if (scheduleModal) {
+            scheduleModal.style.display = 'none';
+        }
+
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    } catch (error) {
+        console.error('Error in saveSchedule:', error);
+    }
+}
+
+function clearSchedule() {
+    const memoDate = document.getElementById('memoDate');
+    const memoTime = document.getElementById('memoTime');
+    const allDayEvent = document.getElementById('allDayEvent');
+    const scheduleDate = document.getElementById('scheduleDate');
+    const scheduleTime = document.getElementById('scheduleTime');
+    const scheduleAllDay = document.getElementById('scheduleAllDay');
+    const calendarBtn = document.getElementById('calendarBtn');
+    const calendarBtnText = document.getElementById('calendarBtnText');
+
+    if (memoDate) { memoDate.value = ''; }
+    if (memoTime) { memoTime.value = ''; }
+    if (allDayEvent) { allDayEvent.value = 'false'; }
+    if (scheduleDate) { scheduleDate.value = ''; }
+    if (scheduleTime) { scheduleTime.value = ''; }
+    if (scheduleAllDay) { scheduleAllDay.checked = false; }
+    if (scheduleTime) { scheduleTime.disabled = false; }
+
+    // Reset button appearance
+    if (calendarBtn) {
+        calendarBtn.classList.remove('scheduled');
+        if (calendarBtnText) {
+            calendarBtnText.textContent = 'Schedule';
+        }
+    }
+}
 

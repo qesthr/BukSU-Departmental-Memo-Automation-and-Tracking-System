@@ -638,7 +638,7 @@ exports.createMemo = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await User.findById(userId);
-        const { recipientEmail, subject, content, departments, priority, template } = req.body;
+        const { recipientEmail, subject, content, departments, priority, template, eventDate, eventTime, allDay } = req.body;
 
         // Handle signatories - FormData sends arrays as multiple fields with same name
         let signatories = req.body.signatories;
@@ -831,7 +831,12 @@ exports.createMemo = async (req, res) => {
                         attachments: processedAttachments,
                         recipients: recipientIds,
                         signatures: processedSignatures,
-                        template: templateValue
+                        template: templateValue,
+                        metadata: {
+                            eventDate: eventDate || null,
+                            eventTime: eventTime || null,
+                            allDay: allDay || 'false'
+                        }
                     }
                 });
                 createdMemos = [workflowMemo];
@@ -870,6 +875,101 @@ exports.createMemo = async (req, res) => {
             .lean();
 
         populatedMemo.attachments = createdMemos[0].attachments;
+
+        // Create calendar event if date/time is provided
+        if (eventDate && createdMemos.length > 0) {
+            try {
+                const CalendarEvent = require('../models/CalendarEvent');
+
+                // Parse date and time
+                const isAllDay = allDay === 'true' || allDay === true;
+                let startDate, endDate;
+
+                if (isAllDay) {
+                    // All-day event: start at 00:00, end at 23:59:59
+                    startDate = new Date(eventDate);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(eventDate);
+                    endDate.setHours(23, 59, 59, 999);
+                } else if (eventTime) {
+                    // Timed event: combine date and time
+                    const [hours, minutes] = eventTime.split(':');
+                    startDate = new Date(eventDate);
+                    startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+                    // Default duration: 1 hour
+                    endDate = new Date(startDate);
+                    endDate.setHours(endDate.getHours() + 1);
+                } else {
+                    // Date only: treat as all-day
+                    startDate = new Date(eventDate);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(eventDate);
+                    endDate.setHours(23, 59, 59, 999);
+                }
+
+                // Get all recipient emails and departments for participants
+                const recipientEmails = [];
+                const recipientDepartments = new Set();
+
+                // Add individual recipient emails
+                if (recipientEmail) {
+                    const emails = recipientEmail.split(',').map(e => e.trim().toLowerCase());
+                    recipientEmails.push(...emails);
+                }
+
+                // Add departments
+                const departmentsArray = Array.isArray(departments) ? departments : (departments ? [departments] : []);
+                departmentsArray.forEach(dept => {
+                    if (dept) recipientDepartments.add(dept);
+                });
+
+                // Get emails from recipient IDs
+                const recipientUsers = await User.find({ _id: { $in: recipientIds } }).select('email department').lean();
+                recipientUsers.forEach(ru => {
+                    if (ru.email) recipientEmails.push(ru.email.toLowerCase());
+                    if (ru.department) recipientDepartments.add(ru.department);
+                });
+
+                // Map priority to calendar category
+                const categoryMap = {
+                    'urgent': 'urgent',
+                    'high': 'high',
+                    'medium': 'standard',
+                    'low': 'low'
+                };
+                const category = categoryMap[priority] || 'standard';
+
+                // Create calendar event
+                const calendarEvent = new CalendarEvent({
+                    title: subject.trim(),
+                    start: startDate,
+                    end: endDate,
+                    allDay: isAllDay,
+                    category: category,
+                    description: content || '',
+                    participants: {
+                        emails: [...new Set(recipientEmails)], // Remove duplicates
+                        departments: Array.from(recipientDepartments)
+                    },
+                    memoId: createdMemos[0]._id,
+                    createdBy: userId,
+                    status: 'scheduled'
+                });
+
+                await calendarEvent.save();
+
+                // Update memo with calendar event reference
+                await Memo.findByIdAndUpdate(createdMemos[0]._id, {
+                    'metadata.calendarEventId': calendarEvent._id,
+                    'metadata.hasCalendarEvent': true
+                });
+
+                console.log(`✅ Calendar event created for memo: ${subject} (Event ID: ${calendarEvent._id})`);
+            } catch (calendarError) {
+                // Log error but don't fail memo creation
+                console.error('⚠️ Failed to create calendar event (memo still saved):', calendarError.message);
+            }
+        }
 
         // Trigger Google Drive backup asynchronously (non-blocking)
         // Only for Admin and Secretary roles, and only if Drive is connected

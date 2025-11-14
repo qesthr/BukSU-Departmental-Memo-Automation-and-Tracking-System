@@ -194,6 +194,90 @@ async function deliver({ memo, actor }) {
   // Log notification to recipients
   console.log(`✅ Notified ${createdMemos.length} recipients about approved memo: ${memo.subject}`);
 
+  // Create calendar event if date/time is in memo metadata (for secretary-created memos)
+  if (memo.metadata && memo.metadata.eventDate && createdMemos.length > 0) {
+    try {
+      const CalendarEvent = require('../models/CalendarEvent');
+      const { eventDate, eventTime, allDay } = memo.metadata;
+
+      // Parse date and time
+      const isAllDay = allDay === true || allDay === 'true';
+      let startDate, endDate;
+
+      if (isAllDay) {
+        startDate = new Date(eventDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(eventDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (eventTime) {
+        const [hours, minutes] = eventTime.split(':');
+        startDate = new Date(eventDate);
+        startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        endDate = new Date(startDate);
+        endDate.setHours(endDate.getHours() + 1);
+      } else {
+        startDate = new Date(eventDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(eventDate);
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      // Get recipient emails and departments
+      const recipientEmails = [];
+      const recipientDepartments = new Set();
+      const recipientUsers = await User.find({ _id: { $in: finalRecipients } }).select('email department').lean();
+      recipientUsers.forEach(ru => {
+        if (ru.email) recipientEmails.push(ru.email.toLowerCase());
+        if (ru.department) recipientDepartments.add(ru.department);
+      });
+
+      // Add departments from memo
+      if (memo.departments && Array.isArray(memo.departments)) {
+        memo.departments.forEach(dept => {
+          if (dept) recipientDepartments.add(dept);
+        });
+      }
+
+      // Map priority to category
+      const categoryMap = {
+        'urgent': 'urgent',
+        'high': 'high',
+        'medium': 'standard',
+        'low': 'low'
+      };
+      const category = categoryMap[memo.priority] || 'standard';
+
+      // Create calendar event
+      const calendarEvent = new CalendarEvent({
+        title: memo.subject.trim(),
+        start: startDate,
+        end: endDate,
+        allDay: isAllDay,
+        category: category,
+        description: memo.content || '',
+        participants: {
+          emails: [...new Set(recipientEmails)],
+          departments: Array.from(recipientDepartments)
+        },
+        memoId: createdMemos[0]._id,
+        createdBy: memo.createdBy || memo.sender,
+        status: 'scheduled'
+      });
+
+      await calendarEvent.save();
+
+      // Update memo with calendar event reference
+      await Memo.findByIdAndUpdate(createdMemos[0]._id, {
+        'metadata.calendarEventId': calendarEvent._id,
+        'metadata.hasCalendarEvent': true
+      });
+
+      console.log(`✅ Calendar event created for approved memo: ${memo.subject} (Event ID: ${calendarEvent._id})`);
+    } catch (calendarError) {
+      console.error('⚠️ Failed to create calendar event for approved memo:', calendarError.message);
+    }
+  }
+
   // Mark workflow memo as approved (not sent) and persist history
   memo.status = MEMO_STATUS.APPROVED;
   await appendHistory(memo, actor, 'sent');

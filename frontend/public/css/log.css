@@ -802,9 +802,17 @@
   z-index: 100001;
 }
 
+/* Expanded compose modal - Gmail-style sizing */
 /* For compose modal specifically, allow header area to overflow for dropdowns */
+/* Optimized for 100% zoom - no spacing issues */
 #composeModal .modal-content {
+  max-width: 850px;
+  width: 88%;
+  min-height: 480px;
+  max-height: 85vh;
+  margin: 15px auto;
   overflow: visible !important;
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -813,6 +821,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+}
+
+/* Expanded header for compose modal */
+/* Minimized for more content space */
+#composeModal .modal-header {
+  padding: 14px 36px;
   flex-shrink: 0;
 }
 
@@ -859,8 +874,13 @@
 }
 
 /* Allow compose modal body to show overflow for dropdowns */
+/* Optimized for 100% zoom */
 #composeModal .modal-body {
   overflow: visible !important;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* For compose modal, allow header fields area to overflow for dropdowns */
@@ -878,12 +898,16 @@
 }
 
 /* Keep content area scrollable */
+/* Expanded content area for compose modal */
+/* Maximized height for textarea */
 #composeModal .compose-content-area {
   overflow-y: auto;
   flex: 1;
-  min-height: 0;
+  min-height: 380px;
   position: relative;
   z-index: 1;
+  padding: 12px 36px 8px 36px;
+  box-sizing: border-box;
 }
 
 .modal-body form {
@@ -896,14 +920,31 @@
 }
 
 /* Allow compose modal form to show overflow for dropdowns */
+/* Optimized for 100% zoom */
 #composeModal .modal-body form {
   overflow: visible !important;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 /* Gmail-style compact header fields */
 .compose-header-fields {
   padding: 8px 16px 0;
   border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* Expanded header fields for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-header-fields {
+  padding: 8px 36px 0;
   flex-shrink: 0;
 }
 
@@ -916,6 +957,15 @@
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s;
 }
+
+/* Expanded inline fields for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-inline-fields {
+  padding: 8px 0;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
 
 .compose-inline-fields .compose-field-inline {
   flex: 1;
@@ -942,6 +992,14 @@
   align-items: center;
 }
 
+/* Expanded inline field elements for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-inline .compose-field,
+#composeModal .compose-field-inline .dept-dropdown-btn {
+  min-height: 36px;
+  height: 36px;
+}
+
 .compose-field-inline .dept-dropdown-btn {
   padding: 6px 12px;
   justify-content: space-between;
@@ -952,6 +1010,14 @@
   padding: 6px 36px 6px 0;
   display: flex;
   align-items: center;
+}
+
+/* Expanded priority select for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-inline .compose-priority-select {
+  height: 36px;
+  padding: 6px 36px 6px 0;
+  font-size: 14px;
 }
 
 .compose-priority-select {
@@ -976,6 +1042,13 @@
   padding: 8px 0;
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s;
+}
+
+/* Expanded field wrapper for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-wrapper {
+  padding: 8px 0;
+  gap: 14px;
 }
 
 .compose-field-wrapper:focus-within {
@@ -1003,6 +1076,13 @@
   transition: border-color 0.2s;
 }
 
+/* Expanded compose field for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field {
+  padding: 8px 0;
+  font-size: 14px;
+}
+
 .compose-field:focus {
   outline: none;
   border-bottom-color: #2563eb;
@@ -1022,6 +1102,13 @@
   transition: border-color 0.2s;
 }
 
+/* Expanded recipient input for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-input-container {
+  padding: 8px 0;
+  gap: 14px;
+}
+
 .recipient-input-container:focus-within {
   border-bottom-color: #2563eb;
 }
@@ -1033,6 +1120,14 @@
   min-width: 32px;
   padding-top: 6px;
   flex-shrink: 0;
+}
+
+/* Expanded recipient label for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-label {
+  font-size: 13px;
+  min-width: 36px;
+  padding-top: 6px;
 }
 
 .recipient-input-wrapper {
@@ -1107,6 +1202,13 @@
   font-size: 14px;
   background: transparent;
   color: #111827;
+}
+
+/* Expanded recipient input for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-input {
+  font-size: 14px;
+  padding: 4px 0;
 }
 
 .recipient-input::placeholder {
@@ -1361,6 +1463,14 @@
   flex-basis: auto;
 }
 
+/* Reduced spacing for attachment preview in compose modal */
+/* Optimized for 100% zoom */
+#composeModal .attachment-preview-container {
+  margin: 2px 0 0 0;
+  padding: 2px 0;
+  flex-shrink: 0;
+}
+
 .attachment-preview-chip {
   display: inline-flex;
   align-items: center;
@@ -1571,6 +1681,21 @@
   margin-bottom: 0;
 }
 
+/* Expanded textarea for compose modal */
+/* Maximized height for content area - fixed size, no resize */
+#composeModal .compose-textarea {
+  min-height: 350px;
+  max-height: 350px;
+  height: 350px;
+  padding: 16px 0 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 0;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+}
+
 .compose-textarea:focus {
   outline: none;
 }
@@ -1616,6 +1741,15 @@
   justify-content: space-between;
   transition: all 0.2s;
   position: relative;
+}
+
+/* Expanded dropdown button for compose modal */
+/* Minimized for more content space */
+#composeModal .dept-dropdown-btn {
+  padding: 8px 16px;
+  padding-right: 40px;
+  font-size: 14px;
+  min-height: 36px;
 }
 
 .dept-dropdown-btn:hover {
@@ -1732,8 +1866,10 @@
 #composeModal .signatory-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 0 36px 10px !important;
+  flex-shrink: 0;
 }
 
 #composeModal .signatory-block {
@@ -2163,6 +2299,37 @@ input[type="file"]::file-selector-button:hover {
   background: #fff;
 }
 
+/* Expanded form actions for compose modal */
+/* Optimized for 100% zoom - unified card design, always aligned with content above */
+#composeModal .form-actions {
+    padding: 10px 16px;   /* match modal body */
+    gap: 12px;
+    margin: 0;            /* prevent overflow / misalignment */
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+}
+
+/* Left side button group (Attach + Calendar) */
+#composeModal .form-actions > .btn-attach,
+#composeModal .form-actions > .btn-calendar {
+    margin-right: 0;
+}
+
+/* Right side button group (Cancel, Preview, Send) */
+#composeModal .form-actions > .btn-secondary,
+#composeModal .form-actions > .btn-primary {
+    margin-left: auto;
+}
+
+
 /* Attach button styling */
 .btn-attach {
   display: inline-flex;
@@ -2179,6 +2346,54 @@ input[type="file"]::file-selector-button:hover {
   cursor: pointer;
   transition: all 0.2s;
   margin-right: auto;
+}
+
+/* Expanded attach button for compose modal */
+/* Minimized for more content space */
+#composeModal .btn-attach {
+  padding: 8px 16px;
+  font-size: 14px;
+  min-height: 36px;
+  margin: 0;
+  margin-right: 0;
+  flex-shrink: 0;
+  order: -1;
+}
+
+/* Calendar button styling */
+#composeModal .btn-calendar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+#composeModal .btn-calendar:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+#composeModal .btn-calendar.scheduled {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+#composeModal .btn-calendar i {
+  width: 18px;
+  height: 18px;
 }
 
 .btn-attach:hover {
@@ -2201,6 +2416,35 @@ input[type="file"]::file-selector-button:hover {
   transition: all 0.2s;
   overflow: hidden;
   white-space: nowrap;
+}
+
+/* Expanded buttons for compose modal */
+/* Minimized for more content space */
+#composeModal .btn {
+  padding: 8px 20px !important;
+  font-size: 14px;
+  min-height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* Specific button overrides for consistent sizing */
+#composeModal .btn.btn-secondary,
+#composeModal .btn.btn-primary {
+  padding: 8px 20px !important;
+  min-height: 36px;
+  height: auto;
+}
+
+/* Ensure right-side buttons are grouped and aligned */
+#composeModal .form-actions > .btn:not(.btn-attach) {
+  margin-left: 0;
+}
+
+/* Ensure buttons after attach button are properly spaced */
+#composeModal .form-actions > .btn-attach ~ .btn {
+  margin-left: 0;
 }
 
 .btn-primary {
