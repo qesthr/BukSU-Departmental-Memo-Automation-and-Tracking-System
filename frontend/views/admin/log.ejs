@@ -15,19 +15,26 @@
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
     <script src="/js/lucide.min.js"></script>
-    <script>
-        // Pass user data to JavaScript
-        window.currentUser = {
-            id: '<%= user._id %>',
-            email: '<%= user.email %>',
-            role: '<%= user.role %>',
-            department: '<%= user.department || "" %>',
-            canCrossSend: <%= user.canCrossSend || false %>
-        };
-    </script>
 </head>
 
-<body>
+<body data-current-user='<%- JSON.stringify({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        department: user.department || "",
+        canCrossSend: !!user.canCrossSend
+    }) %>'>
+    <script>
+        (function () {
+            const root = document.body;
+            if (!root) { return; }
+            try {
+                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+            } catch (err) {
+                window.currentUser = {};
+            }
+        })();
+    </script>
     <div class="dashboard-container">
         <%- include('../../components/nav'); %>
 
@@ -401,20 +408,6 @@
             </div>
         </div>
     </div>
-
-    <script>
-        let logoutTimer;
-        function resetTimer() {
-            clearTimeout(logoutTimer);
-            logoutTimer = setTimeout(() => {
-                window.location.href = '/auth/logout';
-            }, 24 * 60 * 60 * 1000);
-        }
-        document.addEventListener('mousemove', resetTimer);
-        document.addEventListener('keypress', resetTimer);
-        document.addEventListener('click', resetTimer);
-        resetTimer();
-    </script>
 
     <script src="/js/log.js"></script>
     <script>

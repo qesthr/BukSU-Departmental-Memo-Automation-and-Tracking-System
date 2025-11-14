@@ -16,4 +16,32 @@
 .sidebar nav a:hover { background: #f3f4f6; }
 .sidebar nav a.active { background: #eef2ff; color: #1d4ed8; }
 
+.dark-mode .sidebar {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+.dark-mode .sidebar nav a {
+  color: #e2e8f0;
+}
+
+.dark-mode .sidebar nav a:hover {
+  background: #1f2937;
+}
+
+.dark-mode .sidebar nav a.active {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.nav-archive-icon {
+  width: 20px;
+  height: 20px;
+  color: #64748b;
+}
+
+.nav-archive-icon.active {
+  color: #1C89E3;
+}
+
 

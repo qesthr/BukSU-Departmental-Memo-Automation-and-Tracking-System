@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -212,6 +213,34 @@ const userSchema = new mongoose.Schema({
     lastUpdatedAt: {
         type: Date,
         default: Date.now
+    },
+    settings: {
+        darkMode: {
+            type: Boolean,
+            default: false
+        },
+        twoFactorEnabled: {
+            type: Boolean,
+            default: false
+        },
+        sessionTimeoutMinutes: {
+            type: Number,
+            enum: {
+                values: [1, 5, 10, 15, 30, 60, 1440],
+                message: 'Session timeout must be one of the allowed durations (minutes)'
+            },
+            default: 1440
+        },
+        notifications: {
+            memoEmails: {
+                type: Boolean,
+                default: true
+            },
+            profileUpdates: {
+                type: Boolean,
+                default: true
+            }
+        }
     }
 });
 

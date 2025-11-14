@@ -1,3 +1,4 @@
+/* eslint-disable no-console, no-unused-vars */
 require('dotenv').config();
 const express = require('express');
 const expressLayouts = require('express-ejs-layouts');
@@ -14,6 +15,7 @@ const Memo = require('./backend/models/Memo');
 const authRoutes = require('./backend/routes/auth');
 const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
+const settingsRoutes = require('./backend/routes/settingsRoutes');
 const forgotPasswordRoutes = require('./backend/routes/forgotPasswordRoutes');
 const logRoutes = require('./backend/routes/logRoutes');
 const driveRoutes = require('./backend/routes/driveRoutes');
@@ -90,6 +92,7 @@ app.use(passport.session());
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/settings', settingsRoutes);
 // Public invite routes (render and completion)
 app.get('/invite/:token', require('./backend/controllers/inviteController').renderInvitePage);
 app.post('/invite/complete', require('./backend/controllers/inviteController').completeInvite);
@@ -169,6 +172,20 @@ app.use(async (req, res, next) => {
 app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
+
+app.get('/settings', isAuthenticated, (req, res) => {
+    const role = (req.user && req.user.role) || '';
+    if (role === 'admin') {
+        return res.render('admin/settings', { user: req.user, path: '/settings' });
+    }
+    if (role === 'secretary') {
+        return res.render('secretary-settings', { user: req.user, path: '/settings' });
+    }
+    if (role === 'faculty') {
+        return res.render('faculty-settings', { user: req.user, path: '/settings' });
+    }
+    return res.redirect('/login');
+});
 
 // Serve static files from frontend/public
 app.use(express.static(path.join(__dirname, 'frontend/public')));

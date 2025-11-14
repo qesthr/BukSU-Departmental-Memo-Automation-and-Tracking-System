@@ -23,18 +23,25 @@
         <script src="https://accounts.google.com/gsi/client"></script>
         <script src="/js/lucide.min.js"></script>
         <script src="/js/admin-dash.js" defer></script>
-        <script>
-            window.currentUser = {
-                id: '<%= user._id %>',
-                email: '<%= user.email %>',
-                role: '<%= user.role %>'
-            };
-            // Set calendar connection status for mini calendar
-            window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
-        </script>
 </head>
 
-<body>
+<body data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role }) %>'
+    data-calendar-connected="<%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>">
+    <script>
+        (function () {
+            const root = document.body;
+            if (!root) { return; }
+            try {
+                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+            } catch (err) {
+                window.currentUser = {};
+            }
+            const calAttr = root.getAttribute('data-calendar-connected');
+            if (calAttr !== null) {
+                window.calendarConnected = calAttr === 'true';
+            }
+        })();
+    </script>
     <div class="dashboard-container">
         <!-- Navigations -->
         <div class="navigations">
@@ -228,23 +235,6 @@
                 </div>
         </main>
     </div>
-
-    <script>
-        // Auto logout after 24 hours of inactivity
-        let logoutTimer;
-        function resetTimer() {
-            clearTimeout(logoutTimer);
-            logoutTimer = setTimeout(() => {
-                window.location.href = '/auth/logout';
-            }, 24 * 60 * 60 * 1000); // 24 hours
-        }
-
-        document.addEventListener('mousemove', resetTimer);
-        document.addEventListener('keypress', resetTimer);
-        document.addEventListener('click', resetTimer);
-
-        resetTimer();
-    </script>
 
     <script>
         lucide.createIcons();
