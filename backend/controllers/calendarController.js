@@ -299,6 +299,13 @@ exports.getOne = async (req, res, next) => {
         const eventObj = event.toObject();
         eventObj.isCreator = isCreator;
 
+        // Also include createdBy._id as a string for easy frontend comparison
+        if (event.createdBy) {
+            eventObj.createdById = event.createdBy._id ? event.createdBy._id.toString() : creatorId;
+        } else {
+            eventObj.createdById = creatorId;
+        }
+
         res.json(eventObj);
     } catch (err) {
         next(err);
@@ -530,6 +537,34 @@ exports.remove = async (req, res, next) => {
         await CalendarEvent.findByIdAndDelete(req.params.id);
         res.json({ message: 'Deleted' });
     } catch (err) {
+        next(err);
+    }
+};
+
+exports.archive = async (req, res, next) => {
+    try {
+        const event = await CalendarEvent.findById(req.params.id);
+        if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        // Check if user is the creator
+        const userId = req.user._id.toString();
+        const creatorId = event.createdBy ?
+            (event.createdBy._id ? event.createdBy._id.toString() : event.createdBy.toString()) :
+            event.createdBy.toString();
+
+        if (creatorId !== userId) {
+            return res.status(403).json({ message: 'Only the event creator can archive this event' });
+        }
+
+        // Set category to 'archived' to mark the event as archived
+        event.category = 'archived';
+        const archivedEvent = await event.save();
+
+        console.log(`✅ Event "${archivedEvent.title}" (ID: ${archivedEvent._id}) has been archived`);
+
+        res.json(archivedEvent);
+    } catch (err) {
+        console.error('Error archiving event:', err);
         next(err);
     }
 };

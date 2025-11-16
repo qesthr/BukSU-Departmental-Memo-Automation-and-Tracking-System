@@ -59,6 +59,7 @@ router.use(isAuthenticated, allowAdminOrSecretary);
 router.post('/events', ctrl.create);
 router.put('/events/:id', ctrl.update);
 router.patch('/events/:id/time', ctrl.updateTime);
+router.post('/events/:id/archive', ctrl.archive);
 router.delete('/events/:id', ctrl.remove);
 
 module.exports = router;

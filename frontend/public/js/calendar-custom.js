@@ -37,8 +37,11 @@
   const participantsHiddenInput = document.getElementById('memoParticipants');
   const closeModalBtn = document.getElementById('closeMemoModal');
   const cancelBtn = document.getElementById('cancelMemo');
-  const saveBtn = form ? form.querySelector('button[type="submit"]') : null;
+  const saveBtn = document.getElementById('saveMemoBtn') || (form ? form.querySelector('button[type="submit"]') : null);
   const deleteBtn = document.getElementById('deleteMemo');
+  const archiveBtn = document.getElementById('archiveMemo');
+  const readOnlyView = document.getElementById('readOnlyEventView');
+  const readOnlyOkBtn = document.getElementById('readOnlyOkBtn');
 
   // Data
   let departmentsList = [];
@@ -175,6 +178,7 @@
     window.participantsData = participantsData;
     window.renderParticipantsChips = renderParticipantsChips;
     window.loadParticipantsForEdit = loadParticipantsForEdit;
+    window.openEventModalForEdit = openEventModalForEdit;
   }
 
   /**
@@ -704,12 +708,17 @@
   }
 
   /**
-   * Open event modal
+   * Open event modal (Create Mode)
    */
   function openEventModal(prefilledDate = null) {
     const modal = document.getElementById('memoModal');
     if (!modal) {return;}
 
+    // Hide read-only view, show editable form
+    if (readOnlyView) readOnlyView.style.display = 'none';
+    if (form) form.style.display = 'block';
+
+    // Set to Create Mode
     document.getElementById('memoModalTitle').textContent = 'Add Event';
     if (form) {
       form.reset();
@@ -722,7 +731,11 @@
 
     if (editingSourceInput) {editingSourceInput.value = '';}
     if (editingIdInput) {editingIdInput.value = '';}
+
+    // Hide edit mode buttons, show create mode button
     if (deleteBtn) {deleteBtn.style.display = 'none';}
+    if (archiveBtn) {archiveBtn.style.display = 'none';}
+    if (saveBtn) {saveBtn.textContent = 'Add';}
 
     // Reset participants
     participantsData = { departments: [], emails: [] };
@@ -740,6 +753,196 @@
     setTimeout(() => {
       initializeAutocomplete();
     }, 100);
+  }
+
+  /**
+   * Open event modal - detects CREATOR MODE vs RECIPIENT MODE
+   * Fetches full event data from API and shows appropriate view
+   */
+  async function openEventModalForEdit(eventId) {
+    const modal = document.getElementById('memoModal');
+    if (!modal || !eventId) {
+      console.error('Cannot open edit modal: modal or eventId missing');
+      return;
+    }
+
+    try {
+      // Fetch full event data from API
+      const res = await fetch(`/api/calendar/events/${eventId}`, {
+        credentials: 'same-origin'
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Failed to fetch event:', errorText);
+        await showAlertModal('Failed to load event data. Please try again.', 'Error');
+        return;
+      }
+
+      const event = await res.json();
+      console.log('📝 Loading event:', event);
+      console.log('   isCreator flag:', event.isCreator);
+      console.log('   createdById:', event.createdById);
+      console.log('   currentUser.id:', window.currentUser?.id);
+
+      // Determine mode: CREATOR MODE vs RECIPIENT MODE
+      const isCreator = event.isCreator === true ||
+                       (event.createdById && window.currentUser?.id &&
+                        String(event.createdById) === String(window.currentUser.id));
+
+      console.log('   Mode:', isCreator ? 'CREATOR MODE' : 'RECIPIENT MODE');
+
+      if (isCreator) {
+        // CREATOR MODE: Show editable form
+        openEventModalCreatorMode(event);
+      } else {
+        // RECIPIENT MODE: Show read-only view
+        openEventModalRecipientMode(event);
+      }
+
+    } catch (err) {
+      console.error('Error loading event:', err);
+      await showAlertModal('An error occurred while loading the event. Please try again.', 'Error');
+    }
+  }
+
+  /**
+   * Open event modal in CREATOR MODE (Editable)
+   */
+  function openEventModalCreatorMode(event) {
+    const modal = document.getElementById('memoModal');
+
+    // Hide read-only view, show editable form
+    if (readOnlyView) readOnlyView.style.display = 'none';
+    if (form) form.style.display = 'block';
+
+    // Set modal title
+    document.getElementById('memoModalTitle').textContent = 'Edit Event';
+
+    // Populate form fields
+    if (titleInput) titleInput.value = event.title || '';
+    if (categorySelect) categorySelect.value = event.category || 'standard';
+    if (descInput) descInput.value = event.description || '';
+
+    // Format dates for inputs
+    const startDate = new Date(event.start);
+    const endDate = new Date(event.end);
+    if (dateInput) dateInput.value = formatDateForInput(startDate);
+    if (startInput) startInput.value = formatTimeForInput(startDate);
+    if (endInput) endInput.value = formatTimeForInput(endDate);
+
+    // Set editing metadata
+    if (editingSourceInput) editingSourceInput.value = 'backend';
+    if (editingIdInput) editingIdInput.value = event._id || event.id;
+
+    // Show edit mode buttons, hide create mode button
+    if (deleteBtn) deleteBtn.style.display = 'block';
+    if (archiveBtn) archiveBtn.style.display = 'block';
+    if (saveBtn) saveBtn.textContent = 'Update';
+
+    // Load participants
+    if (event.participants && window.loadParticipantsForEdit) {
+      window.loadParticipantsForEdit(event.participants);
+    } else {
+      participantsData = { departments: [], emails: [] };
+      renderParticipantsChips();
+    }
+
+    // Show modal
+    modal.style.display = 'block';
+
+    // Re-initialize autocomplete
+    setTimeout(() => {
+      initializeAutocomplete();
+    }, 100);
+  }
+
+  /**
+   * Open event modal in RECIPIENT MODE (Read-Only)
+   */
+  function openEventModalRecipientMode(event) {
+    const modal = document.getElementById('memoModal');
+
+    // Hide editable form, show read-only view
+    if (form) form.style.display = 'none';
+    if (readOnlyView) readOnlyView.style.display = 'block';
+
+    // Set modal title
+    document.getElementById('memoModalTitle').textContent = 'Event Details (Read Only)';
+
+    // Populate read-only fields
+    const readOnlyTitle = document.getElementById('readOnlyTitle');
+    const readOnlyCategory = document.getElementById('readOnlyCategory');
+    const readOnlyDate = document.getElementById('readOnlyDate');
+    const readOnlyStart = document.getElementById('readOnlyStart');
+    const readOnlyEnd = document.getElementById('readOnlyEnd');
+    const readOnlyParticipants = document.getElementById('readOnlyParticipants');
+    const readOnlyDescription = document.getElementById('readOnlyDescription');
+
+    if (readOnlyTitle) readOnlyTitle.textContent = event.title || '(No title)';
+
+    // Format category with emoji
+    const categoryLabels = {
+      urgent: '🔴 Urgent',
+      high: '🟠 High Priority',
+      standard: '🟢 Standard',
+      meeting: '🟣 Meeting',
+      deadline: '⏰ Deadline',
+      reminder: '🔔 Reminder',
+      low: '🔵 Low Priority',
+      archived: '📦 Archived'
+    };
+    if (readOnlyCategory) {
+      readOnlyCategory.textContent = categoryLabels[event.category] || event.category || 'Standard';
+    }
+
+    // Format dates
+    const startDate = new Date(event.start);
+    const endDate = new Date(event.end);
+    if (readOnlyDate) {
+      readOnlyDate.textContent = startDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+    if (readOnlyStart) {
+      readOnlyStart.textContent = startDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+    if (readOnlyEnd) {
+      readOnlyEnd.textContent = endDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    // Format participants
+    if (readOnlyParticipants) {
+      let participantsText = 'None';
+      if (event.participants) {
+        const parts = [];
+        if (event.participants.departments && Array.isArray(event.participants.departments) && event.participants.departments.length > 0) {
+          parts.push(`Departments: ${event.participants.departments.join(', ')}`);
+        }
+        if (event.participants.emails && Array.isArray(event.participants.emails) && event.participants.emails.length > 0) {
+          const emailList = event.participants.emails.map(e => typeof e === 'string' ? e : e.email).join(', ');
+          parts.push(`Emails: ${emailList}`);
+        }
+        participantsText = parts.length > 0 ? parts.join('; ') : 'None';
+      }
+      readOnlyParticipants.textContent = participantsText;
+    }
+
+    // Format description
+    if (readOnlyDescription) {
+      readOnlyDescription.textContent = event.description || '(No description)';
+    }
+
+    // Show modal
+    modal.style.display = 'block';
   }
 
   /**
@@ -1049,6 +1252,16 @@
       deleteBtn.onclick = handleDeleteEvent;
     }
 
+    if (archiveBtn) {
+      archiveBtn.onclick = handleArchiveEvent;
+    }
+
+    if (readOnlyOkBtn) {
+      readOnlyOkBtn.onclick = () => {
+        document.getElementById('memoModal').style.display = 'none';
+      };
+    }
+
     // Department dropdown
     if (selectDepartmentBtn && departmentDropdown) {
       selectDepartmentBtn.addEventListener('click', (e) => {
@@ -1344,6 +1557,64 @@
     } catch (err) {
       console.error('Error deleting event:', err);
       await showAlertModal('Failed to delete event', 'Error');
+    }
+  }
+
+  /**
+   * Handle archive event
+   */
+  async function handleArchiveEvent() {
+    const editingId = editingIdInput.value;
+    const editingSource = editingSourceInput.value;
+
+    if (!editingId) {
+      await showAlertModal('No event selected to archive.', 'Error');
+      return;
+    }
+
+    if (editingSource !== 'backend') {
+      await showAlertModal('Only database events can be archived.', 'Error');
+      return;
+    }
+
+    const confirmed = await showConfirmModal(
+      'Are you sure you want to archive this event? Archived events will be moved to the Archive section.',
+      'Archive Event'
+    );
+    if (!confirmed) {return;}
+
+    try {
+      const res = await fetch(`/api/calendar/events/${editingId}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Failed to archive event:', errorText);
+        let errorMessage = 'Failed to archive event.';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          if (errorText) {errorMessage = errorText;}
+        }
+        await showAlertModal(errorMessage, 'Archive Failed');
+        return;
+      }
+
+      const archivedEvent = await res.json();
+      console.log('✅ Event archived:', archivedEvent);
+
+      // Refresh calendar and close modal
+      await loadEvents();
+      document.getElementById('memoModal').style.display = 'none';
+
+      await showAlertModal('Event has been archived successfully.', 'Event Archived');
+    } catch (err) {
+      console.error('Error archiving event:', err);
+      await showAlertModal('An error occurred while archiving the event. Please try again.', 'Error');
     }
   }
 

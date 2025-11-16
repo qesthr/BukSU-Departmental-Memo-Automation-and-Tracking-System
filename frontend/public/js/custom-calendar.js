@@ -780,62 +780,36 @@ class CustomCalendar {
       return;
     }
 
-    // Open event details modal
-    const modal = document.getElementById('memoModal');
-    if (!modal) return;
+    // Check if this is a backend event (can be edited)
+    const eventSource = event.extendedProps?.source || '';
+    const eventId = event.id.startsWith('gcal_') ? event.id.replace('gcal_', '') : event.id;
 
-    const titleEl = document.getElementById('memoModalTitle');
-    const form = document.getElementById('memoForm');
-    const editingSourceInput = document.getElementById('memoEditingSource');
-    const editingIdInput = document.getElementById('memoEditingId');
-    const deleteBtn = document.getElementById('deleteMemo');
-
-    if (titleEl) titleEl.textContent = 'Edit Event';
-    if (form) {
-      const eventDescription = event.extendedProps?.description || '';
-      const eventParticipants = event.extendedProps?.participants;
-      console.log('📝 Opening edit modal for event:', event.title);
-      console.log('   Description:', eventDescription || '(none)');
-      console.log('   Participants:', JSON.stringify(eventParticipants || {}));
-
-      document.getElementById('memoTitle').value = event.title.replace('🎉 ', '');
-      document.getElementById('memoDate').value = this.formatDateForInput(new Date(event.start));
-      document.getElementById('memoStart').value = this.formatTimeForInput(new Date(event.start));
-      document.getElementById('memoEnd').value = this.formatTimeForInput(new Date(event.end));
-      document.getElementById('memoCategory').value = event.extendedProps?.category || 'standard';
-      const descField = document.getElementById('memoDesc');
-      if (descField) {
-        descField.value = eventDescription;
-        console.log('✅ Description field populated with:', eventDescription || '(empty)');
-      } else {
-        console.error('❌ Description field (memoDesc) not found!');
-      }
-    }
-
-    if (editingSourceInput) editingSourceInput.value = event.extendedProps?.source || 'backend';
-    if (editingIdInput) editingIdInput.value = event.id.startsWith('gcal_') ? event.id.replace('gcal_', '') : event.id;
-    if (deleteBtn) {
-      deleteBtn.style.display = event.extendedProps?.source === 'backend' ? 'block' : 'none';
-    }
-
-    // Load participants if they exist
-    if (event.extendedProps?.participants && window.loadParticipantsForEdit) {
-      window.loadParticipantsForEdit(event.extendedProps.participants);
+    // Only allow editing of backend events (not Google Calendar events)
+    if (eventSource === 'backend' && eventId && window.openEventModalForEdit) {
+      // Use the new edit function that fetches full event data from API
+      window.openEventModalForEdit(eventId);
     } else {
-      // Reset participants if none exist
-      if (window.loadParticipantsForEdit) {
-        window.loadParticipantsForEdit(null);
+      // For Google Calendar events or events without proper ID, show read-only info
+      const title = event.title || 'Event';
+      const description = event.extendedProps?.description || 'No description';
+      const category = event.extendedProps?.category || 'standard';
+      const start = event.start ? new Date(event.start).toLocaleString() : '';
+      const end = event.end ? new Date(event.end).toLocaleString() : '';
+
+      let message = `<strong>${title}</strong><br/>`;
+      message += `Category: ${category}<br/>`;
+      message += `Start: ${start}<br/>`;
+      message += `End: ${end}<br/>`;
+      if (description) {
+        message += `<br/>${description}`;
+      }
+
+      if (window.showAlertModal) {
+        window.showAlertModal(message, 'Event Details (Read Only)');
+      } else {
+        alert(message);
       }
     }
-
-    modal.style.display = 'block';
-
-    // Re-initialize autocomplete when modal opens
-    setTimeout(() => {
-      if (window.initializeAutocomplete) {
-        window.initializeAutocomplete();
-      }
-    }, 100);
   }
 
   formatDateForInput(date) {
@@ -897,4 +871,5 @@ class CustomCalendar {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CustomCalendar;
 }
+
 
