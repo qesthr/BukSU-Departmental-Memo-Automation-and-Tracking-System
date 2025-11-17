@@ -30,7 +30,7 @@ async function notifyAdmin({ memo, actor }) {
 async function notifySecretary({ memo, actor, action, reason }) {
   try {
     const secretaryId = memo.sender; // original author
-    if (!secretaryId) return;
+    if (!secretaryId) {return;}
     const clean = (s) => String(s || '').replace(/^\s*Memo\s+Pending\s+Approval:\s*/i, '').trim();
 
     let subject, content;
@@ -47,8 +47,14 @@ async function notifySecretary({ memo, actor, action, reason }) {
       return; // Unknown action
     }
 
+    // Ensure actor (admin) is provided - this is required for rejection/approval notifications
+    if (!actor || !actor._id) {
+      console.error('notifySecretary: actor (admin) is required for rejection/approval notifications');
+      return;
+    }
+
     await new Memo({
-      sender: actor?._id || secretaryId,
+      sender: actor._id, // Admin who performed the action (approve/reject) - REQUIRED
       recipient: secretaryId,
       subject,
       content,
@@ -72,7 +78,7 @@ async function notifyRecipients({ memo, actor }) {
     const recipients = Array.isArray(memo.recipients) && memo.recipients.length
       ? memo.recipients
       : (memo.recipient ? [memo.recipient] : []);
-    if (recipients.length === 0) return;
+    if (recipients.length === 0) {return;}
     const ops = recipients.map(r => new Memo({
       sender: actor?._id || memo.sender,
       recipient: r,
@@ -89,15 +95,17 @@ async function notifyRecipients({ memo, actor }) {
   }
 }
 
-async function archivePendingAdminNotifications(originalMemoId) {
+async function archivePendingAdminNotifications(originalMemoId, session = null) {
   try {
-    if (!originalMemoId) return;
+    if (!originalMemoId) {return;}
+    const updateOptions = session ? { session } : {};
     const res = await Memo.updateMany(
       {
         'metadata.relatedMemoId': String(originalMemoId),
         'metadata.eventType': 'memo_pending_review'
       },
-      { $set: { status: 'archived', folder: 'archived' } }
+      { $set: { status: 'archived', folder: 'archived' } },
+      updateOptions
     );
     // eslint-disable-next-line no-console
     console.log(`Archived ${res.modifiedCount || 0} pending admin notifications for memo ${originalMemoId}`);

@@ -8,9 +8,10 @@ exports.getNotifications = async (req, res) => {
         const userId = req.user._id;
 
         // Get recent memos received by user (unread regular memos + activity logs)
+        // Exclude deleted and archived notifications (archived = already processed/approved/rejected)
         const memos = await Memo.find({
             recipient: userId,
-            status: { $ne: 'deleted' }
+            status: { $nin: ['deleted', 'archived'] }
         })
         .sort({ createdAt: -1 })
         .limit(20) // Get more to filter
@@ -106,7 +107,7 @@ exports.getNotifications = async (req, res) => {
         const unreadMemos = await Memo.countDocuments({
             recipient: userId,
             isRead: false,
-            status: { $ne: 'deleted' },
+            status: { $nin: ['deleted', 'archived'] },
             activityType: { $ne: null } // Only count activity logs, not regular unread memos
         });
         const unreadCount = unreadMemos;

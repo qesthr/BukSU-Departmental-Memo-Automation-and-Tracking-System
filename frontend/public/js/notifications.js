@@ -12,7 +12,7 @@
         }
         function hideAddButton(){
             const btn = getAddBtn();
-            if (!btn) return;
+            if (!btn) {return;}
             // store previous visibility only once
             if (btn.dataset.prevVisibility == null) {
                 btn.dataset.prevVisibility = btn.style.visibility || '';
@@ -22,7 +22,7 @@
         }
         function showAddButton(){
             const btn = getAddBtn();
-            if (!btn) return;
+            if (!btn) {return;}
             btn.style.visibility = btn.dataset.prevVisibility || '';
             btn.style.pointerEvents = '';
             delete btn.dataset.prevVisibility;
@@ -391,15 +391,15 @@
                     let categoryStr = '';
 
                     lines.forEach(line => {
-                        if (line.startsWith('Date:')) dateStr = line.replace('Date:', '').trim();
-                        if (line.startsWith('Time:')) timeStr = line.replace('Time:', '').trim();
-                        if (line.startsWith('Category:')) categoryStr = line.replace('Category:', '').trim();
+                        if (line.startsWith('Date:')) {dateStr = line.replace('Date:', '').trim();}
+                        if (line.startsWith('Time:')) {timeStr = line.replace('Time:', '').trim();}
+                        if (line.startsWith('Category:')) {categoryStr = line.replace('Category:', '').trim();}
                     });
 
                     // Create a clean preview message
                     displayMessage = `📅 ${title}`;
-                    if (dateStr) displayMessage += ` • ${dateStr}`;
-                    if (timeStr) displayMessage += ` • ${timeStr}`;
+                    if (dateStr) {displayMessage += ` • ${dateStr}`;}
+                    if (timeStr) {displayMessage += ` • ${timeStr}`;}
                 }
             }
 
@@ -476,10 +476,10 @@
     }
 
     async function openAuditLogModal(auditId){
-        if (!auditId) return;
+        if (!auditId) {return;}
         const res = await fetch(`/api/audit/logs/${auditId}`, { credentials: 'same-origin' });
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error('Failed to load audit log');
+        if (!res.ok || !data.success) {throw new Error('Failed to load audit log');}
         const log = data.log;
         const memoLike = {
             _id: log._id,
@@ -494,7 +494,7 @@
             metadata: { userEmail: log.email, isAuditLog: true }
         };
         let memoModal = document.getElementById('notificationMemoModal');
-        if (!memoModal) memoModal = createMemoModal();
+        if (!memoModal) {memoModal = createMemoModal();}
         populateMemoModal(memoLike, memoModal);
         memoModal.style.setProperty('display', 'flex', 'important');
         memoModal.style.setProperty('visibility', 'visible', 'important');
@@ -778,7 +778,7 @@
                         word-wrap: break-word;
                     "></div>
                 </div>
-                <div id="notificationMemoFooter" style="padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: none; gap: 8px; justify-content: flex-end;">
+                <div id="notificationMemoFooter" style="padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: none; gap: 12px; justify-content: flex-end; align-items: center; flex-shrink: 0; flex-direction: row;">
                 </div>
             </div>
         `;
@@ -918,7 +918,7 @@
             } else if (isUserLog) {
                 // User log format: professional, branded
                 const titleEl = modal.querySelector('.notification-memo-header h2');
-                if (titleEl) titleEl.textContent = 'User Log';
+                if (titleEl) {titleEl.textContent = 'User Log';}
                 const email = memo.sender?.email || memo.metadata?.userEmail || '(unknown)';
                 const dt = memo.createdAt ? new Date(memo.createdAt) : null;
                 const when = dt ? dt.toLocaleString() : '';
@@ -926,7 +926,7 @@
                 const timeOnly = dt ? dt.toLocaleTimeString() : '';
                 const safe = (s) => String(s || '')
                     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-                let body = memo.content && memo.content.trim() ? safe(memo.content) : `User ${safe(email)} activity recorded.`;
+                const body = memo.content && memo.content.trim() ? safe(memo.content) : `User ${safe(email)} activity recorded.`;
                 htmlContent += `
                     <div style="text-align:center;margin-top:6px;">
                         <img src="/images/memofy-logo.png" alt="Memofy" style="width:48px;height:48px;opacity:.95;" />
@@ -988,7 +988,46 @@
                         <p style="margin:0; color:#6b7280; font-size:14px;">${safe(when)}</p>
                     </div>
                     <div style="width:100%; height:1px; background:#e5e7eb; margin:24px 0;"></div>
-                    <div style="white-space:pre-wrap; line-height:1.8; color:#111827; font-size:15px; padding:0 8px;">${safe(memo.content || '')}</div>
+                    <div style="color:#111827; font-size:15px; padding:0 8px;">
+                        ${(() => {
+                            let content = safe(memo.content || '');
+                            let rejectionReason = '';
+
+                            // Extract rejection reason if present
+                            if (memo.activityType === 'memo_rejected' || (memo.metadata?.action === 'rejected')) {
+                                rejectionReason = memo.metadata?.reason ||
+                                                 (memo.content && memo.content.match(/Reason:\s*(.+?)(?:\n|$)/i)?.[1]?.trim()) ||
+                                                 '';
+                                // Remove "Reason: ..." line from content if it exists
+                                if (rejectionReason && content.includes('Reason:')) {
+                                    content = content.replace(/Reason:\s*[^\n]+/i, '').trim();
+                                }
+                            }
+
+                            // Build the content HTML with rejection reason integrated
+                            let contentHtml = '';
+                            if (content) {
+                                contentHtml += `<div style="white-space: pre-wrap; line-height: 1.8; margin-bottom: ${rejectionReason ? '24px' : '0'}; color: #111827;">${content}</div>`;
+                            }
+
+                            // Add rejection reason box directly after content, inside the same container
+                            if (rejectionReason) {
+                                contentHtml += `
+                                    <div style="padding: 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                            <i data-lucide="alert-circle" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                                            <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #991b1b;">Rejection Reason</h4>
+                                        </div>
+                                        <div style="color: #7f1d1d; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                                            ${safe(rejectionReason)}
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            return contentHtml || '<div style="color: #9ca3af; font-style: italic;">No content</div>';
+                        })()}
+                    </div>
                 `;
             } else {
                 // Regular memo format
@@ -1017,7 +1056,7 @@
 
                     // Helper function to format file size
                     function formatFileSize(bytes) {
-                        if (!bytes || bytes === 0) return '0 B';
+                        if (!bytes || bytes === 0) {return '0 B';}
                         const k = 1024;
                         const sizes = ['B', 'KB', 'MB', 'GB'];
                         const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -1097,10 +1136,10 @@
                     const sp = modal.querySelector('#naoSpinner');
                     const ck = modal.querySelector('#naoCheck');
                     const tx = modal.querySelector('#naoText');
-                    if (!overlay) return;
-                    if (tx) tx.textContent = text || 'Processing...';
-                    if (sp) sp.style.display = 'block';
-                    if (ck) ck.style.display = 'none';
+                    if (!overlay) {return;}
+                    if (tx) {tx.textContent = text || 'Processing...';}
+                    if (sp) {sp.style.display = 'block';}
+                    if (ck) {ck.style.display = 'none';}
                     overlay.style.display = 'flex';
                 }
                 function showActionOverlaySuccess(text){
@@ -1108,24 +1147,46 @@
                     const sp = modal.querySelector('#naoSpinner');
                     const ck = modal.querySelector('#naoCheck');
                     const tx = modal.querySelector('#naoText');
-                    if (!overlay) return;
-                    if (sp) sp.style.display = 'none';
-                    if (ck) ck.style.display = 'block';
-                    if (tx) tx.textContent = text || 'Done';
+                    if (!overlay) {return;}
+                    if (sp) {sp.style.display = 'none';}
+                    if (ck) {ck.style.display = 'block';}
+                    if (tx) {tx.textContent = text || 'Done';}
                     overlay.style.display = 'flex';
                 }
                 const statusStr = (memo.status || '').toString();
+                // Check if this is a notification about a pending memo (check metadata for original memo)
+                const isNotificationAboutPending = memo.metadata &&
+                    (memo.metadata.eventType === 'memo_pending_review' ||
+                     memo.metadata.relatedMemoId ||
+                     memo.metadata.originalMemoId);
                 const isPendingStatus = ['pending_admin','PENDING_ADMIN','pending','PENDING'].includes(statusStr);
                 const looksPendingBySubject = (memo.subject || '').toLowerCase().includes('pending approval');
                 const isAdminUser = (window.currentUser && (window.currentUser.role === 'admin'));
-                if (!isCalendarEvent && isAdminUser && (isPendingStatus || looksPendingBySubject)) {
+                // Show buttons if: pending status OR notification about pending memo OR subject contains "pending approval"
+                if (!isCalendarEvent && isAdminUser && (isPendingStatus || isNotificationAboutPending || looksPendingBySubject)) {
                     footer.style.display = 'flex';
+                    footer.style.flexDirection = 'row';
+                    footer.style.gap = '12px';
+                    footer.style.justifyContent = 'flex-end';
+                    footer.style.alignItems = 'center';
                     const rejectBtn = document.createElement('button');
                     rejectBtn.textContent = 'Reject';
-                    rejectBtn.style.cssText = 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;';
+                    rejectBtn.style.cssText = 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                    rejectBtn.addEventListener('mouseenter', () => {
+                        rejectBtn.style.background = '#e5e7eb';
+                    });
+                    rejectBtn.addEventListener('mouseleave', () => {
+                        rejectBtn.style.background = '#f3f4f6';
+                    });
                     const approveBtn = document.createElement('button');
                     approveBtn.textContent = 'Approve';
-                    approveBtn.style.cssText = 'background:#1C89E3;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;';
+                    approveBtn.style.cssText = 'background:#1C89E3;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                    approveBtn.addEventListener('mouseenter', () => {
+                        approveBtn.style.background = '#1570cd';
+                    });
+                    approveBtn.addEventListener('mouseleave', () => {
+                        approveBtn.style.background = '#1C89E3';
+                    });
 
                     // Spinner keyframes (inject once)
                     if (!document.getElementById('notif-modal-spinner-style')){
@@ -1140,10 +1201,10 @@
                         const sp = modal.querySelector('#naoSpinner');
                         const ck = modal.querySelector('#naoCheck');
                         const tx = modal.querySelector('#naoText');
-                        if (!overlay) return;
-                        if (tx) tx.textContent = text || 'Processing...';
-                        if (sp) sp.style.display = 'block';
-                        if (ck) ck.style.display = 'none';
+                        if (!overlay) {return;}
+                        if (tx) {tx.textContent = text || 'Processing...';}
+                        if (sp) {sp.style.display = 'block';}
+                        if (ck) {ck.style.display = 'none';}
                         overlay.style.display = 'flex';
                     }
                     function showOverlaySuccess(text){
@@ -1151,50 +1212,266 @@
                         const sp = modal.querySelector('#naoSpinner');
                         const ck = modal.querySelector('#naoCheck');
                         const tx = modal.querySelector('#naoText');
-                        if (!overlay) return;
-                        if (sp) sp.style.display = 'none';
-                        if (ck) ck.style.display = 'block';
-                        if (tx) tx.textContent = text || 'Done';
+                        if (!overlay) {return;}
+                        if (sp) {sp.style.display = 'none';}
+                        if (ck) {ck.style.display = 'block';}
+                        if (tx) {tx.textContent = text || 'Done';}
                         overlay.style.display = 'flex';
                     }
 
                     // Use original memo id if present (pending review notifications)
                     const targetMemoId = (memo.metadata && (memo.metadata.originalMemoId || memo.metadata.relatedMemoId)) || memo._id;
 
+                    // Function to show rejection reason modal
+                    function showRejectionReasonModal() {
+                        return new Promise((resolve) => {
+                            const modal = document.createElement('div');
+                            modal.id = 'rejectionReasonModal';
+                            modal.style.cssText = `
+                                display: flex;
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background: rgba(0, 0, 0, 0.5);
+                                z-index: 20000;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 2rem;
+                            `;
+
+                            modal.innerHTML = `
+                                <div style="
+                                    background: white;
+                                    border-radius: 12px;
+                                    max-width: 500px;
+                                    width: 100%;
+                                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                                ">
+                                    <div style="
+                                        padding: 1.5rem;
+                                        border-bottom: 1px solid #e5e7eb;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                    ">
+                                        <h3 style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #111827;">Rejection Reason</h3>
+                                        <button id="closeRejectionModal" style="
+                                            background: none;
+                                            border: none;
+                                            font-size: 1.5rem;
+                                            color: #6b7280;
+                                            cursor: pointer;
+                                            padding: 0.5rem;
+                                            line-height: 1;
+                                            border-radius: 6px;
+                                            transition: all 0.2s;
+                                        ">&times;</button>
+                                    </div>
+                                    <div style="padding: 1.5rem;">
+                                        <label style="
+                                            display: block;
+                                            font-size: 0.875rem;
+                                            font-weight: 500;
+                                            color: #374151;
+                                            margin-bottom: 0.5rem;
+                                        ">Optional reason for rejection:</label>
+                                        <textarea id="rejectionReasonInput" style="
+                                            width: 100%;
+                                            padding: 0.75rem;
+                                            border: 1px solid #d1d5db;
+                                            border-radius: 8px;
+                                            font-size: 0.875rem;
+                                            font-family: inherit;
+                                            resize: vertical;
+                                            min-height: 100px;
+                                            box-sizing: border-box;
+                                        " placeholder="Enter reason for rejection (optional)"></textarea>
+                                    </div>
+                                    <div style="
+                                        padding: 1rem 1.5rem;
+                                        border-top: 1px solid #e5e7eb;
+                                        display: flex;
+                                        justify-content: flex-end;
+                                        gap: 0.75rem;
+                                    ">
+                                        <button id="cancelRejectionBtn" style="
+                                            padding: 0.625rem 1.25rem;
+                                            background: #f3f4f6;
+                                            border: none;
+                                            border-radius: 8px;
+                                            font-size: 0.875rem;
+                                            font-weight: 500;
+                                            color: #374151;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                        ">Cancel</button>
+                                        <button id="confirmRejectionBtn" style="
+                                            padding: 0.625rem 1.25rem;
+                                            background: #2563eb;
+                                            border: none;
+                                            border-radius: 8px;
+                                            font-size: 0.875rem;
+                                            font-weight: 500;
+                                            color: white;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                        ">OK</button>
+                                    </div>
+                                </div>
+                            `;
+
+                            document.body.appendChild(modal);
+
+                            const closeModal = () => {
+                                document.body.removeChild(modal);
+                            };
+
+                            const confirm = () => {
+                                const input = document.getElementById('rejectionReasonInput');
+                                const reason = input ? input.value.trim() : '';
+                                closeModal();
+                                resolve(reason);
+                            };
+
+                            const cancel = () => {
+                                closeModal();
+                                resolve(null);
+                            };
+
+                            // Event listeners
+                            document.getElementById('closeRejectionModal').addEventListener('click', cancel);
+                            document.getElementById('cancelRejectionBtn').addEventListener('click', cancel);
+                            document.getElementById('confirmRejectionBtn').addEventListener('click', confirm);
+
+                            // Close on background click
+                            modal.addEventListener('click', (e) => {
+                                if (e.target === modal) {
+                                    cancel();
+                                }
+                            });
+
+                            // Close on Escape key
+                            const escapeHandler = (e) => {
+                                if (e.key === 'Escape') {
+                                    cancel();
+                                    document.removeEventListener('keydown', escapeHandler);
+                                }
+                            };
+                            document.addEventListener('keydown', escapeHandler);
+
+                            // Focus on textarea
+                            setTimeout(() => {
+                                const input = document.getElementById('rejectionReasonInput');
+                                if (input) {input.focus();}
+                            }, 100);
+
+                            // Hover effects
+                            const cancelBtn = document.getElementById('cancelRejectionBtn');
+                            const confirmBtn = document.getElementById('confirmRejectionBtn');
+                            const closeBtn = document.getElementById('closeRejectionModal');
+
+                            cancelBtn.addEventListener('mouseenter', () => {
+                                cancelBtn.style.background = '#e5e7eb';
+                            });
+                            cancelBtn.addEventListener('mouseleave', () => {
+                                cancelBtn.style.background = '#f3f4f6';
+                            });
+
+                            confirmBtn.addEventListener('mouseenter', () => {
+                                confirmBtn.style.background = '#1d4ed8';
+                            });
+                            confirmBtn.addEventListener('mouseleave', () => {
+                                confirmBtn.style.background = '#2563eb';
+                            });
+
+                            closeBtn.addEventListener('mouseenter', () => {
+                                closeBtn.style.background = '#f3f4f6';
+                                closeBtn.style.color = '#111827';
+                            });
+                            closeBtn.addEventListener('mouseleave', () => {
+                                closeBtn.style.background = 'none';
+                                closeBtn.style.color = '#6b7280';
+                            });
+                        });
+                    }
+
                     rejectBtn.onclick = async () => {
                         try {
-                            const reason = window.prompt('Optional reason for rejection:', '');
+                            const reason = await showRejectionReasonModal();
+                            if (reason === null) {return;} // User cancelled
                             showOverlay('Rejecting...');
+                            // Remove notification item immediately (before API call completes)
+                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
+                            if (notifItem && notifItem.parentNode) {
+                                notifItem.parentNode.removeChild(notifItem);
+                                // Update badge count
+                                const badge = document.querySelector('.notification-badge');
+                                if (badge) {
+                                    const currentCount = parseInt(badge.textContent) || 0;
+                                    const newCount = Math.max(0, currentCount - 1);
+                                    if (newCount > 0) {
+                                        badge.textContent = newCount > 99 ? '99+' : newCount;
+                                        badge.style.display = 'flex';
+                                    } else {
+                                        badge.style.display = 'none';
+                                    }
+                                }
+                            }
                             const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }), credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
-                            if (!res.ok) throw new Error(data.message || 'Failed to reject');
+                            if (!res.ok) {throw new Error(data.message || 'Failed to reject');}
                             showOverlaySuccess('Rejected');
-                            // Remove notification item immediately
-                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
-                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
+                            // Refresh notifications to ensure archived ones are gone
+                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); }, 700);
                         } catch (err) {
                             alert(err?.message || 'Failed to reject');
+                            // Reload notifications on error to restore UI state
+                            fetchNotifications();
                         }
                     };
 
                     approveBtn.onclick = async () => {
                         try {
                             showOverlay('Approving...');
+                            // Remove notification item immediately (before API call completes)
+                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
+                            if (notifItem && notifItem.parentNode) {
+                                notifItem.parentNode.removeChild(notifItem);
+                                // Update badge count
+                                const badge = document.querySelector('.notification-badge');
+                                if (badge) {
+                                    const currentCount = parseInt(badge.textContent) || 0;
+                                    const newCount = Math.max(0, currentCount - 1);
+                                    if (newCount > 0) {
+                                        badge.textContent = newCount > 99 ? '99+' : newCount;
+                                        badge.style.display = 'flex';
+                                    } else {
+                                        badge.style.display = 'none';
+                                    }
+                                }
+                            }
                             const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
-                            if (!res.ok) throw new Error(data.message || 'Failed to approve');
+                            if (!res.ok) {throw new Error(data.message || 'Failed to approve');}
                             showOverlaySuccess('Approved');
-                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
-                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); window.location.href = '/admin/log'; }, 700);
+                            // Refresh notifications to ensure archived ones are gone
+                            setTimeout(()=>{ closeMemoModal(); fetchNotifications(); }, 700);
                         } catch (err) {
                             alert(err?.message || 'Failed to approve');
+                            // Reload notifications on error to restore UI state
+                            fetchNotifications();
                         }
                     };
 
+                    // Append buttons in order: Reject first (left), Approve second (right)
                     footer.appendChild(rejectBtn);
                     footer.appendChild(approveBtn);
+
+                    // Ensure footer stays at bottom of modal
+                    footer.style.position = 'relative';
+                    footer.style.zIndex = '1';
                 } else if (isUserLog && isAdminUser) {
                     footer.style.display = 'flex';
                     const deleteBtn = document.createElement('button');
@@ -1207,11 +1484,11 @@
                             await new Promise(r => setTimeout(r, 500));
                             const endpoint = (memo.metadata && memo.metadata.isAuditLog) ? `/api/audit/logs/${memo._id}` : `/api/log/memos/${memo._id}`;
                             const res = await fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' });
-                            if (!res.ok) throw new Error('Failed to delete');
+                            if (!res.ok) {throw new Error('Failed to delete');}
                             showActionOverlaySuccess('Deleted');
                             // Remove from list if it exists in dropdown
                             const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) notifItem.parentNode.removeChild(notifItem);
+                            if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
                             setTimeout(() => { closeMemoModal(); fetchNotifications && fetchNotifications(); }, 600);
                         } catch (err) {
                             alert(err?.message || 'Delete failed');

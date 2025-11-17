@@ -32,7 +32,7 @@
                         <div class="memo-container">
                             <div class="memo-list-header">
                                 <div class="header-controls">
-                                    <div class="checkbox-control">
+                                    <div class="checkbox-control" style="display: flex; align-items: center; gap: 8px;">
                                         <div class="select-dropdown-wrapper">
                                             <button id="selectDropdownBtn" class="select-dropdown-btn" type="button">
                                                 <i data-lucide="square" class="select-icon"></i>
@@ -47,8 +47,8 @@
                                                 <button type="button" class="select-dropdown-item" data-action="unstarred">Unstarred</button>
                                             </div>
                                         </div>
-                                        <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
-                                            <i data-lucide="rotate-cw"></i>
+                                        <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected" style="display: none;">
+                                            <i data-lucide="archive"></i>
                                         </button>
                                     </div>
                                 </div>

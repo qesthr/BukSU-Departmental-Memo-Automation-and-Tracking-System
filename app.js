@@ -23,6 +23,7 @@ const driveRoutes = require('./backend/routes/driveRoutes');
 const calendarRoutes = require('./backend/routes/calendarRoutes');
 const auditRoutes = require('./backend/routes/auditRoutes');
 const signatureRoutes = require('./backend/routes/signatureRoutes');
+const rollbackRoutes = require('./backend/routes/rollbackRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -109,6 +110,7 @@ app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/signatures', signatureRoutes);
+app.use('/api/rollback', rollbackRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
 app.use('/api/analytics', require('./backend/routes/analyticsRoutes'));
 app.use('/analytics', require('./backend/routes/analyticsRoutes'));
@@ -362,7 +364,18 @@ app.get('/secretary/memos', async (req, res) => {
     try {
         const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
             .populate('recipient', 'firstName lastName email');
-        const received = await Memo.find({ recipient: req.user._id, status: { $ne: 'deleted' }, activityType: { $ne: 'pending_memo' } })
+        const received = await Memo.find({
+            recipient: req.user._id,
+            status: { $ne: 'deleted' },
+            $or: [
+                { activityType: { $ne: 'pending_memo' } },
+                {
+                    activityType: 'system_notification',
+                    'metadata.eventType': 'memo_review_decision',
+                    'metadata.action': { $in: ['rejected', 'approved'] }
+                }
+            ]
+        })
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email');
         return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos, received });

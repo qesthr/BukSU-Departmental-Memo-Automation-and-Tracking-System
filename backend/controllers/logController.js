@@ -26,22 +26,71 @@ exports.getAllMemos = async (req, res) => {
             const user = await User.findById(userId);
             if (user.role === 'admin') {
                 // Admin inbox: show both memos sent BY admin and received BY admin
+                // Also include memos that admin approved/rejected (check metadata.history)
+                // Convert userId to ObjectId for proper comparison
+                const userIdObj = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
                 query = {
-                    $or: [
-                        { sender: userId },
-                        { recipient: userId }
-                    ],
-                    status: { $nin: ['deleted','archived'] },
-                    activityType: { $nin: systemActivityTypes }
+                    $and: [
+                        {
+                            $or: [
+                                { sender: userId },
+                                { recipient: userId },
+                                // Include memos approved/rejected by this admin
+                                // Check both ObjectId and string comparison for history
+                                {
+                                    $and: [
+                                        {
+                                            'metadata.history': {
+                                                $elemMatch: {
+                                                    $or: [
+                                                        { 'by._id': userIdObj },
+                                                        { 'by._id': userId.toString() },
+                                                        { 'by._id': String(userId) }
+                                                    ],
+                                                    action: { $in: ['approved', 'rejected'] }
+                                                }
+                                            }
+                                        },
+                                        { status: { $in: ['approved', 'rejected'] } }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            status: { $nin: ['deleted','archived'] },
+                            activityType: { $nin: systemActivityTypes }
+                        }
+                    ]
                 };
             } else {
                 // Regular users: only delivered memos (hide pending workflow items)
                 // Status filter already excludes pending, so secretaries won't see their own pending memos
-                query = {
-                    recipient: userId,
-                    status: { $in: ['sent','approved'] },
-                    activityType: { $nin: systemActivityTypes }
-                };
+                // For secretaries, also include rejected memos and rejection/approval notifications
+                if (user.role === 'secretary') {
+                    query = {
+                        recipient: userId,
+                        $or: [
+                            {
+                                // Regular memos: sent, approved, or rejected
+                                status: { $in: ['sent', 'approved', 'rejected'] },
+                                activityType: { $nin: systemActivityTypes }
+                            },
+                            {
+                                // Rejection/approval notification memos for secretaries
+                                status: 'sent',
+                                activityType: 'system_notification',
+                                'metadata.eventType': 'memo_review_decision',
+                                'metadata.action': { $in: ['rejected', 'approved'] }
+                            }
+                        ]
+                    };
+                } else {
+                    query = {
+                        recipient: userId,
+                        status: { $in: ['sent', 'approved'] },
+                        activityType: { $nin: systemActivityTypes }
+                    };
+                }
             }
         } else if (folder === 'sent') {
             // For sent folder, show memos sent by user
@@ -557,13 +606,13 @@ exports.downloadMemo = async (req, res) => {
                 if (sig1) {
                     sig1Height = 60 + 8; // Image + spacing
                     sig1Height += 15; // Name
-                    if (sig1.roleTitle) sig1Height += 12; // Title
+                    if (sig1.roleTitle) {sig1Height += 12;} // Title
                 }
 
                 if (sig2) {
                     sig2Height = 60 + 8; // Image + spacing
                     sig2Height += 15; // Name
-                    if (sig2.roleTitle) sig2Height += 12; // Title
+                    if (sig2.roleTitle) {sig2Height += 12;} // Title
                 }
 
                 const maxHeight = Math.max(sig1Height, sig2Height);
@@ -950,14 +999,14 @@ exports.createMemo = async (req, res) => {
                 // Add departments
                 const departmentsArray = Array.isArray(departments) ? departments : (departments ? [departments] : []);
                 departmentsArray.forEach(dept => {
-                    if (dept) recipientDepartments.add(dept);
+                    if (dept) {recipientDepartments.add(dept);}
                 });
 
                 // Get emails from recipient IDs
                 const recipientUsers = await User.find({ _id: { $in: recipientIds } }).select('email department').lean();
                 recipientUsers.forEach(ru => {
-                    if (ru.email) recipientEmails.push(ru.email.toLowerCase());
-                    if (ru.department) recipientDepartments.add(ru.department);
+                    if (ru.email) {recipientEmails.push(ru.email.toLowerCase());}
+                    if (ru.department) {recipientDepartments.add(ru.department);}
                 });
 
                 // Add creator's email to participants so it appears in their calendar
@@ -1199,7 +1248,8 @@ exports.approveMemo = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(targetId)) {
             return res.status(400).json({ success: false, message: 'Invalid original memo id' });
         }
-        const updated = await approve({ memoId: targetId, adminUser: req.user });
+        const { approveWithRollback } = require('../services/memoWorkflowService');
+        const updated = await approveWithRollback({ memoId: targetId, adminUser: req.user });
         return res.json({ success: true, memo: updated, message: 'Memo approved and sent to recipients.' });
     } catch (error) {
         // eslint-disable-next-line no-console
@@ -1219,7 +1269,8 @@ exports.rejectMemo = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ success: false, message: 'Invalid memo id' });
         }
-        const updated = await reject({ memoId: id, adminUser: req.user, reason });
+        const { rejectWithRollback } = require('../services/memoWorkflowService');
+        const updated = await rejectWithRollback({ memoId: id, adminUser: req.user, reason });
         return res.json({ success: true, memo: updated });
     } catch (error) {
         console.error('Error rejecting memo:', error);
@@ -1331,7 +1382,7 @@ exports.previewMemo = async (req, res) => {
 
         // Enhanced escape function that also removes HTML tags and special characters
         const esc = (t) => {
-            if (!t) return '';
+            if (!t) {return '';}
             let str = String(t);
             // First, remove any HTML tags completely
             str = str.replace(/<[^>]*>/g, '');

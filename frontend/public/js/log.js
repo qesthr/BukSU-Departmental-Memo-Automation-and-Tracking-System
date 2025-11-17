@@ -728,59 +728,139 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSelectAction(action) {
         const memoItems = document.querySelectorAll('.memo-item');
+        const visibleItems = Array.from(memoItems).filter(item => item.style.display !== 'none');
 
         switch(action) {
             case 'all':
-                // Show all memos and select all (could be used for bulk actions in the future)
-                memoItems.forEach(item => {
-                    item.style.display = '';
+                // Select all visible memos
+                visibleItems.forEach(item => {
+                    const checkbox = item.querySelector('.memo-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
                     item.classList.add('selected');
                 });
+                updateSelectionUI();
                 break;
             case 'none':
-                // Show all memos and deselect all
+                // Deselect all memos
                 memoItems.forEach(item => {
-                    item.style.display = '';
+                    const checkbox = item.querySelector('.memo-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
                     item.classList.remove('selected');
                 });
+                updateSelectionUI();
                 break;
             case 'read':
-                // Filter to show only read memos (if read status is tracked)
-                // This would need to be implemented based on your memo model
+                // Filter to show only read memos and select them
                 memoItems.forEach(item => {
-                    item.style.display = '';
+                    const memoId = item.dataset.id;
+                    const memo = filteredMemos.find(m => m._id === memoId);
+                    const checkbox = item.querySelector('.memo-checkbox');
+                    if (memo && memo.isRead) {
+                        item.style.display = '';
+                        if (checkbox) {checkbox.checked = true;}
+                        item.classList.add('selected');
+                    } else {
+                        item.style.display = 'none';
+                        if (checkbox) {checkbox.checked = false;}
+                        item.classList.remove('selected');
+                    }
                 });
+                updateSelectionUI();
                 break;
             case 'unread':
-                // Filter to show only unread memos
+                // Filter to show only unread memos and select them
                 memoItems.forEach(item => {
-                    item.style.display = '';
+                    const memoId = item.dataset.id;
+                    const memo = filteredMemos.find(m => m._id === memoId);
+                    const checkbox = item.querySelector('.memo-checkbox');
+                    if (memo && !memo.isRead) {
+                        item.style.display = '';
+                        if (checkbox) {checkbox.checked = true;}
+                        item.classList.add('selected');
+                    } else {
+                        item.style.display = 'none';
+                        if (checkbox) {checkbox.checked = false;}
+                        item.classList.remove('selected');
+                    }
                 });
+                updateSelectionUI();
                 break;
             case 'starred':
-                // Filter to show only starred memos
+                // Filter to show only starred memos and select them
                 memoItems.forEach(item => {
                     const memoId = item.dataset.id;
                     const memo = filteredMemos.find(m => m._id === memoId);
+                    const checkbox = item.querySelector('.memo-checkbox');
                     if (memo && memo.isStarred) {
                         item.style.display = '';
+                        if (checkbox) {checkbox.checked = true;}
+                        item.classList.add('selected');
                     } else {
                         item.style.display = 'none';
+                        if (checkbox) {checkbox.checked = false;}
+                        item.classList.remove('selected');
                     }
                 });
+                updateSelectionUI();
                 break;
             case 'unstarred':
-                // Filter to show only unstarred memos
+                // Filter to show only unstarred memos and select them
                 memoItems.forEach(item => {
                     const memoId = item.dataset.id;
                     const memo = filteredMemos.find(m => m._id === memoId);
+                    const checkbox = item.querySelector('.memo-checkbox');
                     if (memo && !memo.isStarred) {
                         item.style.display = '';
+                        if (checkbox) {checkbox.checked = true;}
+                        item.classList.add('selected');
                     } else {
                         item.style.display = 'none';
+                        if (checkbox) {checkbox.checked = false;}
+                        item.classList.remove('selected');
                     }
                 });
+                updateSelectionUI();
                 break;
+        }
+    }
+
+    // Update selection UI (archive button visibility, selectDropdown icon state)
+    function updateSelectionUI() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox');
+        const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
+        const hasSelection = checkedBoxes.length > 0;
+        const allVisibleChecked = checkboxes.length > 0 && Array.from(checkboxes).filter(cb => cb.closest('.memo-item')?.style.display !== 'none').every(cb => cb.checked);
+
+        // Update archive button visibility
+        const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+        if (bulkArchiveBtn) {
+            bulkArchiveBtn.style.display = hasSelection ? 'inline-flex' : 'none';
+        }
+
+        // Update selectDropdown icon state
+        if (selectDropdownBtn) {
+            const selectIcon = selectDropdownBtn.querySelector('.select-icon');
+            if (selectIcon) {
+                if (allVisibleChecked && checkboxes.length > 0) {
+                    // Show checkmark when all visible are selected
+                    selectIcon.setAttribute('data-lucide', 'check-square');
+                } else if (hasSelection) {
+                    // Show minus-square when some are selected
+                    selectIcon.setAttribute('data-lucide', 'minus-square');
+                } else {
+                    // Show square when none selected
+                    selectIcon.setAttribute('data-lucide', 'square');
+                }
+                // Reinitialize icon
+                if (typeof lucide !== 'undefined') {
+                    // eslint-disable-next-line no-undef
+                    lucide.createIcons();
+                }
+            }
         }
     }
 
@@ -2072,7 +2152,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     }
 
-    // Archive button
+    // Bulk archive button
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    if (bulkArchiveBtn) {
+        bulkArchiveBtn.addEventListener('click', async () => {
+            const checkedBoxes = Array.from(document.querySelectorAll('.memo-checkbox')).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
+            if (checkedBoxes.length === 0) {
+                showNotification('No memos selected', 'error');
+                return;
+            }
+
+            const memoIds = checkedBoxes.map(cb => cb.dataset.memoId).filter(id => id);
+            if (memoIds.length === 0) {
+                showNotification('No valid memos to archive', 'error');
+                return;
+            }
+
+            try {
+                // Archive all selected memos
+                const archivePromises = memoIds.map(memoId =>
+                    fetch(`/api/log/memos/${memoId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'archived' })
+                    }).then(res => res.json())
+                );
+
+                const results = await Promise.all(archivePromises);
+                const successCount = results.filter(r => r.success).length;
+
+                if (successCount > 0) {
+                    showNotification(`Archived ${successCount} memo${successCount > 1 ? 's' : ''}`, 'success');
+                    // Uncheck all checkboxes
+                    checkedBoxes.forEach(cb => {
+                        cb.checked = false;
+                    });
+                    updateSelectionUI();
+                    // Refresh memo list
+                    fetchMemos();
+                } else {
+                    showNotification('Failed to archive memos', 'error');
+                }
+            } catch (error) {
+                console.error('Error archiving memos:', error);
+                showNotification('Error archiving memos', 'error');
+            }
+        });
+    }
+
+    // Archive button (single memo)
     if (archiveBtn) {
         archiveBtn.addEventListener('click', async () => {
             if (!currentMemoId) {return;}
@@ -2266,6 +2394,33 @@ document.addEventListener('DOMContentLoaded', () => {
             filteredMemos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         }
 
+        // Reset selection if current index is invalid after filtering
+        if (currentMemoIndex >= 0 && currentMemoIndex >= filteredMemos.length) {
+            currentMemoIndex = -1;
+            currentMemoId = null;
+            // Hide memo viewer if no valid memo
+            if (memoViewer) {
+                memoViewer.style.display = 'none';
+            }
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+            }
+        }
+
+        // Update memo counter
+        if (memoCounter) {
+            if (currentMemoIndex >= 0 && currentMemoIndex < filteredMemos.length) {
+                memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
+            } else {
+                // No memo selected
+                if (filteredMemos.length > 0) {
+                    memoCounter.textContent = `0 of ${filteredMemos.length}`;
+                } else {
+                    memoCounter.textContent = '0 of 0';
+                }
+            }
+        }
+
         renderMemoList();
     }
 
@@ -2405,6 +2560,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const subject = subjectPrefix + (memo.subject || '(No subject)');
             const contentPreview = memo.content ? `- ${memo.content.substring(0, 50)}${memo.content.length > 50 ? '...' : ''}` : '- (No content)';
 
+            // Action badge (Approved/Rejected Memo)
+            let actionBadge = '';
+            const eventType = memo.metadata?.eventType;
+            const memoStatus = memo.status?.toLowerCase();
+            if (eventType === 'memo_approved_by_admin' || memoStatus === 'approved') {
+                actionBadge = '<span class="action-badge approved-badge" title="Approved Memo" style="display: inline-block; padding: 4px 10px; background: #10b981; color: white; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; text-transform: uppercase;">✓ Approved Memo</span>';
+            } else if (eventType === 'memo_rejected_by_admin' || memoStatus === 'rejected') {
+                actionBadge = '<span class="action-badge rejected-badge" title="Rejected Memo" style="display: inline-block; padding: 4px 10px; background: #ef4444; color: white; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; text-transform: uppercase;">✗ Rejected Memo</span>';
+            }
+
             // Priority badge
             const priority = memo.priority || 'medium';
             let priorityBadge = '';
@@ -2421,23 +2586,27 @@ document.addEventListener('DOMContentLoaded', () => {
             return `
             <div class="memo-item ${index === currentMemoIndex ? 'active' : ''}"
                  data-id="${memo._id}"
-                 data-index="${index}">
-                <div class="memo-item-header">
-                    <img src="${avatarSrc}"
-                         alt="${displayName}"
-                         class="memo-avatar">
-                    <div class="memo-sender-info">
-                        <div class="memo-sender-name">${displayLabel}: ${displayName}</div>
-                        <div class="memo-sender-email">${displayEmail}</div>
+                 data-index="${index}"
+                 style="display: flex; align-items: flex-start; gap: 0;">
+                <input type="checkbox" class="memo-checkbox" data-memo-id="${memo._id}" data-index="${index}" style="margin: 12px 12px 0 12px; cursor: pointer; flex-shrink: 0;">
+                <div style="flex: 1; min-width: 0;">
+                    <div class="memo-item-header">
+                        <img src="${avatarSrc}"
+                             alt="${displayName}"
+                             class="memo-avatar">
+                        <div class="memo-sender-info">
+                            <div class="memo-sender-name">${displayLabel}: ${displayName}</div>
+                            <div class="memo-sender-email">${displayEmail}</div>
+                        </div>
+                        <div class="memo-item-actions">
+                            ${priorityBadge}
+                            ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
+                        </div>
                     </div>
-                    <div class="memo-item-actions">
-                        ${priorityBadge}
-                        ${memo.isStarred ? '<i data-lucide="star" style="width: 16px; height: 16px; color: #fbbf24;"></i>' : ''}
-                    </div>
+                    <div class="memo-subject">${subject}${actionBadge}</div>
+                    <div class="memo-preview">${contentPreview}</div>
+                    <div class="memo-date">${formatDate(memo.createdAt)}</div>
                 </div>
-                <div class="memo-subject">${subject}</div>
-                <div class="memo-preview">${contentPreview}</div>
-                <div class="memo-date">${formatDate(memo.createdAt)}</div>
             </div>
         `;
         }).join('');
@@ -2454,11 +2623,28 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.memo-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 // Don't trigger if clicking on checkbox
-                if (e.target.type === 'checkbox') {return;}
+                if (e.target.type === 'checkbox' || e.target.closest('.memo-checkbox')) {
+                    e.stopPropagation();
+                    const checkbox = e.target.type === 'checkbox' ? e.target : e.target.closest('.memo-checkbox');
+                    if (checkbox) {
+                        updateSelectionUI();
+                    }
+                    return;
+                }
                 const index = parseInt(item.dataset.index);
                 selectMemo(index);
             });
         });
+
+        // Add checkbox change listeners
+        document.querySelectorAll('.memo-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                updateSelectionUI();
+            });
+        });
+
+        // Update selection UI (archive button visibility, selectDropdown icon)
+        updateSelectionUI();
     }
 
     // Select memo
@@ -2839,6 +3025,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 htmlContent = '<div style="color: #9ca3af; font-style: italic; line-height: 1.6;">This memo has no content.</div>';
             }
 
+            // Add rejection reason display if memo was rejected
+            // Check for various rejection indicators:
+            // 1. Direct rejected status
+            // 2. Rejected by admin event type
+            // 3. Rejection notification (system_notification with rejected action)
+            // 4. Memo rejected activity type
+            const isRejected = memo.status === 'rejected' ||
+                              (memo.metadata && memo.metadata.eventType === 'memo_rejected_by_admin') ||
+                              (memo.activityType === 'memo_rejected') ||
+                              (memo.activityType === 'system_notification' && memo.metadata?.action === 'rejected') ||
+                              (memo.metadata?.eventType === 'memo_review_decision' && memo.metadata?.action === 'rejected');
+
+            // Extract rejection reason from various possible locations
+            if (isRejected) {
+                let rejectionReason = '';
+
+                // Priority order: metadata.rejectionReason > metadata.reason > parse from content
+                if (memo.metadata?.rejectionReason) {
+                    rejectionReason = memo.metadata.rejectionReason;
+                } else if (memo.metadata?.reason) {
+                    rejectionReason = memo.metadata.reason;
+                } else if (memoText && memoText.includes('Reason:')) {
+                    // Parse reason from content like "was rejected by admin@buksu.edu.ph\nReason: ..."
+                    const reasonMatch = memoText.match(/Reason:\s*(.+?)(?:\n|$)/i);
+                    if (reasonMatch && reasonMatch[1]) {
+                        rejectionReason = reasonMatch[1].trim();
+                    }
+                }
+
+                // Only show rejection reason box if we have a reason or if it's a rejection notification
+                if (rejectionReason || (memo.activityType === 'system_notification' && memo.metadata?.action === 'rejected')) {
+                    if (!rejectionReason) {
+                        rejectionReason = 'No reason provided';
+                    }
+                    const safeReason = rejectionReason
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                    htmlContent += `
+                        <div style="margin-top: 24px; padding: 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <i data-lucide="alert-circle" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                                <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #991b1b;">Rejection Reason</h4>
+                            </div>
+                            <div style="color: #7f1d1d; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                                ${safeReason}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
             // Add attachments inline below text (Gmail style - no separator line or heading)
             if (memo.attachments && memo.attachments.length > 0) {
                 // No border-top, no "Attachments:" heading - just show files inline below text
@@ -2920,10 +3160,16 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('memoBodyContent element not found in DOM');
         }
 
-        // Update navigation buttons
-        if (prevBtn) {prevBtn.disabled = index === 0;}
-        if (nextBtn) {nextBtn.disabled = index === filteredMemos.length - 1;}
-        if (memoCounter) {memoCounter.textContent = `${index + 1} of ${filteredMemos.length}`;}
+        // Update navigation buttons and counter
+        // Use currentMemoIndex instead of index parameter since displayMemoContent doesn't receive index
+        const memoIndex = currentMemoIndex >= 0 ? currentMemoIndex : 0;
+        if (prevBtn) {prevBtn.disabled = memoIndex === 0;}
+        if (nextBtn) {nextBtn.disabled = memoIndex >= filteredMemos.length - 1;}
+        if (memoCounter && filteredMemos.length > 0) {
+            memoCounter.textContent = `${memoIndex + 1} of ${filteredMemos.length}`;
+        } else if (memoCounter) {
+            memoCounter.textContent = '0 of 0';
+        }
 
         // Update star button
         updateStarButton(memo.isStarred);
