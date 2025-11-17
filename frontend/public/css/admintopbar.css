@@ -20,10 +20,10 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-top: -35px;
-    /* position: relative; */
-
+    /* position: sticky;
+    top: 0; */
     /* ensure stacking context */
-    z-index: 101;
+    z-index: 1;
     /* sit above page content */
     overflow: visible;
     /* allow dropdowns to overflow */

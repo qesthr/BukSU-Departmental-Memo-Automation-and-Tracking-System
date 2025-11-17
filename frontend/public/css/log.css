@@ -811,8 +811,10 @@
   min-height: 480px;
   max-height: 85vh;
   margin: 15px auto;
-  overflow: visible !important;
+  overflow: hidden;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -876,11 +878,13 @@
 /* Allow compose modal body to show overflow for dropdowns */
 /* Optimized for 100% zoom */
 #composeModal .modal-body {
-  overflow: visible !important;
+  overflow: hidden;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  flex: 1;
+  max-height: calc(85vh - 60px); /* Subtract header height */
 }
 
 /* For compose modal, allow header fields area to overflow for dropdowns */
@@ -903,7 +907,8 @@
 #composeModal .compose-content-area {
   overflow-y: auto;
   flex: 1;
-  min-height: 380px;
+  min-height: 0;
+  max-height: 100%;
   position: relative;
   z-index: 1;
   padding: 12px 36px 8px 36px;
@@ -922,7 +927,7 @@
 /* Allow compose modal form to show overflow for dropdowns */
 /* Optimized for 100% zoom */
 #composeModal .modal-body form {
-  overflow: visible !important;
+  overflow: hidden;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -932,6 +937,8 @@
   width: 100%;
   padding: 0;
   margin: 0;
+  position: relative;
+  max-height: 100%;
 }
 
 /* Gmail-style compact header fields */
@@ -1808,13 +1815,23 @@
   display: block;
 }
 
-.modal#composeModal .modal-content,
-.modal#composeModal .modal-body,
+/* Allow only dropdowns and specific containers to overflow, not modal-body */
 #composeModal .compose-header-fields,
 #composeModal .compose-inline-fields,
-#composeModal .custom-dropdown {
-  overflow: visible;
+#composeModal .custom-dropdown,
+#composeModal .dept-dropdown-menu,
+#composeModal .recipient-input-wrapper {
+  overflow: visible !important;
   /* Ensure dropdown isn't clipped by ancestors */
+}
+
+/* Modal content and body should be constrained */
+.modal#composeModal .modal-content {
+  overflow: hidden;
+}
+
+.modal#composeModal .modal-body {
+  overflow: hidden;
 }
 
 /* Ensure department dropdown appears above all modal content */
@@ -2302,9 +2319,10 @@ input[type="file"]::file-selector-button:hover {
 /* Expanded form actions for compose modal */
 /* Optimized for 100% zoom - unified card design, always aligned with content above */
 #composeModal .form-actions {
-    padding: 10px 16px;   /* match modal body */
+    padding: 10px 36px;   /* match modal body padding */
     gap: 12px;
     margin: 0;            /* prevent overflow / misalignment */
+    margin-top: auto;     /* push to bottom of form */
     border-top: 1px solid #e5e7eb;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -2315,6 +2333,8 @@ input[type="file"]::file-selector-button:hover {
     width: 100%;
     border-radius: 0 0 12px 12px;
     overflow: hidden;
+    position: relative;
+    z-index: 1;
 }
 
 /* Left side button group (Attach + Calendar) */
