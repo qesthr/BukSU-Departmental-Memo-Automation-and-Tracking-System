@@ -361,60 +361,62 @@
   color: #3b82f6;
   border: 2px solid #3b82f6;
 }
-
 .timegrid-week-allday {
-  display: grid;
-  grid-template-columns: 90px repeat(7, 1fr);
-  border-bottom: 1px solid #e5e7eb;
-  min-height: 60px;
-  flex-shrink: 0; /* Don't shrink when scrolling */
-}
+    display: grid;
+    grid-template-columns: 90px repeat(7, 1fr);
+    border-bottom: 1px solid #e5e7eb;
+    min-height: 60px;
+    flex-shrink: 0;
+  }
 
-.timegrid-week-day-cell {
-  padding: 0.5rem;
-  border-right: 1px solid #f3f4f6;
-  position: relative;
-  min-height: 60px;
-}
+  .timegrid-week-day-cell {
+    padding: 0.5rem;
+    border-right: 1px solid #f3f4f6;
+    min-height: 60px;
+    position: relative;
+  }
 
-.timegrid-week-day-cell.allday {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
+  .timegrid-week-day-cell.allday {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
 
-.timegrid-week-slots {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto; /* Enable scrolling for time slots */
-  overflow-x: hidden; /* Prevent horizontal scroll */
-  min-height: 0; /* Allow flex shrinking */
-  position: relative;
-}
+  /* ✅ FIXED: scroll container must not be position: relative */
+  .timegrid-week-slots {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    position: static;    /* <— FIXED. Prevents scrollbar duplication */
+  }
 
-.timegrid-week-slot-row {
-  display: grid;
-  grid-template-columns: 90px repeat(7, 1fr);
-  min-height: 60px;
-  border-bottom: 1px solid #f0f0f0;
-  position: relative;
-}
+  /* Each row is a grid; no positioning that interacts with scrollbar */
+  .timegrid-week-slot-row {
+    display: grid;
+    grid-template-columns: 90px repeat(7, 1fr);
+    min-height: 60px;
+    border-bottom: 1px solid #f0f0f0;
+    position: static; /* <— KEEP static */
+  }
 
-.timegrid-week-slot-row .timegrid-week-time-col {
-  border-right: 1px solid #f0f0f0;
-  background: #fff;
-}
+  .timegrid-week-slot-row .timegrid-week-time-col {
+    border-right: 1px solid #f0f0f0;
+    background: #fff;
+  }
 
-.timegrid-week-slot-row .timegrid-week-day-cell {
-  border-right: 1px solid #f3f4f6;
-  background: #fff;
-  cursor: pointer;
-}
+  .timegrid-week-slot-row .timegrid-week-day-cell {
+    border-right: 1px solid #f3f4f6;
+    background: #fff;
+    cursor: pointer;
+  }
 
-.timegrid-week-slot-row .timegrid-week-day-cell:hover {
-  background: #f9fafb;
-}
+  .timegrid-week-slot-row .timegrid-week-day-cell:hover {
+    background: #f9fafb;
+  }
+
 
 /* DayGrid Month View */
 .daygrid-month-view {

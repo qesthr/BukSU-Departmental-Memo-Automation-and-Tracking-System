@@ -84,8 +84,11 @@ exports.list = async (req, res, next) => {
         console.log(`📅 Date Range: ${start} to ${end}`);
 
         // Build query filters - query at database level for better performance
-        const filters = {};
-        if (category) filters.category = category;
+        // Exclude archived events from calendar view (they should only appear in Archive section)
+        const filters = { category: { $ne: 'archived' } };
+        if (category && category !== 'archived') {
+            filters.category = category;
+        }
 
         // Use MongoDB query to filter by creator OR participants at database level
         // This is more efficient than fetching all and filtering in memory
@@ -417,7 +420,7 @@ exports.update = async (req, res, next) => {
     try {
         // Get the original event first to check permissions
         const originalEvent = await CalendarEvent.findById(req.params.id);
-        if (!originalEvent) return res.status(404).json({ message: 'Event not found' });
+        if (!originalEvent) {return res.status(404).json({ message: 'Event not found' });}
 
         // Check if user is the creator
         const userId = req.user._id.toString();
@@ -431,12 +434,12 @@ exports.update = async (req, res, next) => {
 
         const updates = { ...req.body };
         // Use the same date parsing function to preserve dates correctly
-        if (updates.start) updates.start = parseDateTimePreservingDate(updates.start);
-        if (updates.end) updates.end = parseDateTimePreservingDate(updates.end);
+        if (updates.start) {updates.start = parseDateTimePreservingDate(updates.start);}
+        if (updates.end) {updates.end = parseDateTimePreservingDate(updates.end);}
 
         // Normalize participants data if provided
         if (updates.participants) {
-            let normalizedParticipants = updates.participants;
+            const normalizedParticipants = updates.participants;
             if (normalizedParticipants && typeof normalizedParticipants === 'object' && !Array.isArray(normalizedParticipants)) {
                 // Normalize emails array
                 if (Array.isArray(normalizedParticipants.emails)) {
@@ -464,7 +467,7 @@ exports.update = async (req, res, next) => {
         }
 
         const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         // Update participant notifications if event details changed
         const shouldUpdateNotifications =
@@ -492,11 +495,11 @@ exports.update = async (req, res, next) => {
 exports.updateTime = async (req, res, next) => {
     try {
         const { start, end } = req.body;
-        if (!start || !end) return res.status(400).json({ message: 'start and end are required' });
+        if (!start || !end) {return res.status(400).json({ message: 'start and end are required' });}
 
         // Check if user is the creator
         const event = await CalendarEvent.findById(req.params.id);
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         const userId = req.user._id.toString();
         const creatorId = event.createdBy ?
@@ -522,7 +525,7 @@ exports.updateTime = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
     try {
         const event = await CalendarEvent.findById(req.params.id);
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         // Check if user is the creator
         const userId = req.user._id.toString();
@@ -544,7 +547,7 @@ exports.remove = async (req, res, next) => {
 exports.archive = async (req, res, next) => {
     try {
         const event = await CalendarEvent.findById(req.params.id);
-        if (!event) return res.status(404).json({ message: 'Event not found' });
+        if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
         // Check if user is the creator
         const userId = req.user._id.toString();

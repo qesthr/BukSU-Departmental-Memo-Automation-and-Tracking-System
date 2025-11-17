@@ -878,7 +878,7 @@
 /* Allow compose modal body to show overflow for dropdowns */
 /* Optimized for 100% zoom */
 #composeModal .modal-body {
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -927,7 +927,7 @@
 /* Allow compose modal form to show overflow for dropdowns */
 /* Optimized for 100% zoom */
 #composeModal .modal-body form {
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -944,7 +944,7 @@
 /* Gmail-style compact header fields */
 .compose-header-fields {
   padding: 8px 16px 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: none;
   flex-shrink: 0;
 }
 
@@ -961,7 +961,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid transparent;
+  border-bottom: none;
   transition: border-color 0.2s;
 }
 
@@ -980,7 +980,7 @@
 }
 
 .compose-inline-fields:focus-within {
-  border-bottom-color: #2563eb;
+  border-bottom: none;
 }
 
 .compose-field-inline {
@@ -1313,7 +1313,7 @@
   width: 100%;
   padding: 6px 0;
   border: none;
-  border-bottom: 1px solid transparent;
+  border-bottom: none !important;
   background: transparent;
   text-align: left;
   font-size: 14px;
@@ -1325,7 +1325,7 @@
 .compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn:focus,
 .compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn:hover {
   outline: none;
-  border-bottom-color: #2563eb;
+  border-bottom: none !important;
 }
 
 .compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn::after {
@@ -1354,6 +1354,18 @@
   position: relative;
   border-radius: 6px;
   min-height: 38px;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Remove bottom border from compose modal dropdowns */
+#composeModal .compose-field-dropdown .dept-dropdown-btn {
+  border-bottom: 2px solid #d1d5db !important;
+}
+
+#composeModal .compose-field-dropdown .dept-dropdown-btn:focus,
+#composeModal .compose-field-dropdown .dept-dropdown-btn:hover {
+  border-bottom: 2px solid #d1d5db !important;
 }
 
 #secretaryDeptDropdownWrapper .compose-field-dropdown .dept-dropdown-btn:hover,
@@ -1378,6 +1390,48 @@
   transition: transform 0.2s;
   flex-shrink: 0;
   display: block !important;
+}
+
+/* Remove scroll/number input arrows from all dropdown buttons */
+#composeModal .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-outer-spin-button,
+#composeModal .compose-field-dropdown .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .compose-field-dropdown .dept-dropdown-btn::-webkit-outer-spin-button,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn::-webkit-inner-spin-button,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Hide any scroll arrows or spinners */
+#composeModal .dept-dropdown-btn input[type="number"],
+#composeModal .compose-field-dropdown input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide any button elements inside dropdown buttons that might be scroll arrows */
+#composeModal .dept-dropdown-btn button[aria-label*="up"],
+#composeModal .dept-dropdown-btn button[aria-label*="down"],
+#composeModal .dept-dropdown-btn button[aria-label*="scroll"],
+#composeModal .compose-field-dropdown button[aria-label*="up"],
+#composeModal .compose-field-dropdown button[aria-label*="down"],
+#composeModal .compose-field-dropdown button[aria-label*="scroll"] {
+  display: none !important;
+}
+
+/* Ensure dropdown menus are NOT hidden - they come right after buttons */
+#composeModal .dept-dropdown-menu {
+  display: none; /* Default hidden, shown when .open class added */
+}
+
+#composeModal .custom-dropdown.open .dept-dropdown-menu {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 #secretaryDeptDropdownWrapper .custom-dropdown.open .dept-dropdown-btn::after,
@@ -1748,6 +1802,8 @@
   justify-content: space-between;
   transition: all 0.2s;
   position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* Expanded dropdown button for compose modal */
@@ -1757,6 +1813,8 @@
   padding-right: 40px;
   font-size: 14px;
   min-height: 36px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .dept-dropdown-btn:hover {
@@ -1777,6 +1835,22 @@
   color: #6b7280;
   transition: transform 0.2s;
   flex-shrink: 0;
+}
+
+/* Remove number input spinners from dropdown buttons */
+.dept-dropdown-btn::-webkit-inner-spin-button,
+.dept-dropdown-btn::-webkit-outer-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+.dept-dropdown-btn[type="number"],
+#composeModal .dept-dropdown-btn[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .custom-dropdown.open .dept-dropdown-btn::after {
@@ -1825,7 +1899,7 @@
   /* Ensure dropdown isn't clipped by ancestors */
 }
 
-/* Modal content and body should be constrained */
+/* Modal content and body should be constrained but allow dropdowns to overflow */
 .modal#composeModal .modal-content {
   overflow: hidden;
 }
@@ -1837,12 +1911,13 @@
 /* Ensure department dropdown appears above all modal content */
 #composeModal .custom-dropdown {
   position: relative;
-  z-index: 1;
+  z-index: 1000;
+  overflow: visible;
 }
 
 /* Department dropdown menu in compose modal - very specific */
 #composeModal #deptDropdownMenu.dept-dropdown-menu {
-  z-index: 100000 !important;
+  z-index: 100001 !important;
   position: absolute;
   display: none;
 }
@@ -1853,8 +1928,13 @@
 
 /* Template dropdown menu in compose modal */
 #composeModal #templateDropdownMenu.dept-dropdown-menu {
-  z-index: 1000;
+  z-index: 100001 !important;
   position: absolute;
+  display: none;
+}
+
+#composeModal .custom-dropdown.open #templateDropdownMenu.dept-dropdown-menu {
+  display: block !important;
 }
 
 /* Ensure inline fields container allows dropdown overflow */
@@ -1881,7 +1961,7 @@
 
 /* Signatory section */
 #composeModal .signatory-section {
-  display: grid;
+  display: none !important; /* Keep hidden - signatures are selected but not displayed */
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
   margin-top: 10px;
@@ -2320,7 +2400,7 @@ input[type="file"]::file-selector-button:hover {
 /* Optimized for 100% zoom - unified card design, always aligned with content above */
 #composeModal .form-actions {
     padding: 10px 36px;   /* match modal body padding */
-    gap: 12px;
+    gap: 6px;             /* closer gap between buttons */
     margin: 0;            /* prevent overflow / misalignment */
     margin-top: auto;     /* push to bottom of form */
     border-top: 1px solid #e5e7eb;
@@ -2329,7 +2409,7 @@ input[type="file"]::file-selector-button:hover {
     background: #fff;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     width: 100%;
     border-radius: 0 0 12px 12px;
     overflow: hidden;
@@ -2341,12 +2421,25 @@ input[type="file"]::file-selector-button:hover {
 #composeModal .form-actions > .btn-attach,
 #composeModal .form-actions > .btn-calendar {
     margin-right: 0;
+    margin-left: 0;
 }
 
-/* Right side button group (Cancel, Preview, Send) */
-#composeModal .form-actions > .btn-secondary,
+/* Cancel button pushes right group to the right side */
+#composeModal .form-actions > .btn-secondary.close-modal {
+    margin-left: auto; /* push to right side */
+    margin-right: 0;
+}
+
+/* Preview button stays close to Cancel */
+#composeModal .form-actions > .btn-secondary#previewMemoBtn {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Send button - rightmost button */
 #composeModal .form-actions > .btn-primary {
-    margin-left: auto;
+    margin-left: 0;
+    margin-right: 0;
 }
 
 
@@ -2371,7 +2464,7 @@ input[type="file"]::file-selector-button:hover {
 /* Expanded attach button for compose modal */
 /* Minimized for more content space */
 #composeModal .btn-attach {
-  padding: 8px 16px;
+  padding: 8px 20px !important; /* match Send button padding */
   font-size: 14px;
   min-height: 36px;
   margin: 0;
@@ -2386,7 +2479,7 @@ input[type="file"]::file-selector-button:hover {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 8px 20px !important; /* match Send button padding */
   background: #f3f4f6;
   border: 1px solid #d1d5db;
   border-radius: 8px;
@@ -2451,21 +2544,19 @@ input[type="file"]::file-selector-button:hover {
 
 /* Specific button overrides for consistent sizing */
 #composeModal .btn.btn-secondary,
-#composeModal .btn.btn-primary {
+#composeModal .btn.btn-primary,
+#composeModal .btn.btn-attach,
+#composeModal .btn.btn-calendar {
   padding: 8px 20px !important;
   min-height: 36px;
-  height: auto;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
-/* Ensure right-side buttons are grouped and aligned */
-#composeModal .form-actions > .btn:not(.btn-attach) {
-  margin-left: 0;
-}
-
-/* Ensure buttons after attach button are properly spaced */
-#composeModal .form-actions > .btn-attach ~ .btn {
-  margin-left: 0;
-}
+/* Removed conflicting margin rules - handled by specific button selectors above */
 
 .btn-primary {
   background: #2563eb;

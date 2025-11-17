@@ -12,6 +12,7 @@ const passport = require('./backend/config/passport');
 const isAdmin = require('./backend/middleware/isAdmin');
 const isAuthenticated = require('./backend/middleware/isAuthenticated');
 const Memo = require('./backend/models/Memo');
+const CalendarEvent = require('./backend/models/CalendarEvent');
 const authRoutes = require('./backend/routes/auth');
 const passwordRoutes = require('./backend/routes/passwordRoutes');
 const userRoutes = require('./backend/routes/userRoutes');
@@ -379,10 +380,29 @@ app.get('/secretary/archive', async (req, res) => {
         })
             .sort({ createdAt: -1 })
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('secretary-archive', { user: req.user, path: '/secretary/archive', archivedMemos: archivedMemos || [] });
+
+        // Get archived calendar events created by the secretary
+        const archivedEvents = await CalendarEvent.find({
+            createdBy: req.user._id,
+            category: 'archived'
+        })
+            .sort({ createdAt: -1 })
+            .populate('createdBy', 'firstName lastName email');
+
+        return res.render('secretary-archive', {
+            user: req.user,
+            path: '/secretary/archive',
+            archivedMemos: archivedMemos || [],
+            archivedEvents: archivedEvents || []
+        });
     } catch (e) {
         console.error('Error fetching archived memos:', e);
-        return res.render('secretary-archive', { user: req.user, path: '/secretary/archive', archivedMemos: [] });
+        return res.render('secretary-archive', {
+            user: req.user,
+            path: '/secretary/archive',
+            archivedMemos: [],
+            archivedEvents: []
+        });
     }
 });
 
@@ -400,10 +420,29 @@ app.get('/admin/archive', isAdmin, async (req, res) => {
         })
             .sort({ createdAt: -1 })
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('admin-archive', { user: req.user, path: '/admin/archive', archivedMemos: archivedMemos || [] });
+
+        // Get archived calendar events created by the admin
+        const archivedEvents = await CalendarEvent.find({
+            createdBy: req.user._id,
+            category: 'archived'
+        })
+            .sort({ createdAt: -1 })
+            .populate('createdBy', 'firstName lastName email');
+
+        return res.render('admin-archive', {
+            user: req.user,
+            path: '/admin/archive',
+            archivedMemos: archivedMemos || [],
+            archivedEvents: archivedEvents || []
+        });
     } catch (e) {
         console.error('Error fetching archived memos:', e);
-        return res.render('admin-archive', { user: req.user, path: '/admin/archive', archivedMemos: [] });
+        return res.render('admin-archive', {
+            user: req.user,
+            path: '/admin/archive',
+            archivedMemos: [],
+            archivedEvents: []
+        });
     }
 });
 

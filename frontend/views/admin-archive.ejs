@@ -33,7 +33,7 @@
                             <div class="memo-list-header">
                                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                                     <i data-lucide="archive" style="width: 24px; height: 24px; color: #6366f1;"></i>
-                                    <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Sent Memos</h2>
+                                    <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archive</h2>
                                 </div>
                                 <div class="header-controls">
                                     <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
@@ -119,6 +119,7 @@
         };
 
         window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
+        window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
@@ -139,11 +140,25 @@
             const memoViewer = document.getElementById('memoViewer');
             const memoCounter = document.getElementById('memoCounter');
 
-            let filteredMemos = [...(window.archivedMemos || [])];
+            // Combine memos and calendar events
+            const allArchivedItems = [
+                ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
+                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' }))
+            ];
+
+            // Sort by newest first (most recently archived at top)
+            // Use updatedAt (when archived) or createdAt as fallback
+            allArchivedItems.sort((a, b) => {
+                const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                return bDate - aDate; // Newest first
+            });
+
+            let filteredMemos = [...allArchivedItems];
             let currentMemoIndex = -1;
             let currentMemoId = null;
 
-            // Render archived memos
+            // Render archived memos and events
             function renderArchiveList() {
                 if (!archiveList) return;
 
@@ -152,8 +167,8 @@
                         <div class="memo-item">
                             <i data-lucide="archive" class="memo-icon"></i>
                             <div class="memo-info">
-                                <h4>No archived memos</h4>
-                                <p>Archived sent memos will appear here</p>
+                                <h4>No archived items</h4>
+                                <p>Archived memos and calendar events will appear here</p>
                             </div>
                         </div>`;
                     if (typeof lucide !== 'undefined') {
@@ -162,7 +177,37 @@
                     return;
                 }
 
-                archiveList.innerHTML = filteredMemos.map((memo, idx) => {
+                archiveList.innerHTML = filteredMemos.map((item, idx) => {
+                    // Handle calendar events differently
+                    if (item.type === 'event') {
+                        const event = item;
+                        const dateStr = new Date(event.start).toLocaleDateString();
+                        const startTime = new Date(event.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        const endTime = new Date(event.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        const category = event.category || 'standard';
+                        let badge = '';
+                        if (category === 'urgent') badge = '<span class="priority-badge priority-urgent" title="Urgent">🔴 URGENT</span>';
+                        else if (category === 'high') badge = '<span class="priority-badge priority-high" title="High">🟠 HIGH</span>';
+                        else if (category === 'meeting') badge = '<span class="priority-badge priority-high" title="Meeting">🟣 MEETING</span>';
+                        else if (category === 'deadline') badge = '<span class="priority-badge priority-urgent" title="Deadline">⏰ DEADLINE</span>';
+                        else if (category === 'reminder') badge = '<span class="priority-badge priority-medium" title="Reminder">🔔 REMINDER</span>';
+                        else if (category === 'low') badge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
+                        else badge = '<span class="priority-badge priority-medium" title="Standard">🟢 STANDARD</span>';
+
+                        return '<div class="memo-item archived-item archived-event" data-index="' + idx + '" data-id="' + event._id + '" data-type="event">' +
+                            '<i data-lucide="calendar" class="memo-icon" style="width: 40px; height: 40px; color: #6366f1;"></i>' +
+                            '<div class="memo-sender-info">' +
+                            '<div class="memo-sender-name">📅 Calendar Event</div>' +
+                            '<div class="memo-sender-email">' + dateStr + ' • ' + startTime + ' - ' + endTime + '</div>' +
+                            '</div>' +
+                            '<div class="memo-item-actions">' + badge + '</div>' +
+                            '<div class="memo-subject">' + (event.title || 'Untitled Event') + '</div>' +
+                            '<div class="memo-date">Archived: ' + new Date(event.updatedAt || event.createdAt).toLocaleDateString() + '</div>' +
+                            '</div>';
+                    }
+
+                    // Handle memos (existing code)
+                    const memo = item;
                     const recipientName = ((memo.recipient?.firstName || '') + ' ' + (memo.recipient?.lastName || '')).trim();
                     const recipientEmail = memo.recipient?.email || '';
                     const realAvatar = memo.recipient?.profilePicture;
@@ -196,19 +241,29 @@
                 archiveList.querySelectorAll('.archived-item').forEach(el => {
                     el.addEventListener('click', async () => {
                         const id = el.getAttribute('data-id');
-                        if (id) {
-                            try {
-                                const res = await fetch('/api/log/memos/' + id);
-                                const data = await res.json();
-                                if (data && data.success && data.memo) {
-                                    openMemo(data.memo);
-                                    return;
-                                }
-                            } catch (e) { /* fallback below */ }
-                        }
+                        const type = el.getAttribute('data-type');
                         const idx = Number(el.getAttribute('data-index'));
-                        const fallback = filteredMemos[idx];
-                        if (fallback) openMemo(fallback);
+                        const item = filteredMemos[idx];
+
+                        if (type === 'event') {
+                            // Handle calendar event
+                            if (item) {
+                                openEvent(item);
+                            }
+                        } else {
+                            // Handle memo
+                            if (id) {
+                                try {
+                                    const res = await fetch('/api/log/memos/' + id);
+                                    const data = await res.json();
+                                    if (data && data.success && data.memo) {
+                                        openMemo(data.memo);
+                                        return;
+                                    }
+                                } catch (e) { /* fallback below */ }
+                            }
+                            if (item) openMemo(item);
+                        }
                     });
                 });
 
@@ -220,11 +275,81 @@
                 });
             }
 
+            // Open calendar event in viewer
+            function openEvent(event) {
+                if (!event) return;
+                currentMemoId = event._id;
+                currentMemoIndex = filteredMemos.findIndex(e => e._id === event._id && e.type === 'event');
+
+                const subjectEl = document.getElementById('memoDetailSubject');
+                const fromEl = document.getElementById('memoDetailFrom');
+                const toEl = document.getElementById('memoDetailTo');
+                const deptEl = document.getElementById('memoDetailDepartment');
+                const prioEl = document.getElementById('memoDetailPriority');
+                const dateEl = document.getElementById('memoDetailDate');
+                const contentEl = document.getElementById('memoBodyContent');
+
+                if (subjectEl) subjectEl.textContent = event.title || '(No title)';
+                const creatorName = ((event.createdBy?.firstName || '') + ' ' + (event.createdBy?.lastName || '')).trim();
+                if (fromEl) fromEl.textContent = (creatorName || 'Unknown') + ' (' + (event.createdBy?.email || '') + ')';
+
+                // Format participants
+                let participantsText = 'None';
+                if (event.participants) {
+                    const parts = [];
+                    if (event.participants.departments && Array.isArray(event.participants.departments) && event.participants.departments.length > 0) {
+                        parts.push('Departments: ' + event.participants.departments.join(', '));
+                    }
+                    if (event.participants.emails && Array.isArray(event.participants.emails) && event.participants.emails.length > 0) {
+                        const emailList = event.participants.emails.map(e => typeof e === 'string' ? e : e.email).join(', ');
+                        parts.push('Emails: ' + emailList);
+                    }
+                    participantsText = parts.length > 0 ? parts.join('; ') : 'None';
+                }
+                if (toEl) toEl.textContent = participantsText;
+                if (deptEl) deptEl.textContent = 'N/A';
+
+                const categoryLabels = {
+                    urgent: '🔴 Urgent',
+                    high: '🟠 High Priority',
+                    standard: '🟢 Standard',
+                    meeting: '🟣 Meeting',
+                    deadline: '⏰ Deadline',
+                    reminder: '🔔 Reminder',
+                    low: '🔵 Low Priority',
+                    archived: '📦 Archived'
+                };
+                if (prioEl) prioEl.textContent = categoryLabels[event.category] || event.category || 'Standard';
+
+                const startDate = new Date(event.start);
+                const endDate = new Date(event.end);
+                const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const startTime = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                const endTime = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                if (dateEl) dateEl.textContent = dateStr + ' • ' + startTime + ' - ' + endTime;
+
+                if (contentEl) {
+                    const safeContent = (event.description || '(No description)').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    contentEl.innerHTML = '<div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">' + safeContent + '</div>';
+                }
+
+                if (memoCounter) {
+                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
+                }
+
+                if (emptyState) emptyState.style.display = 'none';
+                if (memoViewer) memoViewer.style.display = 'block';
+                if (memoViewerArea) {
+                    memoViewerArea.style.display = 'block';
+                    memoViewerArea.style.flex = '0 0 55%';
+                }
+            }
+
             // Open memo in viewer
             function openMemo(memo) {
                 if (!memo) return;
                 currentMemoId = memo._id;
-                currentMemoIndex = filteredMemos.findIndex(m => m._id === memo._id);
+                currentMemoIndex = filteredMemos.findIndex(m => m._id === memo._id && m.type === 'memo');
 
                 const subjectEl = document.getElementById('memoDetailSubject');
                 const fromEl = document.getElementById('memoDetailFrom');
@@ -259,30 +384,52 @@
                 }
             }
 
-            // Unarchive memo
-            async function unarchiveMemo(memoId) {
-                if (!memoId) return;
+            // Unarchive memo or event
+            async function unarchiveItem(itemId, itemType) {
+                if (!itemId) return;
                 try {
-                    const response = await fetch('/api/log/memos/' + memoId, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({ status: 'sent' })
-                    });
-                    const data = await response.json();
-                    if (data && data.success) {
-                        // Remove from list
-                        filteredMemos = filteredMemos.filter(m => m._id !== memoId);
-                        window.archivedMemos = window.archivedMemos.filter(m => m._id !== memoId);
-                        renderArchiveList();
-                        if (emptyState) emptyState.style.display = 'block';
-                        if (memoViewer) memoViewer.style.display = 'none';
-                        if (typeof showNotification === 'function') {
-                            showNotification('Memo unarchived successfully', 'success');
+                    if (itemType === 'event') {
+                        // Unarchive calendar event (change category back to standard)
+                        const response = await fetch('/api/calendar/events/' + itemId, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ category: 'standard' })
+                        });
+                        if (response.ok) {
+                            // Remove from list
+                            filteredMemos = filteredMemos.filter(e => !(e._id === itemId && e.type === 'event'));
+                            window.archivedEvents = (window.archivedEvents || []).filter(e => e._id !== itemId);
+                            renderArchiveList();
+                            if (emptyState) emptyState.style.display = 'block';
+                            if (memoViewer) memoViewer.style.display = 'none';
+                            if (typeof showNotification === 'function') {
+                                showNotification('Event unarchived successfully', 'success');
+                            }
+                        }
+                    } else {
+                        // Unarchive memo
+                        const response = await fetch('/api/log/memos/' + itemId, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ status: 'sent' })
+                        });
+                        const data = await response.json();
+                        if (data && data.success) {
+                            // Remove from list
+                            filteredMemos = filteredMemos.filter(m => !(m._id === itemId && m.type === 'memo'));
+                            window.archivedMemos = (window.archivedMemos || []).filter(m => m._id !== itemId);
+                            renderArchiveList();
+                            if (emptyState) emptyState.style.display = 'block';
+                            if (memoViewer) memoViewer.style.display = 'none';
+                            if (typeof showNotification === 'function') {
+                                showNotification('Memo unarchived successfully', 'success');
+                            }
                         }
                     }
                 } catch (error) {
-                    console.error('Error unarchiving memo:', error);
+                    console.error('Error unarchiving item:', error);
                 }
             }
 
@@ -305,8 +452,11 @@
 
             if (unarchiveBtn) {
                 unarchiveBtn.addEventListener('click', () => {
-                    if (currentMemoId) {
-                        unarchiveMemo(currentMemoId);
+                    if (currentMemoId && currentMemoIndex >= 0) {
+                        const item = filteredMemos[currentMemoIndex];
+                        if (item) {
+                            unarchiveItem(currentMemoId, item.type || 'memo');
+                        }
                     }
                 });
             }
@@ -342,9 +492,21 @@
                 priorityFilter.addEventListener('change', () => {
                     const priority = priorityFilter.value;
                     if (priority === 'all') {
-                        filteredMemos = [...(window.archivedMemos || [])];
+                        filteredMemos = [...allArchivedItems];
                     } else {
-                        filteredMemos = (window.archivedMemos || []).filter(m => (m.priority || '').toLowerCase() === priority);
+                        filteredMemos = allArchivedItems.filter(item => {
+                            if (item.type === 'event') {
+                                const category = (item.category || '').toLowerCase();
+                                // Map event categories to priority filter
+                                if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
+                                if (priority === 'high') return category === 'high' || category === 'meeting';
+                                if (priority === 'medium') return category === 'standard' || category === 'reminder';
+                                if (priority === 'low') return category === 'low';
+                                return false;
+                            } else {
+                                return (item.priority || '').toLowerCase() === priority;
+                            }
+                        });
                     }
                     renderArchiveList();
                 });
@@ -354,13 +516,29 @@
                 sortDropdown.addEventListener('change', () => {
                     const sort = sortDropdown.value;
                     filteredMemos.sort((a, b) => {
-                        if (sort === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
-                        if (sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+                        if (sort === 'newest') {
+                            // Use updatedAt (when archived) or createdAt as fallback
+                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                            return bDate - aDate; // Newest first
+                        }
+                        if (sort === 'oldest') {
+                            // Use updatedAt (when archived) or createdAt as fallback
+                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                            return aDate - bDate; // Oldest first
+                        }
                         if (sort === 'priority') {
                             const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-                            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+                            const aPriority = a.type === 'event' ? (a.category === 'urgent' || a.category === 'deadline' ? 'urgent' : a.category === 'high' || a.category === 'meeting' ? 'high' : a.category === 'low' ? 'low' : 'medium') : (a.priority || 'medium');
+                            const bPriority = b.type === 'event' ? (b.category === 'urgent' || b.category === 'deadline' ? 'urgent' : b.category === 'high' || b.category === 'meeting' ? 'high' : b.category === 'low' ? 'low' : 'medium') : (b.priority || 'medium');
+                            return (priorityOrder[bPriority] || 0) - (priorityOrder[aPriority] || 0);
                         }
-                        if (sort === 'subject') return (a.subject || '').localeCompare(b.subject || '');
+                        if (sort === 'subject') {
+                            const aTitle = a.type === 'event' ? (a.title || '') : (a.subject || '');
+                            const bTitle = b.type === 'event' ? (b.title || '') : (b.subject || '');
+                            return aTitle.localeCompare(bTitle);
+                        }
                         return 0;
                     });
                     renderArchiveList();

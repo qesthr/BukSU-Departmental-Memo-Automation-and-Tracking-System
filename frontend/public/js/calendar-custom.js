@@ -91,7 +91,7 @@
       const okBtn = document.getElementById('alertModalOk');
       const closeBtn = document.getElementById('alertModalClose');
       titleEl.textContent = title;
-      messageEl.textContent = message;
+      messageEl.innerHTML = message; // Use innerHTML to render HTML tags properly
       modal.style.display = 'flex';
       const cleanup = () => {
         modal.style.display = 'none';
@@ -285,7 +285,7 @@
 
       if (res.ok) {
         const data = await res.json();
-        const dbEvents = data.map(e => formatEventForCalendar(e, 'database'));
+        const dbEvents = data.map(e => formatEventForCalendar(e, 'backend'));
         allEvents = [...allEvents, ...dbEvents];
       }
 
@@ -313,11 +313,13 @@
         }
       }
 
-      // Filter out past events - only show events that haven't ended yet
+      // Filter out past events and archived events - only show active events
       // Reuse 'now' variable declared at the start of the function
       const activeEvents = allEvents.filter(e => {
         const eventEnd = new Date(e.end);
-        return eventEnd >= now;
+        const category = e.extendedProps?.category || e.category || 'standard';
+        // Exclude archived events and past events
+        return eventEnd >= now && category !== 'archived';
       });
 
       // Update calendar with only active (non-past) events
@@ -715,8 +717,8 @@
     if (!modal) {return;}
 
     // Hide read-only view, show editable form
-    if (readOnlyView) readOnlyView.style.display = 'none';
-    if (form) form.style.display = 'block';
+    if (readOnlyView) {readOnlyView.style.display = 'none';}
+    if (form) {form.style.display = 'block';}
 
     // Set to Create Mode
     document.getElementById('memoModalTitle').textContent = 'Add Event';
@@ -813,32 +815,32 @@
     const modal = document.getElementById('memoModal');
 
     // Hide read-only view, show editable form
-    if (readOnlyView) readOnlyView.style.display = 'none';
-    if (form) form.style.display = 'block';
+    if (readOnlyView) {readOnlyView.style.display = 'none';}
+    if (form) {form.style.display = 'block';}
 
     // Set modal title
     document.getElementById('memoModalTitle').textContent = 'Edit Event';
 
     // Populate form fields
-    if (titleInput) titleInput.value = event.title || '';
-    if (categorySelect) categorySelect.value = event.category || 'standard';
-    if (descInput) descInput.value = event.description || '';
+    if (titleInput) {titleInput.value = event.title || '';}
+    if (categorySelect) {categorySelect.value = event.category || 'standard';}
+    if (descInput) {descInput.value = event.description || '';}
 
     // Format dates for inputs
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);
-    if (dateInput) dateInput.value = formatDateForInput(startDate);
-    if (startInput) startInput.value = formatTimeForInput(startDate);
-    if (endInput) endInput.value = formatTimeForInput(endDate);
+    if (dateInput) {dateInput.value = formatDateForInput(startDate);}
+    if (startInput) {startInput.value = formatTimeForInput(startDate);}
+    if (endInput) {endInput.value = formatTimeForInput(endDate);}
 
     // Set editing metadata
-    if (editingSourceInput) editingSourceInput.value = 'backend';
-    if (editingIdInput) editingIdInput.value = event._id || event.id;
+    if (editingSourceInput) {editingSourceInput.value = 'backend';}
+    if (editingIdInput) {editingIdInput.value = event._id || event.id;}
 
     // Show edit mode buttons, hide create mode button
-    if (deleteBtn) deleteBtn.style.display = 'block';
-    if (archiveBtn) archiveBtn.style.display = 'block';
-    if (saveBtn) saveBtn.textContent = 'Update';
+    if (deleteBtn) {deleteBtn.style.display = 'block';}
+    if (archiveBtn) {archiveBtn.style.display = 'block';}
+    if (saveBtn) {saveBtn.textContent = 'Update';}
 
     // Load participants
     if (event.participants && window.loadParticipantsForEdit) {
@@ -864,8 +866,8 @@
     const modal = document.getElementById('memoModal');
 
     // Hide editable form, show read-only view
-    if (form) form.style.display = 'none';
-    if (readOnlyView) readOnlyView.style.display = 'block';
+    if (form) {form.style.display = 'none';}
+    if (readOnlyView) {readOnlyView.style.display = 'block';}
 
     // Set modal title
     document.getElementById('memoModalTitle').textContent = 'Event Details (Read Only)';
@@ -879,7 +881,7 @@
     const readOnlyParticipants = document.getElementById('readOnlyParticipants');
     const readOnlyDescription = document.getElementById('readOnlyDescription');
 
-    if (readOnlyTitle) readOnlyTitle.textContent = event.title || '(No title)';
+    if (readOnlyTitle) {readOnlyTitle.textContent = event.title || '(No title)';}
 
     // Format category with emoji
     const categoryLabels = {
@@ -1427,6 +1429,7 @@
 
       if (editingSource === 'backend' && editingId) {
         const updateData = { title, start: startISO, end: endISO, category, description: description || '', participants: participantsObj };
+        console.log('📝 Updating event ID:', editingId);
         console.log('📝 Updating event with data:', updateData);
         const res = await fetch(`/api/calendar/events/${editingId}`, {
           method: 'PUT',
@@ -1452,6 +1455,11 @@
         const updatedEvent = await res.json();
         console.log('✅ Event updated. Description saved:', updatedEvent.description || '(none)');
         console.log('✅ Event participants updated:', JSON.stringify(updatedEvent.participants || {}));
+        console.log('✅ Updated event ID:', updatedEvent._id || updatedEvent.id);
+
+        // Clear editing metadata after successful update to prevent accidental duplicates
+        if (editingSourceInput) {editingSourceInput.value = '';}
+        if (editingIdInput) {editingIdInput.value = '';}
 
         // Show success state
         if (saveBtn) {
@@ -1516,7 +1524,13 @@
           modal.style.display = 'none';
         }
 
-        // Reset button state after modal closes
+        // Reset form and button state after modal closes
+        // Ensure editing metadata is cleared to prevent duplicates
+        if (editingSourceInput) {editingSourceInput.value = '';}
+        if (editingIdInput) {editingIdInput.value = '';}
+        if (deleteBtn) {deleteBtn.style.display = 'none';}
+        if (archiveBtn) {archiveBtn.style.display = 'none';}
+        if (saveBtn) {saveBtn.textContent = 'Add';}
         restoreButtonState();
       }, 1000); // 1 second delay to show success
 
@@ -1539,24 +1553,47 @@
     const editingId = editingIdInput.value;
     const editingSource = editingSourceInput.value;
 
-    if (!editingId) {return;}
+    if (!editingId) {
+      await showAlertModal('No event selected to delete.', 'Error');
+      return;
+    }
 
-    const confirmed = await showConfirmModal('Are you sure you want to delete this event?', 'Delete Event');
+    const confirmed = await showConfirmModal('Are you sure you want to delete this event? This action cannot be undone.', 'Delete Event');
     if (!confirmed) {return;}
 
     try {
       if (editingSource === 'backend') {
-        await fetch(`/api/calendar/events/${editingId}`, {
+        const res = await fetch(`/api/calendar/events/${editingId}`, {
           method: 'DELETE',
           credentials: 'same-origin'
         });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          let errorMessage = 'Failed to delete event.';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            if (errorText) {errorMessage = errorText;}
+          }
+          await showAlertModal(errorMessage, 'Delete Failed');
+          return;
+        }
+      } else {
+        await showAlertModal('Only database events can be deleted.', 'Error');
+        return;
       }
 
+      // Success - refresh calendar and close modal
       await loadEvents();
       document.getElementById('memoModal').style.display = 'none';
+
+      // Show success message
+      await showAlertModal('Event has been deleted successfully.', 'Event Deleted');
     } catch (err) {
       console.error('Error deleting event:', err);
-      await showAlertModal('Failed to delete event', 'Error');
+      await showAlertModal('An error occurred while deleting the event. Please try again.', 'Error');
     }
   }
 

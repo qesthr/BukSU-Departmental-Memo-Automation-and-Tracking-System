@@ -79,7 +79,7 @@ class CustomCalendar {
       addEventBtn.className = 'btn btn-primary';
       addEventBtn.textContent = 'Add Event';
       addEventBtn.onclick = () => {
-        if (window.openModal) window.openModal();
+        if (window.openModal) {window.openModal();}
       };
       leftSection.appendChild(addEventBtn);
     }
@@ -101,7 +101,7 @@ class CustomCalendar {
           'Disconnect Google Calendar? Your events will still be saved in Memofy.',
           'Disconnect Google Calendar'
         );
-        if (!confirmed) return;
+        if (!confirmed) {return;}
         try {
           const res = await fetch('/calendar/disconnect', { method: 'DELETE', credentials: 'same-origin' });
           if (res.ok) {
@@ -455,7 +455,7 @@ class CustomCalendar {
     const totalWeeks = Math.ceil(daysFromStart / 7);
     const weeksToShow = Math.max(6, totalWeeks); // Always show at least 6 weeks
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     for (let week = 0; week < weeksToShow; week++) {
       const weekRow = document.createElement('div');
       weekRow.className = 'daygrid-month-week';
@@ -513,9 +513,23 @@ class CustomCalendar {
    */
   createEventElement(event, isTimed = false, isCompact = false) {
     const eventEl = document.createElement('div');
-    eventEl.className = `custom-calendar-event ${event.extendedProps?.category || 'standard'}`;
+    const category = event.extendedProps?.category || event.category || 'standard';
+    eventEl.className = `custom-calendar-event ${category}`;
     if (event.extendedProps?.isHoliday) {
       eventEl.classList.add('holiday');
+    }
+
+    // Apply colors directly from event object to ensure they display correctly
+    if (event.backgroundColor) {
+      eventEl.style.backgroundColor = event.backgroundColor;
+    }
+    if (event.borderColor) {
+      eventEl.style.borderLeftColor = event.borderColor;
+      eventEl.style.borderLeftWidth = '3px';
+      eventEl.style.borderLeftStyle = 'solid';
+    }
+    if (event.textColor) {
+      eventEl.style.color = event.textColor;
     }
 
     if (isTimed) {
@@ -830,8 +844,8 @@ class CustomCalendar {
   attachEventListeners() {
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') this.navigate(-1);
-      if (e.key === 'ArrowRight') this.navigate(1);
+      if (e.key === 'ArrowLeft') {this.navigate(-1);}
+      if (e.key === 'ArrowRight') {this.navigate(1);}
     });
   }
 
