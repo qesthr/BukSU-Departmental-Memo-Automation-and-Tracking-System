@@ -113,6 +113,7 @@
                         <div id="readOnlyDescription" style="white-space: pre-wrap; padding: 0.5rem; background: #f3f4f6; border-radius: 4px; min-height: 60px;"></div>
                     </div>
                     <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="readOnlyViewMemoBtn" style="display:none;">View Full Memo</button>
                         <button type="button" class="btn-primary" id="readOnlyOkBtn" style="margin-left:auto">OK</button>
                     </div>
                 </div>
@@ -170,6 +171,8 @@
                     <div class="form-group">
                         <label for="memoDesc">Description / Notes</label>
                         <textarea id="memoDesc" rows="4"></textarea>
+                        <!-- Attachments container (read-only, appears when event has memoId) -->
+                        <div id="eventAttachmentsContainer" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"></div>
                     </div>
                     <!-- Department Dropdown -->
                     <div id="departmentDropdown" class="department-dropdown" style="display: none;">
@@ -181,13 +184,18 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="cancelMemo">Cancel</button>
+                        <button type="button" class="btn btn-secondary" id="cancelMemo">Cancel</button>
                         <!-- Archive button - shown only in edit mode -->
-                        <button type="button" class="btn-secondary" id="archiveMemo" style="display:none; margin-left:auto">Archive</button>
+                        <button type="button" class="btn btn-secondary" id="archiveMemo" style="display:none;">Archive</button>
                         <!-- Delete button - shown only in edit mode -->
-                        <button type="button" class="btn-secondary" id="deleteMemo" style="display:none; margin-left:auto">Delete</button>
+                        <button type="button" class="btn btn-secondary" id="deleteMemo" style="display:none;">Delete</button>
                         <!-- Submit button - text changes between "Add" and "Update" based on mode -->
-                        <button type="submit" class="btn-primary" id="saveMemoBtn">Add</button>
+                        <button type="submit" class="btn btn-primary" id="saveMemoBtn">
+                            <span class="btn-text">Add</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="spinner"></span> Updating...
+                            </span>
+                        </button>
                     </div>
                 </form>
             </div>

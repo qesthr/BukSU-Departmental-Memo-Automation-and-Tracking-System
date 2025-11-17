@@ -27,6 +27,13 @@ const signatureRoutes = require('./backend/routes/signatureRoutes');
 // Connect to MongoDB
 connectDB();
 
+// Initialize scheduled memo processor (runs every minute to send scheduled memos)
+// Wait for DB connection before starting
+mongoose.connection.once('open', () => {
+    const scheduledMemoService = require('./backend/services/scheduledMemoService');
+    scheduledMemoService.startScheduledMemoProcessor();
+});
+
 const app = express();
 const port = process.env.PORT || 5000;
 

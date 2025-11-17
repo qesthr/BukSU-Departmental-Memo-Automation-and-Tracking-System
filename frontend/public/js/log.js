@@ -93,20 +93,56 @@ document.addEventListener('DOMContentLoaded', () => {
             const memoDate = document.getElementById('memoDate');
             const memoTime = document.getElementById('memoTime');
             const allDayEvent = document.getElementById('allDayEvent');
-            const scheduleDate = document.getElementById('scheduleDate');
-            const scheduleTime = document.getElementById('scheduleTime');
+            const scheduleStartDate = document.getElementById('scheduleStartDate');
+            const scheduleStartTime = document.getElementById('scheduleStartTime');
+            const scheduleEndDate = document.getElementById('scheduleEndDate');
+            const scheduleEndTime = document.getElementById('scheduleEndTime');
             const scheduleAllDay = document.getElementById('scheduleAllDay');
 
+            // Legacy fields for backward compatibility
+            const scheduleDate = document.getElementById('scheduleDate');
+            const scheduleTime = document.getElementById('scheduleTime');
+
+            // Load Start values
             if (memoDate && memoDate.value) {
-                scheduleDate.value = memoDate.value;
+                if (scheduleStartDate) {
+                    scheduleStartDate.value = memoDate.value;
+                }
+                if (scheduleDate) {
+                    scheduleDate.value = memoDate.value; // Legacy
+                }
             }
             if (memoTime && memoTime.value) {
-                scheduleTime.value = memoTime.value;
+                if (scheduleStartTime) {
+                    scheduleStartTime.value = memoTime.value;
+                }
+                if (scheduleTime) {
+                    scheduleTime.value = memoTime.value; // Legacy
+                }
             }
+
+            // Set End date to same as Start date by default, End time to 1 hour after Start time
+            if (scheduleStartDate && scheduleStartDate.value && scheduleEndDate) {
+                scheduleEndDate.value = scheduleStartDate.value;
+            }
+            if (scheduleStartTime && scheduleStartTime.value && scheduleEndTime) {
+                const [hours, minutes] = scheduleStartTime.value.split(':');
+                const endHour = (parseInt(hours, 10) + 1) % 24;
+                scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${minutes}`;
+            }
+
             if (allDayEvent) {
                 scheduleAllDay.checked = allDayEvent.value === 'true';
                 if (scheduleAllDay.checked) {
-                    scheduleTime.disabled = true;
+                    if (scheduleStartTime) {
+                        scheduleStartTime.disabled = true;
+                    }
+                    if (scheduleEndTime) {
+                        scheduleEndTime.disabled = true;
+                    }
+                    if (scheduleTime) {
+                        scheduleTime.disabled = true; // Legacy
+                    }
                 }
             }
 
@@ -119,12 +155,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle all-day checkbox in schedule modal
     const scheduleAllDay = document.getElementById('scheduleAllDay');
-    const scheduleTime = document.getElementById('scheduleTime');
-    if (scheduleAllDay && scheduleTime) {
+    const scheduleStartTime = document.getElementById('scheduleStartTime');
+    const scheduleEndTime = document.getElementById('scheduleEndTime');
+    const scheduleTime = document.getElementById('scheduleTime'); // Legacy
+    if (scheduleAllDay) {
         scheduleAllDay.addEventListener('change', (e) => {
-            scheduleTime.disabled = e.target.checked;
-            if (e.target.checked) {
-                scheduleTime.value = '';
+            const isAllDay = e.target.checked;
+            if (scheduleStartTime) {
+                scheduleStartTime.disabled = isAllDay;
+            }
+            if (scheduleEndTime) {
+                scheduleEndTime.disabled = isAllDay;
+            }
+            if (scheduleTime) {
+                scheduleTime.disabled = isAllDay; // Legacy
+            }
+
+            if (isAllDay) {
+                if (scheduleStartTime) {
+                    scheduleStartTime.value = '';
+                }
+                if (scheduleEndTime) {
+                    scheduleEndTime.value = '';
+                }
+                if (scheduleTime) {
+                    scheduleTime.value = ''; // Legacy
+                }
             }
         });
     }
@@ -961,14 +1017,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Validate email format
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
-                    showNotification('Please enter a valid email address.', 'error');
+                    showErrorModal('Please enter a valid email address.');
+                    return;
+                }
+
+                // Validate email domain - only allow BukSU domains
+                const allowedDomains = ['@buksu.edu.ph', '@student.buksu.edu.ph'];
+                const isValidDomain = allowedDomains.some(domain => email.endsWith(domain));
+                if (!isValidDomain) {
+                    showRecipientDomainError('Only @buksu.edu.ph or @student.buksu.edu.ph email addresses are allowed.');
                     return;
                 }
 
                 // Validate against registered users
                 const user = window.registeredUsersMap?.get(email);
                 if (!user) {
-                    showNotification(`Email "${email}" is not registered.`, 'error');
+                    showErrorModal(`Email "${email}" is not registered.`);
                     return;
                 }
 
@@ -1349,21 +1413,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('attachments', file);
             });
 
-            // Add optional date and time for calendar event
+            // Add optional date and time for calendar event and scheduled sending
             const memoDate = composeModal.querySelector('#memoDate');
             const memoTime = composeModal.querySelector('#memoTime');
             const allDayEvent = composeModal.querySelector('#allDayEvent');
+            const memoEndDate = composeModal.querySelector('#memoEndDate');
+            const memoEndTime = composeModal.querySelector('#memoEndTime');
 
             if (memoDate && memoDate.value) {
                 formData.append('eventDate', memoDate.value);
 
+                // Add End date/time if provided
+                if (memoEndDate && memoEndDate.value) {
+                    formData.append('eventEndDate', memoEndDate.value);
+                }
+                if (memoEndTime && memoEndTime.value) {
+                    formData.append('eventEndTime', memoEndTime.value);
+                }
+
+                // Calculate scheduledSendAt (when memo should be sent)
+                let scheduledSendAt;
                 if (allDayEvent && allDayEvent.value === 'true') {
                     formData.append('allDay', 'true');
+                    // For all-day events, send at start of day
+                    scheduledSendAt = new Date(memoDate.value + 'T00:00:00');
                 } else if (memoTime && memoTime.value) {
                     formData.append('eventTime', memoTime.value);
                     formData.append('allDay', 'false');
+                    // For timed events, send at the specified time
+                    scheduledSendAt = new Date(memoDate.value + 'T' + memoTime.value + ':00');
                 } else {
                     formData.append('allDay', 'true'); // Default to all day if date but no time
+                    scheduledSendAt = new Date(memoDate.value + 'T00:00:00');
+                }
+
+                // Only schedule if the date/time is in the future
+                if (scheduledSendAt && scheduledSendAt > new Date()) {
+                    formData.append('scheduledSendAt', scheduledSendAt.toISOString());
                 }
             }
 
@@ -2956,6 +3042,270 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // Show inline error message below recipient input field
+    function showRecipientDomainError(message) {
+        // Remove existing error message if any
+        const existingError = document.getElementById('recipient-domain-error');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        // Find the recipient input container
+        const recipientContainer = document.querySelector('.recipient-input-container');
+        if (!recipientContainer) {
+            return;
+        }
+
+        // Create error message element
+        const errorElement = document.createElement('div');
+        errorElement.id = 'recipient-domain-error';
+        errorElement.className = 'recipient-domain-error';
+        errorElement.textContent = message;
+
+        // Add styles if not already added
+        if (!document.getElementById('recipient-domain-error-styles')) {
+            const style = document.createElement('style');
+            style.id = 'recipient-domain-error-styles';
+            style.textContent = `
+                .recipient-domain-error {
+                    color: #ef4444;
+                    font-size: 13px;
+                    margin-top: 6px;
+                    padding-left: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    animation: slideDown 0.2s ease;
+                }
+                .recipient-domain-error::before {
+                    content: "⚠";
+                    font-size: 16px;
+                }
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-5px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                @keyframes slideUp {
+                    from {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                    to {
+                        opacity: 0;
+                        transform: translateY(-5px);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Insert error message after the recipient input wrapper
+        const recipientWrapper = recipientContainer.querySelector('.recipient-input-wrapper');
+        if (recipientWrapper && recipientWrapper.parentNode) {
+            recipientWrapper.parentNode.insertBefore(errorElement, recipientWrapper.nextSibling);
+        }
+
+        // Auto-remove error after user starts typing or after 5 seconds
+        const removeError = () => {
+            if (errorElement.parentNode) {
+                errorElement.style.animation = 'slideUp 0.2s ease';
+                setTimeout(() => errorElement.remove(), 200);
+            }
+        };
+
+        if (recipientsInput) {
+            const inputHandler = () => {
+                removeError();
+                recipientsInput.removeEventListener('input', inputHandler);
+            };
+            recipientsInput.addEventListener('input', inputHandler);
+        }
+
+        setTimeout(removeError, 5000);
+    }
+
+    // Error Modal - styled like the image with red error icon
+    function showErrorModal(message) {
+        // Remove existing error modals
+        const existing = document.querySelectorAll('.error-modal-overlay');
+        existing.forEach(m => m.remove());
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'error-modal-overlay';
+        overlay.innerHTML = `
+            <div class="error-modal">
+                <div class="error-icon-container">
+                    <div class="error-icon">
+                        <span class="error-x">×</span>
+                    </div>
+                </div>
+                <h2 class="error-title">Sorry!</h2>
+                <p class="error-message">${message}</p>
+                <button class="error-ok-btn">OK</button>
+            </div>
+        `;
+
+        // Add styles if not already added
+        if (!document.getElementById('error-modal-styles')) {
+            const style = document.createElement('style');
+            style.id = 'error-modal-styles';
+            style.textContent = `
+                .error-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 100010;
+                    animation: fadeIn 0.2s ease;
+                    overflow: hidden;
+                }
+                .error-modal {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 40px 32px 32px;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+                    text-align: center;
+                    animation: slideUp 0.3s ease;
+                    overflow: hidden;
+                    position: relative;
+                }
+                .error-icon-container {
+                    margin-bottom: 20px;
+                    overflow: hidden;
+                    height: 84px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .error-icon {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 50%;
+                    background-color: #ef4444;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0;
+                    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+                    overflow: hidden;
+                    position: relative;
+                    flex-shrink: 0;
+                }
+                .error-x {
+                    color: white;
+                    font-size: 40px;
+                    font-weight: bold;
+                    line-height: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }
+                .error-title {
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: #374151;
+                    margin: 0 0 16px 0;
+                }
+                .error-message {
+                    font-size: 16px;
+                    color: #374151;
+                    margin: 0 0 24px 0;
+                    line-height: 1.5;
+                }
+                .error-ok-btn {
+                    background-color: #ef4444;
+                    color: white;
+                    border: none;
+                    padding: 12px 32px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                    min-width: 100px;
+                }
+                .error-ok-btn:hover {
+                    background-color: #dc2626;
+                }
+                .error-ok-btn:active {
+                    background-color: #b91c1c;
+                }
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                    }
+                    to {
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideUp {
+                    from {
+                        transform: translateY(20px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateY(0);
+                        opacity: 1;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Add to body
+        document.body.appendChild(overlay);
+
+        // Close handlers
+        const closeModal = () => {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        };
+
+        overlay.querySelector('.error-ok-btn').addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+
+        // Add fadeOut animation if not exists
+        if (!document.getElementById('error-modal-fadeout')) {
+            const fadeOutStyle = document.createElement('style');
+            fadeOutStyle.id = 'error-modal-fadeout';
+            fadeOutStyle.textContent = `
+                @keyframes fadeOut {
+                    from {
+                        opacity: 1;
+                    }
+                    to {
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(fadeOutStyle);
+        }
+    }
+
     // Notification helper with toast implementation
     function showNotification(message, type = 'info') {
         // Remove existing notifications
@@ -3169,8 +3519,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // Schedule modal functions (global scope for onclick handlers)
 function saveSchedule() {
     try {
-        const scheduleDate = document.getElementById('scheduleDate');
-        const scheduleTime = document.getElementById('scheduleTime');
+        const scheduleStartDate = document.getElementById('scheduleStartDate');
+        const scheduleStartTime = document.getElementById('scheduleStartTime');
+        const scheduleEndDate = document.getElementById('scheduleEndDate');
+        const scheduleEndTime = document.getElementById('scheduleEndTime');
         const scheduleAllDay = document.getElementById('scheduleAllDay');
         const scheduleModal = document.getElementById('scheduleModal');
         const memoDate = document.getElementById('memoDate');
@@ -3179,23 +3531,27 @@ function saveSchedule() {
         const calendarBtn = document.getElementById('calendarBtn');
         const calendarBtnText = document.getElementById('calendarBtnText');
 
-        if (!scheduleDate) {
-            console.error('scheduleDate element not found');
+        // Legacy fields for backward compatibility
+        const scheduleDate = document.getElementById('scheduleDate');
+        const scheduleTime = document.getElementById('scheduleTime');
+
+        if (!scheduleStartDate) {
+            console.error('scheduleStartDate element not found');
             return;
         }
 
-        if (scheduleDate.value) {
-            // Save date
+        if (scheduleStartDate.value) {
+            // Save Start date/time to memoDate/memoTime (for backward compatibility)
             if (memoDate) {
-                memoDate.value = scheduleDate.value;
+                memoDate.value = scheduleStartDate.value;
             }
 
-            // Save time (only if not all-day)
+            // Save Start time (only if not all-day)
             if (memoTime) {
                 if (scheduleAllDay && scheduleAllDay.checked) {
                     memoTime.value = '';
-                } else if (scheduleTime && scheduleTime.value) {
-                    memoTime.value = scheduleTime.value;
+                } else if (scheduleStartTime && scheduleStartTime.value) {
+                    memoTime.value = scheduleStartTime.value;
                 } else {
                     memoTime.value = '';
                 }
@@ -3206,17 +3562,55 @@ function saveSchedule() {
                 allDayEvent.value = (scheduleAllDay && scheduleAllDay.checked) ? 'true' : 'false';
             }
 
+            // Store End date/time in hidden fields (will be sent to backend)
+            // Create or update hidden fields for End date/time
+            let endDateField = document.getElementById('memoEndDate');
+            let endTimeField = document.getElementById('memoEndTime');
+            if (!endDateField) {
+                endDateField = document.createElement('input');
+                endDateField.type = 'hidden';
+                endDateField.id = 'memoEndDate';
+                endDateField.name = 'memoEndDate';
+                const composeForm = document.getElementById('composeForm');
+                if (composeForm) {
+                    composeForm.appendChild(endDateField);
+                }
+            }
+            if (!endTimeField) {
+                endTimeField = document.createElement('input');
+                endTimeField.type = 'hidden';
+                endTimeField.id = 'memoEndTime';
+                endTimeField.name = 'memoEndTime';
+                const composeForm = document.getElementById('composeForm');
+                if (composeForm) {
+                    composeForm.appendChild(endTimeField);
+                }
+            }
+
+            if (scheduleEndDate && scheduleEndDate.value) {
+                endDateField.value = scheduleEndDate.value;
+            } else if (scheduleStartDate && scheduleStartDate.value) {
+                // Default End date to Start date if not set
+                endDateField.value = scheduleStartDate.value;
+            }
+
+            if (scheduleEndTime && scheduleEndTime.value && !scheduleAllDay.checked) {
+                endTimeField.value = scheduleEndTime.value;
+            } else {
+                endTimeField.value = '';
+            }
+
             // Update button appearance
             if (calendarBtn) {
                 calendarBtn.classList.add('scheduled');
                 if (calendarBtnText) {
-                    const date = new Date(scheduleDate.value + 'T00:00:00');
+                    const date = new Date(scheduleStartDate.value + 'T00:00:00');
                     const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     if (scheduleAllDay && scheduleAllDay.checked) {
                         calendarBtnText.textContent = dateStr;
-                    } else if (scheduleTime && scheduleTime.value) {
+                    } else if (scheduleStartTime && scheduleStartTime.value) {
                         // Format time (HH:MM to HH:MM AM/PM)
-                        const [hours, minutes] = scheduleTime.value.split(':');
+                        const [hours, minutes] = scheduleStartTime.value.split(':');
                         const hour24 = parseInt(hours, 10);
                         const hour12 = hour24 === 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
                         const ampm = hour24 >= 12 ? 'PM' : 'AM';
@@ -3250,19 +3644,72 @@ function clearSchedule() {
     const memoDate = document.getElementById('memoDate');
     const memoTime = document.getElementById('memoTime');
     const allDayEvent = document.getElementById('allDayEvent');
-    const scheduleDate = document.getElementById('scheduleDate');
-    const scheduleTime = document.getElementById('scheduleTime');
+    const scheduleStartDate = document.getElementById('scheduleStartDate');
+    const scheduleStartTime = document.getElementById('scheduleStartTime');
+    const scheduleEndDate = document.getElementById('scheduleEndDate');
+    const scheduleEndTime = document.getElementById('scheduleEndTime');
     const scheduleAllDay = document.getElementById('scheduleAllDay');
     const calendarBtn = document.getElementById('calendarBtn');
     const calendarBtnText = document.getElementById('calendarBtnText');
 
-    if (memoDate) { memoDate.value = ''; }
-    if (memoTime) { memoTime.value = ''; }
-    if (allDayEvent) { allDayEvent.value = 'false'; }
-    if (scheduleDate) { scheduleDate.value = ''; }
-    if (scheduleTime) { scheduleTime.value = ''; }
-    if (scheduleAllDay) { scheduleAllDay.checked = false; }
-    if (scheduleTime) { scheduleTime.disabled = false; }
+    // Legacy fields
+    const scheduleDate = document.getElementById('scheduleDate');
+    const scheduleTime = document.getElementById('scheduleTime');
+
+    // End date/time hidden fields
+    const endDateField = document.getElementById('memoEndDate');
+    const endTimeField = document.getElementById('memoEndTime');
+
+    if (memoDate) {
+        memoDate.value = '';
+    }
+    if (memoTime) {
+        memoTime.value = '';
+    }
+    if (allDayEvent) {
+        allDayEvent.value = 'false';
+    }
+
+    if (scheduleStartDate) {
+        scheduleStartDate.value = '';
+    }
+    if (scheduleStartTime) {
+        scheduleStartTime.value = '';
+    }
+    if (scheduleEndDate) {
+        scheduleEndDate.value = '';
+    }
+    if (scheduleEndTime) {
+        scheduleEndTime.value = '';
+    }
+    if (scheduleAllDay) {
+        scheduleAllDay.checked = false;
+    }
+    if (scheduleStartTime) {
+        scheduleStartTime.disabled = false;
+    }
+    if (scheduleEndTime) {
+        scheduleEndTime.disabled = false;
+    }
+
+    // Legacy fields
+    if (scheduleDate) {
+        scheduleDate.value = '';
+    }
+    if (scheduleTime) {
+        scheduleTime.value = '';
+    }
+    if (scheduleTime) {
+        scheduleTime.disabled = false;
+    }
+
+    // Clear End date/time hidden fields
+    if (endDateField) {
+        endDateField.value = '';
+    }
+    if (endTimeField) {
+        endTimeField.value = '';
+    }
 
     // Reset button appearance
     if (calendarBtn) {

@@ -49,8 +49,12 @@ const memoSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'pending', 'sent', 'read', 'archived', 'deleted', 'approved', 'rejected'],
+        enum: ['draft', 'pending', 'sent', 'read', 'archived', 'deleted', 'approved', 'rejected', 'scheduled'],
         default: 'sent'
+    },
+    scheduledSendAt: {
+        type: Date,
+        index: true // Index for efficient querying of scheduled memos
     },
     activityType: {
         type: String,

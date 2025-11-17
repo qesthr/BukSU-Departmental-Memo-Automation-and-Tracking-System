@@ -729,6 +729,17 @@
         descInput.value = '';
         console.log('✅ Description field cleared for new event');
       }
+      // Hide attachments container for new events
+      const attachmentsContainer = document.getElementById('eventAttachmentsContainer');
+      if (attachmentsContainer) {
+        attachmentsContainer.style.display = 'none';
+        attachmentsContainer.innerHTML = '';
+      }
+      // Hide "View/Edit Memo" button for new events
+      const viewEditMemoBtn = document.getElementById('viewEditMemoBtn');
+      if (viewEditMemoBtn) {
+        viewEditMemoBtn.style.display = 'none';
+      }
     }
 
     if (editingSourceInput) {editingSourceInput.value = '';}
@@ -737,7 +748,15 @@
     // Hide edit mode buttons, show create mode button
     if (deleteBtn) {deleteBtn.style.display = 'none';}
     if (archiveBtn) {archiveBtn.style.display = 'none';}
-    if (saveBtn) {saveBtn.textContent = 'Add';}
+    // Reset button text for create mode
+    if (saveBtn) {
+      const btnText = saveBtn.querySelector('.btn-text');
+      if (btnText) {
+        btnText.textContent = 'Add';
+      } else {
+        saveBtn.textContent = 'Add';
+      }
+    }
 
     // Reset participants
     participantsData = { departments: [], emails: [] };
@@ -826,6 +845,69 @@
     if (categorySelect) {categorySelect.value = event.category || 'standard';}
     if (descInput) {descInput.value = event.description || '';}
 
+    // If event has memoId, fetch and display attachments INSIDE Description/Notes section (read-only)
+    const attachmentsContainer = document.getElementById('eventAttachmentsContainer');
+    if (event.memoId && attachmentsContainer) {
+      fetch(`/api/log/memos/${event.memoId}`, { credentials: 'same-origin' })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success && data.memo && data.memo.attachments && data.memo.attachments.length > 0) {
+            // Show attachments container
+            attachmentsContainer.style.display = 'block';
+
+            let htmlContent = '<div style="margin-top: 0.75rem;">';
+            htmlContent += '<div style="font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Attachments (Read-Only)</div>';
+
+            data.memo.attachments.forEach((attachment) => {
+              const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+              const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+              if (isImage) {
+                htmlContent += `
+                  <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <img src="${attachmentUrl}" alt="${attachment.filename}"
+                         style="max-width: 100%; max-height: 250px; border-radius: 6px; display: block; margin-bottom: 0.5rem; cursor: pointer;"
+                         onclick="window.open('${attachmentUrl}', '_blank')"
+                         title="Click to view full size" />
+                    <div style="font-size: 0.875rem; color: #6b7280; display: flex; align-items: center; gap: 0.5rem;">
+                      <span>📷</span>
+                      <span>${attachment.filename}</span>
+                    </div>
+                  </div>
+                `;
+              } else {
+                htmlContent += `
+                  <div style="margin-bottom: 0.75rem; padding: 0.75rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <a href="${attachmentUrl}" target="_blank"
+                       style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                      <span>📎</span>
+                      <span style="font-weight: 500;">${attachment.filename}</span>
+                    </a>
+                  </div>
+                `;
+              }
+            });
+
+            htmlContent += '</div>';
+            attachmentsContainer.innerHTML = htmlContent;
+          } else {
+            // Hide attachments container if no attachments
+            attachmentsContainer.style.display = 'none';
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching memo attachments:', err);
+          if (attachmentsContainer) {
+            attachmentsContainer.style.display = 'none';
+          }
+        });
+    } else {
+      // Hide attachments container if no memoId
+      if (attachmentsContainer) {
+        attachmentsContainer.style.display = 'none';
+      }
+    }
+
     // Format dates for inputs
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);
@@ -840,7 +922,15 @@
     // Show edit mode buttons, hide create mode button
     if (deleteBtn) {deleteBtn.style.display = 'block';}
     if (archiveBtn) {archiveBtn.style.display = 'block';}
-    if (saveBtn) {saveBtn.textContent = 'Update';}
+    // Update button text and show loading state capability
+    if (saveBtn) {
+      const btnText = saveBtn.querySelector('.btn-text');
+      if (btnText) {
+        btnText.textContent = 'Update';
+      } else {
+        saveBtn.textContent = 'Update';
+      }
+    }
 
     // Load participants
     if (event.participants && window.loadParticipantsForEdit) {
@@ -938,9 +1028,94 @@
       readOnlyParticipants.textContent = participantsText;
     }
 
-    // Format description
+    // Show "View Full Memo" button if event has memoId
+    const readOnlyViewMemoBtn = document.getElementById('readOnlyViewMemoBtn');
+    if (readOnlyViewMemoBtn && event.memoId) {
+      readOnlyViewMemoBtn.style.display = 'block';
+      readOnlyViewMemoBtn.onclick = () => {
+        // Navigate to memo page
+        const userRole = window.currentUser?.role || 'admin';
+        const basePath = userRole === 'faculty' ? '/faculty/memos' : '/admin/log';
+        window.location.href = `${basePath}?memo=${event.memoId}`;
+      };
+    } else if (readOnlyViewMemoBtn) {
+      readOnlyViewMemoBtn.style.display = 'none';
+    }
+
+    // Format description - if event has memoId, fetch full memo with attachments
     if (readOnlyDescription) {
-      readOnlyDescription.textContent = event.description || '(No description)';
+      if (event.memoId) {
+        // Fetch full memo to display content and attachments
+        fetch(`/api/log/memos/${event.memoId}`, { credentials: 'same-origin' })
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.success && data.memo) {
+              const memo = data.memo;
+              let htmlContent = '';
+
+              // Display memo content
+              if (memo.content && memo.content.trim()) {
+                const safeContent = memo.content
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#039;');
+                htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6; color: #111827;">${safeContent}</div>`;
+              }
+
+              // Display attachments
+              if (memo.attachments && memo.attachments.length > 0) {
+                htmlContent += '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">';
+                htmlContent += '<strong style="display: block; margin-bottom: 0.5rem; color: #374151;">Attachments:</strong>';
+
+                memo.attachments.forEach((attachment) => {
+                  const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+                  const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+                  if (isImage) {
+                    // Display image inline
+                    htmlContent += `
+                      <div style="margin-bottom: 0.75rem;">
+                        <img src="${attachmentUrl}" alt="${attachment.filename}"
+                             style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;"
+                             onclick="window.open('${attachmentUrl}', '_blank')"
+                             title="Click to view full size" />
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280;">${attachment.filename}</div>
+                      </div>
+                    `;
+                  } else {
+                    // Display file link
+                    htmlContent += `
+                      <div style="margin-bottom: 0.5rem;">
+                        <a href="${attachmentUrl}" target="_blank"
+                           style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                          <span>📎</span>
+                          <span>${attachment.filename}</span>
+                        </a>
+                      </div>
+                    `;
+                  }
+                });
+
+                htmlContent += '</div>';
+              }
+
+              readOnlyDescription.innerHTML = htmlContent || '(No description)';
+            } else {
+              // Fallback to event description if memo fetch fails
+              readOnlyDescription.textContent = event.description || '(No description)';
+            }
+          })
+          .catch(err => {
+            console.error('Error fetching memo:', err);
+            // Fallback to event description on error
+            readOnlyDescription.textContent = event.description || '(No description)';
+          });
+      } else {
+        // No memoId, just show event description
+        readOnlyDescription.textContent = event.description || '(No description)';
+      }
     }
 
     // Show modal

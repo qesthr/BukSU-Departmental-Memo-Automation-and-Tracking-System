@@ -775,6 +775,11 @@
   box-sizing: border-box;
 }
 
+/* Show modal when .show class is added */
+.modal.show {
+  display: block;
+}
+
 /* Allow compose modal to show overflow for dropdowns */
 #composeModal.modal {
   overflow: visible !important;

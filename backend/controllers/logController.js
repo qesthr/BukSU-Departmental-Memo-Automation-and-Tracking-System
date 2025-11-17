@@ -638,7 +638,19 @@ exports.createMemo = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await User.findById(userId);
-        const { recipientEmail, subject, content, departments, priority, template, eventDate, eventTime, allDay } = req.body;
+        const { recipientEmail, subject, content, departments, priority, template, eventDate, eventTime, eventEndDate, eventEndTime, allDay, scheduledSendAt } = req.body;
+
+        // Parse scheduledSendAt if provided
+        let scheduledSendDate = null;
+        if (scheduledSendAt) {
+            scheduledSendDate = new Date(scheduledSendAt);
+            // Validate it's a future date
+            if (isNaN(scheduledSendDate.getTime()) || scheduledSendDate <= new Date()) {
+                scheduledSendDate = null;
+            }
+        }
+
+        const isScheduled = scheduledSendDate !== null;
 
         // Handle signatories - FormData sends arrays as multiple fields with same name
         let signatories = req.body.signatories;
@@ -796,18 +808,18 @@ exports.createMemo = async (req, res) => {
             }
         }
 
-        // Get all users from selected departments
-        if (departmentsArray.length > 0) {
-            const departmentUsers = await User.find({
-                department: { $in: departmentsArray },
-                role: { $ne: 'admin' } // Don't send to admins unless explicitly specified
-            }).select('_id');
-            departmentUsers.forEach(user => {
-                if (!recipientIds.find(id => id.toString() === user._id.toString())) {
-                    recipientIds.push(user._id);
+                // Get all users from selected departments
+                if (departmentsArray.length > 0) {
+                    const departmentUsers = await User.find({
+                        department: { $in: departmentsArray },
+                        role: { $ne: 'admin' } // Don't send to admins unless explicitly specified
+                    }).select('_id email');
+                    departmentUsers.forEach(user => {
+                        if (!recipientIds.find(id => id.toString() === user._id.toString())) {
+                            recipientIds.push(user._id);
+                        }
+                    });
                 }
-            });
-        }
 
         if (recipientIds.length === 0) {
             return res.status(400).json({
@@ -835,7 +847,8 @@ exports.createMemo = async (req, res) => {
                         metadata: {
                             eventDate: eventDate || null,
                             eventTime: eventTime || null,
-                            allDay: allDay || 'false'
+                            allDay: allDay || 'false',
+                            scheduledSendAt: isScheduled ? scheduledSendDate.toISOString() : null
                         }
                     }
                 });
@@ -845,7 +858,8 @@ exports.createMemo = async (req, res) => {
                 return res.status(500).json({ success: false, message: 'Error creating pending memo' });
             }
         } else {
-            // Non-secretaries send immediately
+            // Non-secretaries: send immediately or schedule
+            const memoStatus = isScheduled ? 'scheduled' : 'sent';
             const memoPromises = recipientIds.map(async (recipientId) => {
                 const memo = new Memo({
                     sender: userId,
@@ -860,8 +874,9 @@ exports.createMemo = async (req, res) => {
                     attachments: processedAttachments,
                     signatures: processedSignatures,
                     template: templateValue,
-                    status: 'sent',
-                    folder: 'sent'
+                    status: memoStatus,
+                    folder: isScheduled ? 'drafts' : 'sent',
+                    scheduledSendAt: isScheduled ? scheduledSendDate : undefined
                 });
                 return await memo.save();
             });
@@ -881,7 +896,7 @@ exports.createMemo = async (req, res) => {
             try {
                 const CalendarEvent = require('../models/CalendarEvent');
 
-                // Parse date and time
+                // Parse date and time (Start and End)
                 const isAllDay = allDay === 'true' || allDay === true;
                 let startDate, endDate;
 
@@ -889,21 +904,36 @@ exports.createMemo = async (req, res) => {
                     // All-day event: start at 00:00, end at 23:59:59
                     startDate = new Date(eventDate);
                     startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(eventDate);
+                    // Use End date if provided, otherwise use Start date
+                    const endDateValue = eventEndDate || eventDate;
+                    endDate = new Date(endDateValue);
                     endDate.setHours(23, 59, 59, 999);
                 } else if (eventTime) {
-                    // Timed event: combine date and time
+                    // Timed event: combine Start date and time
                     const [hours, minutes] = eventTime.split(':');
                     startDate = new Date(eventDate);
                     startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-                    // Default duration: 1 hour
-                    endDate = new Date(startDate);
-                    endDate.setHours(endDate.getHours() + 1);
+
+                    // Use End date/time if provided, otherwise default to 1 hour after Start
+                    if (eventEndDate && eventEndTime) {
+                        const [endHours, endMinutes] = eventEndTime.split(':');
+                        endDate = new Date(eventEndDate);
+                        endDate.setHours(parseInt(endHours, 10), parseInt(endMinutes, 10), 0, 0);
+                    } else if (eventEndDate) {
+                        // End date provided but no time - use end of day
+                        endDate = new Date(eventEndDate);
+                        endDate.setHours(23, 59, 59, 999);
+                    } else {
+                        // Default duration: 1 hour after Start
+                        endDate = new Date(startDate);
+                        endDate.setHours(endDate.getHours() + 1);
+                    }
                 } else {
                     // Date only: treat as all-day
                     startDate = new Date(eventDate);
                     startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(eventDate);
+                    const endDateValue = eventEndDate || eventDate;
+                    endDate = new Date(endDateValue);
                     endDate.setHours(23, 59, 59, 999);
                 }
 
@@ -930,6 +960,11 @@ exports.createMemo = async (req, res) => {
                     if (ru.department) recipientDepartments.add(ru.department);
                 });
 
+                // Add creator's email to participants so it appears in their calendar
+                if (user && user.email) {
+                    recipientEmails.push(user.email.toLowerCase());
+                }
+
                 // Map priority to calendar category
                 const categoryMap = {
                     'urgent': 'urgent',
@@ -939,7 +974,7 @@ exports.createMemo = async (req, res) => {
                 };
                 const category = categoryMap[priority] || 'standard';
 
-                // Create calendar event
+                // Create calendar event (appears immediately in calendars, even for scheduled memos)
                 const calendarEvent = new CalendarEvent({
                     title: subject.trim(),
                     start: startDate,
@@ -948,12 +983,12 @@ exports.createMemo = async (req, res) => {
                     category: category,
                     description: content || '',
                     participants: {
-                        emails: [...new Set(recipientEmails)], // Remove duplicates
+                        emails: [...new Set(recipientEmails)], // Remove duplicates, includes creator
                         departments: Array.from(recipientDepartments)
                     },
                     memoId: createdMemos[0]._id,
                     createdBy: userId,
-                    status: 'scheduled'
+                    status: isScheduled ? 'scheduled' : 'confirmed'
                 });
 
                 await calendarEvent.save();
@@ -1005,9 +1040,11 @@ exports.createMemo = async (req, res) => {
             success: true,
             memo: populatedMemo,
             count: createdMemos.length,
-            message: isSecretary
-                ? 'Your memo is pending for admin approval. It will be sent once approved.'
-                : `Memo sent successfully to ${createdMemos.length} recipient(s).`
+            message: isScheduled
+                ? `Memo scheduled successfully. It will be sent on ${scheduledSendDate.toLocaleDateString()} at ${scheduledSendDate.toLocaleTimeString()}.`
+                : isSecretary
+                    ? 'Your memo is pending for admin approval. It will be sent once approved.'
+                    : `Memo sent successfully to ${createdMemos.length} recipient(s).`
         });
     } catch (error) {
         // eslint-disable-next-line no-console

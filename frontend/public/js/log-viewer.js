@@ -23,20 +23,28 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Compose button modal toggle
+    // Compose button modal toggle (fallback for pages without log.js)
+    // Note: log.js usually handles this, but this ensures it works if log.js doesn't
     const composeBtn = document.querySelector(".compose-btn");
     const composeModal = document.getElementById("composeModal");
     const closeModalBtns = document.querySelectorAll(".close-modal");
 
     if (composeBtn && composeModal) {
         composeBtn.addEventListener("click", () => {
+            // Add show class as fallback (log.js uses inline style.display)
             composeModal.classList.add("show");
         });
-
-        closeModalBtns.forEach((btn) => {
-            btn.addEventListener("click", () => {
-                composeModal.classList.remove("show");
-            });
-        });
     }
+
+    // Ensure close buttons work regardless of how modal was opened
+    // This handles both inline styles (from log.js) and classes (from this script)
+    closeModalBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const modal = btn.closest('.modal') || composeModal;
+            if (modal) {
+                modal.classList.remove("show");
+                modal.style.display = 'none';
+            }
+        });
+    });
 });
