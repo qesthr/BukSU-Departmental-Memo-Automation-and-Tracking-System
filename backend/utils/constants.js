@@ -6,6 +6,8 @@
 
 /**
  * User Roles
+ * Hierarchy: admin > secretary > faculty
+ * Note: Admin is the highest role (no superadmin)
  */
 const USER_ROLES = {
     ADMIN: 'admin',
@@ -159,6 +161,8 @@ const STATUS_COLORS = {
 
 /**
  * Role Permissions
+ * Note: For new code, use RBAC service (rbacService.js) instead of this constant
+ * This is kept for backward compatibility
  */
 const ROLE_PERMISSIONS = {
     [USER_ROLES.ADMIN]: {

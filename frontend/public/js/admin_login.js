@@ -3,6 +3,9 @@ if (typeof window !== 'undefined' && typeof window.showMessageModal !== 'functio
   window.showMessageModal = function(){ /* no-op outside login */ };
 }
 
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
+
 document.addEventListener("DOMContentLoaded", () => {
     if (!document.getElementById('loginCard')) { return; }
     const layers = document.querySelectorAll(".layer");
@@ -216,12 +219,51 @@ if (loginForm) {
         const data = await response.json();
 
         if (data.success) {
-            showMessageModal('Login Successful', 'Login successful! Redirecting...', 'success');
+            // Show SweetAlert2 success modal
+            // Wait for SweetAlert2 to be available
+            const showSuccessModal = () => {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Login Successful!',
+                        text: 'Redirecting to your dashboard...',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didClose: () => {
+                            window.location.href = '/admin-dashboard';
+                        }
+                    }).then(() => {
+                        window.location.href = '/admin-dashboard';
+                    });
+                } else {
+                    // Fallback if SweetAlert2 is not available
+                    setTimeout(() => {
+                        window.location.href = '/admin-dashboard';
+                    }, 2000);
+                }
+            };
 
-            // All users are redirected to admin-dashboard
-            setTimeout(() => {
-                window.location.href = '/admin-dashboard';
-            }, 2000);
+            // Wait for SweetAlert2 to load if not immediately available
+            if (typeof Swal !== 'undefined') {
+                showSuccessModal();
+            } else {
+                // Wait up to 2 seconds for SweetAlert2 to load
+                let attempts = 0;
+                const checkSwal = setInterval(() => {
+                    attempts++;
+                    if (typeof Swal !== 'undefined') {
+                        clearInterval(checkSwal);
+                        showSuccessModal();
+                    } else if (attempts >= 20) {
+                        // After 2 seconds, give up and redirect
+                        clearInterval(checkSwal);
+                        window.location.href = '/admin-dashboard';
+                    }
+                }, 100);
+            }
         } else {
             // Handle different types of errors
             if (data.errorCode === 'ACCOUNT_NOT_FOUND') {

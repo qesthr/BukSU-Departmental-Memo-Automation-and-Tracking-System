@@ -53,7 +53,16 @@
     return new Promise((resolve) => {
       const modal = document.getElementById('confirmModal');
       if (!modal) {
-        resolve(confirm(message));
+        Swal.fire({
+          title: title,
+          text: message,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'OK',
+          cancelButtonText: 'Cancel'
+        }).then((result) => {
+          resolve(result.isConfirmed);
+        });
         return;
       }
       const titleEl = document.getElementById('confirmModalTitle');
@@ -82,8 +91,13 @@
     return new Promise((resolve) => {
       const modal = document.getElementById('alertModal');
       if (!modal) {
-        alert(message);
-        resolve();
+        Swal.fire({
+          title: title,
+          text: message,
+          icon: 'info'
+        }).then(() => {
+          resolve();
+        });
         return;
       }
       const titleEl = document.getElementById('alertModalTitle');
@@ -161,7 +175,11 @@
         if (window.showAlertModal) {
           window.showAlertModal('Faculty can view calendar events but cannot create or edit them.', 'View Only');
         } else {
-          alert('Faculty can view calendar events but cannot create or edit them.');
+          Swal.fire({
+            icon: 'info',
+            title: 'View Only',
+            text: 'Faculty can view calendar events but cannot create or edit them.'
+          });
         }
       };
       window.openEventModal = window.openModal;

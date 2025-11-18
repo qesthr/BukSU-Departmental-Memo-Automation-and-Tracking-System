@@ -605,11 +605,23 @@
                 // eslint-disable-next-line no-console
                 console.error('API Error:', response.status, data);
                 if (response.status === 403) {
-                    alert('You do not have permission to view this memo.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Permission Denied',
+                        text: 'You do not have permission to view this memo.'
+                    });
                 } else if (response.status === 404) {
-                    alert('Memo not found.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Not Found',
+                        text: 'Memo not found.'
+                    });
                 } else {
-                    alert(`Error loading memo: ${data.message || 'Unknown error'}`);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: `Error loading memo: ${data.message || 'Unknown error'}`
+                    });
                 }
                 // Fallback to navigation
                 window.location.href = `/admin/log?memo=${memoId}`;
@@ -1426,7 +1438,11 @@
                             // Refresh notifications to ensure archived ones are gone
                             setTimeout(()=>{ closeMemoModal(); fetchNotifications(); }, 700);
                         } catch (err) {
-                            alert(err?.message || 'Failed to reject');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: err?.message || 'Failed to reject'
+                            });
                             // Reload notifications on error to restore UI state
                             fetchNotifications();
                         }
@@ -1459,7 +1475,11 @@
                             // Refresh notifications to ensure archived ones are gone
                             setTimeout(()=>{ closeMemoModal(); fetchNotifications(); }, 700);
                         } catch (err) {
-                            alert(err?.message || 'Failed to approve');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: err?.message || 'Failed to approve'
+                            });
                             // Reload notifications on error to restore UI state
                             fetchNotifications();
                         }
@@ -1491,7 +1511,11 @@
                             if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
                             setTimeout(() => { closeMemoModal(); fetchNotifications && fetchNotifications(); }, 600);
                         } catch (err) {
-                            alert(err?.message || 'Delete failed');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: err?.message || 'Delete failed'
+                            });
                         }
                     };
                     footer.appendChild(deleteBtn);

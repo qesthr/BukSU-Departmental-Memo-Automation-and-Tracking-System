@@ -18,6 +18,9 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
+
         <!-- Google APIs -->
         <script src="https://apis.google.com/js/api.js"></script>
         <script src="https://accounts.google.com/gsi/client"></script>
@@ -239,9 +242,19 @@
                     credentials: 'same-origin'
                 });
                 const data = await res.json();
-                alert(data.message || 'Approved');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Approved'
+                });
                 location.reload();
-            } catch (e) { alert('Failed to approve'); }
+            } catch (e) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to approve'
+                });
+            }
         }
 
         function showRejectionReasonModal() {
@@ -430,10 +443,18 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.message || 'Failed to reject');
-                alert(data.message || 'Rejected');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Rejected'
+                });
                 location.reload();
             } catch (e) {
-                alert(e?.message || 'Failed to reject');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: e?.message || 'Failed to reject'
+                });
             }
         }
     </script>
@@ -459,6 +480,7 @@
 
 
     <script src="/js/dashboard-mini-calendar.js"></script>
+    <script src="/js/error-handler.js"></script>
 </body>
 
 </html>

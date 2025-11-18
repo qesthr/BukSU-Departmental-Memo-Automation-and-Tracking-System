@@ -425,10 +425,26 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (e.target === overlay){ overlay.style.display = 'none'; frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); }
                             });
                         } else {
-                            alert('Preview container missing');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Preview container missing'
+                            });
                         }
-                    } else { alert(data.message || 'Preview unavailable'); }
-                }catch(err){ alert('Preview failed'); }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Preview Unavailable',
+                            text: data.message || 'Preview unavailable'
+                        });
+                    }
+                }catch(err){
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Preview failed'
+                    });
+                }
             });
         }
     }
@@ -510,7 +526,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const submitBtn = form.querySelector('button[type="submit"]');
 
             if (!nameInput || !titleInput || !imageInput || !imageInput.files[0]){
-                alert('Please fill all fields including signature image');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Fields',
+                    text: 'Please fill all fields including signature image'
+                });
                 return;
             }
 
@@ -576,12 +596,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         fileNameDisplay.style.color = '#6b7280';
                         fileNameDisplay.style.fontWeight = 'normal';
                     }
-                    alert('Signature added successfully!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'Signature added successfully!'
+                    });
                 } else {
-                    alert(data.message || 'Failed to add signature');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Failed to add signature'
+                    });
                 }
             }catch(err){
-                alert('Error adding signature');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error adding signature'
+                });
             }finally{
                 if (submitBtn) {submitBtn.disabled = false;}
             }

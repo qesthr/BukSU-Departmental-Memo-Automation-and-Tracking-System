@@ -15,6 +15,9 @@
 
 	<!-- Google Analytics Tracking -->
 	<%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+	<!-- SweetAlert2 -->
+	<%- include('../components/sweetalert2'); %>
 </head>
 <body>
 	<div class="dashboard-container">

@@ -327,6 +327,9 @@
             }
         </style>
 
+        <!-- SweetAlert2 -->
+        <%- include('../components/sweetalert2'); %>
+
         <script src="/js/password-setup.js"></script>
         <script src="/js/forgot-password-modal.js"></script>
         <script src="/js/google-auth-modal.js"></script>
@@ -445,7 +448,11 @@
 
                     } catch (error) {
                         console.error('❌ Error loading dashboard:', error);
-                        alert('Failed to load dashboard. Redirecting as fallback...');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to load dashboard. Redirecting as fallback...'
+                        });
                         // Fallback: redirect if dynamic loading fails
                         window.location.href = '/admin-dashboard';
                     }

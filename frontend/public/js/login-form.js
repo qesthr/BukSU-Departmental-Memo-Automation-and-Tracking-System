@@ -523,7 +523,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof window.showMessageModal === 'function') {
                     window.showMessageModal('Server Error', 'Unable to process login response. Please try again.', 'error');
                 } else {
-                    alert('Server Error: Unable to process login response. Please try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Server Error',
+                        text: 'Unable to process login response. Please try again.'
+                    });
                 }
                 return;
             }
@@ -533,12 +537,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.success) {
                 loginSuccessful = true;
-                if (typeof window.updateMessageModal === 'function') {
-                    window.updateMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
-                } else if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
-                }
-                loginButton.textContent = 'Success! Redirecting...';
 
                 // Redirect based on role
                 const userRole = data.user?.role;
@@ -550,7 +548,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 // eslint-disable-next-line no-console
                 console.log(' Info: Redirecting to:', redirectUrl, 'for role:', userRole);
 
-                setTimeout(() => { window.location.href = redirectUrl; }, 650);
+                // Show SweetAlert2 success modal
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Login Successful!',
+                        text: 'Redirecting to your dashboard...',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didClose: () => {
+                            window.location.href = redirectUrl;
+                        }
+                    }).then(() => {
+                        window.location.href = redirectUrl;
+                    });
+                } else {
+                    // Fallback if SweetAlert2 is not available
+                    setTimeout(() => { window.location.href = redirectUrl; }, 650);
+                }
             } else {
                 // Set loginSuccessful to false to prevent any redirects
                 loginSuccessful = false;
@@ -576,8 +594,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.showMessageModal('Account Deactivated', inactiveMessage, 'error');
                     } else {
                         // eslint-disable-next-line no-console
-                        console.error('showMessageModal is not available, using alert');
-                        alert('Account Deactivated: ' + inactiveMessage);
+                        console.error('showMessageModal is not available, using SweetAlert');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Account Deactivated',
+                            text: 'Account Deactivated: ' + inactiveMessage
+                        });
                     }
                 } else if (response.status === 423) {
                     // Account locked - show modal
@@ -588,7 +610,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('Account Locked', data.message, 'error');
                     } else {
-                        alert('Account Locked: ' + data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Account Locked',
+                            text: 'Account Locked: ' + data.message
+                        });
                     }
                 } else if (response.status === 429) {
                     // IP locked - show modal
@@ -597,7 +623,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('IP Blocked', data.message, 'error');
                     } else {
-                        alert('IP Blocked: ' + data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'IP Blocked',
+                            text: 'IP Blocked: ' + data.message
+                        });
                     }
                 } else if (data.errorCode === 'INVALID_CREDENTIALS') {
                     // Inline message for wrong email/password
@@ -609,7 +639,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (typeof window.showMessageModal === 'function') {
                         window.showMessageModal('Use Google Sign-In', data.message || 'Please sign in with Google for this account.', 'warning');
                     } else {
-                        alert('Use Google Sign-In: ' + (data.message || 'Please sign in with Google for this account.'));
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Use Google Sign-In',
+                            text: 'Use Google Sign-In: ' + (data.message || 'Please sign in with Google for this account.')
+                        });
                     }
                 } else if (data.attemptsRemaining !== undefined) {
                     // Inline message with remaining attempts
