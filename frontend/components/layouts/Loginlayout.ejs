@@ -9,6 +9,18 @@
     <link rel="icon" type="image/png" href="/images/Screenshot_2025-09-28_142025.png">
     <link rel="stylesheet" href="/css/login.css">
 
+    <style>
+        /* Progress bar shimmer animation */
+        @keyframes progressShimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+    </style>
+
     <!-- Google Analytics Tracking -->
     <% if (typeof gaPropertyId !== 'undefined' && gaPropertyId) { %>
     <!-- Google tag (gtag.js) -->

@@ -164,9 +164,22 @@
     function handleError(error, message) {
         const decodedMessage = message ? decodeURIComponent(message) : null;
 
+        // Check if user is on their own dashboard - don't show "Admin access required" errors
+        // This prevents showing irrelevant errors when faculty/secretary users access their dashboard
+        const currentPath = window.location.pathname;
+        const isDashboard = currentPath === '/dashboard' || currentPath === '/admin-dashboard';
+
+        // If error is about admin access and user is on their own dashboard, ignore it
+        // This happens when middleware redirects non-admin users from admin routes to their dashboard
+        if (error === 'unauthorized_access' && isDashboard && decodedMessage && decodedMessage.includes('Admin access required')) {
+            // Silently clean the URL - this is a redirect from an admin route, not a real error
+            cleanUrl();
+            return;
+        }
+
         switch(error) {
             case 'unauthorized_access':
-                // Show modal for unauthorized access
+                // Show modal for unauthorized access (only if not filtered out above)
                 showErrorModal(
                     'Unauthorized Access',
                     decodedMessage || 'You do not have permission to access this page. Please contact your administrator if you believe this is an error.'

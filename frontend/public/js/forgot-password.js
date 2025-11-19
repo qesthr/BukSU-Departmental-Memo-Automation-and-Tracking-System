@@ -1,5 +1,8 @@
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
+
 // Forgot Password Form Handling
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
     // Forgot Password Form
     const forgotForm = document.getElementById('forgotForm');
     if (forgotForm) {
@@ -21,15 +24,41 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage(data.message, 'success');
-                    setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1500);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message || 'Reset code sent successfully',
+                            confirmButtonColor: '#10b981',
+                            timer: 1500,
+                            timerProgressBar: true
+                        }).then(() => {
+                            window.location.href = data.redirect;
+                        });
+                    } else {
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1500);
+                    }
                 } else {
-                    showMessage(data.message, 'error');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Request Failed',
+                            text: data.message || 'Failed to send reset code',
+                            confirmButtonColor: '#ef4444'
+                        });
+                    }
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Network Error',
+                        text: 'Network error. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
         });
     }
@@ -55,15 +84,41 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage(data.message, 'success');
-                    setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1500);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message || 'Code verified successfully',
+                            confirmButtonColor: '#10b981',
+                            timer: 1500,
+                            timerProgressBar: true
+                        }).then(() => {
+                            window.location.href = data.redirect;
+                        });
+                    } else {
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1500);
+                    }
                 } else {
-                    showMessage(data.message, 'error');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Verification Failed',
+                            text: data.message || 'Invalid or expired reset code',
+                            confirmButtonColor: '#ef4444'
+                        });
+                    }
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Network Error',
+                        text: 'Network error. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
         });
     }
@@ -90,58 +145,55 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage(data.message, 'success');
-                    setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1500);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Password Reset Successful!',
+                            text: data.message || 'Your password has been reset successfully',
+                            confirmButtonColor: '#10b981',
+                            timer: 2000,
+                            timerProgressBar: true
+                        }).then(() => {
+                            window.location.href = data.redirect;
+                        });
+                    } else {
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1500);
+                    }
                 } else {
-                    showMessage(data.message, 'error');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Reset Failed',
+                            text: data.message || 'Could not reset password',
+                            confirmButtonColor: '#ef4444'
+                        });
+                    }
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Network Error',
+                        text: 'Network error. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
         });
     }
 });
 
-// Show message function
+// Show message function - replaced with SweetAlert2
 function showMessage(message, type) {
-    const existingMessage = document.querySelector('.message');
-    if (existingMessage) {
-        existingMessage.remove();
+    if (typeof Swal !== 'undefined') {
+        const icon = type === 'success' ? 'success' : 'error';
+        Swal.fire({
+            icon: icon,
+            title: type === 'success' ? 'Success' : 'Error',
+            text: message,
+            confirmButtonColor: type === 'success' ? '#10b981' : '#ef4444'
+        });
     }
-
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
-    messageDiv.textContent = message;
-
-    messageDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 8px;
-        color: white;
-        font-weight: 500;
-        z-index: 1000;
-        max-width: 300px;
-        word-wrap: break-word;
-        ${type === 'success' ? 'background-color: #4CAF50;' : 'background-color: #f44336;'}
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s ease-out;
-    `;
-
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(messageDiv);
-
-    setTimeout(() => {
-        messageDiv.remove();
-    }, 5000);
 }

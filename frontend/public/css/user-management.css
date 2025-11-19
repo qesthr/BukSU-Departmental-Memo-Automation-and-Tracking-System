@@ -304,6 +304,91 @@
     display: flex;
     gap: 0.5rem;
     justify-content: flex-end;
+    align-items: center;
+}
+
+/* Beautiful Action Buttons */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: #6b7280;
+    position: relative;
+}
+
+.action-btn i {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+}
+
+.action-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Edit Button - Blue */
+.action-btn-edit {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.action-btn-edit:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Archive Button - Orange/Amber */
+.action-btn-archive {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.action-btn-archive:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+/* Unarchive Button - Green */
+.action-btn-unarchive {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.action-btn-unarchive:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+/* View Tabs */
+.view-tab.active {
+    border-bottom-color: #1C89E3 !important;
+    color: #1C89E3 !important;
+    font-weight: 600;
+}
+
+.view-tab:hover {
+    color: #1C89E3;
 }
 
 /* User Menu */
@@ -642,6 +727,34 @@
 
 #editUserModal .btn-secondary:hover {
     background: #e2e8f0;
+}
+
+/* Archive/Delete Modal Button Styles */
+#deleteModal .btn-warning {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#deleteModal .btn-warning:hover {
+    background: #d97706;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    transform: translateY(-1px);
+}
+
+#deleteModal .btn-warning:active {
+    transform: translateY(0);
+}
+
+#deleteModal .btn-warning:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 @media (max-width: 600px) {

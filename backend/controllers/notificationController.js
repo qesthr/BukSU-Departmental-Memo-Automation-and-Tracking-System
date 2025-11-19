@@ -1,45 +1,69 @@
 const User = require('../models/User');
 const Memo = require('../models/Memo');
-const AuditLog = require('../models/AuditLog');
 
 // Get notifications for user (both received memos and activity logs)
 exports.getNotifications = async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // Get recent memos received by user (unread regular memos + activity logs)
+        // Get recent memos received by user (memo and calendar notifications only)
         // Exclude deleted and archived notifications (archived = already processed/approved/rejected)
+        // Exclude acknowledgment notifications
         const memos = await Memo.find({
             recipient: userId,
-            status: { $nin: ['deleted', 'archived'] }
+            status: { $nin: ['deleted', 'archived'] },
+            // Exclude acknowledgment notifications
+            $nor: [
+                { 'metadata.notificationType': 'acknowledgment' },
+                { subject: /^Memo Acknowledged:/i }
+            ]
         })
         .sort({ createdAt: -1 })
         .limit(20) // Get more to filter
         .populate('sender', 'firstName lastName email profilePicture department')
         .lean();
 
-        // Also fetch recent audit logs for admins
-        let auditLogs = [];
-        if (req.user && req.user.role === 'admin') {
-            auditLogs = await AuditLog.find({}).sort({ createdAt: -1 }).limit(10).lean();
+        // Format notifications - ONLY memo and calendar-related notifications
+        // Filter out all system activity logs (they go to Activity Logs page instead)
+        const memoAndCalendarActivityTypes = [
+            'memo_sent',
+            'memo_received',
+            'pending_memo',
+            'memo_approved',
+            'memo_rejected',
+            'system_notification' // Calendar events use this type
+        ];
 
-            // Enrich audit logs with user profile pictures if possible
-            const emails = Array.from(new Set((auditLogs || []).map(l => l.email).filter(Boolean)));
-            if (emails.length > 0) {
-                const auditUsers = await User.find({ email: { $in: emails } })
-                    .select('email firstName lastName profilePicture')
-                    .lean();
-                const emailToUser = Object.fromEntries(auditUsers.map(u => [u.email, u]));
-                auditLogs = auditLogs.map(l => {
-                    const u = emailToUser[l.email];
-                    return u ? { ...l, _senderUser: u } : l;
-                });
-            }
-        }
-
-        // Format notifications - only include activity logs (exclude pending acknowledgement/unread memos)
         const formattedMemoNotifications = memos
-            .filter(memo => memo.activityType !== null) // Show only activity logs, exclude unread memos
+            .filter(memo => {
+                // Exclude acknowledgment notifications (double-check in filter)
+                if (memo.metadata?.notificationType === 'acknowledgment' ||
+                    (memo.subject && /^Memo Acknowledged:/i.test(memo.subject))) {
+                    return false;
+                }
+
+                // Exclude memos created by the user (they are the sender)
+                // UNLESS it's a pending approval notification (which is sent TO them)
+                const isPendingApprovalNotification = memo.activityType === 'system_notification' &&
+                    (memo.metadata?.eventType === 'memo_review_decision' ||
+                     memo.metadata?.eventType === 'memo_pending_review') &&
+                    (memo.subject && /pending approval/i.test(memo.subject));
+
+                // If user is the sender and it's NOT a pending approval notification, exclude it
+                const senderId = memo.sender?._id?.toString() || memo.sender?.toString();
+                const userIdStr = userId.toString();
+                if (senderId === userIdStr && !isPendingApprovalNotification) {
+                    return false;
+                }
+
+                // Include regular memos (no activityType) OR memo/calendar-related activity types
+                if (!memo.activityType) {
+                    return true; // Regular memo
+                }
+                // Only include memo/calendar activity types
+                return memoAndCalendarActivityTypes.includes(memo.activityType) ||
+                       (memo.metadata && memo.metadata.eventType === 'calendar_event');
+            })
             .slice(0, 10) // Limit to 10 most recent
             .map(memo => {
                 // Normalize type for workflow-related system notifications
@@ -86,35 +110,50 @@ exports.getNotifications = async (req, res) => {
                 };
             });
 
-        const formattedAuditNotifications = auditLogs.map(l => {
-            const u = l._senderUser;
-            return {
-                id: l._id,
-                type: 'user_log',
-                title: l.subject || 'User Activity',
-                message: l.message || '',
-                sender: u
-                    ? { name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || (u.email || 'System'), email: u.email, profilePicture: u.profilePicture || null }
-                    : { name: l.email || 'System' },
-                timestamp: l.createdAt,
-                isRead: !!l.isRead,
-                hasAttachments: false,
-                metadata: { audit: true }
-            };
-        });
+        // REMOVED: Audit logs no longer appear in notifications
+        // They are now in Activity Logs page only
 
-        // Count unread activity logs only (exclude pending acknowledgement/unread memos)
+        // Count unread notifications (memo and calendar events only)
+        // Exclude acknowledgment notifications and memos created by the user
+        // BUT include pending approval notifications (even though user is sender, they're sent TO user)
         const unreadMemos = await Memo.countDocuments({
             recipient: userId,
             isRead: false,
             status: { $nin: ['deleted', 'archived'] },
-            activityType: { $ne: null } // Only count activity logs, not regular unread memos
+            // Exclude acknowledgment notifications
+            $nor: [
+                { 'metadata.notificationType': 'acknowledgment' },
+                { subject: /^Memo Acknowledged:/i }
+            ],
+            $or: [
+                // Include pending approval notifications (even if sender is user)
+                {
+                    activityType: 'system_notification',
+                    'metadata.eventType': { $in: ['memo_review_decision', 'memo_pending_review'] },
+                    subject: /pending approval/i
+                },
+                // Regular memos (where user is NOT the sender)
+                {
+                    activityType: null,
+                    sender: { $ne: userId }
+                },
+                // Memo/calendar activity types (where user is NOT the sender)
+                {
+                    activityType: { $in: memoAndCalendarActivityTypes },
+                    sender: { $ne: userId }
+                },
+                // Calendar events (where user is NOT the sender)
+                {
+                    'metadata.eventType': 'calendar_event',
+                    sender: { $ne: userId }
+                }
+            ]
         });
         const unreadCount = unreadMemos;
 
         res.json({
             success: true,
-            notifications: [...formattedAuditNotifications, ...formattedMemoNotifications].sort((a,b)=> new Date(b.timestamp)-new Date(a.timestamp)),
+            notifications: formattedMemoNotifications.sort((a,b)=> new Date(b.timestamp)-new Date(a.timestamp)),
             unreadCount
         });
     } catch (error) {

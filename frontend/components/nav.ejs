@@ -60,6 +60,14 @@
                         <span>Report</span>
                     </a>
                 </li>
+                <% if (user.role === 'admin') { %>
+                <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">
+                    <a href="/admin/activity-logs">
+                        <i data-lucide="activity" class="nav-icon"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
+                <% } %>
             </ul>
         </nav>
 

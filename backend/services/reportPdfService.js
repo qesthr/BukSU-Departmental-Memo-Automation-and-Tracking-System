@@ -8,15 +8,26 @@ async function generateReportPDF(startDate, endDate) {
     return new Promise((resolve, reject) => {
         (async () => {
             try {
-                const doc = new PDFDocument({ margin: 50, size: 'A4' });
+                // Create PDF in landscape orientation
+                const doc = new PDFDocument({
+                    margin: 50,
+                    size: [842, 595], // A4 landscape: width=842pt, height=595pt
+                    layout: 'landscape'
+                });
                 const chunks = [];
 
-                // Generate unique digital signature with date and milliseconds
+                // Generate unique digital signature with current year and milliseconds
                 const now = new Date();
-                const reportTimestamp = now.getTime(); // Milliseconds since epoch
-                const dateStr = now.toISOString().replace(/[-:]/g, '').split('.')[0]; // YYYYMMDDTHHMMSS
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
                 const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
-                const digitalSignature = `MEMOFY-${dateStr}-${milliseconds}-${reportTimestamp}`;
+                // Format: YYYYMMDDHHMMSS + milliseconds + / + identifier (last 2 digits of timestamp)
+                // Example: 202511133827/11
+                const digitalSignature = `${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}/${String(Math.floor(now.getTime() % 100)).padStart(2, '0')}`;
                 const generatedDate = now.toLocaleString('en-US', {
                     year: 'numeric',
                     month: 'long',
@@ -29,30 +40,71 @@ async function generateReportPDF(startDate, endDate) {
 
                 // Track page count for footer
                 let pageCount = 0;
-                const addPageFooter = () => {
-                    pageCount++;
-                    const footerY = doc.page.height - 30;
-                    const savedY = doc.y;
-                    doc.fontSize(7)
-                        .font('Helvetica')
-                        .fillColor('#666666')
-                        .text(
-                            `Page ${pageCount} | Generated: ${generatedDate}`,
-                            { align: 'center', y: footerY }
-                        )
-                        .text(
-                            `Digital Signature: ${digitalSignature}`,
-                            { align: 'center', y: footerY + 10 }
-                        )
-                        .fillColor('black'); // Reset color
-                    doc.y = savedY; // Restore Y position
-                };
+                let totalPagesEstimate = 1; // Will be updated as pages are added
+                const pagesWithFooter = new Set();
 
-                // Override addPage to automatically add footer
-                const originalAddPage = doc.addPage.bind(doc);
-                doc.addPage = function() {
-                    originalAddPage();
-                    addPageFooter();
+                const addPageFooter = () => {
+                    // Get current page number using bufferedPageRange
+                    let currentPageNum;
+                    try {
+                        const range = doc.bufferedPageRange();
+                        currentPageNum = range.start + range.count - 1;
+                        // Update total pages estimate based on buffered pages
+                        totalPagesEstimate = range.count;
+                    } catch (e) {
+                        // Fallback: use pageCount
+                        currentPageNum = pageCount;
+                    }
+
+                    // Only add footer if we haven't added it to this page yet
+                    if (!pagesWithFooter.has(currentPageNum)) {
+                        pageCount++;
+                        pagesWithFooter.add(currentPageNum);
+
+                        // Position footer inside the page margins (50pt margin)
+                        const footerY = doc.page.height - 50; // 50pt from bottom (inside margin)
+                        const savedY = doc.y;
+                        const savedX = doc.x;
+
+                        // Draw footer background line (inside margins)
+                        doc.moveTo(50, footerY - 5)
+                            .lineTo(doc.page.width - 50, footerY - 5)
+                            .strokeColor('#CCCCCC')
+                            .lineWidth(0.5)
+                            .stroke();
+
+                        // Left side: Digital Signature (inside left margin)
+                        doc.fontSize(8)
+                            .font('Helvetica')
+                            .fillColor('#666666')
+                            .text(
+                                digitalSignature,
+                                50,
+                                footerY,
+                                {
+                                    width: (doc.page.width - 100) / 2,
+                                    align: 'left'
+                                }
+                            );
+
+                        // Right side: Page number (Page X/Y format, inside right margin)
+                        // Use totalPagesEstimate if we have multiple pages
+                        const pageText = totalPagesEstimate > 1 ? `Page ${pageCount}/${totalPagesEstimate}` : `Page ${pageCount}`;
+                        doc.text(
+                            pageText,
+                            doc.page.width / 2,
+                            footerY,
+                            {
+                                width: (doc.page.width - 100) / 2,
+                                align: 'right'
+                            }
+                        )
+                            .fillColor('black'); // Reset color
+
+                        // Restore position
+                        doc.x = savedX;
+                        doc.y = savedY;
+                    }
                 };
 
                 // Collect PDF data
@@ -104,6 +156,9 @@ async function generateReportPDF(startDate, endDate) {
                     .lineWidth(0.5)
                     .stroke()
                     .moveDown(1);
+
+                // Add footer to first page
+                addPageFooter();
 
                 // Overall Statistics Section
                 doc.fontSize(16)
@@ -233,9 +288,20 @@ async function generateReportPDF(startDate, endDate) {
                         const status = activity.status || 'unknown';
                         const subject = activity.subject || 'No subject';
 
-                        // Check if we need a new page
-                        if (doc.y > 700) {
+                        // Check if we need a new page (adjusted for landscape: height is 595pt)
+                        // Reserve space for footer (50pt from bottom) + some padding
+                        const footerAreaHeight = 60; // Space reserved for footer
+                        if (doc.y > doc.page.height - footerAreaHeight) {
+                            // Add footer to current page before adding new page
+                            addPageFooter();
                             doc.addPage();
+                            // Update total pages estimate
+                            try {
+                                const range = doc.bufferedPageRange();
+                                totalPagesEstimate = range.count;
+                            } catch (e) {
+                                totalPagesEstimate++;
+                            }
                         }
 
                         doc.text(`${index + 1}. ${date} - ${status.toUpperCase()}`, { indent: 20 })
@@ -248,7 +314,8 @@ async function generateReportPDF(startDate, endDate) {
                     doc.moveDown(1);
                 }
 
-                // Add footer to first page
+                // Ensure footer is added to the last page
+                // At this point, totalPages should reflect the actual total
                 addPageFooter();
 
                 doc.end();

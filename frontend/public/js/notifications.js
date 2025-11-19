@@ -30,7 +30,6 @@
 
         let notifications = [];
         let unreadCount = 0;
-        let currentTab = 'memos'; // 'memos' | 'audit'
 
         // Check if notification button exists
         if (!notificationBtn) {
@@ -69,13 +68,9 @@
                         <span>Mark All Read</span>
                     </button>
                 </div>
-                <div class="notif-tabs" style="display:flex; gap:.5rem; padding:.5rem 1rem; border-bottom:1px solid #e2e8f0;">
-                    <button id="notifTabMemos" class="notif-tab active" style="padding:.4rem .65rem; border:none; background:#eef2f7; border-radius:6px; font-size:.85rem; cursor:pointer;">For You</button>
-                    <button id="notifTabAudit" class="notif-tab" style="padding:.4rem .65rem; border:none; background:transparent; border-radius:6px; font-size:.85rem; cursor:pointer;">System Activity</button>
-                </div>
                 <div class="notification-list" id="notificationList" style="max-height: 450px; overflow-y: auto;"></div>
                 <div class="notification-footer">
-                    <a href="/admin/log" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View all in Log</a>
+                    <a href="/admin/activity-logs" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View Activity Logs</a>
                 </div>
             `;
 
@@ -319,13 +314,14 @@
             return;
         }
 
-        const filtered = notifications.filter(n => currentTab === 'audit' ? n.type === 'user_log' : n.type !== 'user_log');
+        // Filter out any remaining audit logs (shouldn't be any, but just in case)
+        const filtered = notifications.filter(n => n.type !== 'user_log');
 
         if (filtered.length === 0) {
             list.innerHTML = `
                 <div style="padding: 3rem 2rem; text-align: center; color: #64748b;">
                     <i data-lucide="bell-off" style="width: 64px; height: 64px; color: #cbd5e1; margin: 0 auto 1rem; display: block;"></i>
-                    <p style="margin: 0; font-size: 0.875rem;">No ${currentTab === 'audit' ? 'system activity' : 'notifications'} to show</p>
+                    <p style="margin: 0; font-size: 0.875rem;">No notifications to show</p>
                 </div>
             `;
             if (window.lucide) {
@@ -458,11 +454,7 @@
                 console.log('Opening notification modal with ID:', finalMemoId, 'Type:', notificationType);
 
                 try {
-                    if (notificationType === 'user_log') {
-                        await openAuditLogModal(id);
-                    } else {
                         await openMemoModal(finalMemoId);
-                    }
                     // eslint-disable-next-line no-console
                     console.log('openMemoModal call completed');
                 } catch (modalError) {
@@ -475,32 +467,6 @@
         });
     }
 
-    async function openAuditLogModal(auditId){
-        if (!auditId) {return;}
-        const res = await fetch(`/api/audit/logs/${auditId}`, { credentials: 'same-origin' });
-        const data = await res.json();
-        if (!res.ok || !data.success) {throw new Error('Failed to load audit log');}
-        const log = data.log;
-        const memoLike = {
-            _id: log._id,
-            subject: log.subject || 'User Activity',
-            content: log.message || '',
-            sender: { email: log.email || 'system' },
-            recipient: null,
-            department: 'System',
-            priority: 'low',
-            createdAt: log.createdAt,
-            activityType: 'user_activity',
-            metadata: { userEmail: log.email, isAuditLog: true }
-        };
-        let memoModal = document.getElementById('notificationMemoModal');
-        if (!memoModal) {memoModal = createMemoModal();}
-        populateMemoModal(memoLike, memoModal);
-        memoModal.style.setProperty('display', 'flex', 'important');
-        memoModal.style.setProperty('visibility', 'visible', 'important');
-        memoModal.style.setProperty('opacity', '1', 'important');
-        document.body.style.overflow = 'hidden';
-    }
 
     // Mark all as read functionality
     const markAllReadBtn = document.getElementById('markAllReadBtn');
@@ -509,7 +475,7 @@
             e.stopPropagation();
             try {
                 // Mark all unread notifications as read
-                const unreadNotifications = notifications.filter(n => !n.isRead && (currentTab === 'audit' ? n.type === 'user_log' : n.type !== 'user_log'));
+                const unreadNotifications = notifications.filter(n => !n.isRead && n.type !== 'user_log');
                 const promises = unreadNotifications.map(notif => markAsRead(notif.id));
                 await Promise.all(promises);
             } catch (error) {
@@ -519,25 +485,6 @@
         });
     }
 
-    // Tabs handlers
-    const tabMemos = document.getElementById('notifTabMemos');
-    const tabAudit = document.getElementById('notifTabAudit');
-    if (tabMemos && tabAudit) {
-        tabMemos.addEventListener('click', (e) => {
-            e.stopPropagation();
-            currentTab = 'memos';
-            tabMemos.classList.add('active');
-            tabAudit.classList.remove('active');
-            renderNotifications();
-        });
-        tabAudit.addEventListener('click', (e) => {
-            e.stopPropagation();
-            currentTab = 'audit';
-            tabAudit.classList.add('active');
-            tabMemos.classList.remove('active');
-            renderNotifications();
-        });
-    }
 
     // Mark notification as read
     async function markAsRead(id) {
@@ -1138,7 +1085,7 @@
 
             bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
 
-            // Footer actions for admin approval workflow
+            // Footer actions for admin approval workflow and recipient acknowledgment
             const footer = modal.querySelector('#notificationMemoFooter');
             if (footer) {
                 footer.innerHTML = '';
@@ -1165,6 +1112,26 @@
                     if (tx) {tx.textContent = text || 'Done';}
                     overlay.style.display = 'flex';
                 }
+
+                // Check if current user is recipient and can acknowledge
+                const currentUserId = window.currentUser?._id || window.currentUser?.id;
+                const isRecipient = memo.recipient && (
+                    (memo.recipient._id && memo.recipient._id.toString() === currentUserId?.toString()) ||
+                    (memo.recipient.toString && memo.recipient.toString() === currentUserId?.toString())
+                );
+                // Check if user is the sender (should not see acknowledge button)
+                const isSender = memo.sender && (
+                    (memo.sender._id && memo.sender._id.toString() === currentUserId?.toString()) ||
+                    (memo.sender.toString && memo.sender.toString() === currentUserId?.toString())
+                );
+                const acknowledgments = memo.acknowledgments || [];
+                const acknowledgedUserIds = acknowledgments.map(ack =>
+                    ack.userId?._id?.toString() || ack.userId?.toString()
+                ).filter(Boolean);
+                const isAcknowledged = isRecipient && acknowledgedUserIds.includes(currentUserId?.toString());
+                // Only show acknowledge button if user is recipient AND NOT the sender
+                const canAcknowledge = isRecipient && !isSender && !isAcknowledged && isActualMemo;
+
                 const statusStr = (memo.status || '').toString();
                 // Check if this is a notification about a pending memo (check metadata for original memo)
                 const isNotificationAboutPending = memo.metadata &&
@@ -1492,33 +1459,80 @@
                     // Ensure footer stays at bottom of modal
                     footer.style.position = 'relative';
                     footer.style.zIndex = '1';
-                } else if (isUserLog && isAdminUser) {
+                } else if (canAcknowledge) {
+                    // Show acknowledge button for recipients
                     footer.style.display = 'flex';
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = 'Delete Log';
-                    deleteBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;';
-                    deleteBtn.onclick = async () => {
+                    footer.style.flexDirection = 'row';
+                    footer.style.gap = '12px';
+                    footer.style.justifyContent = 'flex-end';
+                    footer.style.alignItems = 'center';
+
+                    const acknowledgeBtn = document.createElement('button');
+                    acknowledgeBtn.innerHTML = '<i data-lucide="check-circle" style="width: 16px; height: 16px; margin-right: 6px;"></i>Acknowledge';
+                    acknowledgeBtn.style.cssText = 'background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:140px;display:flex;align-items:center;justify-content:center;';
+
+                    acknowledgeBtn.addEventListener('mouseenter', () => {
+                        acknowledgeBtn.style.background = '#15803d';
+                    });
+                    acknowledgeBtn.addEventListener('mouseleave', () => {
+                        acknowledgeBtn.style.background = '#16a34a';
+                    });
+
+                    acknowledgeBtn.onclick = async () => {
                         try {
-                            // Show modal overlay, then perform delete
-                            showActionOverlay('Deleting...');
-                            await new Promise(r => setTimeout(r, 500));
-                            const endpoint = (memo.metadata && memo.metadata.isAuditLog) ? `/api/audit/logs/${memo._id}` : `/api/log/memos/${memo._id}`;
-                            const res = await fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' });
-                            if (!res.ok) {throw new Error('Failed to delete');}
-                            showActionOverlaySuccess('Deleted');
-                            // Remove from list if it exists in dropdown
-                            const notifItem = document.querySelector(`.notification-item[data-memo-id="${memo._id}"]`);
-                            if (notifItem && notifItem.parentNode) {notifItem.parentNode.removeChild(notifItem);}
-                            setTimeout(() => { closeMemoModal(); fetchNotifications && fetchNotifications(); }, 600);
+                            acknowledgeBtn.disabled = true;
+                            showActionOverlay('Acknowledging...');
+
+                            const res = await fetch(`/api/log/memos/${memo._id}/acknowledge`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'same-origin'
+                            });
+
+                            const data = await res.json();
+                            if (!res.ok) {
+                                throw new Error(data.message || 'Failed to acknowledge memo');
+                            }
+
+                            showActionOverlaySuccess('Acknowledged');
+
+                            // Update memo to reflect acknowledgment
+                            memo.acknowledgments = data.memo?.acknowledgments || memo.acknowledgments || [];
+
+                            // Hide button after successful acknowledgment
+                            setTimeout(() => {
+                                footer.style.display = 'none';
+                                const overlay = modal.querySelector('#notificationActionOverlay');
+                                if (overlay) overlay.style.display = 'none';
+                            }, 700);
+
+                            // Refresh notifications
+                            if (typeof fetchNotifications === 'function') {
+                                setTimeout(() => fetchNotifications(), 800);
+                            }
                         } catch (err) {
+                            acknowledgeBtn.disabled = false;
+                            const overlay = modal.querySelector('#notificationActionOverlay');
+                            if (overlay) overlay.style.display = 'none';
+
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
-                                text: err?.message || 'Delete failed'
+                                text: err?.message || 'Failed to acknowledge memo'
                             });
                         }
                     };
-                    footer.appendChild(deleteBtn);
+
+                    footer.appendChild(acknowledgeBtn);
+
+                    // Ensure footer stays at bottom of modal
+                    footer.style.position = 'relative';
+                    footer.style.zIndex = '1';
+
+                    // Initialize Lucide icons for the button
+                    if (window.lucide) {
+                        setTimeout(() => window.lucide.createIcons(), 100);
+                    }
                 } else {
                     footer.style.display = 'none';
                 }

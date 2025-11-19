@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const starBtn = document.getElementById('starBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const archiveBtn = document.getElementById('archiveBtn');
+    const acknowledgeBtn = document.getElementById('acknowledgeBtn');
+    const reminderBtn = document.getElementById('reminderBtn');
     const memoCounter = document.getElementById('memoCounter');
     const refreshBtn = document.getElementById('refreshBtn');
     const selectDropdownBtn = document.getElementById('selectDropdownBtn');
@@ -249,6 +251,98 @@ document.addEventListener('DOMContentLoaded', () => {
         section.style.display = 'grid';
     }
 
+    // Handle archive signature action
+    async function handleArchiveSignature(signatureId, signatureName, container, refreshCallback) {
+        if (typeof Swal === 'undefined') {
+            // Fallback if SweetAlert2 is not available
+            if (confirm(`Are you sure you want to archive "${signatureName}"?`)) {
+                await performArchiveSignature(signatureId, container, refreshCallback);
+            }
+            return;
+        }
+
+        Swal.fire({
+            title: 'Archive Signature',
+            html: `Are you sure you want to archive <strong>${signatureName}</strong>?<br><br>Archived signatures will be hidden from the template dropdown.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Archive',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true,
+            focusConfirm: false,
+            focusCancel: true,
+            allowOutsideClick: false,
+            allowEscapeKey: true,
+            showLoaderOnConfirm: true,
+            customClass: {
+                container: 'swal2-container-compose-modal'
+            },
+            preConfirm: async () => {
+                return await performArchiveSignature(signatureId, container, refreshCallback);
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value?.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Archived',
+                    text: `Signature "${signatureName}" has been archived successfully`,
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end',
+                    customClass: {
+                        container: 'swal2-container-compose-modal'
+                    }
+                });
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                // User cancelled, do nothing
+            }
+        });
+    }
+
+    // Perform the actual archive API call
+    async function performArchiveSignature(signatureId, container, refreshCallback) {
+        try {
+            const response = await fetch(`/api/signatures/${signatureId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to archive signature';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (err) {
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to archive signature');
+            }
+
+            // Refresh the signature dropdown
+            if (refreshCallback && typeof refreshCallback === 'function') {
+                await refreshCallback();
+            }
+
+            return { success: true };
+        } catch (error) {
+            if (typeof Swal !== 'undefined') {
+                Swal.showValidationMessage(error.message || 'Failed to archive signature. Please try again.');
+            } else {
+                alert(error.message || 'Failed to archive signature. Please try again.');
+            }
+            return { success: false };
+        }
+    }
+
     function attachTemplateHandlers(modal){
         const dropdownBtn = modal.querySelector('#templateDropdownBtn');
         const dropdownMenu = modal.querySelector('#templateDropdownMenu');
@@ -279,16 +373,65 @@ document.addEventListener('DOMContentLoaded', () => {
             if (signatures.length === 0) {
                 container.innerHTML = '<div style="padding:8px; color:#6b7280; font-size:12px; text-align:center;">No signatures available</div>';
             } else {
+                // Check if user is admin (for archive button visibility)
+                const isAdmin = window.currentUser && window.currentUser.role === 'admin';
+
                 signatures.forEach(sig => {
                     const label = document.createElement('label');
                     label.className = 'dept-checkbox-label';
                     label.style.cursor = 'pointer';
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.justifyContent = 'space-between';
+                    label.style.padding = '4px 8px';
+                    label.style.margin = '2px 0';
+                    label.style.borderRadius = '4px';
+                    label.style.transition = 'background-color 0.2s';
+
                     label.innerHTML = `
-                        <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}">
-                        <span>${sig.displayName || sig.roleTitle}</span>
+                        <div style="display: flex; align-items: center; flex: 1; cursor: pointer;">
+                            <input type="checkbox" class="template-checkbox" value="${sig.id||sig._id}" style="margin-right: 8px;">
+                            <span style="flex: 1;">${sig.displayName || sig.roleTitle}</span>
+                        </div>
+                        ${isAdmin ? `
+                            <button type="button" class="signature-archive-btn" data-signature-id="${sig.id||sig._id}" data-signature-name="${sig.displayName || sig.roleTitle}"
+                                style="background: none; border: none; color: #f59e0b; cursor: pointer; padding: 4px 6px; border-radius: 4px; opacity: 0.7; transition: all 0.2s; display: flex; align-items: center;"
+                                title="Archive signature">
+                                <i data-lucide="archive" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        ` : ''}
                     `;
+
+                    // Add hover effect
+                    label.addEventListener('mouseenter', () => {
+                        label.style.backgroundColor = '#f3f4f6';
+                    });
+                    label.addEventListener('mouseleave', () => {
+                        label.style.backgroundColor = 'transparent';
+                    });
+
                     container.appendChild(label);
                 });
+
+                // Initialize Lucide icons for archive buttons
+                if (typeof lucide !== 'undefined') {
+                    setTimeout(() => {
+                        lucide.createIcons();
+                    }, 100);
+                }
+
+                // Attach archive button handlers
+                if (isAdmin) {
+                    container.querySelectorAll('.signature-archive-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const signatureId = btn.getAttribute('data-signature-id');
+                            const signatureName = btn.getAttribute('data-signature-name');
+                            await handleArchiveSignature(signatureId, signatureName, container, populateTemplateDropdown);
+                        });
+                    });
+                }
             }
         }
 
@@ -910,16 +1053,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_VISIBLE_CHIPS = 5; // Show max 5 chips, then "+N more"
 
     // Load registered users on page load
-    fetch('/api/users/emails')
-        .then(res => res.json())
-        .then(data => {
+    async function loadRegisteredUsers() {
+        try {
+            const res = await fetch('/api/users/emails');
+            if (!res.ok) {
+                console.error('Failed to load registered users:', res.status, res.statusText);
+                return;
+            }
+            const data = await res.json();
             registeredUsers = Array.isArray(data) ? data : [];
             // Create email lookup map for quick validation
             window.registeredUsersMap = new Map(registeredUsers.map(u => [u.email.toLowerCase(), u]));
-        })
-        .catch(err => {
+            console.log('Loaded registered users for autocomplete:', registeredUsers.length);
+        } catch (err) {
             console.error('Error loading registered users:', err);
-        });
+        }
+    }
+
+    // Load users immediately
+    loadRegisteredUsers();
 
     // Recipient chips handling (Gmail-style with collapsible "+N more")
     const recipientsInput = document.getElementById('recipients');
@@ -1001,14 +1153,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function ensureRecipientSuggest(){
         if (recipientSuggestEl) {return recipientSuggestEl;}
         const wrapper = recipientsInput && recipientsInput.parentElement;
-        if (!wrapper) {return null;}
+        if (!wrapper) {
+            console.error('Recipient input wrapper not found');
+            return null;
+        }
+        // Ensure wrapper allows overflow for dropdown
+        if (wrapper.style) {
+            wrapper.style.overflow = 'visible';
+            wrapper.style.position = 'relative';
+        }
         const ul = document.createElement('ul');
         ul.id = 'recipientSuggestions';
         ul.style.position = 'absolute';
         ul.style.left = '0';
         ul.style.right = '0';
         ul.style.top = '100%';
-        ul.style.margin = '4px 0 0 0';
+        ul.style.marginTop = '4px';
         ul.style.padding = '4px 0';
         ul.style.listStyle = 'none';
         ul.style.background = '#fff';
@@ -1032,11 +1192,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openRecipientSuggest(items){
         const ul = ensureRecipientSuggest();
-        if (!ul) {return;}
+        if (!ul) {
+            console.error('Could not create recipient suggestions dropdown');
+            return;
+        }
+        if (!items || items.length === 0) {
+            ul.style.display = 'none';
+            return;
+        }
         recipientSuggestItems = items;
         recipientSuggestIndex = -1;
         ul.innerHTML = items.map((u, i) => `
-            <li data-i="${i}" style="padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+            <li data-i="${i}" style="padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background-color 0.15s;">
                 <img src="${u.profilePicture || '/images/memofy-logo.png'}" onerror="this.src='/images/memofy-logo.png'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;"/>
                 <div style="display:flex;flex-direction:column;">
                     <span style="font-size:13px;color:#0f172a;font-weight:600;">${(u.firstName||'') + ' ' + (u.lastName||'')}</span>
@@ -1044,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </li>
         `).join('');
-        ul.style.display = items.length ? 'block' : 'none';
+        ul.style.display = 'block';
         // mouse selection
         ul.querySelectorAll('li').forEach(li => {
             li.addEventListener('mouseenter', () => {
@@ -1085,17 +1252,38 @@ document.addEventListener('DOMContentLoaded', () => {
             ? String(window.currentUser.department).toLowerCase()
             : '';
 
-        recipientsInput.addEventListener('input', () => {
+        recipientsInput.addEventListener('input', (e) => {
             const q = (recipientsInput.value || '').trim().toLowerCase();
             if (!q) { closeRecipientSuggest(); return; }
 
+            // If registeredUsers is empty, try to reload
+            if (!registeredUsers || registeredUsers.length === 0) {
+                console.warn('Registered users not loaded yet, attempting to reload...');
+                loadRegisteredUsers().then(() => {
+                    // Retry the search after loading
+                    const retryQ = (recipientsInput.value || '').trim().toLowerCase();
+                    if (retryQ) {
+                        recipientsInput.dispatchEvent(new Event('input'));
+                    }
+                });
+                return;
+            }
+
             const picked = new Set(recipientData.map(u => String(u.email).toLowerCase()));
+            const isAdmin = window.currentUser?.role === 'admin';
+
             const results = (registeredUsers || []).filter(u => {
                 const email = String(u.email || '').toLowerCase();
                 if (!email || picked.has(email)) { return false; }
 
                 const role = String(u.role || '').toLowerCase();
-                if (role === 'admin') { return false; } // prevent sending to admins
+                // Admins can send to other users, but not to other admins (unless it's themselves)
+                if (role === 'admin' && !isAdmin) { return false; }
+                // For admins, allow sending to secretaries and faculty
+                if (isAdmin && role === 'admin') {
+                    // Allow admins to send to other admins if needed
+                    // But typically admins send to secretaries/faculty
+                }
 
                 const name = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
                 const matchesQuery = name.includes(q) || email.includes(q);
@@ -1110,7 +1298,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 return true;
             }).slice(0, 8);
-            if (results.length) {openRecipientSuggest(results);} else {closeRecipientSuggest();}
+
+            if (results.length) {
+                openRecipientSuggest(results);
+            } else {
+                closeRecipientSuggest();
+            }
         });
 
         recipientsInput.addEventListener('keydown', (e) => {
@@ -2190,13 +2383,29 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkArchiveBtn.addEventListener('click', async () => {
             const checkedBoxes = Array.from(document.querySelectorAll('.memo-checkbox')).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
             if (checkedBoxes.length === 0) {
-                showNotification('No memos selected', 'error');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Selection',
+                    text: 'No memos selected',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
                 return;
             }
 
             const memoIds = checkedBoxes.map(cb => cb.dataset.memoId).filter(id => id);
             if (memoIds.length === 0) {
-                showNotification('No valid memos to archive', 'error');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Selection',
+                    text: 'No valid memos to archive',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
                 return;
             }
 
@@ -2214,7 +2423,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const successCount = results.filter(r => r.success).length;
 
                 if (successCount > 0) {
-                    showNotification(`Archived ${successCount} memo${successCount > 1 ? 's' : ''}`, 'success');
+                    // Show SweetAlert success notification
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: `Archived ${successCount} memo${successCount > 1 ? 's' : ''}`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
                     // Uncheck all checkboxes
                     checkedBoxes.forEach(cb => {
                         cb.checked = false;
@@ -2223,11 +2441,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Refresh memo list
                     fetchMemos();
                 } else {
-                    showNotification('Failed to archive memos', 'error');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed',
+                        text: 'Failed to archive memos',
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
                 }
             } catch (error) {
                 console.error('Error archiving memos:', error);
-                showNotification('Error archiving memos', 'error');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error archiving memos',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
             }
         });
     }
@@ -2252,10 +2486,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
-                // Show undo notification
-                showUndoNotification('Memo archived', () => {
-                    // Undo function - unarchive the memo (move back to sent)
-                    undoArchive(archivedMemoIndex, memoToArchive);
+                // Show SweetAlert toast notification
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Memo Archived',
+                    text: 'Memo has been archived successfully',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end',
+                    showCancelButton: false
                 });
 
                 // Remove from lists
@@ -2290,13 +2530,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Insert back in lists
                 memos.splice(index, 0, memoObj);
                 filteredMemos.splice(index, 0, memoObj);
-                showNotification('Archive undone', 'success');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Archive Undone',
+                    text: 'Memo has been restored',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
                 renderMemoList();
                 fetchMemos();
             }
         } catch (e) {
             console.error('Undo archive failed:', e);
-            showNotification('Failed to undo archive', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'Failed',
+                text: 'Failed to undo archive',
+                timer: 2000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
         }
     }
 
@@ -2572,13 +2828,29 @@ document.addEventListener('DOMContentLoaded', () => {
             // Regular memo format (unchanged)
             // For sent folder: show recipient info and "Sent:" prefix
             // For inbox/other folders: show sender info (default)
+            // Special case: For admin approval/rejection actions, show "You:" instead of "From:"
             let displayUser, displayLabel, subjectPrefix;
+
+            // Check if this is an admin approval/rejection action memo
+            const eventType = memo.metadata?.eventType;
+            const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
+            const currentUserId = window.currentUser?.id || window.currentUser?._id;
+            const isCurrentUserAdmin = window.currentUser?.role === 'admin';
+            const isRecipientCurrentUser = memo.recipient && (
+                (memo.recipient._id?.toString() === currentUserId?.toString()) ||
+                (memo.recipient.toString() === currentUserId?.toString())
+            );
 
             if (isSentFolder) {
                 // Sent folder: show recipient (who we sent it to)
                 displayUser = memo.recipient;
                 displayLabel = 'To';
                 subjectPrefix = 'Sent: ';
+            } else if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
+                // Admin approval/rejection action: show "You:" instead of "From:"
+                displayUser = window.currentUser;
+                displayLabel = 'You';
+                subjectPrefix = '';
             } else {
                 // Inbox/Received: show sender (who sent it to us)
                 displayUser = memo.sender;
@@ -2594,7 +2866,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Action badge (Approved/Rejected Memo)
             let actionBadge = '';
-            const eventType = memo.metadata?.eventType;
             const memoStatus = memo.status?.toLowerCase();
             if (eventType === 'memo_approved_by_admin' || memoStatus === 'approved') {
                 actionBadge = '<span class="action-badge approved-badge" title="Approved Memo" style="display: inline-block; padding: 4px 10px; background: #10b981; color: white; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; text-transform: uppercase;">✓ Approved Memo</span>';
@@ -2926,7 +3197,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // If memo doesn't have signatures but has an ID, fetch full memo to get signatures
-        if (memo._id && (!memo.signatures || memo.signatures.length === 0)) {
+        // Always fetch full memo to ensure recipients are populated correctly
+        if (memo._id) {
             fetch(`/api/log/memos/${memo._id}`, { credentials: 'same-origin' })
                 .then(res => res.json())
                 .then(data => {
@@ -2991,19 +3263,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (memoDetailFrom) {
-            const senderName = memo.sender
-                ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
-                : 'Unknown Sender';
-            const senderEmail = memo.sender?.email || '';
-            memoDetailFrom.textContent = senderEmail ? `${senderName} (${senderEmail})` : senderName;
+            // Check if this is an admin approval/rejection action memo
+            const eventType = memo.metadata?.eventType;
+            const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
+            const currentUserId = window.currentUser?.id || window.currentUser?._id;
+            const isCurrentUserAdmin = window.currentUser?.role === 'admin';
+            const isRecipientCurrentUser = memo.recipient && (
+                (memo.recipient._id?.toString() === currentUserId?.toString()) ||
+                (memo.recipient.toString() === currentUserId?.toString())
+            );
+
+            let displayName, displayEmail, displayLabel;
+            if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
+                // Admin approval/rejection action: show "You:" instead of "From:"
+                displayLabel = 'You';
+                displayName = window.currentUser?.firstName && window.currentUser?.lastName
+                    ? `${window.currentUser.firstName} ${window.currentUser.lastName}`.trim()
+                    : window.currentUser?.email || 'You';
+                displayEmail = window.currentUser?.email || '';
+            } else {
+                // Regular memo: show sender
+                displayLabel = 'From';
+                displayName = memo.sender
+                    ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
+                    : 'Unknown Sender';
+                displayEmail = memo.sender?.email || '';
+            }
+
+            // Update the label (find the label element that comes before memoDetailFrom)
+            const fromRow = memoDetailFrom.closest('.memo-detail-row');
+            if (fromRow) {
+                const labelElement = fromRow.querySelector('.memo-detail-label');
+                if (labelElement) {
+                    labelElement.textContent = displayLabel + ':';
+                }
+            }
+
+            memoDetailFrom.textContent = displayEmail ? `${displayName} (${displayEmail})` : displayName;
         }
 
         if (memoDetailTo) {
-            const recipientName = memo.recipient
-                ? `${memo.recipient.firstName || ''} ${memo.recipient.lastName || ''}`.trim()
-                : 'Unknown Recipient';
-            const recipientEmail = memo.recipient?.email || '';
-            memoDetailTo.textContent = recipientEmail ? `${recipientName} (${recipientEmail})` : recipientName;
+            // Get all recipients (from recipients array or single recipient)
+            const allRecipients = [];
+            if (memo.recipients && memo.recipients.length > 0) {
+                allRecipients.push(...memo.recipients);
+            } else if (memo.recipient) {
+                allRecipients.push(memo.recipient);
+            }
+
+            if (allRecipients.length > 0) {
+                // Format recipients list
+                const recipientList = allRecipients.map(recip => {
+                    // Handle both populated objects and ObjectIds
+                    if (typeof recip === 'string' || recip instanceof Object && !recip.firstName && !recip.email) {
+                        // It's an ObjectId, skip it (shouldn't happen if populated correctly)
+                        return null;
+                    }
+                    const name = `${recip.firstName || ''} ${recip.lastName || ''}`.trim();
+                    const email = recip.email || '';
+                    return email ? `${name} (${email})` : name || email || 'Unknown';
+                }).filter(Boolean).join(', ');
+                memoDetailTo.textContent = recipientList || 'Unknown Recipient';
+            } else {
+                memoDetailTo.textContent = 'Unknown Recipient';
+            }
         }
 
         if (memoDetailDepartment) {
@@ -3206,6 +3529,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update star button
         updateStarButton(memo.isStarred);
 
+        // Update acknowledgment UI
+        updateAcknowledgmentUI(memo);
+
         // Hide separate attachments div - attachments are now inline with content (Gmail style)
         // All attachments are displayed inline within memoBodyContent above
         if (attachmentsDiv) {
@@ -3280,6 +3606,343 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bytes < 1024) {return bytes + ' B';}
         if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB';}
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Update acknowledgment UI based on memo and current user
+    function updateAcknowledgmentUI(memo) {
+        if (!memo || !window.currentUser) return;
+
+        const currentUserId = window.currentUser._id || window.currentUser.id;
+        const isRecipient = memo.recipient && (memo.recipient._id?.toString() === currentUserId.toString() || memo.recipient.toString() === currentUserId.toString());
+        const isSender = memo.sender && (memo.sender._id?.toString() === currentUserId.toString() || memo.sender.toString() === currentUserId.toString());
+
+        // Get acknowledgments array (default to empty array)
+        const acknowledgments = memo.acknowledgments || [];
+        const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
+        const isAcknowledged = isRecipient && acknowledgedUserIds.includes(currentUserId.toString());
+
+        // Show/hide acknowledge button for recipients (but not if user is also the sender)
+        if (acknowledgeBtn) {
+            if (isRecipient && !isSender && !isAcknowledged) {
+                acknowledgeBtn.style.display = 'inline-flex';
+            } else {
+                acknowledgeBtn.style.display = 'none';
+            }
+        }
+
+        // Show/hide reminder button and acknowledgment status for senders
+        if (reminderBtn) {
+            if (isSender) {
+                reminderBtn.style.display = 'inline-flex';
+            } else {
+                reminderBtn.style.display = 'none';
+            }
+        }
+
+        // Display acknowledgment status for approved memos (for senders or anyone viewing approved memos)
+        const isApproved = memo.status && memo.status.toLowerCase() === 'approved';
+        if (isApproved || isSender) {
+            displayAcknowledgmentStatus(memo);
+        } else {
+            const statusDiv = document.getElementById('acknowledgmentStatus');
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+        }
+    }
+
+    // Display recipient avatars with acknowledged status inline in the "To:" field
+    function displayRecipientAvatarsInline(memo, allRecipients) {
+        const avatarsDiv = document.getElementById('recipientAvatarsInline');
+        if (!avatarsDiv) return;
+
+        const acknowledgments = memo.acknowledgments || [];
+        const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
+
+        if (allRecipients.length === 0) {
+            avatarsDiv.innerHTML = '';
+            return;
+        }
+
+        let avatarsHTML = '';
+        allRecipients.forEach(recipient => {
+            const recipientId = recipient._id?.toString() || recipient.toString();
+            const isAcknowledged = acknowledgedUserIds.includes(recipientId);
+            const recipientName = recipient.firstName && recipient.lastName
+                ? `${recipient.firstName} ${recipient.lastName}`.trim()
+                : recipient.email || 'Unknown';
+            const initials = recipient.firstName && recipient.lastName
+                ? (recipient.firstName.charAt(0) + recipient.lastName.charAt(0)).toUpperCase()
+                : (recipient.email || '?').charAt(0).toUpperCase();
+            const profilePicture = recipient.profilePicture || null;
+
+            const statusClass = isAcknowledged ? 'acknowledged' : 'unacknowledged';
+            const statusTitle = isAcknowledged ? `${recipientName} - Acknowledged` : `${recipientName} - Not acknowledged`;
+
+            avatarsHTML += `
+                <div class="recipient-avatar-inline ${statusClass}" title="${statusTitle}">
+                    ${profilePicture
+                        ? `<img src="${profilePicture}" alt="${recipientName}" onerror="this.parentElement.querySelector('.avatar-initials-inline').style.display='flex'; this.style.display='none';" />`
+                        : ''
+                    }
+                    <div class="avatar-initials-inline" style="${profilePicture ? 'display: none;' : 'display: flex;'}">${initials}</div>
+                    ${isAcknowledged ? '<div class="avatar-checkmark-inline">✓</div>' : ''}
+                </div>
+            `;
+        });
+
+        avatarsDiv.innerHTML = avatarsHTML;
+    }
+
+    // Display acknowledgment status (for senders) - compact version with avatars
+    function displayAcknowledgmentStatus(memo) {
+        const statusDiv = document.getElementById('acknowledgmentStatus');
+        const avatarsDiv = document.getElementById('acknowledgmentAvatars');
+        const reminderBtnCompact = document.getElementById('reminderBtnCompact');
+
+        if (!statusDiv || !avatarsDiv) return;
+
+        const acknowledgments = memo.acknowledgments || [];
+        const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
+
+        // Get all recipients
+        const allRecipients = [];
+        if (memo.recipients && memo.recipients.length > 0) {
+            allRecipients.push(...memo.recipients);
+        } else if (memo.recipient) {
+            allRecipients.push(memo.recipient);
+        }
+
+        if (allRecipients.length === 0) {
+            statusDiv.style.display = 'none';
+            return;
+        }
+
+        // Separate acknowledged and unacknowledged recipients
+        const acknowledged = [];
+        const unacknowledged = [];
+
+        allRecipients.forEach(recipient => {
+            const recipientId = recipient._id?.toString() || recipient.toString();
+            const ack = acknowledgments.find(a => (a.userId?._id?.toString() || a.userId?.toString()) === recipientId);
+            const recipientName = recipient.firstName && recipient.lastName
+                ? `${recipient.firstName} ${recipient.lastName}`.trim()
+                : recipient.email || 'Unknown';
+            const initials = recipient.firstName && recipient.lastName
+                ? (recipient.firstName.charAt(0) + recipient.lastName.charAt(0)).toUpperCase()
+                : (recipient.email || '?').charAt(0).toUpperCase();
+
+            if (ack) {
+                acknowledged.push({
+                    name: recipientName,
+                    profilePicture: recipient.profilePicture,
+                    initials: initials,
+                    id: recipientId
+                });
+            } else {
+                unacknowledged.push({
+                    name: recipientName,
+                    profilePicture: recipient.profilePicture,
+                    initials: initials,
+                    id: recipientId
+                });
+            }
+        });
+
+        // Render avatars - acknowledged (green border) and unacknowledged (red border)
+        let avatarsHTML = '';
+
+        // Show acknowledged avatars first (with green checkmark)
+        acknowledged.forEach(recip => {
+            avatarsHTML += `
+                <div class="acknowledgment-avatar acknowledged" title="${recip.name} - Acknowledged">
+                    ${recip.profilePicture
+                        ? `<img src="${recip.profilePicture}" alt="${recip.name}" />`
+                        : `<div class="avatar-initials">${recip.initials}</div>`
+                    }
+                    <div class="avatar-checkmark">✓</div>
+                </div>
+            `;
+        });
+
+        // Show unacknowledged avatars (with red border)
+        unacknowledged.forEach(recip => {
+            avatarsHTML += `
+                <div class="acknowledgment-avatar unacknowledged" title="${recip.name} - Not acknowledged">
+                    ${recip.profilePicture
+                        ? `<img src="${recip.profilePicture}" alt="${recip.name}" />`
+                        : `<div class="avatar-initials">${recip.initials}</div>`
+                    }
+                </div>
+            `;
+        });
+
+        avatarsDiv.innerHTML = avatarsHTML || '<span style="color: #9ca3af; font-size: 14px;">No recipients</span>';
+
+        // Show/hide reminder button based on unacknowledged count (only for senders)
+        if (reminderBtnCompact) {
+            const currentUserId = window.currentUser?._id || window.currentUser?.id;
+            const isSender = memo.sender && (memo.sender._id?.toString() === currentUserId?.toString() || memo.sender.toString() === currentUserId?.toString());
+            if (isSender && unacknowledged.length > 0) {
+                reminderBtnCompact.style.display = 'inline-flex';
+            } else {
+                reminderBtnCompact.style.display = 'none';
+            }
+        }
+
+        // Show status div
+        statusDiv.style.display = 'flex';
+
+        // Initialize Lucide icons for reminder button
+        if (typeof lucide !== 'undefined') {
+            setTimeout(() => {
+                lucide.createIcons();
+            }, 100);
+        }
+    }
+
+    // Handle acknowledge button click
+    if (acknowledgeBtn) {
+        acknowledgeBtn.addEventListener('click', async () => {
+            if (!currentMemoId) return;
+
+            try {
+                acknowledgeBtn.disabled = true;
+                const response = await fetch(`/api/log/memos/${currentMemoId}/acknowledge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+                if (data && data.success) {
+                    // Update current memo with new acknowledgment
+                    if (data.memo) {
+                        const memoIndex = filteredMemos.findIndex(m => m._id === currentMemoId);
+                        if (memoIndex >= 0) {
+                            filteredMemos[memoIndex] = data.memo;
+                        }
+                        displayMemoContent(data.memo);
+                    }
+
+                    // Show success notification
+                    if (typeof showNotification === 'function') {
+                        showNotification('Memo acknowledged successfully', 'success');
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Acknowledged',
+                            text: 'Memo acknowledged successfully',
+                            timer: 2000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                } else {
+                    throw new Error(data?.message || 'Failed to acknowledge memo');
+                }
+            } catch (error) {
+                console.error('Error acknowledging memo:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification(error.message || 'Failed to acknowledge memo', 'error');
+                } else if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'Failed to acknowledge memo',
+                        timer: 3000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+            } finally {
+                acknowledgeBtn.disabled = false;
+            }
+        });
+    }
+
+    // Handle reminder button click (both header and compact versions)
+    const handleReminderClick = async () => {
+            if (!currentMemoId) return;
+
+            const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
+            try {
+                if (reminderBtn) reminderBtn.disabled = true;
+                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = true;
+                const response = await fetch(`/api/log/memos/${currentMemoId}/reminder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+                if (data && data.success) {
+                    // Show success notification
+                    if (typeof showNotification === 'function') {
+                        showNotification(data.message || `Reminder sent to ${data.remindersSent || 0} recipient(s)`, 'success');
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Reminder Sent',
+                            text: data.message || `Reminder sent to ${data.remindersSent || 0} recipient(s)`,
+                            timer: 3000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+
+                    // Refresh memo to update acknowledgment status
+                    if (currentMemoId) {
+                        try {
+                            const memoResponse = await fetch(`/api/log/memos/${currentMemoId}`);
+                            const memoData = await memoResponse.json();
+                            if (memoData && memoData.success && memoData.memo) {
+                                const memoIndex = filteredMemos.findIndex(m => m._id === currentMemoId);
+                                if (memoIndex >= 0) {
+                                    filteredMemos[memoIndex] = memoData.memo;
+                                }
+                                displayMemoContent(memoData.memo);
+                            }
+                        } catch (e) {
+                            console.error('Error refreshing memo:', e);
+                        }
+                    }
+                } else {
+                    throw new Error(data?.message || 'Failed to send reminder');
+                }
+            } catch (error) {
+                console.error('Error sending reminder:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification(error.message || 'Failed to send reminder', 'error');
+                } else if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'Failed to send reminder',
+                        timer: 3000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+            } finally {
+                if (reminderBtn) reminderBtn.disabled = false;
+                const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
+                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = false;
+            }
+        };
+
+    // Attach to both reminder buttons
+    if (reminderBtn) {
+        reminderBtn.addEventListener('click', handleReminderClick);
+    }
+
+    const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
+    if (reminderBtnCompactEl) {
+        reminderBtnCompactEl.addEventListener('click', handleReminderClick);
     }
 
     // Modal helpers

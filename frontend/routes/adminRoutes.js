@@ -70,4 +70,12 @@ router.get('/report', [isAuthenticated, validateUserRole, isAdmin], (req, res) =
     });
 });
 
+// Activity Logs route - admin only
+router.get('/activity-logs', [isAuthenticated, validateUserRole, isAdmin], (req, res) => {
+    res.render('admin/activity-logs', {
+        user: req.user,
+        path: '/admin/activity-logs'
+    });
+});
+
 module.exports = router;

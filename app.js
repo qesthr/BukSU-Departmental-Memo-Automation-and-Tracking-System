@@ -24,6 +24,7 @@ const logRoutes = require('./backend/routes/logRoutes');
 const driveRoutes = require('./backend/routes/driveRoutes');
 const calendarRoutes = require('./backend/routes/calendarRoutes');
 const auditRoutes = require('./backend/routes/auditRoutes');
+const activityLogRoutes = require('./backend/routes/activityLogRoutes');
 const signatureRoutes = require('./backend/routes/signatureRoutes');
 const rollbackRoutes = require('./backend/routes/rollbackRoutes');
 
@@ -111,6 +112,7 @@ app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/signatures', signatureRoutes);
 app.use('/api/rollback', rollbackRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
@@ -426,6 +428,8 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
 // Admin archive page - only for admins
 app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req, res) => {
     try {
+        const Signature = require('./backend/models/Signature');
+
         // Get archived memos OR sent/approved memos that can be archived
         // Include memos where the admin is the sender but NOT the recipient
         // Exclude the tracking memo where recipient equals sender
@@ -446,19 +450,28 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             .sort({ createdAt: -1 })
             .populate('createdBy', 'firstName lastName email');
 
+        // Get archived signatures
+        const archivedSignatures = await Signature.find({
+            isActive: false
+        })
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .populate('createdBy', 'firstName lastName email');
+
         return res.render('admin-archive', {
             user: req.user,
             path: '/admin/archive',
             archivedMemos: archivedMemos || [],
-            archivedEvents: archivedEvents || []
+            archivedEvents: archivedEvents || [],
+            archivedSignatures: archivedSignatures || []
         });
     } catch (e) {
-        console.error('Error fetching archived memos:', e);
+        console.error('Error fetching archived items:', e);
         return res.render('admin-archive', {
             user: req.user,
             path: '/admin/archive',
             archivedMemos: [],
-            archivedEvents: []
+            archivedEvents: [],
+            archivedSignatures: []
         });
     }
 });
@@ -467,10 +480,16 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
 app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
     try {
         // Get memos received by faculty (only sent/approved status, not pending)
+        // Exclude acknowledgment notifications
         const received = await Memo.find({
             recipient: req.user._id,
             status: { $in: ['sent', 'approved'] },
-            activityType: { $ne: 'system_notification' }
+            activityType: { $ne: 'system_notification' },
+            // Exclude acknowledgment notifications
+            $nor: [
+                { 'metadata.notificationType': 'acknowledgment' },
+                { subject: /^Memo Acknowledged:/i }
+            ]
         })
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')

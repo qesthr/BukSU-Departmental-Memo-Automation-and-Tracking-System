@@ -32,6 +32,17 @@ module.exports = function requireRole(...allowedRoles) {
 					faculty: '/dashboard'
 				};
 				const redirectUrl = dashboardMap[role] || '/login';
+
+				// Only add error message if redirecting to a different page
+				// If user is already on their dashboard, don't add error (prevents showing error on legitimate dashboard access)
+				const currentPath = req.path;
+				const isAlreadyOnDashboard = (role === 'secretary' || role === 'faculty') && currentPath === '/dashboard';
+
+				if (isAlreadyOnDashboard) {
+					// User is already on their dashboard, just redirect without error
+					return res.redirect(redirectUrl);
+				}
+
 				return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. You do not have permission to access this page.')}`);
 			}
 

@@ -503,6 +503,8 @@
   display: none;
   flex-direction: column;
   height: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 .empty-state-view {
@@ -529,6 +531,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 .viewer-header {
@@ -625,6 +629,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  min-height: 0;
 }
 
 /* PDF-style Memo Header */
@@ -667,6 +672,95 @@
 .memo-detail-value {
   color: #111827;
   flex: 1;
+}
+
+.memo-detail-to-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.memo-detail-to-text {
+  flex-shrink: 0;
+}
+
+.recipient-avatars-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipient-avatar-inline {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.recipient-avatar-inline:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.recipient-avatar-inline.acknowledged {
+  border-color: #10b981;
+}
+
+.recipient-avatar-inline.unacknowledged {
+  border-color: #ef4444;
+  opacity: 0.7;
+}
+
+.recipient-avatar-inline img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials-inline {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.recipient-avatar-inline.acknowledged .avatar-initials-inline {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.recipient-avatar-inline.unacknowledged .avatar-initials-inline {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.avatar-checkmark-inline {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  border: 2px solid white;
 }
 
 .memo-separator {
@@ -2014,6 +2108,53 @@
   border-color: #9ca3af !important;
 }
 
+/* Signature archive button in template dropdown */
+#composeModal .signature-archive-btn {
+  background: none !important;
+  border: none !important;
+  color: #f59e0b !important;
+  cursor: pointer !important;
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  opacity: 0.7 !important;
+  transition: all 0.2s !important;
+  display: flex !important;
+  align-items: center !important;
+  margin-left: 8px !important;
+}
+
+#composeModal .signature-archive-btn:hover {
+  opacity: 1 !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #d97706 !important;
+}
+
+#composeModal .signature-archive-btn:active {
+  transform: scale(0.95);
+}
+
+#composeModal .dept-checkbox-label:hover .signature-archive-btn {
+  opacity: 1;
+}
+
+/* Ensure SweetAlert2 appears above compose modal */
+.swal2-container.swal2-backdrop-show {
+  z-index: 100002 !important;
+}
+
+.swal2-container.swal2-backdrop-show .swal2-popup {
+  z-index: 100003 !important;
+}
+
+/* When SweetAlert is shown from compose modal, ensure it's on top */
+.swal2-container.swal2-backdrop-show.swal2-container-compose-modal {
+  z-index: 100002 !important;
+}
+
+.swal2-container.swal2-backdrop-show.swal2-container-compose-modal .swal2-popup {
+  z-index: 100003 !important;
+}
+
 /* In-modal preview overlay */
 #previewOverlay {
   position: fixed;
@@ -2954,4 +3095,149 @@ input[type="file"]::file-selector-button:hover {
   .signature-actions .btn {
     width: 100%;
   }
+}
+
+/* Acknowledgment Status Section - Compact Version */
+.acknowledgment-status {
+  padding: 12px 20px;
+  padding-bottom: 12px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin: 0;
+  margin-top: auto;
+}
+
+.acknowledgment-header-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.acknowledgment-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.acknowledgment-avatars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.acknowledgment-avatar {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.acknowledgment-avatar:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.acknowledgment-avatar.acknowledged {
+  border-color: #10b981;
+}
+
+.acknowledgment-avatar.unacknowledged {
+  border-color: #ef4444;
+  opacity: 0.7;
+}
+
+.acknowledgment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.acknowledgment-avatar .avatar-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.acknowledgment-avatar.acknowledged .avatar-initials {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.acknowledgment-avatar.unacknowledged .avatar-initials {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.avatar-checkmark {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 8px;
+  font-weight: bold;
+  border: 1.5px solid white;
+}
+
+.reminder-btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.reminder-btn-compact:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+.reminder-btn-compact:active {
+  transform: translateY(0);
+}
+
+.reminder-btn-compact i {
+  width: 14px;
+  height: 14px;
+}
+
+.reminder-btn-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }

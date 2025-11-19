@@ -1,3 +1,6 @@
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
+
 // Reset Password Page JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Reset password page loaded');
@@ -101,17 +104,38 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmPassword = confirmPasswordInput.value.trim();
 
         if (!newPassword) {
-            showMessage('Please enter a new password', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Password Required',
+                    text: 'Please enter a new password',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
             return;
         }
 
         if (newPassword.length < 6) {
-            showMessage('Password must be at least 6 characters long', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Password Too Short',
+                    text: 'Password must be at least 6 characters long',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            showMessage('Passwords do not match', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Passwords Do Not Match',
+                    text: 'Please make sure both passwords match',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
             return;
         }
 
@@ -140,12 +164,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => { window.location.href = data.redirect; }, 800);
             } else {
                 hideLoadingOverlay();
-                showMessage(data.message, 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Reset Failed',
+                        text: data.message || 'Could not reset password',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
         } catch (error) {
             console.error('Error:', error);
             hideLoadingOverlay();
-            showMessage('Network error. Please try again.', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Network error. Please try again.',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
         } finally {
             // Reset button state
             submitButton.disabled = false;
@@ -208,40 +246,16 @@ document.addEventListener('DOMContentLoaded', function() {
         newPasswordInput.parentNode.appendChild(indicator);
     }
 
-    // Show message function
+    // Show message function - replaced with SweetAlert2
     function showMessage(message, type) {
-        // Remove existing message
-        const existingMessage = document.querySelector('.message');
-        if (existingMessage) {
-            existingMessage.remove();
+        if (typeof Swal !== 'undefined') {
+            const icon = type === 'success' ? 'success' : 'error';
+            Swal.fire({
+                icon: icon,
+                title: type === 'success' ? 'Success' : 'Error',
+                text: message,
+                confirmButtonColor: type === 'success' ? '#10b981' : '#ef4444'
+            });
         }
-
-        // Create new message
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = message;
-
-        // Style the message
-        messageDiv.style.cssText = `
-            padding: 12px 16px;
-            margin: 15px 0;
-            border-radius: 8px;
-            font-size: 14px;
-            text-align: center;
-            ${type === 'success' ?
-                'background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;' :
-                'background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;'
-            }
-        `;
-
-        // Insert message after the form
-        resetPasswordForm.parentNode.insertBefore(messageDiv, resetPasswordForm.nextSibling);
-
-        // Auto-remove message after 5 seconds
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
-            }
-        }, 5000);
     }
 });

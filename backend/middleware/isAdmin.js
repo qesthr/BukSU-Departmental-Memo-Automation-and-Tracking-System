@@ -14,21 +14,32 @@ const isAdmin = (req, res, next) => {
         return res.redirect('/?error=invalid_user');
     }
 
-    // Check if user is admin
-    if (!rbacService.isAdmin(req.user)) {
-        // Log unauthorized access attempt
-        console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin route: ${req.path}`);
+        // Check if user is admin
+        if (!rbacService.isAdmin(req.user)) {
+            // Log unauthorized access attempt
+            console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin route: ${req.path}`);
 
-        // Redirect based on user's actual role
-        const role = req.user?.role;
-        const dashboardMap = {
-            admin: '/admin-dashboard',
-            secretary: '/dashboard',
-            faculty: '/dashboard'
-        };
-        const redirectUrl = dashboardMap[role] || '/login';
-        return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
-    }
+            // Redirect based on user's actual role
+            const role = req.user?.role;
+            const dashboardMap = {
+                admin: '/admin-dashboard',
+                secretary: '/dashboard',
+                faculty: '/dashboard'
+            };
+            const redirectUrl = dashboardMap[role] || '/login';
+
+            // Only add error message if redirecting to a different page
+            // If user is already on their dashboard, don't add error (prevents showing error on legitimate dashboard access)
+            const currentPath = req.path;
+            const isAlreadyOnDashboard = (role === 'secretary' || role === 'faculty') && currentPath === '/dashboard';
+
+            if (isAlreadyOnDashboard) {
+                // User is already on their dashboard, just redirect without error
+                return res.redirect(redirectUrl);
+            }
+
+            return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+        }
 
     // User is authenticated and is an admin
     next();

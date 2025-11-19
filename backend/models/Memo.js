@@ -115,6 +115,17 @@ const memoSchema = new mongoose.Schema({
     readAt: {
         type: Date
     },
+    acknowledgments: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        acknowledgedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     folder: {
         type: String,
         enum: ['inbox', 'sent', 'drafts', 'starred', 'deleted'],

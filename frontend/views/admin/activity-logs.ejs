@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Logs | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+    <!-- SweetAlert2 -->
+    <%- include('../../components/sweetalert2'); %>
+
+    <script src="/js/lucide.min.js"></script>
+    <style>
+        .activity-logs-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+        }
+
+        .filters-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .filter-input,
+        .filter-select {
+            padding: 0.625rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: #1C89E3;
+            box-shadow: 0 0 0 3px rgba(28, 137, 227, 0.1);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #1C89E3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1570cd;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .logs-table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .logs-table thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .logs-table th {
+            padding: 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .logs-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+            color: #111827;
+        }
+
+        .logs-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .actor-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .actor-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+        }
+
+        .actor-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .actor-name {
+            font-weight: 500;
+            color: #111827;
+        }
+
+        .actor-email {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .action-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
+        .action-badge.memo {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .action-badge.calendar {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .action-badge.user {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .action-badge.auth {
+            background: #fce7f3;
+            color: #9f1239;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .pagination-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            color: #374151;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            color: #d1d5db;
+        }
+
+        .loading-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #1C89E3;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body data-current-user='<%- JSON.stringify({
+        id: user._id,
+        email: user.email,
+        role: user.role
+    }) %>'>
+    <script>
+        (function () {
+            const root = document.body;
+            if (!root) { return; }
+            try {
+                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+            } catch (err) {
+                window.currentUser = {};
+            }
+        })();
+    </script>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <%- include('../../components/admintopbar') %>
+
+            <div class="activity-logs-container">
+                <div class="page-header">
+                    <h1 class="page-title">Activity Logs</h1>
+                    <button class="btn btn-primary" id="exportBtn">
+                        <i data-lucide="download"></i>
+                        Export CSV
+                    </button>
+                </div>
+
+                <div class="filters-section">
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label class="filter-label">Search</label>
+                            <input type="text" class="filter-input" id="searchInput" placeholder="Search activities...">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Actor Role</label>
+                            <select class="filter-select" id="actorRoleSelect">
+                                <option value="">All Roles</option>
+                                <option value="admin">Admin</option>
+                                <option value="secretary">Secretary</option>
+                                <option value="faculty">Faculty</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Action Type</label>
+                            <select class="filter-select" id="actionTypeSelect">
+                                <option value="">All Actions</option>
+                                <optgroup label="Memo Actions">
+                                    <option value="memo_created">Memo Created</option>
+                                    <option value="memo_edited">Memo Edited</option>
+                                    <option value="memo_archived">Memo Archived</option>
+                                    <option value="memo_starred">Memo Starred</option>
+                                    <option value="memo_unstarred">Memo Unstarred</option>
+                                    <option value="memo_marked_read">Memo Marked Read</option>
+                                    <option value="memo_approved">Memo Approved</option>
+                                    <option value="memo_rejected">Memo Rejected</option>
+                                </optgroup>
+                                <optgroup label="Calendar Actions">
+                                    <option value="calendar_event_created">Calendar Event Created</option>
+                                    <option value="calendar_event_updated">Calendar Event Updated</option>
+                                    <option value="calendar_event_archived">Calendar Event Archived</option>
+                                </optgroup>
+                                <optgroup label="User Actions">
+                                    <option value="user_created">User Created</option>
+                                    <option value="user_updated">User Updated</option>
+                                    <option value="user_activated">User Activated</option>
+                                    <option value="user_deactivated">User Deactivated</option>
+                                    <option value="user_archived">User Archived</option>
+                                    <option value="user_profile_updated">User Profile Updated</option>
+                                    <option value="user_profile_picture_uploaded">Profile Picture Uploaded</option>
+                                    <option value="user_lock_acquired">User Lock Acquired</option>
+                                    <option value="user_lock_released">User Lock Released</option>
+                                </optgroup>
+                                <optgroup label="Authentication Actions">
+                                    <option value="user_login">User Login</option>
+                                    <option value="user_logout">User Logout</option>
+                                    <option value="password_reset_requested">Password Reset Requested</option>
+                                    <option value="password_reset_completed">Password Reset Completed</option>
+                                    <option value="password_updated">Password Updated</option>
+                                    <option value="welcome_email_sent">Welcome Email Sent</option>
+                                </optgroup>
+                                <optgroup label="Signature Actions">
+                                    <option value="signature_created">Signature Created</option>
+                                    <option value="signature_updated">Signature Updated</option>
+                                    <option value="signature_archived">Signature Archived</option>
+                                </optgroup>
+                                <optgroup label="System Actions">
+                                    <option value="settings_updated">Settings Updated</option>
+                                    <option value="google_calendar_connected">Google Calendar Connected</option>
+                                    <option value="google_calendar_disconnected">Google Calendar Disconnected</option>
+                                    <option value="report_exported">Report Exported</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Target Resource</label>
+                            <select class="filter-select" id="targetResourceSelect">
+                                <option value="">All Resources</option>
+                                <option value="memo">Memo</option>
+                                <option value="calendar_event">Calendar Event</option>
+                                <option value="user">User</option>
+                                <option value="signature">Signature</option>
+                                <option value="file">File</option>
+                                <option value="settings">Settings</option>
+                                <option value="system">System</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Start Date</label>
+                            <input type="date" class="filter-input" id="startDateInput">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">End Date</label>
+                            <input type="date" class="filter-input" id="endDateInput">
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
+                        <button class="btn btn-secondary" id="clearFiltersBtn">Clear</button>
+                    </div>
+                </div>
+
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Actor</th>
+                                <th>Action</th>
+                                <th>Description</th>
+                                <th>Target</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <tr>
+                                <td colspan="5" class="loading-state">
+                                    <div class="spinner"></div>
+                                    <div>Loading activity logs...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination" id="pagination" style="display: none;">
+                        <div class="pagination-info" id="paginationInfo"></div>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="prevPageBtn" disabled>Previous</button>
+                            <button class="pagination-btn" id="nextPageBtn" disabled>Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/activity-logs.js"></script>
+    <script>
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    </script>
+</body>
+
+</html>
+
