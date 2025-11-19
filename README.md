@@ -24,6 +24,53 @@ This system streamlines the process of creating, managing, and tracking departme
 - **Database:** MongoDB (planned)
 - **Security:** Helmet.js, express-session
 
+## ⚡ Vue.js Hybrid Enhancements
+
+Vue 3 is now available in every page rendered through the main EJS layout via the official CDN. The layout automatically loads the development build during local work and the production-optimized build when `NODE_ENV=production`, so no manual switching is required.
+
+- `frontend/components/layouts/Loginlayout.ejs` includes the CDN script plus `/js/vue-hybrid.js`. The helper scans the DOM for elements that declare `data-vue-app="your-app-name"` and mounts the matching Vue component without touching existing EJS markup or routes.
+- Pass server-rendered data through standard `data-*` attributes (automatic camelCase mapping) or via `data-vue-props='<%- JSON.stringify({ ... }) %>'`. The helper decodes booleans, numbers, JSON, and strings so Vue receives proper types.
+- Register Vue components from any static script by calling `EJSHybridVue.register('your-app-name', componentOrFactory)`. The factory receives `{ props, el, Vue }`, allowing you to reuse existing APIs (`fetch('/api/...')`, `axios`, etc.) while keeping forms and links untouched.
+- Example usage inside an EJS view:
+
+  ```html
+  <div
+    id="memo-stats"
+    data-vue-app="memo-stats-card"
+    data-total-memos="<%= stats.totalMemos %>"
+    data-vue-props='<%- JSON.stringify({ recentMemos: stats.recentMemos }) %>'>
+  </div>
+  <script src="/js/memo-stats.js" defer></script>
+  ```
+
+- Example registration (`frontend/public/js/memo-stats.js`):
+
+  ```javascript
+  EJSHybridVue.register('memo-stats-card', ({ props, Vue }) => ({
+    props: ['totalMemos', 'recentMemos'],
+    setup() {
+      const state = Vue.reactive({
+        memos: props.recentMemos,
+        total: props.totalMemos
+      });
+
+      async function refresh() {
+        const res = await fetch('/api/analytics/memos');
+        state.memos = await res.json();
+      }
+
+      return { state, refresh };
+    },
+    template: `
+      <section>
+        <h4>{{ state.total }} Total Memos</h4>
+        <button @click="refresh">Sync</button>
+      </section>`
+  }));
+  ```
+
+With this hybrid approach you keep all existing EJS routes, server-side rendering, and form submissions, while progressively enhancing specific sections using Vue 3.
+
 ## 📦 Installation
 
 ### Prerequisites
