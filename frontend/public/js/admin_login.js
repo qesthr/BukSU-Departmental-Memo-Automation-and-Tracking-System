@@ -3,6 +3,9 @@ if (typeof window !== 'undefined' && typeof window.showMessageModal !== 'functio
   window.showMessageModal = function(){ /* no-op outside login */ };
 }
 
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
+
 document.addEventListener("DOMContentLoaded", () => {
     if (!document.getElementById('loginCard')) { return; }
     const layers = document.querySelectorAll(".layer");
@@ -24,7 +27,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (passwordInput) {
         passwordInput.addEventListener('input', function () {
             if (this.value.length >= 6) { // Minimum 6 characters
-                if (recaptchaContainer) {recaptchaContainer.style.display = 'block';}
+                if (recaptchaContainer) {
+                    recaptchaContainer.style.display = 'block';
+                    // Ensure reCAPTCHA container is above SweetAlert backdrop if modal is open
+                    recaptchaContainer.style.zIndex = '10001';
+                    recaptchaContainer.style.position = 'relative';
+                }
                 // Reset reCAPTCHA if it was previously solved (guarded)
                 if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
                     window.grecaptcha.reset();
@@ -52,7 +60,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const isValidPassword = password && password.length >= 6;
 
         if (isValidEmail && isValidPassword) {
-            if (recaptchaContainer) {recaptchaContainer.style.display = 'block';}
+            if (recaptchaContainer) {
+                recaptchaContainer.style.display = 'block';
+                // Ensure reCAPTCHA container is above SweetAlert backdrop if modal is open
+                recaptchaContainer.style.zIndex = '10001';
+            }
         } else {
             if (recaptchaContainer) {recaptchaContainer.style.display = 'none';}
             if (loginButton) {loginButton.disabled = true;}
@@ -147,6 +159,107 @@ window.enableSubmit = function enableSubmit(/* token */) {
     if (btn) { btn.disabled = false; }
 };
 
+// Helper function to ensure reCAPTCHA is visible (accessible from form submit handler)
+function ensureRecaptchaVisibleGlobal() {
+    const passwordInput = document.getElementById('passwordInput');
+    const recaptchaContainer = document.getElementById("recaptchaContainer");
+    if (passwordInput && passwordInput.value.length >= 6 && recaptchaContainer) {
+        recaptchaContainer.style.display = 'block';
+        recaptchaContainer.style.zIndex = '10001';
+        recaptchaContainer.style.position = 'relative';
+    }
+}
+
+// Progress bar functions for admin login
+function createAdminProgressBar() {
+    // Remove existing progress bar if any
+    const existing = document.getElementById('loginProgressBar');
+    if (existing) {
+        existing.remove();
+    }
+
+    const progressBar = document.createElement('div');
+    progressBar.id = 'loginProgressBar';
+    progressBar.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background-color: rgba(0, 102, 255, 0.2);
+        z-index: 10000;
+        overflow: hidden;
+    `;
+
+    const progressFill = document.createElement('div');
+    progressFill.id = 'loginProgressFill';
+    progressFill.style.cssText = `
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #0066ff, #0052cc, #0066ff);
+        background-size: 200% 100%;
+        transition: width 0.3s ease;
+        animation: progressShimmer 1.5s infinite;
+    `;
+
+    progressBar.appendChild(progressFill);
+    document.body.appendChild(progressBar);
+
+    // Animate progress bar
+    let progress = 0;
+    const interval = setInterval(() => {
+        if (progress < 90) {
+            progress += Math.random() * 15;
+            if (progress > 90) {
+                progress = 90;
+            }
+            progressFill.style.width = progress + '%';
+        }
+    }, 200);
+
+    // Store interval ID for cleanup
+    progressBar.dataset.intervalId = interval;
+}
+
+function completeAdminProgressBar() {
+    const progressBar = document.getElementById('loginProgressBar');
+    const progressFill = document.getElementById('loginProgressFill');
+    if (progressFill) {
+        progressFill.style.width = '100%';
+        progressFill.style.transition = 'width 0.5s ease';
+        setTimeout(() => {
+            if (progressBar) {
+                progressBar.style.opacity = '0';
+                progressBar.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    if (progressBar) {
+                        const intervalId = progressBar.dataset.intervalId;
+                        if (intervalId) {
+                            clearInterval(intervalId);
+                        }
+                        progressBar.remove();
+                    }
+                }, 300);
+            }
+        }, 500);
+    }
+}
+
+function removeAdminProgressBar() {
+    const progressBar = document.getElementById('loginProgressBar');
+    if (progressBar) {
+        const intervalId = progressBar.dataset.intervalId;
+        if (intervalId) {
+            clearInterval(intervalId);
+        }
+        progressBar.style.opacity = '0';
+        progressBar.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+            progressBar.remove();
+        }, 300);
+    }
+}
+
 // Add form submission handling (only if form exists)
 const loginForm = document.querySelector('form');
 if (loginForm) {
@@ -158,31 +271,81 @@ if (loginForm) {
     const email = emailField ? emailField.value.trim() : '';
     const password = passwordField ? passwordField.value : '';
     const loginButton = document.querySelector(".login-btn");
+    const recaptchaContainer = document.getElementById("recaptchaContainer");
 
     // Basic validation
     if (!email || !password) {
-        showMessageModal('Missing Information', 'Please fill in all fields', 'warning');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please fill in all fields',
+                confirmButtonColor: '#ef4444',
+                didClose: () => {
+                    // Ensure reCAPTCHA visibility is maintained after modal closes
+                    setTimeout(() => {
+                        ensureRecaptchaVisibleGlobal();
+                    }, 100);
+                }
+            });
+        }
         return;
     }
 
     if (password.length < 6) {
-        showMessageModal('Invalid Password', 'Password must be at least 6 characters long', 'warning');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Password',
+                text: 'Password must be at least 6 characters long',
+                confirmButtonColor: '#ef4444',
+                didClose: () => {
+                    // Ensure reCAPTCHA visibility is maintained after modal closes
+                    setTimeout(() => {
+                        ensureRecaptchaVisibleGlobal();
+                    }, 100);
+                }
+            });
+        }
         return;
     }
 
     // Check reCAPTCHA if it's visible
-    const recaptchaContainer = document.getElementById("recaptchaContainer");
     const shouldCheckRecaptcha = recaptchaContainer && recaptchaContainer.style.display !== 'none';
     let recaptchaToken = '';
     if (shouldCheckRecaptcha) {
         if (typeof window.grecaptcha === 'undefined' || !window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
-            showMessageModal('reCAPTCHA Error', 'reCAPTCHA not available. Please try again later.', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'reCAPTCHA Error',
+                    text: 'reCAPTCHA not available. Please try again later.',
+                    confirmButtonColor: '#ef4444'
+                }).then(() => {
+                    // Ensure reCAPTCHA container is visible after modal closes
+                    setTimeout(() => {
+                        ensureRecaptchaVisibleGlobal();
+                    }, 100);
+                });
+            }
             return;
         }
 
         recaptchaToken = window.grecaptcha.getResponse();
         if (!recaptchaToken) {
-            showMessageModal('reCAPTCHA Required', 'Please complete the reCAPTCHA', 'warning');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'reCAPTCHA Required',
+                    text: 'Please complete the reCAPTCHA',
+                    confirmButtonColor: '#ef4444'
+                }).then(() => {
+                    // Ensure reCAPTCHA container is visible after modal closes
+                    setTimeout(() => {
+                        ensureRecaptchaVisibleGlobal();
+                    }, 100);
+                });
+            }
             return;
         }
     } else {
@@ -198,6 +361,9 @@ if (loginForm) {
     // Disable button and show loading
     loginButton.disabled = true;
     loginButton.textContent = 'Logging in...';
+
+    // Show progress bar
+    createAdminProgressBar();
 
     try {
         const response = await fetch('/auth/login', {
@@ -216,23 +382,89 @@ if (loginForm) {
         const data = await response.json();
 
         if (data.success) {
-            showMessageModal('Login Successful', 'Login successful! Redirecting...', 'success');
+            // Complete progress bar
+            completeAdminProgressBar();
 
-            // All users are redirected to admin-dashboard
-            setTimeout(() => {
-                window.location.href = '/admin-dashboard';
-            }, 2000);
+            // Show SweetAlert2 success modal
+            // Wait for SweetAlert2 to be available
+            const showSuccessModal = () => {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Login Successful!',
+                        text: 'Redirecting to your dashboard...',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didClose: () => {
+                            window.location.href = '/admin-dashboard';
+                        }
+                    }).then(() => {
+                        window.location.href = '/admin-dashboard';
+                    });
+                } else {
+                    // Fallback if SweetAlert2 is not available
+                    setTimeout(() => {
+                        window.location.href = '/admin-dashboard';
+                    }, 2000);
+                }
+            };
+
+            // Wait for SweetAlert2 to load if not immediately available
+            if (typeof Swal !== 'undefined') {
+                showSuccessModal();
+            } else {
+                // Wait up to 2 seconds for SweetAlert2 to load
+                let attempts = 0;
+                const checkSwal = setInterval(() => {
+                    attempts++;
+                    if (typeof Swal !== 'undefined') {
+                        clearInterval(checkSwal);
+                        showSuccessModal();
+                    } else if (attempts >= 20) {
+                        // After 2 seconds, give up and redirect
+                        clearInterval(checkSwal);
+                        window.location.href = '/admin-dashboard';
+                    }
+                }, 100);
+            }
         } else {
+            // Remove progress bar on error
+            removeAdminProgressBar();
+
             // Handle different types of errors
             if (data.errorCode === 'ACCOUNT_NOT_FOUND') {
                 // Account not found - user hasn't been invited/added by admin
-                showMessageModal('Account Not Found', data.message || 'This account has not been added by an administrator. Please contact your administrator to create your account.', 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Account Not Found',
+                        text: data.message || 'This account has not been added by an administrator. Please contact your administrator to create your account.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             } else if (data.errorCode === 'ACCOUNT_INACTIVE') {
                 // Account exists but is inactive
-                showMessageModal('Account Deactivated', data.message || 'Your account has been deactivated. Please contact your administrator.', 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Account Deactivated',
+                        text: data.message || 'Your account has been deactivated. Please contact your administrator.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             } else {
-                // Other errors
-                showMessageModal('Login Failed', data.message || 'Login failed', 'error');
+                // Other errors (wrong password, invalid credentials, etc.)
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Login Failed',
+                        text: data.message || 'Invalid email or password. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
             loginButton.disabled = false;
             loginButton.textContent = 'Login';
@@ -243,9 +475,18 @@ if (loginForm) {
             }
         }
     } catch (error) {
+        // Remove progress bar on error
+        removeAdminProgressBar();
         void error; // referenced to satisfy linters; actual info shown to user below
         // Network error: show friendly message (console logging intentionally omitted to satisfy lint rules)
-        showMessageModal('Network Error', 'Network error. Please try again.', 'error');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Network error. Please try again.',
+                confirmButtonColor: '#ef4444'
+            });
+        }
         if (loginButton) {
             loginButton.disabled = false;
             loginButton.textContent = 'Login';

@@ -42,6 +42,14 @@
                                 </div>
                                 <div class="department-filters">
                                     <div class="priority-dropdown-wrapper">
+                                        <select id="archiveTypeFilterDropdown" class="priority-filter-dropdown">
+                                            <option value="all">All Types</option>
+                                            <option value="memo">📄 Memos</option>
+                                            <option value="event">📅 Calendar Events</option>
+                                            <option value="signature">✍️ Signatures</option>
+                                        </select>
+                                    </div>
+                                    <div class="priority-dropdown-wrapper">
                                         <select id="priorityFilterDropdown" class="priority-filter-dropdown">
                                             <option value="all">All Priorities</option>
                                             <option value="urgent">🔴 Urgent</option>
@@ -120,6 +128,7 @@
 
         window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
         window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
+        window.archivedSignatures = <%- JSON.stringify(archivedSignatures || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
@@ -127,6 +136,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const archiveList = document.getElementById('archiveList');
             const refreshBtn = document.getElementById('refreshBtn');
+            const archiveTypeFilter = document.getElementById('archiveTypeFilterDropdown');
             const priorityFilter = document.getElementById('priorityFilterDropdown');
             const sortDropdown = document.getElementById('sortDropdown');
             const unarchiveBtn = document.getElementById('unarchiveBtn');
@@ -140,10 +150,11 @@
             const memoViewer = document.getElementById('memoViewer');
             const memoCounter = document.getElementById('memoCounter');
 
-            // Combine memos and calendar events
-            const allArchivedItems = [
+            // Combine memos, calendar events, and signatures
+            let allArchivedItems = [
                 ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
-                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' }))
+                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
+                ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
             ];
 
             // Sort by newest first (most recently archived at top)
@@ -163,12 +174,24 @@
                 if (!archiveList) return;
 
                 if (filteredMemos.length === 0) {
+                    const archiveType = archiveTypeFilter ? archiveTypeFilter.value : 'all';
+                    let emptyMessage = 'No archived items';
+                    let emptyDescription = 'Archived memos, calendar events, and signatures will appear here';
+
+                    if (archiveType === 'memo') {
+                        emptyDescription = 'No archived memos found';
+                    } else if (archiveType === 'event') {
+                        emptyDescription = 'No archived calendar events found';
+                    } else if (archiveType === 'signature') {
+                        emptyDescription = 'No archived signatures found';
+                    }
+
                     archiveList.innerHTML = `
                         <div class="memo-item">
                             <i data-lucide="archive" class="memo-icon"></i>
                             <div class="memo-info">
-                                <h4>No archived items</h4>
-                                <p>Archived memos and calendar events will appear here</p>
+                                <h4>${emptyMessage}</h4>
+                                <p>${emptyDescription}</p>
                             </div>
                         </div>`;
                     if (typeof lucide !== 'undefined') {
@@ -178,6 +201,26 @@
                 }
 
                 archiveList.innerHTML = filteredMemos.map((item, idx) => {
+                    // Handle signatures
+                    if (item.type === 'signature') {
+                        const signature = item;
+                        const createdBy = signature.createdBy
+                            ? `${signature.createdBy.firstName || ''} ${signature.createdBy.lastName || ''}`.trim() || signature.createdBy.email
+                            : 'Unknown';
+                        const archivedDate = new Date(signature.updatedAt || signature.createdAt).toLocaleDateString();
+
+                        return '<div class="memo-item archived-item archived-signature" data-index="' + idx + '" data-id="' + signature._id + '" data-type="signature">' +
+                            '<i data-lucide="pen-tool" class="memo-icon" style="width: 40px; height: 40px; color: #f59e0b;"></i>' +
+                            '<div class="memo-sender-info">' +
+                            '<div class="memo-sender-name">✍️ Signature</div>' +
+                            '<div class="memo-sender-email">' + signature.displayName + '</div>' +
+                            '</div>' +
+                            '<div class="memo-item-actions"></div>' +
+                            '<div class="memo-subject">' + signature.roleTitle + '</div>' +
+                            '<div class="memo-date">Archived: ' + archivedDate + '</div>' +
+                            '</div>';
+                    }
+
                     // Handle calendar events differently
                     if (item.type === 'event') {
                         const event = item;
@@ -245,7 +288,17 @@
                         const idx = Number(el.getAttribute('data-index'));
                         const item = filteredMemos[idx];
 
-                        if (type === 'event') {
+                        if (type === 'signature') {
+                            // Handle signature - show unarchive confirmation only, don't open viewer
+                            if (item) {
+                                // Ensure viewer is hidden
+                                if (emptyState) emptyState.style.display = 'block';
+                                if (memoViewer) memoViewer.style.display = 'none';
+                                if (memoViewerArea) memoViewerArea.style.display = 'none';
+                                // Show SweetAlert confirmation
+                                showUnarchiveSignatureConfirmation(item._id, item.displayName || item.roleTitle || 'this signature');
+                            }
+                        } else if (type === 'event') {
                             // Handle calendar event
                             if (item) {
                                 openEvent(item);
@@ -345,6 +398,52 @@
                 }
             }
 
+            // Open signature in viewer
+            function openSignature(signature) {
+                if (!signature) return;
+                currentMemoId = signature._id;
+                currentMemoIndex = filteredMemos.findIndex(s => s._id === signature._id && s.type === 'signature');
+
+                const subjectEl = document.getElementById('memoDetailSubject');
+                const fromEl = document.getElementById('memoDetailFrom');
+                const toEl = document.getElementById('memoDetailTo');
+                const deptEl = document.getElementById('memoDetailDepartment');
+                const prioEl = document.getElementById('memoDetailPriority');
+                const dateEl = document.getElementById('memoDetailDate');
+                const contentEl = document.getElementById('memoBodyContent');
+
+                if (subjectEl) subjectEl.textContent = signature.displayName || '(No name)';
+                const createdBy = signature.createdBy
+                    ? `${signature.createdBy.firstName || ''} ${signature.createdBy.lastName || ''}`.trim() || signature.createdBy.email
+                    : 'Unknown';
+                if (fromEl) fromEl.textContent = createdBy + (signature.createdBy?.email ? ' (' + signature.createdBy.email + ')' : '');
+                if (toEl) toEl.textContent = signature.roleTitle || 'N/A';
+                if (deptEl) deptEl.textContent = 'N/A';
+                if (prioEl) prioEl.textContent = 'Signature';
+                if (dateEl) {
+                    const archivedDate = new Date(signature.updatedAt || signature.createdAt);
+                    dateEl.textContent = archivedDate.toLocaleString();
+                }
+                if (contentEl) {
+                    contentEl.innerHTML = '<div style="text-align: center; padding: 2rem;">' +
+                        '<img src="' + (signature.imageUrl || '/images/placeholder.png') + '" alt="' + signature.displayName + '" ' +
+                        'style="max-width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; background: #fff;" ' +
+                        'onerror="this.src=\'/images/placeholder.png\'">' +
+                        '</div>';
+                }
+
+                if (memoCounter) {
+                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
+                }
+
+                if (emptyState) emptyState.style.display = 'none';
+                if (memoViewer) memoViewer.style.display = 'block';
+                if (memoViewerArea) {
+                    memoViewerArea.style.display = 'block';
+                    memoViewerArea.style.flex = '0 0 55%';
+                }
+            }
+
             // Open memo in viewer
             function openMemo(memo) {
                 if (!memo) return;
@@ -384,11 +483,75 @@
                 }
             }
 
-            // Unarchive memo or event
+            // Show unarchive signature confirmation (SweetAlert)
+            async function showUnarchiveSignatureConfirmation(signatureId, signatureName) {
+                if (typeof Swal === 'undefined') {
+                    if (confirm(`Are you sure you want to unarchive "${signatureName}"?`)) {
+                        await unarchiveItem(signatureId, 'signature');
+                    }
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Unarchive Signature',
+                    html: `Are you sure you want to unarchive <strong>${signatureName}</strong>?<br><br>This will restore the signature to the template dropdown.`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Unarchive',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#10b981',
+                    cancelButtonColor: '#6b7280',
+                    reverseButtons: true,
+                    focusConfirm: false,
+                    focusCancel: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: true,
+                    showLoaderOnConfirm: true,
+                    preConfirm: async () => {
+                        return await unarchiveItem(signatureId, 'signature');
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Unarchived',
+                            text: `Signature "${signatureName}" has been unarchived successfully`,
+                            timer: 2000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                });
+            }
+
+            // Unarchive memo, event, or signature
             async function unarchiveItem(itemId, itemType) {
                 if (!itemId) return;
                 try {
-                    if (itemType === 'event') {
+                    if (itemType === 'signature') {
+                        // Unarchive signature (set isActive to true)
+                        const response = await fetch('/api/signatures/' + itemId + '/unarchive', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data || !data.success) {
+                            throw new Error(data?.message || 'Failed to unarchive signature');
+                        }
+
+                        // Remove from window arrays
+                        window.archivedSignatures = (window.archivedSignatures || []).filter(s => s._id !== itemId);
+
+                        // Rebuild allArchivedItems and reapply filters
+                        rebuildAllArchivedItems();
+                        applyFilters();
+
+                        if (emptyState) emptyState.style.display = 'block';
+                        if (memoViewer) memoViewer.style.display = 'none';
+                        return true; // Return success for SweetAlert
+                    } else if (itemType === 'event') {
                         // Unarchive calendar event (change category back to standard)
                         const response = await fetch('/api/calendar/events/' + itemId, {
                             method: 'PUT',
@@ -430,6 +593,10 @@
                     }
                 } catch (error) {
                     console.error('Error unarchiving item:', error);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.showValidationMessage(error.message || 'Failed to unarchive item. Please try again.');
+                    }
+                    return false; // Return failure for SweetAlert
                 }
             }
 
@@ -437,13 +604,8 @@
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', async () => {
                     try {
-                        const response = await fetch('/api/log/memos?folder=archive', { credentials: 'same-origin' });
-                        const data = await response.json();
-                        if (data && data.success && Array.isArray(data.memos)) {
-                            filteredMemos = data.memos;
-                            window.archivedMemos = data.memos;
-                            renderArchiveList();
-                        }
+                        // Reload the page to refresh all archived items (memos, events, signatures)
+                        window.location.reload();
                     } catch (error) {
                         console.error('Error refreshing archive:', error);
                     }
@@ -455,7 +617,12 @@
                     if (currentMemoId && currentMemoIndex >= 0) {
                         const item = filteredMemos[currentMemoIndex];
                         if (item) {
-                            unarchiveItem(currentMemoId, item.type || 'memo');
+                            // For signatures, show SweetAlert confirmation instead of direct unarchive
+                            if (item.type === 'signature') {
+                                showUnarchiveSignatureConfirmation(currentMemoId, item.displayName || item.roleTitle || 'this signature');
+                            } else {
+                                unarchiveItem(currentMemoId, item.type || 'memo');
+                            }
                         }
                     }
                 });
@@ -471,44 +638,104 @@
 
             if (prevBtn) {
                 prevBtn.addEventListener('click', () => {
-                    if (currentMemoIndex > 0) {
-                        currentMemoIndex--;
-                        openMemo(filteredMemos[currentMemoIndex]);
+                    // Find previous non-signature item
+                    let newIndex = currentMemoIndex - 1;
+                    while (newIndex >= 0 && filteredMemos[newIndex]?.type === 'signature') {
+                        newIndex--;
+                    }
+                    if (newIndex >= 0) {
+                        currentMemoIndex = newIndex;
+                        const item = filteredMemos[currentMemoIndex];
+                        if (item.type === 'event') {
+                            openEvent(item);
+                        } else {
+                            openMemo(item);
+                        }
                     }
                 });
             }
 
             if (nextBtn) {
                 nextBtn.addEventListener('click', () => {
-                    if (currentMemoIndex < filteredMemos.length - 1) {
-                        currentMemoIndex++;
-                        openMemo(filteredMemos[currentMemoIndex]);
+                    // Find next non-signature item
+                    let newIndex = currentMemoIndex + 1;
+                    while (newIndex < filteredMemos.length && filteredMemos[newIndex]?.type === 'signature') {
+                        newIndex++;
+                    }
+                    if (newIndex < filteredMemos.length) {
+                        currentMemoIndex = newIndex;
+                        const item = filteredMemos[currentMemoIndex];
+                        if (item.type === 'event') {
+                            openEvent(item);
+                        } else {
+                            openMemo(item);
+                        }
                     }
                 });
             }
 
-            // Apply filters
+            // Rebuild allArchivedItems from window arrays
+            function rebuildAllArchivedItems() {
+                allArchivedItems = [
+                    ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
+                    ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
+                    ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
+                ];
+                // Sort by newest first
+                allArchivedItems.sort((a, b) => {
+                    const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                    const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                    return bDate - aDate; // Newest first
+                });
+            }
+
+            // Apply filters function
+            function applyFilters() {
+                const archiveType = archiveTypeFilter ? archiveTypeFilter.value : 'all';
+                const priority = priorityFilter ? priorityFilter.value : 'all';
+
+                // First filter by archive type
+                let typeFiltered = allArchivedItems;
+                if (archiveType !== 'all') {
+                    typeFiltered = allArchivedItems.filter(item => item.type === archiveType);
+                }
+
+                // Then filter by priority
+                if (priority === 'all') {
+                    filteredMemos = typeFiltered;
+                } else {
+                    filteredMemos = typeFiltered.filter(item => {
+                        if (item.type === 'signature') {
+                            // Signatures don't have priority, show all when "all" is selected
+                            return priority === 'all';
+                        } else if (item.type === 'event') {
+                            const category = (item.category || '').toLowerCase();
+                            // Map event categories to priority filter
+                            if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
+                            if (priority === 'high') return category === 'high' || category === 'meeting';
+                            if (priority === 'medium') return category === 'standard' || category === 'reminder';
+                            if (priority === 'low') return category === 'low';
+                            return false;
+                        } else {
+                            return (item.priority || '').toLowerCase() === priority;
+                        }
+                    });
+                }
+
+                renderArchiveList();
+            }
+
+            // Apply archive type filter
+            if (archiveTypeFilter) {
+                archiveTypeFilter.addEventListener('change', () => {
+                    applyFilters();
+                });
+            }
+
+            // Apply priority filter
             if (priorityFilter) {
                 priorityFilter.addEventListener('change', () => {
-                    const priority = priorityFilter.value;
-                    if (priority === 'all') {
-                        filteredMemos = [...allArchivedItems];
-                    } else {
-                        filteredMemos = allArchivedItems.filter(item => {
-                            if (item.type === 'event') {
-                                const category = (item.category || '').toLowerCase();
-                                // Map event categories to priority filter
-                                if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
-                                if (priority === 'high') return category === 'high' || category === 'meeting';
-                                if (priority === 'medium') return category === 'standard' || category === 'reminder';
-                                if (priority === 'low') return category === 'low';
-                                return false;
-                            } else {
-                                return (item.priority || '').toLowerCase() === priority;
-                            }
-                        });
-                    }
-                    renderArchiveList();
+                    applyFilters();
                 });
             }
 
@@ -535,8 +762,8 @@
                             return (priorityOrder[bPriority] || 0) - (priorityOrder[aPriority] || 0);
                         }
                         if (sort === 'subject') {
-                            const aTitle = a.type === 'event' ? (a.title || '') : (a.subject || '');
-                            const bTitle = b.type === 'event' ? (b.title || '') : (b.subject || '');
+                            const aTitle = a.type === 'event' ? (a.title || '') : a.type === 'signature' ? (a.displayName || '') : (a.subject || '');
+                            const bTitle = b.type === 'event' ? (b.title || '') : b.type === 'signature' ? (b.displayName || '') : (b.subject || '');
                             return aTitle.localeCompare(bTitle);
                         }
                         return 0;
@@ -545,8 +772,8 @@
                 });
             }
 
-            // Initial render
-            renderArchiveList();
+            // Initial render with filters applied
+            applyFilters();
         });
     </script>
 </body>

@@ -1,5 +1,5 @@
 // Generic Message Modal JavaScript
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('Message modal script loaded');
 
     const messageModal = document.getElementById('messageModal');
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Close modal when clicking outside
     if (messageModal) {
-        messageModal.addEventListener('click', function(e) {
+        messageModal.addEventListener('click', (e) => {
             if (e.target === messageModal) {
                 closeMessageModal();
             }
@@ -87,17 +87,21 @@ document.addEventListener('DOMContentLoaded', function() {
     window.showMessageModal = function(title, message, type) {
         console.log('showMessageModal called with:', { title, message, type });
 
-        var modal = document.getElementById('messageModal');
-        var modalTitle = document.getElementById('messageModalTitle');
-        var modalBody = document.getElementById('messageText');
-        var iconDiv = document.getElementById('messageIcon');
-        var closeBtn = document.getElementById('closeMessageModal');
+        const modal = document.getElementById('messageModal');
+        const modalTitle = document.getElementById('messageModalTitle');
+        const modalBody = document.getElementById('messageText');
+        const iconDiv = document.getElementById('messageIcon');
+        const closeBtn = document.getElementById('closeMessageModal');
 
         // Check if elements exist
         if (!modal || !modalTitle || !modalBody || !iconDiv) {
             console.error('Message modal elements not found. Modal:', !!modal, 'Title:', !!modalTitle, 'Body:', !!modalBody, 'Icon:', !!iconDiv);
-            // Fallback to alert if modal elements don't exist
-            alert(title + ': ' + message);
+            // Fallback to SweetAlert if modal elements don't exist
+            Swal.fire({
+                icon: type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info',
+                title: title,
+                text: message
+            });
             return;
         }
 
@@ -154,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.classList.remove('modal-error', 'modal-success', 'modal-info');
 
         // Inline background/text color control to avoid page-specific CSS conflicts
-        var content = modal.querySelector('.modal-content');
+        const content = modal.querySelector('.modal-content');
         if (content) {
             content.style.boxShadow = '0 8px 32px 0 rgba(0,0,0,0.15)';
             content.style.color = ''; // will be set below

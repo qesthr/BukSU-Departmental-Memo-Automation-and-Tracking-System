@@ -40,29 +40,79 @@ function generateRandomString(length = 16) {
 /**
  * Check if user has specific permission
  * @param {object} user - User object with role
- * @param {string} permission - Permission to check
- * @returns {boolean} - True if user has permission
+ * @param {string} permission - Permission to check (old format: 'canCreateMemo' or new format: 'memo:create')
+ * @returns {boolean|Promise<boolean>} - True if user has permission
+ *
+ * Note: This function supports both old permission format (for backward compatibility)
+ * and new RBAC permission format. For new code, use rbacService.can() directly.
  */
 function hasPermission(user, permission) {
     if (!user || !user.role) {
         return false;
     }
 
+    // Map old permission format to new RBAC format for backward compatibility
+    const permissionMap = {
+        'canCreateMemo': 'memo:create',
+        'canApproveMemo': 'memo:approve',
+        'canRejectMemo': 'memo:reject',
+        'canDeleteMemo': 'memo:delete',
+        'canViewAllMemos': 'memo:read:all',
+        'canManageUsers': 'user:manage:role',
+        'canManageSettings': 'settings:update',
+        'canCrossDepartmentSend': 'memo:send:cross-department',
+        'canViewAnalytics': 'analytics:view'
+    };
+
+    // Try new RBAC format first
+    if (permission.includes(':')) {
+        // New RBAC format - return promise (caller should await)
+        const rbacService = require('../services/rbacService');
+        return rbacService.can(user, permission);
+    }
+
+    // Old format - check legacy permissions
     const permissions = ROLE_PERMISSIONS[user.role];
     if (!permissions) {
         return false;
+    }
+
+    // Check if it's an old permission format
+    if (permissionMap[permission]) {
+        // Try RBAC first, fallback to old system
+        const rbacService = require('../services/rbacService');
+        return rbacService.can(user, permissionMap[permission]).catch(() => {
+            return permissions[permission] === true;
+        });
     }
 
     return permissions[permission] === true;
 }
 
 /**
- * Check if user is admin
+ * Check if user is admin (including superadmin)
  * @param {object} user - User object
- * @returns {boolean} - True if user is admin
+ * @returns {boolean} - True if user is admin or superadmin
  */
 function isAdmin(user) {
-    return user && user.role === USER_ROLES.ADMIN;
+    if (!user || !user.role) {
+        return false;
+    }
+
+    // Use RBAC service for admin check
+    const rbacService = require('../services/rbacService');
+    return rbacService.isAdmin(user);
+}
+
+/**
+ * Check if user is superadmin (DEPRECATED - admin is now highest role)
+ * @param {object} user - User object
+ * @returns {boolean} - Always returns false (superadmin removed)
+ * @deprecated Use isAdmin instead
+ */
+function isSuperAdmin(user) {
+    // Superadmin role removed - admin is now highest role
+    return false;
 }
 
 /**
@@ -351,6 +401,7 @@ module.exports = {
     generateRandomString,
     hasPermission,
     isAdmin,
+    isSuperAdmin,
     isSecretary,
     isFaculty,
     canCreateMemo,

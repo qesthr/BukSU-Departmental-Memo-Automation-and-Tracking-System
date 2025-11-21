@@ -23,8 +23,14 @@ router.put('/:id', userController.updateUser);
 
 // Concurrency lock routes removed (optimistic locking only)
 
-// Delete user
+// Archive user (DELETE endpoint - sets isActive: false)
 router.delete('/:id', userController.deleteUser);
+
+// Unarchive user (POST endpoint - sets isActive: true)
+router.post('/:id/unarchive', userController.unarchiveUser);
+
+// Get archived users
+router.get('/archived/list', userController.getArchivedUsers);
 
 // Upload profile picture
 router.post('/:id/profile-picture', userController.uploadProfilePicture);

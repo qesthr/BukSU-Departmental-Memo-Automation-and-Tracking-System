@@ -103,26 +103,53 @@ exports.lockStatus = async (req, res) => {
 // Get all users with optional filtering
 exports.getAllUsers = async (req, res) => {
     try {
-        const { role } = req.query;
+        const { role, includeArchived } = req.query;
         const query = {};
+
+        // By default, only show active users unless includeArchived is true
+        if (includeArchived !== 'true') {
+            query.isActive = { $ne: false }; // Include active users and users without isActive set
+        }
 
         if (role && role !== 'all') {
             query.role = role;
         }
 
-        const users = await User.find(query).select('-password -googleId');
+        const users = await User.find(query).select('-password -googleId').sort({ createdAt: -1 });
 
+        // Calculate stats for active users only
+        const activeQuery = { isActive: { $ne: false } };
         const userStats = {
-            total: await User.countDocuments(),
-            admin: await User.countDocuments({ role: 'admin' }),
-            secretary: await User.countDocuments({ role: 'secretary' }),
-            faculty: await User.countDocuments({ role: 'faculty' })
+            total: await User.countDocuments(activeQuery),
+            admin: await User.countDocuments({ ...activeQuery, role: 'admin' }),
+            secretary: await User.countDocuments({ ...activeQuery, role: 'secretary' }),
+            faculty: await User.countDocuments({ ...activeQuery, role: 'faculty' }),
+            archived: await User.countDocuments({ isActive: false })
         };
 
         res.json({ users, stats: userStats });
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ message: 'Error fetching users' });
+    }
+};
+
+// Get archived users
+exports.getArchivedUsers = async (req, res) => {
+    try {
+        const { role } = req.query;
+        const query = { isActive: false };
+
+        if (role && role !== 'all') {
+            query.role = role;
+        }
+
+        const users = await User.find(query).select('-password -googleId').sort({ updatedAt: -1 });
+
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('Error fetching archived users:', error);
+        res.status(500).json({ message: 'Error fetching archived users' });
     }
 };
 
@@ -213,14 +240,14 @@ exports.addUser = async (req, res) => {
     }
 };
 
-// Delete user
+// Archive user (set isActive: false instead of deleting)
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Prevent self-deletion
+        // Prevent self-archival
         if (String(req.user._id) === String(id)) {
-            return res.status(403).json({ error: 'You cannot delete your own account.' });
+            return res.status(403).json({ error: 'You cannot archive your own account.' });
         }
 
         const user = await User.findById(id);
@@ -228,63 +255,107 @@ exports.deleteUser = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Prevent deletion of last admin
+        // Check if already archived
+        if (user.isActive === false) {
+            return res.status(400).json({ message: 'User is already archived' });
+        }
+
+        // Prevent archiving of last active admin
         if (user.role === 'admin') {
-            const adminCount = await User.countDocuments({ role: 'admin' });
-            if (adminCount <= 1) {
-                return res.status(400).json({ message: 'Cannot delete the last admin user' });
+            const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true });
+            if (activeAdminCount <= 1) {
+                return res.status(400).json({ message: 'Cannot archive the last active admin user' });
             }
         }
 
-        // Get user info before deletion
-        const deletedUser = user;
+        // Archive the user (set isActive to false)
+        user.isActive = false;
+        user.status = 'archived';
+        await user.save();
 
-        // Delete the user
-        await User.findByIdAndDelete(id);
-        // Audit delete
-        try { await audit(req.user, 'user_deleted', 'User Deleted', `Deleted user ${deletedUser.email}`, { targetUserId: id, role: deletedUser.role, department: deletedUser.department }); } catch (e) {}
-
-        // Create log entry for user deletion (non-blocking)
+        // Audit archive
         try {
-            const Memo = require('../models/Memo');
-            const adminUsers = await User.find({ role: 'admin' }).select('_id');
+            await audit(req.user, 'user_archived', 'User Archived', `Archived user ${user.email}`, {
+                targetUserId: id,
+                role: user.role,
+                department: user.department
+            });
+        } catch (e) {}
 
-            if (adminUsers.length > 0) {
-                const logPromises = adminUsers.map(admin => {
-                    return Memo.create({
-                        sender: req.user._id,
-                        recipient: admin._id,
-                        subject: `User Account Deleted`,
-                        content: `User ${deletedUser.email} (${deletedUser.firstName} ${deletedUser.lastName}) has been deleted from the system. Role: ${deletedUser.role}, Department: ${deletedUser.department || 'N/A'}`,
-                        department: 'System',
-                        priority: 'high',
-                        status: 'sent',
-                        folder: 'sent',
-                        activityType: 'user_deleted',
-                        metadata: {
-                            deletedUserEmail: deletedUser.email,
-                            deletedUserRole: deletedUser.role,
-                            deletedUserDepartment: deletedUser.department
-                        }
-                    });
-                });
-
-                // Don't await - just fire and forget
-                Promise.all(logPromises).then(() => {
-                    console.log(`User deletion logged for ${deletedUser.email}`);
-                }).catch(err => {
-                    console.error('Failed to create deletion log:', err);
-                });
-            }
+        // Log archive activity (non-blocking)
+        try {
+            const activityLogger = require('../services/activityLogger');
+            await activityLogger.log(req.user, 'user_archived', `User ${user.email} has been archived`, {
+                targetResource: 'user',
+                targetId: user._id,
+                targetName: `${user.firstName} ${user.lastName}`,
+                metadata: {
+                    archivedUserEmail: user.email,
+                    archivedUserRole: user.role,
+                    archivedUserDepartment: user.department
+                }
+            });
         } catch (logError) {
-            console.error('Failed to create deletion log:', logError);
-            // Don't fail the deletion if logging fails
+            console.error('Failed to log archive activity:', logError);
         }
 
-        res.json({ message: 'User deleted successfully' });
+        res.json({ success: true, message: 'User archived successfully' });
     } catch (error) {
-        console.error('Error deleting user:', error);
-        res.status(500).json({ message: 'Error deleting user' });
+        console.error('Error archiving user:', error);
+        res.status(500).json({ message: 'Error archiving user' });
+    }
+};
+
+// Unarchive user (set isActive: true)
+exports.unarchiveUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if already active
+        if (user.isActive === true) {
+            return res.status(400).json({ message: 'User is already active' });
+        }
+
+        // Unarchive the user (set isActive to true)
+        user.isActive = true;
+        user.status = 'active';
+        await user.save();
+
+        // Audit unarchive
+        try {
+            await audit(req.user, 'user_activated', 'User Unarchived', `Unarchived user ${user.email}`, {
+                targetUserId: id,
+                role: user.role,
+                department: user.department
+            });
+        } catch (e) {}
+
+        // Log unarchive activity (non-blocking)
+        try {
+            const activityLogger = require('../services/activityLogger');
+            await activityLogger.log(req.user, 'user_activated', `User ${user.email} has been unarchived`, {
+                targetResource: 'user',
+                targetId: user._id,
+                targetName: `${user.firstName} ${user.lastName}`,
+                metadata: {
+                    unarchivedUserEmail: user.email,
+                    unarchivedUserRole: user.role,
+                    unarchivedUserDepartment: user.department
+                }
+            });
+        } catch (logError) {
+            console.error('Failed to log unarchive activity:', logError);
+        }
+
+        res.json({ success: true, message: 'User unarchived successfully' });
+    } catch (error) {
+        console.error('Error unarchiving user:', error);
+        res.status(500).json({ message: 'Error unarchiving user' });
     }
 };
 

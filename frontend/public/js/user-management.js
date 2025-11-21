@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usersList = document.getElementById('usersList');
     const addUserModal = document.getElementById('addUserModal');
     const editUserModal = document.getElementById('editUserModal');
-    const deleteModal = document.getElementById('deleteModal');
+    // deleteModal removed - now using SweetAlert
     const changeDeptModal = document.getElementById('changeDeptModal');
     const changeRoleModal = document.getElementById('changeRoleModal');
     const userSearch = document.getElementById('userSearch');
@@ -14,9 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const changeRoleForm = document.getElementById('changeRoleForm');
 
     let users = [];
+    let archivedUsers = [];
     let currentFilter = 'all';
     let currentUserId = null;
     let currentEditingUserId = null;
+    let currentView = 'active'; // 'active' or 'archived'
 
     // Invitation Modal (vanilla JS): spinner -> success checkmark
     function ensureInviteModal() {
@@ -117,6 +119,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Fetch archived users
+    async function fetchArchivedUsers(role = 'all') {
+        try {
+            const response = await fetch(`/api/users/archived/list?role=${role}`);
+            const data = await response.json();
+            if (data.success) {
+                archivedUsers = data.users;
+                await loadLockStates(archivedUsers);
+                renderUsers();
+            }
+        } catch (error) {
+            console.error('Error fetching archived users:', error);
+            showNotification('Error fetching archived users', 'error');
+        }
+    }
+
     async function loadLockStates(list) {
         userLocks = {};
         try {
@@ -148,10 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const admin = document.getElementById('adminCount');
         const secretary = document.getElementById('secretaryCount');
         const faculty = document.getElementById('facultyCount');
+        const archived = document.getElementById('archivedCount');
         if (total) { total.textContent = stats.total; }
         if (admin) { admin.textContent = (typeof stats.admin === 'number') ? stats.admin : ((stats.total || 0) - (stats.secretary || 0) - (stats.faculty || 0)); }
         if (secretary) { secretary.textContent = stats.secretary || 0; }
         if (faculty) { faculty.textContent = stats.faculty || 0; }
+        if (archived && stats.archived !== undefined) { archived.textContent = `(${stats.archived})`; }
     }
 
     // Normalize department (long form only for IT/EMC/EMC/IT variations):
@@ -188,7 +208,8 @@ function normalizeDepartment(dept) {
             searchTerm = userSearchInput.value.toLowerCase();
         }
 
-        const filteredUsers = users.filter(user => {
+        const usersToRender = currentView === 'archived' ? archivedUsers : users;
+        const filteredUsers = usersToRender.filter(user => {
             const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
             const email = user.email.toLowerCase();
             const department = (user.department || '').toLowerCase();
@@ -209,8 +230,32 @@ function normalizeDepartment(dept) {
             const lockBadge = lockedByOther ? `<span class="lock-badge" style="margin-right:8px;color:#ef4444;font-size:.8rem;display:inline-flex;align-items:center;">Editing…</span>` : '';
             const editDisabled = lockedByOther ? 'disabled style="opacity:.5;cursor:not-allowed"' : '';
             const editTitle = lockedByOther ? 'Another admin is editing' : 'Edit';
-            const deleteDisabled = lockedByOther ? 'disabled style="opacity:.5;cursor:not-allowed"' : '';
-            const deleteTitle = lockedByOther ? 'Unavailable while editing' : 'Delete';
+            const archiveDisabled = lockedByOther ? 'disabled style="opacity:.5;cursor:not-allowed"' : '';
+            const archiveTitle = lockedByOther ? 'Unavailable while editing' : 'Archive';
+            const unarchiveTitle = lockedByOther ? 'Unavailable while editing' : 'Unarchive';
+
+            // Show different actions based on view
+            let actionButtons = '';
+            if (currentView === 'archived') {
+                // Archived view: Show unarchive button
+                actionButtons = `
+                    <button class="action-btn action-btn-unarchive unarchive-user" data-id="${user._id}" title="${unarchiveTitle}" ${archiveDisabled}>
+                        <i data-lucide="archive-restore"></i>
+                    </button>
+                `;
+            } else {
+                // Active view: Show edit and archive buttons
+                actionButtons = `
+                    ${lockBadge}
+                    <button class="action-btn action-btn-edit edit-user" data-id="${user._id}" title="${editTitle}" ${editDisabled}>
+                        <i data-lucide="pencil"></i>
+                    </button>
+                    ${ (window.currentUserId && String(window.currentUserId) === String(user._id))
+                        ? `<button class="action-btn action-btn-archive" title="You cannot archive your own account" disabled style="opacity:.5;cursor:not-allowed"><i data-lucide="archive"></i></button>`
+                        : `<button class="action-btn action-btn-archive archive-user" data-id="${user._id}" title="${archiveTitle}" ${archiveDisabled}><i data-lucide="archive"></i></button>` }
+                `;
+            }
+
             return `
             <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
                 <div class="name-cell">
@@ -227,13 +272,7 @@ function normalizeDepartment(dept) {
                     <span class="role-badge ${user.role}">${user.role}</span>
                 </div>
                 <div class="actions-cell">
-                    ${lockBadge}
-                    <button class="btn-icon edit-user" data-id="${user._id}" title="${editTitle}" ${editDisabled}>
-                        <i data-lucide="edit-2"></i>
-                    </button>
-                    ${ (window.currentUserId && String(window.currentUserId) === String(user._id))
-                        ? `<button class="btn-icon" title="You cannot delete your own account" disabled style="opacity:.5;cursor:not-allowed"><i data-lucide="trash-2"></i></button>`
-                        : `<button class="btn-icon delete-user" data-id="${user._id}" title="${deleteTitle}" ${deleteDisabled}><i data-lucide="trash-2"></i></button>` }
+                    ${actionButtons}
                 </div>
             </div>
         `}).join('');
@@ -334,7 +373,7 @@ function normalizeDepartment(dept) {
         }
     }
 
-    // Delete user (API only). UI feedback handled by runDeleteFlow
+    // Archive user (API only). UI feedback handled by SweetAlert in showArchiveConfirmation
     async function deleteUser(userId) {
         const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
         if (!response.ok) {
@@ -441,17 +480,27 @@ function normalizeDepartment(dept) {
             return;
         }
 
-        // Handle delete
-        if (e.target.closest('.delete-user')) {
+        // Handle archive
+        if (e.target.closest('.archive-user')) {
             e.stopPropagation();
             if (isLockedByOther(userId)) {
-                showToast('Cannot delete while another admin is editing this user.');
+                showToast('Cannot archive while another admin is editing this user.');
                 return;
             }
             currentUserId = userId;
-            resetDeleteModal();
-            openModal(deleteModal);
-            trapFocus(deleteModal, ['cancelDelete','confirmDelete']);
+            showArchiveConfirmation(userId);
+            return;
+        }
+
+        // Handle unarchive
+        if (e.target.closest('.unarchive-user')) {
+            e.stopPropagation();
+            if (isLockedByOther(userId)) {
+                showToast('Cannot unarchive while another admin is editing this user.');
+                return;
+            }
+            currentUserId = userId;
+            showUnarchiveConfirmation(userId);
             return;
         }
 
@@ -460,14 +509,23 @@ function normalizeDepartment(dept) {
 
     // Fallback global delegation in case icon click misses row handler
     document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.delete-user');
+        const archiveBtn = e.target.closest('.archive-user');
+        const unarchiveBtn = e.target.closest('.unarchive-user');
+        const btn = archiveBtn || unarchiveBtn;
         if (!btn) { return; }
         const row = btn.closest('.table-row');
         if (!row) { return; }
-        currentUserId = row.dataset.id;
-        resetDeleteModal();
-        openModal(deleteModal);
-        trapFocus(deleteModal, ['cancelDelete','confirmDelete']);
+        const userId = row.dataset.id;
+        if (isLockedByOther(userId)) {
+            showToast(`Cannot ${archiveBtn ? 'archive' : 'unarchive'} while another admin is editing this user.`);
+            return;
+        }
+        currentUserId = userId;
+        if (archiveBtn) {
+            showArchiveConfirmation(userId);
+        } else if (unarchiveBtn) {
+            showUnarchiveConfirmation(userId);
+        }
     });
 
     // Close menu when clicking outside
@@ -529,65 +587,138 @@ function normalizeDepartment(dept) {
         updateUserRole(userId, newRole);
     });
 
-    document.getElementById('confirmDelete').addEventListener('click', () => {
-        if (!currentUserId) {return;}
-        runDeleteFlow(currentUserId);
-    });
+    // Show SweetAlert confirmation for archiving user
+    function showArchiveConfirmation(userId) {
+        const user = users.find(u => u._id === userId);
+        const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
 
-    function resetDeleteModal() {
-        const msg = document.getElementById('deleteMessage');
-        const state = document.getElementById('deleteState');
-        const cancelBtn = document.getElementById('cancelDelete');
-        const deleteBtn = document.getElementById('confirmDelete');
-        msg.textContent = 'Are you sure you want to delete this user? This action cannot be undone.';
-        state.innerHTML = '';
-        cancelBtn.disabled = false;
-        deleteBtn.disabled = false;
-        deleteBtn.innerHTML = 'Delete';
-        // focus primary action
-        setTimeout(() => deleteBtn.focus(), 0);
-    }
+        Swal.fire({
+            title: 'Archive User',
+            html: `Are you sure you want to archive <strong>${userName}</strong>?<br><br>Archived users will be hidden from the active users list.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Archive',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true,
+            focusConfirm: false,
+            focusCancel: true,
+            allowOutsideClick: false,
+            allowEscapeKey: true,
+            showLoaderOnConfirm: true,
+            preConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/users/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin'
+                    });
 
-    function showDeletingState() {
-        const msg = document.getElementById('deleteMessage');
-        const state = document.getElementById('deleteState');
-        const cancelBtn = document.getElementById('cancelDelete');
-        const deleteBtn = document.getElementById('confirmDelete');
-        cancelBtn.disabled = true;
-        deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:#ef4444;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:6px;animation:spin .9s linear infinite"></span>Deleting…';
-        state.innerHTML = '<span class="spinner"></span>';
-        msg.textContent = 'Deleting user… please wait';
-    }
+                    if (!response.ok) {
+                        let errorMessage = 'Failed to archive user';
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.message || errorData.error || errorMessage;
+                        } catch (err) {
+                            // If response is not JSON, use status text
+                            errorMessage = response.statusText || errorMessage;
+                        }
+                        throw new Error(errorMessage);
+                    }
 
-    function showDeleteSuccess() {
-        const msg = document.getElementById('deleteMessage');
-        const state = document.getElementById('deleteState');
-        state.innerHTML = '<span class="checkwrap"><svg width="24" height="24" viewBox="0 0 24 24"><path class="check" d="M6 12l4 4 8-8"/></svg></span>';
-        msg.textContent = 'User deleted successfully!';
-    }
+                    const data = await response.json();
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to archive user');
+                    }
 
-    async function runDeleteFlow(userId) {
-        showDeletingState();
-        try {
-            await deleteUser(userId);
-            showDeleteSuccess();
-            // close after short delay and refresh list
-            setTimeout(() => {
-                closeModal(deleteModal);
+                    return { success: true };
+                } catch (error) {
+                    Swal.showValidationMessage(
+                        error.message || 'Failed to archive user. Please try again.'
+                    );
+                    return { success: false };
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value?.success) {
+                // Show success message
+                Swal.fire({
+                    icon: 'success',
+                    title: 'User Archived',
+                    text: `${userName} has been archived successfully.`,
+                    timer: 2000,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+                // Refresh user list and archived users
                 currentUserId = null;
                 fetchUsers(currentFilter);
-            }, 1600);
-        } catch (err) {
-            // revert minimal UI and show message
-            const msg = document.getElementById('deleteMessage');
-            msg.textContent = (err && err.message) ? err.message : 'Failed to delete user';
-            const cancelBtn = document.getElementById('cancelDelete');
-            const deleteBtn = document.getElementById('confirmDelete');
-            cancelBtn.disabled = false;
-            deleteBtn.disabled = false;
-            deleteBtn.innerHTML = 'Delete';
-        }
+                fetchArchivedUsers(currentFilter);
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                currentUserId = null;
+            }
+        });
+    }
+
+    // Show SweetAlert confirmation for unarchiving user
+    function showUnarchiveConfirmation(userId) {
+        const user = archivedUsers.find(u => u._id === userId);
+        const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
+
+        Swal.fire({
+            title: 'Unarchive User',
+            html: `Are you sure you want to unarchive <strong>${userName}</strong>?<br><br>This will restore the user to the active users list.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Unarchive',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true,
+            focusConfirm: false,
+            focusCancel: true,
+            allowOutsideClick: false,
+            allowEscapeKey: true,
+            showLoaderOnConfirm: true,
+            preConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/users/${userId}/unarchive`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin'
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to unarchive user');
+                    }
+                    return { success: true };
+                } catch (error) {
+                    Swal.showValidationMessage(
+                        error.message || 'Failed to unarchive user. Please try again.'
+                    );
+                    return { success: false };
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value?.success) {
+                // Show success message
+                Swal.fire({
+                    icon: 'success',
+                    title: 'User Unarchived',
+                    text: `${userName} has been restored to active users.`,
+                    timer: 2000,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+                // Refresh both lists
+                currentUserId = null;
+                fetchUsers(currentFilter);
+                fetchArchivedUsers(currentFilter);
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                currentUserId = null;
+            }
+        });
     }
 
     function trapFocus(container, ids) {
@@ -603,12 +734,50 @@ function normalizeDepartment(dept) {
         container.addEventListener('keydown', onKey, { once: true, capture: true });
     }
 
+    // Tab switching
+    const activeUsersTab = document.getElementById('activeUsersTab');
+    const archivedUsersTab = document.getElementById('archivedUsersTab');
+
+    if (activeUsersTab) {
+        activeUsersTab.addEventListener('click', () => {
+            currentView = 'active';
+            activeUsersTab.classList.add('active');
+            archivedUsersTab.classList.remove('active');
+            activeUsersTab.style.borderBottomColor = '#1C89E3';
+            activeUsersTab.style.color = '#1C89E3';
+            archivedUsersTab.style.borderBottomColor = 'transparent';
+            archivedUsersTab.style.color = '#6b7280';
+            renderUsers();
+        });
+    }
+
+    if (archivedUsersTab) {
+        archivedUsersTab.addEventListener('click', () => {
+            currentView = 'archived';
+            archivedUsersTab.classList.add('active');
+            activeUsersTab.classList.remove('active');
+            archivedUsersTab.style.borderBottomColor = '#1C89E3';
+            archivedUsersTab.style.color = '#1C89E3';
+            activeUsersTab.style.borderBottomColor = 'transparent';
+            activeUsersTab.style.color = '#6b7280';
+            if (archivedUsers.length === 0) {
+                fetchArchivedUsers(currentFilter);
+            } else {
+                renderUsers();
+            }
+        });
+    }
+
     roleFilters.forEach(btn => {
         btn.addEventListener('click', () => {
             roleFilters.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentFilter = btn.dataset.role;
-            fetchUsers(currentFilter);
+            if (currentView === 'active') {
+                fetchUsers(currentFilter);
+            } else {
+                fetchArchivedUsers(currentFilter);
+            }
         });
     });
 
@@ -617,7 +786,14 @@ function normalizeDepartment(dept) {
     window.renderUsers = renderUsers;
 
     // Initial fetch
-    fetchUsers();
+    fetchUsers('all');
+    fetchArchivedUsers('all'); // Pre-load archived users count
+
+    // Set initial tab styling
+    if (activeUsersTab) {
+        activeUsersTab.style.borderBottomColor = '#1C89E3';
+        activeUsersTab.style.color = '#1C89E3';
+    }
 
     // Modal helpers
     function openModal(modal) {

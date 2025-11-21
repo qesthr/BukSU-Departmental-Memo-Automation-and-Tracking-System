@@ -11,6 +11,7 @@ exports.getAllMemos = async (req, res) => {
         const { folder = 'inbox' } = req.query;
 
         let query = {};
+        let user = null; // Declare user at function scope
 
         // System-generated activity types to exclude from memo inboxes
         const systemActivityTypes = [
@@ -23,7 +24,10 @@ exports.getAllMemos = async (req, res) => {
 
         if (folder === 'inbox') {
             // For admins, show both sent and received memos
-            const user = await User.findById(userId);
+            user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'User not found' });
+            }
             if (user.role === 'admin') {
                 // Admin inbox: show both memos sent BY admin and received BY admin
                 // Also include memos that admin approved/rejected (check metadata.history)
@@ -58,45 +62,59 @@ exports.getAllMemos = async (req, res) => {
                         },
                         {
                             status: { $nin: ['deleted','archived'] },
-                            activityType: { $nin: systemActivityTypes }
+                            activityType: { $nin: systemActivityTypes },
+                            // Exclude acknowledgment notifications
+                            $nor: [
+                                { 'metadata.notificationType': 'acknowledgment' },
+                                { subject: /^Memo Acknowledged:/i }
+                            ]
                         }
                     ]
                 };
             } else {
                 // Regular users: only delivered memos (hide pending workflow items)
                 // Status filter already excludes pending, so secretaries won't see their own pending memos
-                // For secretaries, also include rejected memos and rejection/approval notifications
+                // For secretaries, show approved/rejected memos but NOT approval/rejection notification memos
+                // (notification memos appear in notifications dropdown, not inbox)
                 if (user.role === 'secretary') {
                     query = {
                         recipient: userId,
-                        $or: [
-                            {
-                                // Regular memos: sent, approved, or rejected
-                                status: { $in: ['sent', 'approved', 'rejected'] },
-                                activityType: { $nin: systemActivityTypes }
-                            },
-                            {
-                                // Rejection/approval notification memos for secretaries
-                                status: 'sent',
-                                activityType: 'system_notification',
-                                'metadata.eventType': 'memo_review_decision',
-                                'metadata.action': { $in: ['rejected', 'approved'] }
-                            }
+                        status: { $in: ['sent', 'approved', 'rejected'] },
+                        activityType: { $nin: systemActivityTypes },
+                        // Exclude acknowledgment notifications
+                        // Exclude admin memo copies (memos created for admin's inbox)
+                        // Exclude approval/rejection notification memos (they appear in notifications, not inbox)
+                        $nor: [
+                            { 'metadata.notificationType': 'acknowledgment' },
+                            { subject: /^Memo Acknowledged:/i },
+                            { 'metadata.eventType': 'memo_approved_by_admin' },
+                            { 'metadata.eventType': 'memo_review_decision' }
                         ]
                     };
                 } else {
                     query = {
                         recipient: userId,
                         status: { $in: ['sent', 'approved'] },
-                        activityType: { $nin: systemActivityTypes }
+                        activityType: { $nin: systemActivityTypes },
+                        // Exclude acknowledgment notifications
+                        // Exclude admin memo copies (memos created for admin's inbox)
+                        // Exclude approval/rejection notification memos
+                        $nor: [
+                            { 'metadata.notificationType': 'acknowledgment' },
+                            { subject: /^Memo Acknowledged:/i },
+                            { 'metadata.eventType': 'memo_approved_by_admin' },
+                            { 'metadata.eventType': 'memo_review_decision' }
+                        ]
                     };
                 }
             }
         } else if (folder === 'sent') {
             // For sent folder, show memos sent by user
             // Include pending memos for secretaries so they can see what they submitted
-            const user = await User.findById(userId);
-            if (user.role === 'secretary') {
+            if (!user) {
+                user = await User.findById(userId);
+            }
+            if (user && user.role === 'secretary') {
                 query = { sender: userId, status: { $nin: ['deleted','archived'] } };
             } else {
                 query = { sender: userId, folder: 'sent', status: { $nin: ['deleted','archived'] } };
@@ -139,10 +157,47 @@ exports.getAllMemos = async (req, res) => {
         const memos = await Memo.find(query)
             .populate('sender', 'firstName lastName email profilePicture department role')
             .populate('recipient', 'firstName lastName email profilePicture department role')
+            .populate('recipients', 'firstName lastName email profilePicture department role')
             .sort({ createdAt: -1 });
 
+        // Filter out admin workflow copies (approval/rejection memo copies)
+        // But allow admin-created memos (when admin creates and sends a memo)
+        // Allow admin workflow copies to appear in admin's own inbox (so admin can see their actions)
+        // This prevents admin workflow copies from appearing in secretary/faculty inboxes
+        // Reuse the user object from above if available, otherwise fetch it
+        if (!user) {
+            user = await User.findById(userId);
+        }
+        const filteredMemos = memos.filter(memo => {
+            const memoObj = memo.toObject ? memo.toObject() : memo;
+
+            // Exclude admin workflow copies (memos created during approval/rejection workflow)
+            // These have specific eventTypes indicating they're workflow artifacts, not actual memos
+            const isAdminWorkflowCopy = memoObj.metadata?.eventType === 'memo_approved_by_admin' ||
+                                       memoObj.metadata?.eventType === 'memo_rejected_by_admin';
+
+            // Exclude memo_delivered memos that are workflow copies (created during delivery)
+            // But only if they have originalMemoId (indicating they're copies, not originals)
+            const isDeliveredCopy = memoObj.metadata?.eventType === 'memo_delivered' &&
+                                    (memoObj.metadata?.originalMemoId || memoObj.metadata?.relatedMemoId);
+
+            // If it's an admin workflow copy, only allow it in admin's inbox
+            if (isAdminWorkflowCopy) {
+                // Allow admin workflow copies only for admin users
+                return user.role === 'admin';
+            }
+
+            // Exclude delivered copies for all users
+            if (isDeliveredCopy) {
+                return false;
+            }
+
+            // Allow all other memos (including admin-created memos and notifications)
+            return true;
+        });
+
         // Ensure signatures are included in all memos
-        const memosWithSignatures = memos.map(memo => {
+        const memosWithSignatures = filteredMemos.map(memo => {
             const memoObj = memo.toObject ? memo.toObject() : memo;
             if (!memoObj.signatures) {
                 memoObj.signatures = [];
@@ -154,7 +209,13 @@ exports.getAllMemos = async (req, res) => {
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error fetching memos:', error);
-        res.status(500).json({ success: false, message: 'Error fetching memos' });
+        // eslint-disable-next-line no-console
+        console.error('Error stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching memos',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };
 
@@ -169,7 +230,9 @@ exports.getMemo = async (req, res) => {
 
         const memo = await Memo.findById(id)
             .populate('sender', 'firstName lastName email profilePicture department role')
-            .populate('recipient', 'firstName lastName email profilePicture department role');
+            .populate('recipient', 'firstName lastName email profilePicture department role')
+            .populate('recipients', 'firstName lastName email profilePicture department role')
+            .populate('acknowledgments.userId', 'firstName lastName email profilePicture');
 
         if (!memo) {
             return res.status(404).json({ success: false, message: 'Memo not found' });
@@ -200,6 +263,52 @@ exports.getMemo = async (req, res) => {
         // Ensure signatures array is included (even if empty)
         if (!memoObj.signatures) {
             memoObj.signatures = [];
+        }
+
+        // Ensure acknowledgments array is included (even if empty)
+        if (!memoObj.acknowledgments) {
+            memoObj.acknowledgments = [];
+        }
+
+        // If this is the original memo (sender is viewing), also aggregate acknowledgments from recipient copies
+        // This ensures backward compatibility and handles cases where acknowledgments might be in recipient copies
+        if (isSender && !memo.metadata?.originalMemoId) {
+            try {
+                const recipientCopies = await Memo.find({
+                    'metadata.originalMemoId': memo._id.toString()
+                }).select('acknowledgments').populate('acknowledgments.userId', 'firstName lastName email profilePicture');
+
+                // Collect unique acknowledgments from all recipient copies
+                const allAcknowledgmentMap = new Map();
+
+                // Add acknowledgments from original memo
+                if (memoObj.acknowledgments && Array.isArray(memoObj.acknowledgments)) {
+                    memoObj.acknowledgments.forEach(ack => {
+                        const userId = ack.userId?._id?.toString() || ack.userId?.toString();
+                        if (userId) {
+                            allAcknowledgmentMap.set(userId, ack);
+                        }
+                    });
+                }
+
+                // Add acknowledgments from recipient copies
+                recipientCopies.forEach(copy => {
+                    if (copy.acknowledgments && Array.isArray(copy.acknowledgments)) {
+                        copy.acknowledgments.forEach(ack => {
+                            const userId = ack.userId?._id?.toString() || ack.userId?.toString();
+                            if (userId && !allAcknowledgmentMap.has(userId)) {
+                                allAcknowledgmentMap.set(userId, ack);
+                            }
+                        });
+                    }
+                });
+
+                // Update memoObj with aggregated acknowledgments
+                memoObj.acknowledgments = Array.from(allAcknowledgmentMap.values());
+            } catch (aggregateError) {
+                console.error('Error aggregating acknowledgments from recipient copies:', aggregateError);
+                // Continue with original acknowledgments if aggregation fails
+            }
         }
 
         res.json({ success: true, memo: memoObj });
@@ -1055,6 +1164,24 @@ exports.createMemo = async (req, res) => {
             }
         }
 
+        // Log activity - memo created
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_created', populatedMemo, {
+                description: `Created memo "${populatedMemo.subject}"`,
+                ...requestInfo,
+                metadata: {
+                    isScheduled: !!scheduledSendDate,
+                    hasAttachments: populatedMemo.attachments?.length > 0,
+                    recipientCount: createdMemos.length,
+                    isPendingApproval: isSecretary
+                }
+            });
+        } catch (logError) {
+            console.error('Error logging memo creation:', logError);
+        }
+
         // Trigger Google Drive backup asynchronously (non-blocking)
         // Only for Admin and Secretary roles, and only if Drive is connected
         if ((user.role === 'admin' || user.role === 'secretary')) {
@@ -1127,6 +1254,26 @@ exports.updateMemo = async (req, res) => {
 
         await memo.save();
 
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            let actionType = 'memo_edited';
+            if (isStarred !== undefined) {
+                actionType = isStarred ? 'memo_starred' : 'memo_unstarred';
+            } else if (status === 'archived') {
+                actionType = 'memo_archived';
+            } else if (status === 'read') {
+                actionType = 'memo_marked_read';
+            }
+            await activityLogger.logMemoAction(req.user, actionType, memo, {
+                description: `Memo "${memo.subject}" ${actionType}`,
+                ...requestInfo
+            });
+        } catch (logError) {
+            console.error('Error logging memo update:', logError);
+        }
+
         const populatedMemo = await Memo.findById(memo._id)
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department');
@@ -1160,6 +1307,18 @@ exports.deleteMemo = async (req, res) => {
         memo.status = 'deleted';
         memo.folder = 'deleted';
         await memo.save();
+
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_deleted', memo, {
+                description: `Deleted memo "${memo.subject}"`,
+                ...requestInfo
+            });
+        } catch (logError) {
+            console.error('Error logging memo deletion:', logError);
+        }
 
         res.json({ success: true, message: 'Memo deleted successfully' });
     } catch (error) {
@@ -1250,6 +1409,19 @@ exports.approveMemo = async (req, res) => {
         }
         const { approveWithRollback } = require('../services/memoWorkflowService');
         const updated = await approveWithRollback({ memoId: targetId, adminUser: req.user });
+
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_approved', updated, {
+                description: `Approved memo "${updated.subject}"`,
+                ...requestInfo
+            });
+        } catch (logError) {
+            console.error('Error logging memo approval:', logError);
+        }
+
         return res.json({ success: true, memo: updated, message: 'Memo approved and sent to recipients.' });
     } catch (error) {
         // eslint-disable-next-line no-console
@@ -1815,11 +1987,267 @@ exports.rejectMemo = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid original memo id' });
         }
         const updated = await reject({ memoId: targetId, adminUser: req.user, reason });
+
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_rejected', updated, {
+                description: `Rejected memo "${updated.subject}"`,
+                ...requestInfo,
+                metadata: { reason: reason || '' }
+            });
+        } catch (logError) {
+            console.error('Error logging memo rejection:', logError);
+        }
+
         return res.json({ success: true, memo: updated, message: 'Memo rejected and secretary notified.' });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error rejecting memo:', error);
         res.status(500).json({ success: false, message: 'Error rejecting memo', detail: error?.message });
+    }
+};
+
+// Acknowledge a memo (recipient only)
+exports.acknowledgeMemo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid memo id' });
+        }
+
+        const memo = await Memo.findById(id)
+            .populate('recipient', 'firstName lastName email')
+            .populate('sender', 'firstName lastName email');
+
+        if (!memo) {
+            return res.status(404).json({ success: false, message: 'Memo not found' });
+        }
+
+        // Check if user is the recipient
+        if (memo.recipient?._id?.toString() !== userId.toString()) {
+            return res.status(403).json({ success: false, message: 'Only the recipient can acknowledge this memo' });
+        }
+
+        // Check if already acknowledged
+        const alreadyAcknowledged = memo.acknowledgments && memo.acknowledgments.some(
+            ack => {
+                const ackUserId = ack.userId?._id?.toString() || ack.userId?.toString();
+                return ackUserId === userId.toString();
+            }
+        );
+
+        if (alreadyAcknowledged) {
+            return res.status(400).json({ success: false, message: 'Memo already acknowledged' });
+        }
+
+        // Add acknowledgment
+        if (!memo.acknowledgments) {
+            memo.acknowledgments = [];
+        }
+        const acknowledgmentEntry = {
+            userId: userId,
+            acknowledgedAt: new Date()
+        };
+        memo.acknowledgments.push(acknowledgmentEntry);
+        await memo.save();
+
+        // If this is a recipient copy (has originalMemoId), also update the original memo
+        const originalMemoId = memo.metadata?.originalMemoId;
+        if (originalMemoId && mongoose.Types.ObjectId.isValid(originalMemoId)) {
+            try {
+                const originalMemo = await Memo.findById(originalMemoId);
+                if (originalMemo) {
+                    if (!originalMemo.acknowledgments) {
+                        originalMemo.acknowledgments = [];
+                    }
+                    // Check if already acknowledged in original memo
+                    const alreadyAcknowledgedInOriginal = originalMemo.acknowledgments.some(
+                        ack => {
+                            const ackUserId = ack.userId?._id?.toString() || ack.userId?.toString();
+                            return ackUserId === userId.toString();
+                        }
+                    );
+                    if (!alreadyAcknowledgedInOriginal) {
+                        originalMemo.acknowledgments.push({
+                            userId: userId,
+                            acknowledgedAt: new Date()
+                        });
+                        await originalMemo.save();
+                    }
+                }
+            } catch (originalError) {
+                console.error('Error updating original memo acknowledgment:', originalError);
+                // Don't fail the acknowledgment if updating original fails
+            }
+        }
+
+        // Create notification for sender
+        try {
+            const Memo = require('../models/Memo');
+            const recipientName = `${memo.recipient?.firstName || ''} ${memo.recipient?.lastName || ''}`.trim() || memo.recipient?.email || 'Recipient';
+            const notificationMemo = new Memo({
+                sender: userId,
+                recipient: memo.sender._id,
+                subject: `Memo Acknowledged: ${memo.subject}`,
+                content: `${recipientName} has acknowledged your memo "${memo.subject}".`,
+                status: 'sent',
+                activityType: 'memo_received',
+                isRead: false,
+                metadata: {
+                    originalMemoId: memo._id,
+                    notificationType: 'acknowledgment'
+                }
+            });
+            await notificationMemo.save();
+        } catch (notifError) {
+            console.error('Error creating acknowledgment notification:', notifError);
+            // Don't fail the acknowledgment if notification fails
+        }
+
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_marked_read', memo, {
+                description: `Acknowledged memo "${memo.subject}"`,
+                ...requestInfo
+            });
+        } catch (logError) {
+            console.error('Error logging acknowledgment:', logError);
+        }
+
+        // Populate acknowledgments for response
+        const populatedMemo = await Memo.findById(id)
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role')
+            .populate('acknowledgments.userId', 'firstName lastName email profilePicture');
+
+        res.json({ success: true, memo: populatedMemo, message: 'Memo acknowledged successfully' });
+    } catch (error) {
+        console.error('Error acknowledging memo:', error);
+        res.status(500).json({ success: false, message: 'Error acknowledging memo', detail: error?.message });
+    }
+};
+
+// Send reminder to unacknowledged recipients (sender only)
+exports.sendReminder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid memo id' });
+        }
+
+        const memo = await Memo.findById(id)
+            .populate('recipient', 'firstName lastName email')
+            .populate('sender', 'firstName lastName email');
+
+        if (!memo) {
+            return res.status(404).json({ success: false, message: 'Memo not found' });
+        }
+
+        // Check if user is the sender
+        if (memo.sender?._id?.toString() !== userId.toString()) {
+            return res.status(403).json({ success: false, message: 'Only the sender can send reminders' });
+        }
+
+        // Get all recipients (if memo has multiple recipients via recipients array)
+        const allRecipients = [];
+        if (memo.recipients && memo.recipients.length > 0) {
+            const recipients = await User.find({ _id: { $in: memo.recipients } })
+                .select('firstName lastName email profilePicture');
+            allRecipients.push(...recipients);
+        } else if (memo.recipient) {
+            // If recipient is already populated, use it; otherwise fetch it
+            if (memo.recipient.firstName || memo.recipient.email) {
+                allRecipients.push(memo.recipient);
+            } else {
+                const recipient = await User.findById(memo.recipient)
+                    .select('firstName lastName email profilePicture');
+                if (recipient) {
+                    allRecipients.push(recipient);
+                }
+            }
+        }
+
+        if (allRecipients.length === 0) {
+            return res.status(400).json({ success: false, message: 'No recipients found for this memo' });
+        }
+
+        // Get acknowledged user IDs
+        const acknowledgedUserIds = (memo.acknowledgments || [])
+            .map(ack => ack.userId?.toString())
+            .filter(Boolean);
+
+        // Find unacknowledged recipients
+        const unacknowledgedRecipients = allRecipients.filter(
+            recipient => !acknowledgedUserIds.includes(recipient._id.toString())
+        );
+
+        if (unacknowledgedRecipients.length === 0) {
+            return res.json({
+                success: true,
+                message: 'All recipients have already acknowledged this memo',
+                remindersSent: 0
+            });
+        }
+
+        // Create notification memos for unacknowledged recipients
+        const Memo = require('../models/Memo');
+        const senderName = `${memo.sender?.firstName || ''} ${memo.sender?.lastName || ''}`.trim() || memo.sender?.email || 'Sender';
+        const reminderMemos = [];
+
+        for (const recipient of unacknowledgedRecipients) {
+            try {
+                const reminderMemo = new Memo({
+                    sender: userId,
+                    recipient: recipient._id,
+                    subject: `Reminder: ${memo.subject}`,
+                    content: `${senderName} sent you a reminder about the memo "${memo.subject}". Please acknowledge if you haven't already.`,
+                    status: 'sent',
+                    activityType: 'memo_received',
+                    isRead: false,
+                    metadata: {
+                        originalMemoId: memo._id,
+                        notificationType: 'reminder'
+                    }
+                });
+                await reminderMemo.save();
+                reminderMemos.push(reminderMemo);
+            } catch (notifError) {
+                console.error(`Error creating reminder notification for ${recipient.email}:`, notifError);
+            }
+        }
+
+        // Log activity
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logMemoAction(req.user, 'memo_marked_read', memo, {
+                description: `Sent reminder to ${reminderMemos.length} recipient(s) for memo "${memo.subject}"`,
+                ...requestInfo,
+                metadata: {
+                    reminderCount: reminderMemos.length,
+                    unacknowledgedCount: unacknowledgedRecipients.length
+                }
+            });
+        } catch (logError) {
+            console.error('Error logging reminder:', logError);
+        }
+
+        res.json({
+            success: true,
+            message: `Reminder sent to ${reminderMemos.length} recipient(s)`,
+            remindersSent: reminderMemos.length
+        });
+    } catch (error) {
+        console.error('Error sending reminder:', error);
+        res.status(500).json({ success: false, message: 'Error sending reminder', detail: error?.message });
     }
 };
 

@@ -1,3 +1,6 @@
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
+
 // Forgot Password Page JavaScript
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Forgot password page loaded');
@@ -93,14 +96,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = emailInput.value.trim();
 
         if (!email) {
-            showMessageModal('Missing Email', 'Please enter your email address', 'warning');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Email',
+                    text: 'Please enter your email address',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
             return;
         }
 
         // Validate email format
         const emailRegex = /^[\w-]+@([\w-]+\.)+[\w-]{2,4}$/;
         if (!emailRegex.test(email)) {
-            showMessageModal('Invalid Email', 'Please enter a valid email address', 'warning');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Invalid Email',
+                    text: 'Please enter a valid email address',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
             return;
         }
 
@@ -135,12 +152,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 800);
             } else {
                 hideLoadingOverlay();
-                showMessageModal('Request Failed', data.message, 'error');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Request Failed',
+                        text: data.message || 'Failed to send reset code',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
             }
         } catch (error) {
             console.error('Error:', error);
             hideLoadingOverlay();
-            showMessageModal('Network Error', 'Network error. Please try again.', 'error');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Network error. Please try again.',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
         } finally {
             // Reset button state
             submitButton.disabled = false;

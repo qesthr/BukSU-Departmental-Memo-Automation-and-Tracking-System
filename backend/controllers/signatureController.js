@@ -5,13 +5,42 @@ const upload = require('../middleware/upload');
 // Get all signatures (admin only for management)
 exports.getAllSignatures = async (req, res) => {
     try {
-        const signatures = await Signature.find()
+        const { includeArchived } = req.query;
+        const query = {};
+
+        // If includeArchived is not 'true', only get active signatures
+        if (includeArchived !== 'true') {
+            query.isActive = { $ne: false }; // Include active signatures and signatures without isActive set
+        }
+
+        const signatures = await Signature.find(query)
+            .populate('createdBy', 'firstName lastName email')
+            .sort({ order: 1, createdAt: -1 });
+
+        // Get stats
+        const activeQuery = { isActive: { $ne: false } };
+        const stats = {
+            total: await Signature.countDocuments(activeQuery),
+            archived: await Signature.countDocuments({ isActive: false })
+        };
+
+        res.json({ success: true, signatures, stats });
+    } catch (error) {
+        console.error('Error fetching signatures:', error);
+        res.status(500).json({ success: false, message: 'Error fetching signatures' });
+    }
+};
+
+// Get archived signatures only
+exports.getArchivedSignatures = async (req, res) => {
+    try {
+        const signatures = await Signature.find({ isActive: false })
             .populate('createdBy', 'firstName lastName email')
             .sort({ order: 1, createdAt: -1 });
         res.json({ success: true, signatures });
     } catch (error) {
-        console.error('Error fetching signatures:', error);
-        res.status(500).json({ success: false, message: 'Error fetching signatures' });
+        console.error('Error fetching archived signatures:', error);
+        res.status(500).json({ success: false, message: 'Error fetching archived signatures' });
     }
 };
 
@@ -125,7 +154,7 @@ exports.updateSignature = async (req, res) => {
     }
 };
 
-// Delete signature (admin only)
+// Archive signature (admin only) - sets isActive to false
 exports.deleteSignature = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
@@ -137,15 +166,87 @@ exports.deleteSignature = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid signature ID' });
         }
 
-        const signature = await Signature.findByIdAndDelete(id);
+        const signature = await Signature.findById(id);
         if (!signature) {
             return res.status(404).json({ success: false, message: 'Signature not found' });
         }
 
-        res.json({ success: true, message: 'Signature deleted successfully' });
+        if (signature.isActive === false) {
+            return res.status(400).json({ success: false, message: 'Signature is already archived' });
+        }
+
+        // Archive instead of delete
+        signature.isActive = false;
+        await signature.save();
+
+        // Log activity
+        const activityLogger = require('../services/activityLogger');
+        const requestInfo = activityLogger.extractRequestInfo(req);
+        await activityLogger.log(
+            req.user,
+            'signature_archived',
+            `Archived signature: ${signature.displayName} (${signature.roleTitle})`,
+            {
+                targetResource: 'signature',
+                targetId: signature._id,
+                targetName: signature.displayName,
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent
+            }
+        );
+
+        res.json({ success: true, message: 'Signature archived successfully' });
     } catch (error) {
-        console.error('Error deleting signature:', error);
-        res.status(500).json({ success: false, message: 'Error deleting signature' });
+        console.error('Error archiving signature:', error);
+        res.status(500).json({ success: false, message: 'Error archiving signature' });
+    }
+};
+
+// Unarchive signature (admin only) - sets isActive to true
+exports.unarchiveSignature = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Admin only' });
+        }
+
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid signature ID' });
+        }
+
+        const signature = await Signature.findById(id);
+        if (!signature) {
+            return res.status(404).json({ success: false, message: 'Signature not found' });
+        }
+
+        if (signature.isActive === true) {
+            return res.status(400).json({ success: false, message: 'Signature is already active' });
+        }
+
+        // Unarchive
+        signature.isActive = true;
+        await signature.save();
+
+        // Log activity
+        const activityLogger = require('../services/activityLogger');
+        const requestInfo = activityLogger.extractRequestInfo(req);
+        await activityLogger.log(
+            req.user,
+            'signature_updated',
+            `Unarchived signature: ${signature.displayName} (${signature.roleTitle})`,
+            {
+                targetResource: 'signature',
+                targetId: signature._id,
+                targetName: signature.displayName,
+                ipAddress: requestInfo.ipAddress,
+                userAgent: requestInfo.userAgent
+            }
+        );
+
+        res.json({ success: true, message: 'Signature unarchived successfully' });
+    } catch (error) {
+        console.error('Error unarchiving signature:', error);
+        res.status(500).json({ success: false, message: 'Error unarchiving signature' });
     }
 };
 

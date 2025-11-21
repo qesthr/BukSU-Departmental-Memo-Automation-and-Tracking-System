@@ -9,39 +9,177 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Admin Dashboard | Memofy</title>
     <link rel="stylesheet" href="/css/admin-dashboard.css">
-    <!--<link rel="stylesheet" href="/css/sidebar.css">-->
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link rel="stylesheet" href="/css/calendar.css">
     <link rel="stylesheet" href="/css/custom-calendar.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
 
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-        <!-- Google APIs -->
-        <script src="https://apis.google.com/js/api.js"></script>
-        <script src="https://accounts.google.com/gsi/client"></script>
-        <script src="/js/lucide.min.js"></script>
-        <script src="/js/admin-dash.js" defer></script>
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
+
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="/js/lucide.min.js"></script>
+    <script src="/js/admin-dash.js" defer></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role }) %>'
     data-calendar-connected="<%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>">
+
+    <!-- Vue app -->
     <script>
-        (function () {
-            const root = document.body;
-            if (!root) { return; }
+        // Updated Main Vue App with Components
+        const { createApp } = Vue;
+
+        const app = createApp({
+          data() {
+            return {
+              currentUser: {},
+              calendarConnected: false,
+              dashboardData: { stats: [], memos: [] },
+              sortedMemos: [],
+              loading: false,
+              statsData: [
+                {
+                  title: 'Total Memos',
+                  value: '0',
+                  change: '0 sent, 0 received',
+                  icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z" fill="currentColor" /></svg>`
+                },
+                {
+                  title: 'Pending',
+                  value: '45',
+                  icon: `<svg viewBox="0 0 352 512" xmlns="http://www.w3.org/2000/svg"><path d="M48 363v106H27q-22 0-22 22q0 9 6 15t16 6h298q10 0 16-6t6-15q0-22-22-22h-21V363q0-69-58-107q58-38 58-107V43h21q22 0 22-22q0-9-6-15t-16-6H27Q17 0 11 6T5 21q0 22 22 22h21v106q0 69 58 107q-58 38-58 107zm43-214V43h170v106q0 35-25 60.5T176 235t-60-25.5T91 149zm0 214q0-35 25-60.5t60-25.5t60 25.5t25 60.5v106H91V363zm149-256l-128 42v22q1 5 4.5 12t19.5 18.5t40 11.5t40-10.5t20-20.5l4-11v-64zM112 448h128v-85l-128 21v64z" fill="currentColor" /></svg>`
+                },
+                {
+                  title: 'Overdue Memos',
+                  value: '150',
+                  icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g fill="none"><path d="M17.75 3A3.25 3.25 0 0 1 21 6.25v5.772a6.471 6.471 0 0 0-1.5-.709V8.5h-15v9.25c0 .966.784 1.75 1.75 1.75h5.063c.173.534.412 1.037.709 1.5H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5zm0 1.5H6.25A1.75 1.75 0 0 0 4.5 6.25V7h15v-.75a1.75 1.75 0 0 0-1.75-1.75z" fill="currentColor" /><path d="M23 17.5a5.5 5.5 0 1 1-11 0a5.5 5.5 0 0 1 11 0zM17.5 14a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zm0 7.125a.625.625 0 1 0 0-1.25a.625.625 0 0 0 0 1.25z" fill="currentColor" /></g></svg>`
+                },
+                {
+                  title: 'Active Users',
+                  value: '7',
+                  icon: `<svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg"><path d="M320 16a104 104 0 1 1 0 208a104 104 0 1 1 0-208M96 88a72 72 0 1 1 0 144a72 72 0 1 1 0-144M0 416c0-70.7 57.3-128 128-128c12.8 0 25.2 1.9 36.9 5.4C132 330.2 112 378.8 112 432v16c0 11.4 2.4 22.2 6.7 32H32c-17.7 0-32-14.3-32-32zm521.3 64c4.3-9.8 6.7-20.6 6.7-32v-16c0-53.2-20-101.8-52.9-138.6c11.7-3.5 24.1-5.4 36.9-5.4c70.7 0 128 57.3 128 128v32c0 17.7-14.3 32-32 32zM472 160a72 72 0 1 1 144 0a72 72 0 1 1-144 0M160 432c0-88.4 71.6-160 160-160s160 71.6 160 160v16c0 17.7-14.3 32-32 32H192c-17.7 0-32-14.3-32-32z" fill="currentColor" /></svg>`
+                }
+              ]
+            }
+          },
+          computed: {
+            userFirstName() {
+              return this.currentUser.firstName || 'User';
+            }
+          },
+          methods: {
+            async approveMemo(id) {
+              try {
+                this.loading = true;
+                const res = await fetch(`/api/log/memos/${id}/approve`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'same-origin'
+                });
+                const data = await res.json();
+                await Swal.fire({
+                  icon: 'success',
+                  title: 'Success',
+                  text: data.message || 'Approved'
+                });
+                location.reload();
+              } catch (e) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: 'Failed to approve'
+                });
+              } finally {
+                this.loading = false;
+              }
+            },
+
+            async rejectMemo(id) {
+              try {
+                const reason = await this.showRejectionReasonModal();
+                if (reason === null) return;
+
+                const res = await fetch(`/api/log/memos/${id}/reject`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ reason: reason || '' }),
+                  credentials: 'same-origin'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.message || 'Failed to reject');
+
+                await Swal.fire({
+                  icon: 'success',
+                  title: 'Success',
+                  text: data.message || 'Rejected'
+                });
+                location.reload();
+              } catch (e) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: e?.message || 'Failed to reject'
+                });
+              }
+            },
+
+            showRejectionReasonModal() {
+              // Your existing modal implementation
+              return new Promise((resolve) => {
+                // ... keep your existing modal code
+              });
+            },
+
+            sortMemos(memos) {
+              return memos.slice().sort((a, b) => {
+                const pa = (a.status === 'pending') ? 1 : 0;
+                const pb = (b.status === 'pending') ? 1 : 0;
+                if (pb !== pa) return pb - pa;
+                const ad = new Date(a.createdAt || 0).getTime();
+                const bd = new Date(b.createdAt || 0).getTime();
+                return bd - ad;
+              });
+            }
+          },
+          mounted() {
+            // Initialize from data attributes
             try {
-                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+              this.currentUser = JSON.parse(document.body.getAttribute('data-current-user') || '{}');
+              const calAttr = document.body.getAttribute('data-calendar-connected');
+              this.calendarConnected = calAttr === 'true';
             } catch (err) {
-                window.currentUser = {};
+              this.currentUser = {};
             }
-            const calAttr = root.getAttribute('data-calendar-connected');
-            if (calAttr !== null) {
-                window.calendarConnected = calAttr === 'true';
+
+            // Initialize dashboard data
+            if (window.initialDashboardData) {
+              this.dashboardData = window.initialDashboardData;
+              this.sortedMemos = this.sortMemos(this.dashboardData.memos || []);
             }
-        })();
+
+            lucide.createIcons();
+          }
+        });
+
+        // Register components
+        app.component('stats-card', StatsCard);
+        app.component('memo-list', MemoList);
+        app.component('hero-header', HeroHeader);
+
+        app.mount('#app');
     </script>
+
+
+
     <div class="dashboard-container">
         <!-- Navigations -->
         <div class="navigations">
@@ -70,132 +208,155 @@
                             </div>
                         </header>
 
-                        <!-- Dashboard Content -->
-                        <div class="dashboard-content">
-                            <!-- Stats Cards -->
-                            <div class="stats-grid">
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path
-                                                d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z"
-                                                fill="currentColor" />
-                                        </svg>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h3>Total Memos</h3>
-                                        <div class="stat-value">0</div>
-                                        <div class="stat-change">0 sent, 0 received</div>
-                                    </div>
-                                </div>
-
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <svg viewBox="0 0 352 512" xmlns="http://www.w3.org/2000/svg">
-                                            <path
-                                                d="M48 363v106H27q-22 0-22 22q0 9 6 15t16 6h298q10 0 16-6t6-15q0-22-22-22h-21V363q0-69-58-107q58-38 58-107V43h21q22 0 22-22q0-9-6-15t-16-6H27Q17 0 11 6T5 21q0 22 22 22h21v106q0 69 58 107q-58 38-58 107zm43-214V43h170v106q0 35-25 60.5T176 235t-60-25.5T91 149zm0 214q0-35 25-60.5t60-25.5t60 25.5t25 60.5v106H91V363zm149-256l-128 42v22q1 5 4.5 12t19.5 18.5t40 11.5t40-10.5t20-20.5l4-11v-64zM112 448h128v-85l-128 21v64z"
-                                                fill="currentColor" />
-                                        </svg>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h3>Pending</h3>
-                                        <div class="stat-value">45</div>
-                                    </div>
-                                </div>
-
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <g fill="none">
-                                                <path
-                                                    d="M17.75 3A3.25 3.25 0 0 1 21 6.25v5.772a6.471 6.471 0 0 0-1.5-.709V8.5h-15v9.25c0 .966.784 1.75 1.75 1.75h5.063c.173.534.412 1.037.709 1.5H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5zm0 1.5H6.25A1.75 1.75 0 0 0 4.5 6.25V7h15v-.75a1.75 1.75 0 0 0-1.75-1.75z"
-                                                    fill="currentColor" />
-                                                <path
-                                                    d="M23 17.5a5.5 5.5 0 1 1-11 0a5.5 5.5 0 0 1 11 0zM17.5 14a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zm0 7.125a.625.625 0 1 0 0-1.25a.625.625 0 0 0 0 1.25z"
-                                                    fill="currentColor" />
-                                            </g>
-                                        </svg>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h3>Overdue Memos</h3>
-                                        <div class="stat-value">150</div>
-                                    </div>
-                                </div>
-
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
-                                            <path
-                                                d="M320 16a104 104 0 1 1 0 208a104 104 0 1 1 0-208M96 88a72 72 0 1 1 0 144a72 72 0 1 1 0-144M0 416c0-70.7 57.3-128 128-128c12.8 0 25.2 1.9 36.9 5.4C132 330.2 112 378.8 112 432v16c0 11.4 2.4 22.2 6.7 32H32c-17.7 0-32-14.3-32-32zm521.3 64c4.3-9.8 6.7-20.6 6.7-32v-16c0-53.2-20-101.8-52.9-138.6c11.7-3.5 24.1-5.4 36.9-5.4c70.7 0 128 57.3 128 128v32c0 17.7-14.3 32-32 32zM472 160a72 72 0 1 1 144 0a72 72 0 1 1-144 0M160 432c0-88.4 71.6-160 160-160s160 71.6 160 160v16c0 17.7-14.3 32-32 32H192c-17.7 0-32-14.3-32-32z"
-                                                fill="currentColor" />
-                                        </svg>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h3>Active Users</h3>
-                                        <div class="stat-value">7</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Memos Section -->
-                        <section class="recent-memos-section">
-                            <h2>Recent Memos</h2>
-                            <div class="memo-container">
-                                <div class="memo-list">
-                                    <% const sortedMemos=(allMemos || []).slice().sort(function(a,b){ const
-                                        pa=(a.status==='pending' ) ? 1 : 0; const pb=(b.status==='pending' ) ? 1 : 0; if
-                                        (pb !==pa) return pb - pa; const ad=new Date(a.createdAt || 0).getTime(); const
-                                        bd=new Date(b.createdAt || 0).getTime(); return bd - ad; }); %>
-
-                                        <% if ((sortedMemos || []).length===0) { %>
-                                            <div class="memo-item">
-                                                <i data-lucide="inbox" class="memo-icon"></i>
-                                                <div class="memo-info">
-                                                    <h4>No memos yet</h4>
-                                                    <p>New submissions will appear here</p>
-                                                </div>
+                        <script>
+                            // Stats Card Component
+                            const StatsCard = {
+                              props: ['stat'],
+                              template: `
+                                <div class="dashboard-content">
+                                    <!-- Stats Cards -->
+                                    <div class="stats-grid">
+                                        <div class="stat-card">
+                                            <div class="stat-icon">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z"
+                                                        fill="currentColor" />
+                                                </svg>
                                             </div>
-                                            <% } %>
+                                            <div class="stat-info">
+                                                <h3>Total Memos</h3>
+                                                <div class="stat-value">0</div>
+                                                <div class="stat-change">0 sent, 0 received</div>
+                                            </div>
+                                        </div>
 
-                                                <% (sortedMemos || []).forEach(function(memo){ %>
-                                                    <div class="memo-item">
-                                                        <% if (memo.status==='pending' ) { %>
-                                                            <i data-lucide="alert-triangle"
-                                                                class="memo-icon orange"></i>
-                                                            <% } else { %>
-                                                                <i data-lucide="file-text" class="memo-icon blue"></i>
-                                                                <% } %>
-                                                                    <div class="memo-info">
-                                                                        <h4>
-                                                                            <%= memo.subject %>
-                                                                        </h4>
-                                                                        <p>From: <%= memo.sender ?
-                                                                                (memo.sender.firstName + ' ' +
-                                                                                (memo.sender.lastName || '' ))
-                                                                                : 'Unknown' %>
-                                                                        </p>
-                                                                    </div>
-                                                                    <div
-                                                                        style="display:flex; gap:8px; align-items:center;">
-                                                                        <% if (memo.status==='pending' ) { %>
-                                                                            <button class="btn-primary"
-                                                                                onclick="approveMemo('<%= memo._id %>')">Approve</button>
-                                                                            <button class="btn-secondary"
-                                                                                onclick="rejectMemo('<%= memo._id %>')">Reject</button>
-                                                                            <% } else { %>
-                                                                                <span class="memo-date">
-                                                                                    <%= new
-                                                                                        Date(memo.createdAt).toLocaleDateString()
-                                                                                        %>
-                                                                                </span>
-                                                                                <% } %>
-                                                                    </div>
-                                                    </div>
-                                                    <% }); %>
+                                        <div class="stat-card">
+                                            <div class="stat-icon">
+                                                <svg viewBox="0 0 352 512" xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M48 363v106H27q-22 0-22 22q0 9 6 15t16 6h298q10 0 16-6t6-15q0-22-22-22h-21V363q0-69-58-107q58-38 58-107V43h21q22 0 22-22q0-9-6-15t-16-6H27Q17 0 11 6T5 21q0 22 22 22h21v106q0 69 58 107q-58 38-58 107zm43-214V43h170v106q0 35-25 60.5T176 235t-60-25.5T91 149zm0 214q0-35 25-60.5t60-25.5t60 25.5t25 60.5v106H91V363zm149-256l-128 42v22q1 5 4.5 12t19.5 18.5t40 11.5t40-10.5t20-20.5l4-11v-64zM112 448h128v-85l-128 21v64z"
+                                                        fill="currentColor" />
+                                                </svg>
+                                            </div>
+                                            <div class="stat-info">
+                                                <h3>Pending</h3>
+                                                <div class="stat-value">45</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="stat-card">
+                                            <div class="stat-icon">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <g fill="none">
+                                                        <path
+                                                            d="M17.75 3A3.25 3.25 0 0 1 21 6.25v5.772a6.471 6.471 0 0 0-1.5-.709V8.5h-15v9.25c0 .966.784 1.75 1.75 1.75h5.063c.173.534.412 1.037.709 1.5H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5zm0 1.5H6.25A1.75 1.75 0 0 0 4.5 6.25V7h15v-.75a1.75 1.75 0 0 0-1.75-1.75z"
+                                                            fill="currentColor" />
+                                                        <path
+                                                            d="M23 17.5a5.5 5.5 0 1 1-11 0a5.5 5.5 0 0 1 11 0zM17.5 14a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zm0 7.125a.625.625 0 1 0 0-1.25a.625.625 0 0 0 0 1.25z"
+                                                            fill="currentColor" />
+                                                    </g>
+                                                </svg>
+                                            </div>
+                                            <div class="stat-info">
+                                                <h3>Overdue Memos</h3>
+                                                <div class="stat-value">150</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="stat-card">
+                                            <div class="stat-icon">
+                                                <svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M320 16a104 104 0 1 1 0 208a104 104 0 1 1 0-208M96 88a72 72 0 1 1 0 144a72 72 0 1 1 0-144M0 416c0-70.7 57.3-128 128-128c12.8 0 25.2 1.9 36.9 5.4C132 330.2 112 378.8 112 432v16c0 11.4 2.4 22.2 6.7 32H32c-17.7 0-32-14.3-32-32zm521.3 64c4.3-9.8 6.7-20.6 6.7-32v-16c0-53.2-20-101.8-52.9-138.6c11.7-3.5 24.1-5.4 36.9-5.4c70.7 0 128 57.3 128 128v32c0 17.7-14.3 32-32 32zM472 160a72 72 0 1 1 144 0a72 72 0 1 1-144 0M160 432c0-88.4 71.6-160 160-160s160 71.6 160 160v16c0 17.7-14.3 32-32 32H192c-17.7 0-32-14.3-32-32z"
+                                                        fill="currentColor" />
+                                                </svg>
+                                            </div>
+                                            <div class="stat-info">
+                                                <h3>Active Users</h3>
+                                                <div class="stat-value">7</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </section>
+                              `
+                            };
+                        </script>
+
+                        <script>
+                            // Memo List Component
+                            const MemoList = {
+                            props: ['memos', 'loading'],
+                            methods: {
+                                formatDate(dateString) {
+                                return new Date(dateString).toLocaleDateString();
+                                },
+                                getSenderName(sender) {
+                                return sender ? `${sender.firstName} ${sender.lastName || ''}` : 'Unknown';
+                                }
+                            },
+                            template: `
+                                <section class="recent-memos-section">
+                                    <h2>Recent Memos</h2>
+                                    <div class="memo-container">
+                                        <div class="memo-list">
+                                            <% const sortedMemos=(allMemos || []).slice().sort(function(a,b){ const
+                                                pa=(a.status==='pending' ) ? 1 : 0; const pb=(b.status==='pending' ) ? 1 : 0; if
+                                                (pb !==pa) return pb - pa; const ad=new Date(a.createdAt || 0).getTime(); const
+                                                bd=new Date(b.createdAt || 0).getTime(); return bd - ad; }); %>
+
+                                                <% if ((sortedMemos || []).length===0) { %>
+                                                    <div class="memo-item">
+                                                        <i data-lucide="inbox" class="memo-icon"></i>
+                                                        <div class="memo-info">
+                                                            <h4>No memos yet</h4>
+                                                            <p>New submissions will appear here</p>
+                                                        </div>
+                                                    </div>
+                                                    <% } %>
+
+                                                        <% (sortedMemos || []).forEach(function(memo){ %>
+                                                            <div class="memo-item">
+                                                                <% if (memo.status==='pending' ) { %>
+                                                                    <i data-lucide="alert-triangle"
+                                                                        class="memo-icon orange"></i>
+                                                                    <% } else { %>
+                                                                        <i data-lucide="file-text" class="memo-icon blue"></i>
+                                                                        <% } %>
+                                                                            <div class="memo-info">
+                                                                                <h4>
+                                                                                    <%= memo.subject %>
+                                                                                </h4>
+                                                                                <p>From: <%= memo.sender ?
+                                                                                        (memo.sender.firstName + ' ' +
+                                                                                        (memo.sender.lastName || '' ))
+                                                                                        : 'Unknown' %>
+                                                                                </p>
+                                                                            </div>
+                                                                            <div
+                                                                                style="display:flex; gap:8px; align-items:center;">
+                                                                                <% if (memo.status==='pending' ) { %>
+                                                                                    <button class="btn-primary"
+                                                                                        onclick="approveMemo('<%= memo._id %>')">Approve</button>
+                                                                                    <button class="btn-secondary"
+                                                                                        onclick="rejectMemo('<%= memo._id %>')">Reject</button>
+                                                                                    <% } else { %>
+                                                                                        <span class="memo-date">
+                                                                                            <%= new
+                                                                                                Date(memo.createdAt).toLocaleDateString()
+                                                                                                %>
+                                                                                        </span>
+                                                                                        <% } %>
+                                                                            </div>
+                                                            </div>
+                                                            <% }); %>
+                                        </div>
+                                    </div>
+                                </section>
+                            `
+                            };
+                            </script>
+
 
                         <!-- Calendar and Analytics -->
                         <div class="side-grid">
@@ -239,9 +400,19 @@
                     credentials: 'same-origin'
                 });
                 const data = await res.json();
-                alert(data.message || 'Approved');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Approved'
+                });
                 location.reload();
-            } catch (e) { alert('Failed to approve'); }
+            } catch (e) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to approve'
+                });
+            }
         }
 
         function showRejectionReasonModal() {
@@ -430,10 +601,18 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.message || 'Failed to reject');
-                alert(data.message || 'Rejected');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Rejected'
+                });
                 location.reload();
             } catch (e) {
-                alert(e?.message || 'Failed to reject');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: e?.message || 'Failed to reject'
+                });
             }
         }
     </script>
@@ -459,6 +638,13 @@
 
 
     <script src="/js/dashboard-mini-calendar.js"></script>
+    <script src="/js/error-handler.js"></script>
+
+    <script>
+        window.initialDashboardData = JSON.parse(
+            '<%- JSON.stringify({ stats: dashboardStats || [], memos: memosData || [] }) %>'
+        );
+    </script>
 </body>
 
 </html>

@@ -51,7 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (typeof window.showRecaptchaErrorModal === 'function') {
                         window.showRecaptchaErrorModal();
                     } else {
-                        alert('reCAPTCHA verification failed. Please try again.');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Verification Failed',
+                            text: 'reCAPTCHA verification failed. Please try again.'
+                        });
                     }
                     return;
                 }
@@ -61,7 +65,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof window.showRecaptchaErrorModal === 'function') {
                     window.showRecaptchaErrorModal();
                 } else {
-                    alert('Unable to verify. Please try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Verification Error',
+                        text: 'Unable to verify. Please try again.'
+                    });
                 }
             }
         };
@@ -305,7 +313,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set a timeout for the backend authentication request
         const authTimeout = setTimeout(() => {
             console.log('Backend authentication timeout reached, falling back...');
-            alert('Authentication is taking too long. Please try again.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Timeout',
+                text: 'Authentication is taking too long. Please try again.'
+            });
             initializeGoogleSignIn();
         }, 15000); // 15 seconds timeout for backend response
 
@@ -339,7 +351,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkAuthAndRedirect();
             } else {
                 console.error('Login failed:', data.message);
-                alert('Login failed: ' + data.message);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Login Failed',
+                    text: 'Login failed: ' + data.message
+                });
                 // Re-initialize button
                 initializeGoogleSignIn();
             }
@@ -347,7 +363,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(error => {
             console.error('Error during authentication:', error);
             clearTimeout(authTimeout);
-            alert('Authentication error: ' + error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Authentication Error',
+                text: 'Authentication error: ' + error.message
+            });
             // Re-initialize button
             initializeGoogleSignIn();
         });
@@ -383,7 +403,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!userResponse.ok || !userData || !userData.success) {
                 console.error('❌ User not authenticated');
-                alert('Authentication failed. Please try again.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Authentication Failed',
+                    text: 'Authentication failed. Please try again.'
+                });
                 return;
             }
 
@@ -398,7 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 dashboardUrl = '/dashboard';
             } else if (userRole !== 'admin') {
                 console.error('❌ Invalid user role:', userRole);
-                alert('You do not have access to the dashboard.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Access Denied',
+                    text: 'You do not have access to the dashboard.'
+                });
                 return;
             }
 
@@ -433,7 +461,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             // Error handling: If anything fails, fallback to traditional redirect
             console.error('❌ Error loading dashboard:', error);
-            alert('Failed to load dashboard. Redirecting...');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load dashboard. Redirecting...'
+            });
             // Fallback to full page redirect
             window.location.href = '/admin-dashboard';
         }
@@ -578,7 +610,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function startModalTimeout() {
         modalInteractionTimeout = setTimeout(() => {
             console.log('Modal interaction timeout reached, falling back to traditional OAuth...');
-            alert('The sign-in process is taking too long. Switching to alternative method.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Timeout',
+                text: 'The sign-in process is taking too long. Switching to alternative method.'
+            });
             initializeWithFallback();
         }, 15000); // 15 seconds for complete modal interaction
     }

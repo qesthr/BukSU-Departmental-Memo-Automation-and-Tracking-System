@@ -14,6 +14,9 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: gaPropertyId }); %>
 
+    <!-- SweetAlert2 -->
+    <%- include('../../components/sweetalert2'); %>
+
     <script src="/js/lucide.min.js"></script>
 </head>
 
@@ -63,7 +66,16 @@
 
                             <!-- Filters -->
                             <div class="filters-section">
-                                <div class="role-filters">
+                                <div class="view-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
+                                    <button id="activeUsersTab" class="view-tab active" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                        Active Users
+                                    </button>
+                                    <button id="archivedUsersTab" class="view-tab" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                        Archived Users
+                                        <span class="count" id="archivedCount">0</span>
+                                    </button>
+                                </div>
+                                <div class="role-filters" id="roleFilters">
                                     <button class="filter-btn active" data-role="all">
                                         All
                                         <span class="count" id="totalCount">27</span>
@@ -301,18 +313,17 @@
                                 aria-labelledby="deleteTitle" aria-describedby="deleteMessage">
                                 <div class="modal-content fade-enter">
                                     <div class="modal-header">
-                                        <h2 id="deleteTitle">Delete User</h2>
+                                        <h2 id="deleteTitle">Archive User</h2>
                                         <button class="close-modal" aria-label="Close">&times;</button>
                                     </div>
                                     <div class="modal-body">
                                         <div id="deleteState" style="margin-bottom:8px;"></div>
-                                        <p id="deleteMessage">Are you sure you want to delete this user? This action
-                                            cannot be undone.</p>
+                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users will be hidden from the active users list.</p>
                                         <div class="form-actions">
                                             <button type="button" id="cancelDelete"
                                                 class="btn btn-secondary close-modal">Cancel</button>
-                                            <button type="button" class="btn btn-danger"
-                                                id="confirmDelete">Delete</button>
+                                            <button type="button" class="btn btn-warning"
+                                                id="confirmDelete">Archive</button>
                                         </div>
                                     </div>
                                 </div>

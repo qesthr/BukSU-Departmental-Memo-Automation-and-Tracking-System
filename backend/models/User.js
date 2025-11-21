@@ -24,8 +24,7 @@ const userSchema = new mongoose.Schema({
     googleId: {
         type: String,
         unique: true,
-        sparse: true,
-        index: true
+        sparse: true
     },
     googleDriveRefreshToken: {
         type: String,
@@ -79,6 +78,14 @@ const userSchema = new mongoose.Schema({
         },
         default: 'faculty',
         required: [true, 'User role is required']
+    },
+    roleVersion: {
+        type: Number,
+        default: 1
+    },
+    roleUpdatedAt: {
+        type: Date,
+        default: Date.now
     },
     firstName: {
         type: String,
@@ -141,7 +148,7 @@ const userSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['active', 'pending', 'disabled'],
+        enum: ['active', 'pending', 'disabled', 'archived'],
         default: 'active',
         index: true
     },
@@ -303,9 +310,8 @@ userSchema.methods.resetLoginAttempts = function () {
 };
 
 // Create indexes
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 });
-userSchema.index({ employeeId: 1 });
+// Note: email, googleId, and employeeId indexes are automatically created by unique: true
+// Only explicitly index non-unique fields that need indexing
 userSchema.index({ role: 1 });
 
 // Ensure virtual fields are serialized

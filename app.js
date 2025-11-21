@@ -11,6 +11,8 @@ const connectDB = require('./backend/config/db');
 const passport = require('./backend/config/passport');
 const isAdmin = require('./backend/middleware/isAdmin');
 const isAuthenticated = require('./backend/middleware/isAuthenticated');
+const requireRole = require('./backend/middleware/requireRole');
+const validateUserRole = require('./backend/middleware/validateUserRole');
 const Memo = require('./backend/models/Memo');
 const CalendarEvent = require('./backend/models/CalendarEvent');
 const authRoutes = require('./backend/routes/auth');
@@ -22,6 +24,7 @@ const logRoutes = require('./backend/routes/logRoutes');
 const driveRoutes = require('./backend/routes/driveRoutes');
 const calendarRoutes = require('./backend/routes/calendarRoutes');
 const auditRoutes = require('./backend/routes/auditRoutes');
+const activityLogRoutes = require('./backend/routes/activityLogRoutes');
 const signatureRoutes = require('./backend/routes/signatureRoutes');
 const rollbackRoutes = require('./backend/routes/rollbackRoutes');
 
@@ -109,6 +112,7 @@ app.use('/api/log', logRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/signatures', signatureRoutes);
 app.use('/api/rollback', rollbackRoutes);
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
@@ -183,7 +187,7 @@ app.use('/auth', authRoutes);
 app.use('/', forgotPasswordRoutes); // Forgot password routes
 app.use('/admin', require('./frontend/routes/adminRoutes'));
 
-app.get('/settings', isAuthenticated, (req, res) => {
+app.get('/settings', isAuthenticated, validateUserRole, (req, res) => {
     const role = (req.user && req.user.role) || '';
     if (role === 'admin') {
         return res.render('admin/settings', { user: req.user, path: '/settings' });
@@ -207,6 +211,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes
 app.get('/', (req, res) => {
     res.render('login'); // frontend/views/login.ejs
+});
+
+// Unauthorized access page - plain white background with error modal
+app.get('/unauthorized', (req, res) => {
+    res.render('unauthorized');
 });
 
 // Explicit login route to handle redirects with error messages
@@ -243,19 +252,13 @@ app.get('/calendar', isAuthenticated, (req, res) => {
     return res.redirect('/dashboard');
 });
 
-// Secretary Calendar (duplicate layout using secretary components)
-app.get('/secretary/calendar', isAuthenticated, (req, res) => {
-    const role = req.user?.role;
-    if (role === 'secretary') {
-        return res.render('secretary-calendar', { user: req.user, path: '/calendar' });
-    }
-    return res.redirect('/calendar');
+// Secretary Calendar - only for secretaries (admin blocked)
+app.get('/secretary/calendar', isAuthenticated, validateUserRole, requireRole('secretary'), (req, res) => {
+    return res.render('secretary-calendar', { user: req.user, path: '/calendar' });
 });
 
-// Faculty Calendar - view-only, no create/add
-app.get('/faculty/calendar', isAuthenticated, (req, res) => {
-    if (!req.isAuthenticated()) { return res.redirect('/'); }
-    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+// Faculty Calendar - view-only, only for faculty
+app.get('/faculty/calendar', isAuthenticated, validateUserRole, requireRole('faculty'), (req, res) => {
     return res.render('faculty-calendar', { user: req.user, path: '/faculty/calendar' });
 });
 
@@ -287,7 +290,7 @@ app.get('/auth-success', (req, res) => {
 // });
 
 // Admin Dashboard route - ADMIN ONLY
-app.get('/admin-dashboard', isAdmin, async (req, res) => {
+app.get('/admin-dashboard', isAuthenticated, validateUserRole, isAdmin, async (req, res) => {
     try {
         const allMemos = await Memo.find({}).sort({ createdAt: -1 }).limit(50)
             .populate('sender', 'firstName lastName email')
@@ -302,12 +305,10 @@ app.get('/admin-dashboard', isAdmin, async (req, res) => {
     }
 });
 
-// Unified dashboard route for non-admin roles
-app.get('/dashboard', async (req, res) => {
-    if (!req.isAuthenticated()) {
-        return res.redirect('/');
-    }
+// Unified dashboard route for secretary and faculty ONLY (admin blocked)
+app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary', 'faculty'), async (req, res) => {
     const role = (req.user && req.user.role) || '';
+
     if (role === 'secretary') {
         try {
             const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
@@ -317,6 +318,7 @@ app.get('/dashboard', async (req, res) => {
             return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos: [] });
         }
     }
+
     if (role === 'faculty') {
         try {
             // Get memos received by faculty (only sent/approved status, not pending)
@@ -353,14 +355,13 @@ app.get('/dashboard', async (req, res) => {
             });
         }
     }
-    // Fallback for any other roles
-    return res.redirect('/admin-dashboard');
+
+    // This should never be reached due to requireRole middleware, but keep as safety
+    return res.redirect('/admin-dashboard?error=invalid_role');
 });
 
-// Secretary memos page - only for secretaries
-app.get('/secretary/memos', async (req, res) => {
-    if (!req.isAuthenticated()) { return res.redirect('/'); }
-    if (!req.user || req.user.role !== 'secretary') { return res.redirect('/admin-dashboard'); }
+// Secretary memos page - only for secretaries (admin blocked)
+app.get('/secretary/memos', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
     try {
         const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
             .populate('recipient', 'firstName lastName email');
@@ -384,10 +385,8 @@ app.get('/secretary/memos', async (req, res) => {
     }
 });
 
-// Secretary archive page - only for secretaries
-app.get('/secretary/archive', async (req, res) => {
-    if (!req.isAuthenticated()) { return res.redirect('/'); }
-    if (!req.user || req.user.role !== 'secretary') { return res.redirect('/admin-dashboard'); }
+// Secretary archive page - only for secretaries (admin blocked)
+app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
     try {
         // Get archived memos OR sent/approved memos that can be archived
         // Include memos where the secretary is the sender but NOT the recipient
@@ -427,8 +426,10 @@ app.get('/secretary/archive', async (req, res) => {
 });
 
 // Admin archive page - only for admins
-app.get('/admin/archive', isAdmin, async (req, res) => {
+app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req, res) => {
     try {
+        const Signature = require('./backend/models/Signature');
+
         // Get archived memos OR sent/approved memos that can be archived
         // Include memos where the admin is the sender but NOT the recipient
         // Exclude the tracking memo where recipient equals sender
@@ -449,33 +450,46 @@ app.get('/admin/archive', isAdmin, async (req, res) => {
             .sort({ createdAt: -1 })
             .populate('createdBy', 'firstName lastName email');
 
+        // Get archived signatures
+        const archivedSignatures = await Signature.find({
+            isActive: false
+        })
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .populate('createdBy', 'firstName lastName email');
+
         return res.render('admin-archive', {
             user: req.user,
             path: '/admin/archive',
             archivedMemos: archivedMemos || [],
-            archivedEvents: archivedEvents || []
+            archivedEvents: archivedEvents || [],
+            archivedSignatures: archivedSignatures || []
         });
     } catch (e) {
-        console.error('Error fetching archived memos:', e);
+        console.error('Error fetching archived items:', e);
         return res.render('admin-archive', {
             user: req.user,
             path: '/admin/archive',
             archivedMemos: [],
-            archivedEvents: []
+            archivedEvents: [],
+            archivedSignatures: []
         });
     }
 });
 
 // Faculty memos page - only for faculty
-app.get('/faculty/memos', async (req, res) => {
-    if (!req.isAuthenticated()) { return res.redirect('/'); }
-    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
     try {
         // Get memos received by faculty (only sent/approved status, not pending)
+        // Exclude acknowledgment notifications
         const received = await Memo.find({
             recipient: req.user._id,
             status: { $in: ['sent', 'approved'] },
-            activityType: { $ne: 'system_notification' }
+            activityType: { $ne: 'system_notification' },
+            // Exclude acknowledgment notifications
+            $nor: [
+                { 'metadata.notificationType': 'acknowledgment' },
+                { subject: /^Memo Acknowledged:/i }
+            ]
         })
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')
@@ -487,9 +501,7 @@ app.get('/faculty/memos', async (req, res) => {
 });
 
 // Faculty archive page - only for faculty
-app.get('/faculty/archive', async (req, res) => {
-    if (!req.isAuthenticated()) { return res.redirect('/'); }
-    if (!req.user || req.user.role !== 'faculty') { return res.redirect('/dashboard'); }
+app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
     try {
         // Get archived memos received by faculty
         const archivedMemos = await Memo.find({

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unauthorized Access</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #FFFFFF;
+            font-family: 'Inter', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
+</head>
+<body>
+    <script>
+        // Show error modal immediately
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const error = params.get('error');
+                const message = params.get('message');
+
+                // Wait for SweetAlert2 to be loaded
+                setTimeout(function() {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Authentication Required',
+                            text: message ? decodeURIComponent(message) : 'Please log in to access this page.',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ef4444',
+                            allowOutsideClick: false,
+                            allowEscapeKey: true,
+                            backdrop: true
+                        }).then(function() {
+                            // Redirect to login page after closing modal
+                            window.location.href = '/';
+                        });
+                    } else {
+                        // Fallback if SweetAlert2 doesn't load
+                        alert(message ? decodeURIComponent(message) : 'Please log in to access this page.');
+                        window.location.href = '/';
+                    }
+                }, 300);
+            } catch (e) {
+                console.error('Error handling unauthorized error:', e);
+                window.location.href = '/';
+            }
+        })();
+    </script>
+</body>
+</html>
+

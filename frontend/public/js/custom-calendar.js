@@ -756,7 +756,11 @@ class CustomCalendar {
       if (window.showAlertModal) {
         window.showAlertModal('Faculty can view calendar events but cannot create or edit them.', 'View Only');
       } else {
-        alert('Faculty can view calendar events but cannot create or edit them.');
+        Swal.fire({
+          icon: 'info',
+          title: 'View Only',
+          text: 'Faculty can view calendar events but cannot create or edit them.'
+        });
       }
       return;
     }
@@ -789,7 +793,11 @@ class CustomCalendar {
       if (window.showAlertModal) {
         window.showAlertModal(message, 'Event Details');
       } else {
-        alert(message);
+        Swal.fire({
+          icon: 'info',
+          title: 'Event Details',
+          html: message
+        });
       }
       return;
     }
@@ -821,7 +829,11 @@ class CustomCalendar {
       if (window.showAlertModal) {
         window.showAlertModal(message, 'Event Details (Read Only)');
       } else {
-        alert(message);
+        Swal.fire({
+          icon: 'info',
+          title: 'Event Details (Read Only)',
+          html: message
+        });
       }
     }
   }

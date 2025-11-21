@@ -1,4 +1,6 @@
 /* global showMessageModal, showAccountLockoutModal */
+// ESLint: SweetAlert2 is loaded via CDN in the page head
+/* global Swal */
 
 // Login Form Handler with Account Lockout Modal Integration and reCAPTCHA
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailInput = document.querySelector('input[name="email"]');
     const passwordInput = document.querySelector('input[name="password"]');
     const recaptchaContainer = document.getElementById('recaptchaContainer');
+    const googleRecaptchaSection = document.getElementById('googleRecaptchaSection');
     const inlineError = document.getElementById('loginInlineError');
     const emailInlineError = document.getElementById('loginEmailError');
 
@@ -284,9 +287,137 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Helper function to ensure reCAPTCHA is visible when password is long enough
+    function ensureRecaptchaVisible() {
+        if (passwordInput && passwordInput.value.length >= 6) {
+            if (googleRecaptchaSection) {
+                googleRecaptchaSection.style.display = 'block';
+                googleRecaptchaSection.style.zIndex = '10001';
+                googleRecaptchaSection.style.position = 'relative';
+            }
+            if (recaptchaContainer) {
+                recaptchaContainer.style.display = 'block';
+                recaptchaContainer.style.zIndex = '10001';
+                recaptchaContainer.style.position = 'relative';
+            }
+        }
+    }
+
+    // Progress bar functions
+    function createProgressBar() {
+        // Remove existing progress bar if any
+        const existing = document.getElementById('loginProgressBar');
+        if (existing) {
+            existing.remove();
+        }
+
+        const progressBar = document.createElement('div');
+        progressBar.id = 'loginProgressBar';
+        progressBar.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: rgba(0, 102, 255, 0.2);
+            z-index: 10000;
+            overflow: hidden;
+        `;
+
+        const progressFill = document.createElement('div');
+        progressFill.id = 'loginProgressFill';
+        progressFill.style.cssText = `
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #0066ff, #0052cc, #0066ff);
+            background-size: 200% 100%;
+            transition: width 0.3s ease;
+            animation: progressShimmer 1.5s infinite;
+        `;
+
+        progressBar.appendChild(progressFill);
+        document.body.appendChild(progressBar);
+
+        // Animate progress bar
+        let progress = 0;
+        const interval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }
+        }, 200);
+
+        // Store interval ID for cleanup
+        progressBar.dataset.intervalId = interval;
+    }
+
+    function completeProgressBar() {
+        const progressBar = document.getElementById('loginProgressBar');
+        const progressFill = document.getElementById('loginProgressFill');
+        if (progressFill) {
+            progressFill.style.width = '100%';
+            progressFill.style.transition = 'width 0.5s ease';
+            setTimeout(() => {
+                if (progressBar) {
+                    progressBar.style.opacity = '0';
+                    progressBar.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        if (progressBar) {
+                            const intervalId = progressBar.dataset.intervalId;
+                            if (intervalId) clearInterval(intervalId);
+                            progressBar.remove();
+                        }
+                    }, 300);
+                }
+            }, 500);
+        }
+    }
+
+    function removeProgressBar() {
+        const progressBar = document.getElementById('loginProgressBar');
+        if (progressBar) {
+            const intervalId = progressBar.dataset.intervalId;
+            if (intervalId) clearInterval(intervalId);
+            progressBar.style.opacity = '0';
+            progressBar.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+                progressBar.remove();
+            }, 300);
+        }
+    }
+
     // Set up listeners and polling
     emailInput.addEventListener('input', () => { clearInlineError(); clearEmailError(); updateButtonStateWithCaptcha(); });
-    passwordInput.addEventListener('input', () => { clearInlineError(); updateButtonStateWithCaptcha(); });
+    passwordInput.addEventListener('input', () => {
+        clearInlineError();
+        // Show/hide reCAPTCHA based on password length
+        if (passwordInput.value.length >= 6) {
+            // Show reCAPTCHA containers
+            if (googleRecaptchaSection) {
+                googleRecaptchaSection.style.display = 'block';
+                googleRecaptchaSection.style.zIndex = '10001';
+                googleRecaptchaSection.style.position = 'relative';
+            }
+            if (recaptchaContainer) {
+                recaptchaContainer.style.display = 'block';
+                recaptchaContainer.style.zIndex = '10001';
+                recaptchaContainer.style.position = 'relative';
+            }
+        } else {
+            // Hide reCAPTCHA containers
+            if (googleRecaptchaSection) {
+                googleRecaptchaSection.style.display = 'none';
+            }
+            if (recaptchaContainer) {
+                recaptchaContainer.style.display = 'none';
+            }
+            if (loginButton) {
+                loginButton.disabled = true;
+            }
+        }
+        updateButtonStateWithCaptcha();
+    });
     // Light polling to catch checkbox changes
     setInterval(updateButtonStateWithCaptcha, 500);
 
@@ -423,6 +554,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Basic validation
         if (!email || !password) {
             showInlineError('Please enter both email and password.');
+            // Ensure reCAPTCHA is visible if password is long enough
+            if (password.length >= 6) {
+                if (googleRecaptchaSection) {
+                    googleRecaptchaSection.style.display = 'block';
+                    googleRecaptchaSection.style.zIndex = '10001';
+                }
+                if (recaptchaContainer) {
+                    recaptchaContainer.style.display = 'block';
+                    recaptchaContainer.style.zIndex = '10001';
+                }
+            }
             return;
         }
 
@@ -494,15 +636,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update button text
         loginButton.textContent = 'Logging in...';
 
+        // Show progress bar
+        createProgressBar();
+
         let loginSuccessful = false;
 
         try {
             // eslint-disable-next-line no-console
             console.log('📤 Sending login request to server...');
 
-            // Show loading modal while authenticating
-            if (typeof window.showMessageModal === 'function') {
-                window.showMessageModal('Signing you in…', 'Please wait a moment.', 'loading');
+            // Show loading modal while authenticating (using SweetAlert2)
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Signing you in…',
+                    text: 'Please wait a moment.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
             }
 
             const response = await fetch('/auth/login', {
@@ -520,10 +674,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (parseError) {
                 // eslint-disable-next-line no-console
                 console.error('Error parsing response:', parseError);
-                if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal('Server Error', 'Unable to process login response. Please try again.', 'error');
-                } else {
-                    alert('Server Error: Unable to process login response. Please try again.');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Server Error',
+                        text: 'Unable to process login response. Please try again.',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
                 return;
             }
@@ -533,12 +690,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.success) {
                 loginSuccessful = true;
-                if (typeof window.updateMessageModal === 'function') {
-                    window.updateMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
-                } else if (typeof window.showMessageModal === 'function') {
-                    window.showMessageModal('Login Successful', 'Redirecting to your dashboard…', 'success');
-                }
-                loginButton.textContent = 'Success! Redirecting...';
+
+                // Complete progress bar
+                completeProgressBar();
 
                 // Redirect based on role
                 const userRole = data.user?.role;
@@ -550,83 +704,198 @@ document.addEventListener('DOMContentLoaded', () => {
                 // eslint-disable-next-line no-console
                 console.log(' Info: Redirecting to:', redirectUrl, 'for role:', userRole);
 
-                setTimeout(() => { window.location.href = redirectUrl; }, 650);
+                // Show SweetAlert2 success modal
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Login Successful!',
+                        text: 'Redirecting to your dashboard...',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didClose: () => {
+                            window.location.href = redirectUrl;
+                        }
+                    }).then(() => {
+                        window.location.href = redirectUrl;
+                    });
+                } else {
+                    // Fallback if SweetAlert2 is not available
+                    setTimeout(() => { window.location.href = redirectUrl; }, 650);
+                }
             } else {
                 // Set loginSuccessful to false to prevent any redirects
                 loginSuccessful = false;
+                // Remove progress bar on error
+                removeProgressBar();
                 // eslint-disable-next-line no-console
                 console.log('❌ Login failed:', data.errorCode, data.message);
 
                 // Handle different types of errors
                 if (data.errorCode === 'ACCOUNT_NOT_FOUND') {
-                    // Inline message for non-existent account (wrong email)
-                    showEmailError('Couldn’t find your account. Please check your email or contact the administrator.');
+                    // Account not found - show SweetAlert
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Account Not Found',
+                            text: 'Couldn\'t find your account. Please check your email or contact the administrator.',
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                // Ensure reCAPTCHA visibility is maintained after modal closes
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
+                    }
+                    showEmailError(''); // clear email error
                     showInlineError(''); // clear password error
-                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
                 } else if (data.errorCode === 'ACCOUNT_INACTIVE') {
                     // Account exists but is inactive
                     // eslint-disable-next-line no-console
                     console.log('🔍 Showing ACCOUNT_INACTIVE modal');
                     const inactiveMessage = data.message || 'Your account has been deactivated. Please contact your administrator.';
 
-                    // Call modal directly
-                    if (typeof window.updateMessageModal === 'function') {
-                        window.updateMessageModal('Account Deactivated', inactiveMessage, 'error');
-                    } else if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('Account Deactivated', inactiveMessage, 'error');
-                    } else {
-                        // eslint-disable-next-line no-console
-                        console.error('showMessageModal is not available, using alert');
-                        alert('Account Deactivated: ' + inactiveMessage);
+                    // Close any loading modals first
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Account Deactivated',
+                            text: inactiveMessage,
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
                     }
                 } else if (response.status === 423) {
                     // Account locked - show modal
                     if (data.lockTimeRemaining && typeof showAccountLockoutModal === 'function') {
+                        if (typeof Swal !== 'undefined') { Swal.close(); }
                         showAccountLockoutModal(data.lockTimeRemaining);
-                    } else if (typeof window.updateMessageModal === 'function') {
-                        window.updateMessageModal('Account Locked', data.message, 'error');
-                    } else if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('Account Locked', data.message, 'error');
                     } else {
-                        alert('Account Locked: ' + data.message);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Account Locked',
+                                text: data.message || 'Your account has been locked. Please contact your administrator.',
+                                confirmButtonColor: '#ef4444',
+                                didClose: () => {
+                                    setTimeout(() => {
+                                        ensureRecaptchaVisible();
+                                    }, 100);
+                                }
+                            });
+                        }
                     }
                 } else if (response.status === 429) {
                     // IP locked - show modal
-                    if (typeof window.updateMessageModal === 'function') {
-                        window.updateMessageModal('IP Blocked', data.message, 'error');
-                    } else if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('IP Blocked', data.message, 'error');
-                    } else {
-                        alert('IP Blocked: ' + data.message);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'IP Blocked',
+                            text: data.message || 'Your IP address has been blocked due to too many failed login attempts.',
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
                     }
                 } else if (data.errorCode === 'INVALID_CREDENTIALS') {
-                    // Inline message for wrong email/password
-                    showInlineError('Wrong password. Try again or click "Forgot password?" for more options.');
-                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
+                    // Wrong password - show SweetAlert
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Invalid Credentials',
+                            text: 'Wrong password. Try again or click "Forgot password?" for more options.',
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
+                    }
+                    showInlineError(''); // clear inline error
                 } else if (data.errorCode === 'GOOGLE_ONLY') {
-                    if (typeof window.updateMessageModal === 'function') {
-                        window.updateMessageModal('Use Google Sign-In', data.message || 'Please sign in with Google for this account.', 'warning');
-                    } else if (typeof window.showMessageModal === 'function') {
-                        window.showMessageModal('Use Google Sign-In', data.message || 'Please sign in with Google for this account.', 'warning');
-                    } else {
-                        alert('Use Google Sign-In: ' + (data.message || 'Please sign in with Google for this account.'));
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Use Google Sign-In',
+                            text: data.message || 'Please sign in with Google for this account.',
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
                     }
                 } else if (data.attemptsRemaining !== undefined) {
-                    // Inline message with remaining attempts
-                    showInlineError(data.message || 'Invalid email or password.');
-                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
+                    // Show SweetAlert for invalid credentials with remaining attempts
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Invalid Credentials',
+                            text: (data.message || 'Invalid email or password.') + (data.attemptsRemaining ? ` ${data.attemptsRemaining} attempt(s) remaining.` : ''),
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
+                    }
+                    showInlineError(''); // clear inline error
                 } else {
-                    // Generic inline fallback for unknown errors
-                    showInlineError(data.message || 'Login error. Please try again.');
-                    if (typeof window.closeMessageModal === 'function') { window.closeMessageModal(); }
+                    // Generic error fallback
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Login Error',
+                            text: data.message || 'Login error. Please try again.',
+                            confirmButtonColor: '#ef4444',
+                            didClose: () => {
+                                setTimeout(() => {
+                                    ensureRecaptchaVisible();
+                                }, 100);
+                            }
+                        });
+                    }
+                    showInlineError(''); // clear inline error
                 }
 
 
             }
         } catch (error) {
+            // Remove progress bar on error
+            removeProgressBar();
             // eslint-disable-next-line no-console
             console.error('Login error:', error);
-            showInlineError('Network error. Please try again.');
+            if (typeof Swal !== 'undefined') {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Network error. Please try again.',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+            showInlineError(''); // clear inline error
         } finally {
             // Re-enable button on failure
             if (!loginSuccessful) {

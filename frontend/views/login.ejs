@@ -325,7 +325,35 @@
             #messageModal.modal-info .modal-title {
                 color: #fff;
             }
+
+            /* Ensure reCAPTCHA containers are above SweetAlert backdrop */
+            #recaptchaContainer,
+            #googleRecaptchaSection,
+            #googleRecaptchaContainer {
+                position: relative;
+                z-index: 10001 !important;
+            }
+
+            /* Ensure reCAPTCHA widget itself is above SweetAlert */
+            #googleRecaptchaWidget,
+            .g-recaptcha {
+                position: relative;
+                z-index: 10002 !important;
+            }
+
+            /* Progress bar shimmer animation */
+            @keyframes progressShimmer {
+                0% {
+                    background-position: -200% 0;
+                }
+                100% {
+                    background-position: 200% 0;
+                }
+            }
         </style>
+
+        <!-- SweetAlert2 -->
+        <%- include('../components/sweetalert2'); %>
 
         <script src="/js/password-setup.js"></script>
         <script src="/js/forgot-password-modal.js"></script>
@@ -445,7 +473,11 @@
 
                     } catch (error) {
                         console.error('❌ Error loading dashboard:', error);
-                        alert('Failed to load dashboard. Redirecting as fallback...');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to load dashboard. Redirecting as fallback...'
+                        });
                         // Fallback: redirect if dynamic loading fails
                         window.location.href = '/admin-dashboard';
                     }
