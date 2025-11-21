@@ -215,7 +215,23 @@
    * Render mini calendar
    */
   function renderMiniCalendar() {
-    if (!mini) return;
+    // Re-query elements in case they were rendered dynamically (e.g., by Vue)
+    const miniEl = document.getElementById('dashboardMiniCalendar');
+    const miniMonthElCurrent = document.getElementById('dashboardMiniCalMonth');
+    const miniPrevCurrent = document.getElementById('dashboardMiniPrev');
+    const miniNextCurrent = document.getElementById('dashboardMiniNext');
+
+    if (!miniEl) {
+      console.warn('Calendar container not found, skipping render');
+      return;
+    }
+
+    // Update references to current elements
+    const mini = miniEl;
+    const miniMonthEl = miniMonthElCurrent;
+    const miniPrev = miniPrevCurrent;
+    const miniNext = miniNextCurrent;
+
     mini.innerHTML = '';
 
     if (miniMonthEl) {
@@ -446,30 +462,63 @@
     document.addEventListener('keydown', handleEscape);
   }
 
-  // Navigation handlers
-  if (miniPrev) {
-    miniPrev.addEventListener('click', () => {
-      miniCursor.setMonth(miniCursor.getMonth() - 1);
-      renderMiniCalendar();
-    });
+  // Setup navigation handlers (can be called multiple times)
+  function setupNavigationHandlers() {
+    const miniPrevCurrent = document.getElementById('dashboardMiniPrev');
+    const miniNextCurrent = document.getElementById('dashboardMiniNext');
+
+    // Remove old listeners if they exist
+    if (window._miniPrevHandler) {
+      const oldPrev = document.getElementById('dashboardMiniPrev');
+      if (oldPrev) oldPrev.removeEventListener('click', window._miniPrevHandler);
+    }
+    if (window._miniNextHandler) {
+      const oldNext = document.getElementById('dashboardMiniNext');
+      if (oldNext) oldNext.removeEventListener('click', window._miniNextHandler);
+    }
+
+    // Add new listeners
+    if (miniPrevCurrent) {
+      window._miniPrevHandler = () => {
+        miniCursor.setMonth(miniCursor.getMonth() - 1);
+        renderMiniCalendar();
+      };
+      miniPrevCurrent.addEventListener('click', window._miniPrevHandler);
+    }
+
+    if (miniNextCurrent) {
+      window._miniNextHandler = () => {
+        miniCursor.setMonth(miniCursor.getMonth() + 1);
+        renderMiniCalendar();
+      };
+      miniNextCurrent.addEventListener('click', window._miniNextHandler);
+    }
   }
 
-  if (miniNext) {
-    miniNext.addEventListener('click', () => {
-      miniCursor.setMonth(miniCursor.getMonth() + 1);
-      renderMiniCalendar();
-    });
-  }
-
-  // Initialize calendar when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      renderMiniCalendar();
-      loadEventsForMiniCalendar();
-    });
-  } else {
+  // Expose initialization function for external calls (e.g., after Vue mounts)
+  window.initDashboardMiniCalendar = function() {
     renderMiniCalendar();
     loadEventsForMiniCalendar();
+    setupNavigationHandlers();
+  };
+
+  // Initialize calendar when DOM is ready
+  function initializeCalendar() {
+    const calendarEl = document.getElementById('dashboardMiniCalendar');
+    if (calendarEl) {
+      renderMiniCalendar();
+      loadEventsForMiniCalendar();
+      setupNavigationHandlers();
+    } else {
+      // Element not found yet, try again after a short delay
+      setTimeout(initializeCalendar, 100);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeCalendar);
+  } else {
+    initializeCalendar();
   }
 
 })();

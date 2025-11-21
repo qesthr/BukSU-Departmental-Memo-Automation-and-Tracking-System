@@ -506,8 +506,9 @@
                             console.log('➡️ [storage] Redirecting parent to:', dashboardUrl);
                             window.location.href = dashboardUrl;
                         } catch (err2) {
-                            console.log('⚠️ [storage] Falling back to admin-dashboard due to error:', err2?.message);
-                            window.location.href = '/admin-dashboard';
+                            console.log('⚠️ [storage] Error getting user info, redirecting to login:', err2?.message);
+                            // If we can't get user info, redirect to login page
+                            window.location.href = '/?error=auth_failed';
                         }
                     }, 200);
                 }

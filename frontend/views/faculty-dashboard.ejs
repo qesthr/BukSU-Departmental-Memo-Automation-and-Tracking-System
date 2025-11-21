@@ -178,7 +178,8 @@
         app.component('memo-list', MemoList);
         app.component('hero-header', HeroHeader);
 
-        app.mount('#app');
+        // Store app instance globally so we can mount it after DOM is ready
+        window.vueApp = app;
     </script>
 
     <!-- Vue App Container -->
@@ -264,10 +265,6 @@
 
     <script src="/js/dashboard-mini-calendar.js"></script>
     <script src="/js/error-handler.js"></script>
-<<<<<<< HEAD
-</body>
-=======
->>>>>>> 5209f543e09b04e324156c8c9bf3891d0fe547ed
 
     <script>
         // Initialize faculty data from backend (joenil work)
@@ -275,6 +272,31 @@
             stats: [],
             memos: <%- JSON.stringify(receivedMemos || []) %>
         };
+
+        // Mount Vue app after DOM is ready (ensures #app element exists)
+        if (window.vueApp) {
+            const appElement = document.querySelector('#app');
+            if (appElement && !appElement.__vue_app__) {
+                const mountedApp = window.vueApp.mount('#app');
+
+                // Wait for Vue to render, then initialize calendar
+                if (mountedApp && mountedApp.$nextTick) {
+                    mountedApp.$nextTick(() => {
+                        setTimeout(() => {
+                            if (window.initDashboardMiniCalendar) {
+                                window.initDashboardMiniCalendar();
+                            }
+                        }, 200);
+                    });
+                } else {
+                    setTimeout(() => {
+                        if (window.initDashboardMiniCalendar) {
+                            window.initDashboardMiniCalendar();
+                        }
+                    }, 300);
+                }
+            }
+        }
     </script>
 </body>
 </html>

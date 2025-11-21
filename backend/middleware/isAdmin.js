@@ -6,11 +6,25 @@ const rbacService = require('../services/rbacService');
 const isAdmin = (req, res, next) => {
     // Check if user is authenticated
     if (!req.isAuthenticated()) {
+        // For API requests, return JSON error instead of redirect
+        if (req.path.startsWith('/api/') || req.accepts('json')) {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authenticated'
+            });
+        }
         return res.redirect('/?error=unauthorized');
     }
 
     // Check if user exists and has a role
     if (!req.user || !req.user.role) {
+        // For API requests, return JSON error instead of redirect
+        if (req.path.startsWith('/api/') || req.accepts('json')) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid user'
+            });
+        }
         return res.redirect('/?error=invalid_user');
     }
 
@@ -19,7 +33,16 @@ const isAdmin = (req, res, next) => {
             // Log unauthorized access attempt
             console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin route: ${req.path}`);
 
-            // Redirect based on user's actual role
+            // For API requests ONLY, return JSON error instead of redirect
+            // HTML page requests should always redirect, not return JSON
+            if (req.path.startsWith('/api/') && !req.accepts('html')) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Unauthorized access. Admin access required.'
+                });
+            }
+
+            // Redirect based on user's actual role (for HTML requests)
             const role = req.user?.role;
             const dashboardMap = {
                 admin: '/admin-dashboard',
