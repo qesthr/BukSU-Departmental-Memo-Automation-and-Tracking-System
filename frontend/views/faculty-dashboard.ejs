@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="/css/custom-calendar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
@@ -22,121 +25,222 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
     <script src="/js/lucide.min.js"></script>
-    <script>
-        window.currentUser = {
-            id: '<%= user._id %>',
-            email: '<%= user.email %>',
-            role: '<%= user.role %>',
-            department: '<%= user.department || "" %>'
-        };
-        // Set calendar connection status for mini calendar
-        window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
-    </script>
 </head>
 
-<body>
-    <div class="dashboard-container">
-        <%- include('../components/fal-nav'); %>
+<body data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role, firstName: user.firstName, department: user.department || "" }) %>'
+    data-calendar-connected="<%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>"
+    data-initial-stats='<%- JSON.stringify({ totalReceived: totalReceived || 0 }) %>'>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Header -->
-            <%- include('../components/fal-topbar'); %>
-
-            <div class="content-area">
-                <!-- Main Grid -->
-                <div class="main-grid">
-
-                    <!-- Hero Header -->
-                    <header class="hero-header">
-                        <div class="hero-overlay">
-                            <div class="hero-texts">
-                                <h1>Faculty Dashboard</h1>
-                                <p>Welcome back, <%= user.firstName %>!</p>
-                            </div>
-                            <div class="hero-img-container">
-                                <img src="/uploads/hero-header.png" class="hero-img" alt="hero-img">
-                            </div>
+    <!-- Define Vue Components -->
+    <script>
+        // Stats Card Component
+        const StatsCard = {
+            props: ['stat'],
+            template: `
+                <div class="stat-card-container">
+                    <div class="stat-card">
+                        <div class="stat-icon" v-html="stat.icon"></div>
+                        <div class="stat-info">
+                            <h3>{{ stat.title }}</h3>
+                            <div class="stat-value">{{ stat.value }}</div>
+                            <div class="stat-change">{{ stat.change }}</div>
                         </div>
-                    </header>
+                    </div>
+                </div>
+            `
+        };
 
-                    <!-- Dashboard Content -->
-                    <div class="dashboard-content">
-                        <!-- Stats Cards -->
-                        <div class="stats-grid">
-                            <div class="stat-card-container">
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <svg height="50" width="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z" fill="currentColor" />
-                                        </svg>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h3>Received Memos</h3>
-                                        <div class="stat-value"><%= totalReceived || 0 %></div>
-                                        <div class="stat-change">Total memos received</div>
-                                    </div>
+        // Memo List Component
+        const MemoList = {
+            props: ['memos', 'loading'],
+            methods: {
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString();
+                },
+                getSenderName(sender) {
+                    return sender ? `${sender.firstName} ${sender.lastName || ''}` : 'Unknown';
+                }
+            },
+            template: `
+                <section class="recent-memos-section">
+                    <h2>Recent Memos</h2>
+                    <div class="memo-container">
+                        <div class="memo-list">
+                            <div v-if="memos.length === 0 && !loading" class="memo-item">
+                                <i data-lucide="inbox" class="memo-icon"></i>
+                                <div class="memo-info">
+                                    <h4>No memos received yet</h4>
+                                    <p>Memos sent to you will appear here</p>
                                 </div>
+                            </div>
+
+                            <div v-for="memo in memos" :key="memo._id" class="memo-item">
+                                <i data-lucide="file-text" class="memo-icon blue"></i>
+                                <div class="memo-info">
+                                    <h4>{{ memo.subject }}</h4>
+                                    <p>From: {{ getSenderName(memo.sender) }}</p>
+                                </div>
+                                <span class="memo-date">{{ formatDate(memo.createdAt) }}</span>
                             </div>
                         </div>
                     </div>
+                </section>
+            `
+        };
 
-                    <!-- Recent Memos Section -->
-                    <section class="recent-memos-section">
-                        <h2>Recent Memos</h2>
-                        <div class="memo-container">
-                            <div class="memo-list">
-                                <% if ((receivedMemos || []).length === 0) { %>
-                                    <div class="memo-item">
-                                        <i data-lucide="inbox" class="memo-icon"></i>
-                                        <div class="memo-info">
-                                            <h4>No memos received yet</h4>
-                                            <p>Memos sent to you will appear here</p>
-                                        </div>
+        // Hero Header Component
+        const HeroHeader = {
+            props: ['userName'],
+            template: `
+                <header class="hero-header">
+                    <div class="hero-overlay">
+                        <div class="hero-texts">
+                            <h1>Faculty Dashboard</h1>
+                            <p>Welcome back, {{ userName }}!</p>
+                        </div>
+                        <div class="hero-img-container">
+                            <img src="/uploads/hero-header.png" class="hero-img" alt="hero-img">
+                        </div>
+                    </div>
+                </header>
+            `
+        };
+    </script>
+
+    <!-- Main Vue App -->
+    <script>
+        const { createApp } = Vue;
+
+        const app = createApp({
+            data() {
+                return {
+                    currentUser: {},
+                    calendarConnected: false,
+                    dashboardData: { stats: [], memos: [] },
+                    receivedMemos: [],
+                    loading: false,
+                    statsData: [
+                        {
+                            title: 'Received Memos',
+                            value: '0',
+                            change: 'Total memos received',
+                            icon: `<svg height="50" width="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z" fill="currentColor" /></svg>`
+                        }
+                    ]
+                }
+            },
+            computed: {
+                userFirstName() {
+                    return this.currentUser.firstName || 'Faculty';
+                }
+            },
+            methods: {
+                // You can add methods for faculty-specific actions here
+                // For example: fetchMemos, markAsRead, etc.
+
+                loadInitialData() {
+                    // Load stats from data attribute
+                    try {
+                        const statsData = JSON.parse(document.body.getAttribute('data-initial-stats') || '{}');
+                        if (statsData.totalReceived !== undefined) {
+                            this.statsData[0].value = statsData.totalReceived.toString();
+                        }
+                    } catch (err) {
+                        console.error('Error loading initial stats:', err);
+                    }
+                }
+            },
+            mounted() {
+                // Initialize from data attributes
+                try {
+                    this.currentUser = JSON.parse(document.body.getAttribute('data-current-user') || '{}');
+                    const calAttr = document.body.getAttribute('data-calendar-connected');
+                    this.calendarConnected = calAttr === 'true';
+                } catch (err) {
+                    this.currentUser = {};
+                }
+
+                // Initialize dashboard data
+                if (window.initialFacultyData) {
+                    this.dashboardData = window.initialFacultyData;
+                    this.receivedMemos = window.initialFacultyData.memos || [];
+                }
+
+                // Load initial stats
+                this.loadInitialData();
+
+                lucide.createIcons();
+            }
+        });
+
+        // Register components
+        app.component('stats-card', StatsCard);
+        app.component('memo-list', MemoList);
+        app.component('hero-header', HeroHeader);
+
+        app.mount('#app');
+    </script>
+
+    <!-- Vue App Container -->
+    <div id="app">
+        <div class="dashboard-container">
+            <%- include('../components/fal-nav'); %>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Header -->
+                <%- include('../components/fal-topbar'); %>
+
+                <div class="content-area">
+                    <!-- Main Grid -->
+                    <div class="main-grid">
+
+                        <!-- Hero Header Component -->
+                        <hero-header :user-name="userFirstName"></hero-header>
+
+                        <!-- Dashboard Content -->
+                        <div class="dashboard-content">
+                            <!-- Stats Cards -->
+                            <div class="stats-grid">
+                                <stats-card v-for="stat in statsData" :key="stat.title" :stat="stat"></stats-card>
+                            </div>
+                        </div>
+
+                        <!-- Memo List Component -->
+                        <memo-list
+                            :memos="receivedMemos"
+                            :loading="loading">
+                        </memo-list>
+
+                        <!-- Calendar and Analytics (Non-Vue parts) -->
+                        <div class="side-grid">
+                            <div class="calendar-section">
+                                <div class="mini-cal-header" style="margin-bottom: 12px;">
+                                    <h3 id="dashboardMiniCalMonth" style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">Calendar</h3>
+                                    <div class="mini-cal-nav">
+                                        <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
+                                        <button id="dashboardMiniNext" class="btn-icon" aria-label="Next" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
                                     </div>
-                                <% } else { %>
-                                    <% (receivedMemos || []).forEach(function(memo){ %>
-                                        <div class="memo-item">
-                                            <i data-lucide="file-text" class="memo-icon blue"></i>
-                                            <div class="memo-info">
-                                                <h4><%= memo.subject %></h4>
-                                                <p>From: <%= memo.sender ? (memo.sender.firstName + ' ' + (memo.sender.lastName || '')) : 'Unknown' %></p>
-                                            </div>
-                                            <span class="memo-date"><%= new Date(memo.createdAt).toLocaleDateString() %></span>
-                                        </div>
-                                    <% }); %>
-                                <% } %>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Calendar and Analytics -->
-                    <div class="side-grid">
-                        <div class="calendar-section">
-                            <div class="mini-cal-header" style="margin-bottom: 12px;">
-                                <h3 id="dashboardMiniCalMonth" style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">Calendar</h3>
-                                <div class="mini-cal-nav">
-                                    <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
-                                    <button id="dashboardMiniNext" class="btn-icon" aria-label="Next" style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
                                 </div>
+                                <div id="dashboardMiniCalendar" class="mini-calendar"></div>
                             </div>
-                            <div id="dashboardMiniCalendar" class="mini-calendar"></div>
-                        </div>
 
-                        <div class="backup-section">
-                            <i data-lucide="cloud" class="backup-icon"></i>
-                            <div class="backup-info">
-                                <h3>System Status</h3>
-                                <p>All systems operational</p>
+                            <div class="backup-section">
+                                <i data-lucide="cloud" class="backup-icon"></i>
+                                <div class="backup-info">
+                                    <h3>System Status</h3>
+                                    <p>All systems operational</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
 
     <script>
+        // Initialize lucide icons for non-Vue parts
         lucide.createIcons();
     </script>
 
@@ -160,6 +264,13 @@
 
     <script src="/js/dashboard-mini-calendar.js"></script>
     <script src="/js/error-handler.js"></script>
-</body>
 
+    <script>
+        // Initialize faculty data from backend (joenil work)
+        window.initialFacultyData = {
+            stats: [],
+            memos: <%- JSON.stringify(receivedMemos || []) %>
+        };
+    </script>
+</body>
 </html>
