@@ -46,6 +46,14 @@
 
 <body>
     <%- body %>
+        <% const isProduction = process.env.NODE_ENV === 'production'; %>
+        <script
+            src="<%= isProduction
+                ? 'https://unpkg.com/vue@3/dist/vue.global.prod.js'
+                : 'https://unpkg.com/vue@3/dist/vue.global.js' %>"
+            crossorigin="anonymous"
+            defer></script>
+        <script src="/js/vue-hybrid.js" defer></script>
         <script src="/js/admin_login.js"></script>
 </body>
 
