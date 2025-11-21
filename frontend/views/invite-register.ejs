@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept Invitation | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <style>
+        body { margin:0; font-family: Inter, system-ui, Arial, sans-serif; background:#f5f7fb; color:#0f172a; }
+        .wrap { max-width: 520px; margin: 40px auto; padding: 24px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow: 0 10px 20px rgba(0,0,0,.06); }
+        .logo { display:flex; align-items:center; gap:10px; margin-bottom: 10px; }
+        .logo img { width:36px; height:36px; }
+        h2 { margin: 0 0 8px; font-weight: 700; }
+        p.sub { margin:0 0 16px; color:#475569; }
+        .row { margin: 10px 0; }
+        .label { font-size: 12px; color:#64748b; margin-bottom:4px; }
+        .value { font-weight:600; }
+        .input { width:100%; padding:12px 14px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; }
+        .btn { width:100%; margin-top:12px; background:#1C89E3; color:#fff; border:none; padding:12px 14px; border-radius:8px; font-weight:600; cursor:pointer; }
+        .alert { background:#fde8e8;color:#b91c1c;padding:10px 12px;border-radius:6px;margin-bottom:12px; }
+        .back { text-align:center; margin-top:10px; }
+        .back a { color:#1C89E3; text-decoration:none; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Prevent this page from being loaded in an iframe/popup from a different origin
+        if (window.top !== window.self) { try { window.top.location = window.location.href; } catch (e) {} }
+    </script>
+
+</head>
+<body>
+    <div class="wrap">
+        <div class="logo"><img src="/images/memofy-logo.png" alt="Memofy"><strong>Memofy</strong></div>
+        <h2>Complete Your Account</h2>
+        <p class="sub">You've been invited to join Memofy. Create your password below.</p>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert"><%= error %></div>
+        <% } %>
+
+        <div class="row">
+            <div class="label">Name</div>
+            <div class="value"><%= user.firstName %> <%= user.lastName %></div>
+        </div>
+        <div class="row">
+            <div class="label">Email</div>
+            <div class="value"><%= user.email %></div>
+        </div>
+
+        <form method="POST" action="/invite/complete" style="margin-top:8px;">
+            <input type="hidden" name="token" value="<%= token %>">
+            <div class="row">
+                <input class="input" type="password" name="password" placeholder="Create Password" minlength="6" required>
+            </div>
+            <div class="row">
+                <input class="input" type="password" name="confirmPassword" placeholder="Confirm Password" minlength="6" required>
+            </div>
+            <button type="submit" class="btn">Create Account</button>
+        </form>
+
+        <div class="back"><a href="/">Back to Login</a></div>
+    </div>
+</body>
+</html>
+

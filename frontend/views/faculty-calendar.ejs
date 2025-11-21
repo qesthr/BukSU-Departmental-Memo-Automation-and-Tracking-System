@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Calendar | Memofy</title>
+	<link rel="icon" type="image/png" href="/images/memofy-logo.png">
+	<link rel="stylesheet" href="/css/secretary-dashboard.css">
+	<link rel="stylesheet" href="/css/fal-topbar.css">
+	<link rel="stylesheet" href="/css/fal-nav.css">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<!-- FullCalendar removed - using custom calendar -->
+	<link rel="stylesheet" href="/css/calendar.css">
+	<link rel="stylesheet" href="/css/custom-calendar.css">
+
+	<!-- Google Analytics Tracking -->
+	<%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+	<!-- SweetAlert2 -->
+	<%- include('../components/sweetalert2'); %>
+</head>
+<body>
+	<div class="dashboard-container">
+		<%- include('../components/fal-nav'); %>
+		<main class="main-content">
+			<%- include('../components/fal-topbar') %>
+
+			<div class="calendar-page">
+				<aside class="calendar-sidebar">
+					<div class="sidebar-section">
+						<div class="mini-cal-header">
+							<h3 id="miniCalMonth">Mini Calendar</h3>
+							<div class="mini-cal-nav">
+								<button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
+								<button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
+							</div>
+						</div>
+						<div id="miniCalendar" class="mini-calendar"></div>
+					</div>
+					<div class="sidebar-section">
+						<h3>My Calendars</h3>
+						<label><input type="checkbox" id="filterAll" checked> All</label><br/>
+						<label><input type="checkbox" id="filterMine" checked> My Events</label><br/>
+						<label><input type="checkbox" id="filterDepartment" checked> Department</label>
+					</div>
+					<div class="sidebar-section">
+						<h3>Categories</h3>
+						<div><span class="category-dot cat-today"></span>Today</div>
+						<div><span class="category-dot cat-urgent"></span>Urgent</div>
+						<div><span class="category-dot cat-standard"></span>Standard</div>
+					</div>
+					<div class="sidebar-section">
+						<h3>Profile</h3>
+						<div class="profile-card">
+							<img src="<%= user.profilePicture || '/images/memofy-logo.png' %>" alt="Profile" />
+							<div>
+								<div style="font-weight:600"><%= (user.firstName && user.lastName) ? user.firstName + ' ' + user.lastName : user.name || 'User' %></div>
+								<div style="font-size:.85rem; color:#64748b"><%= user.email || 'email@example.com' %></div>
+							</div>
+						</div>
+					</div>
+				</aside>
+
+				<section class="calendar-main">
+					<div id="calendar"></div>
+				</section>
+				<script>
+					window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
+					window.currentUser = {
+						id: '<%= user._id %>',
+						email: '<%= user.email %>',
+						firstName: '<%= user.firstName || "" %>',
+						lastName: '<%= user.lastName || "" %>',
+						role: '<%= user.role %>',
+						department: '<%= user.department || "" %>'
+					};
+					// Mark as view-only for faculty
+					window.calendarViewOnly = true;
+				</script>
+			</div>
+		</main>
+	</div>
+
+	<!-- Custom Alert Modal (for view-only messages) -->
+	<div id="alertModal" class="custom-modal" style="display: none;">
+		<div class="custom-modal-overlay"></div>
+		<div class="custom-modal-content">
+			<div class="custom-modal-header">
+				<h3 id="alertModalTitle">Notice</h3>
+				<button class="custom-modal-close" id="alertModalClose">&times;</button>
+			</div>
+			<div class="custom-modal-body">
+				<p id="alertModalMessage"></p>
+			</div>
+			<div class="custom-modal-footer">
+				<button class="custom-modal-btn custom-modal-btn-primary" id="alertModalOk">OK</button>
+			</div>
+		</div>
+	</div>
+
+	<script src="/js/lucide.min.js"></script>
+	<!-- FullCalendar removed - using custom calendar -->
+	<script src="/js/custom-calendar.js"></script>
+	<script src="/js/calendar-custom.js"></script>
+	<script>
+		// View-only mode is handled automatically by calendar-custom.js
+		// based on window.calendarViewOnly and window.currentUser.role
+		document.addEventListener('DOMContentLoaded', () => {
+			lucide.createIcons();
+		});
+	</script>
+</body>
+</html>
+

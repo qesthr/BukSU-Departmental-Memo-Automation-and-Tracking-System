@@ -27,6 +27,9 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
 </head>
 <body>
     <div class="loading">
@@ -35,6 +38,29 @@
     </div>
 
     <script>
+        // Redirect helper based on current user's role
+        async function redirectBasedOnRole() {
+            try {
+                const resp = await fetch('/api/auth/current-user');
+                const data = await resp.json();
+                if (!resp.ok || !data || !data.success) {
+                    throw new Error('Failed to get user info');
+                }
+
+                // Strict role check and redirect
+                if (data.user && data.user.role === 'admin') {
+                    window.location.href = '/admin-dashboard';
+                } else if (data.user && (data.user.role === 'secretary' || data.user.role === 'faculty')) {
+                    window.location.href = '/dashboard';
+                } else {
+                    // Invalid role
+                    window.location.href = '/?error=invalid_role';
+                }
+            } catch (e) {
+                console.error('Redirect lookup failed', e);
+                window.location.href = '/?error=auth_failed';
+            }
+        }
         // Function to create the password setup modal
         function createPasswordSetupModal() {
             const modalHtml = `
@@ -77,50 +103,83 @@
                     });
 
                     const data = await response.json();
-                    if (data.success) {
-                        alert('Password set successfully! You can now use manual login.');
-                        window.location.href = '/dashboard';
+                        if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'Password set successfully! You can now use manual login.'
+                        });
+                        redirectBasedOnRole();
                     } else {
-                        alert(data.message || 'Error setting password');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message || 'Error setting password'
+                        });
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('Error setting password. Please try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error setting password. Please try again.'
+                    });
                 }
             });
         }
 
         // Function to skip password setup
-        function skipPasswordSetup() {
-            if (confirm('Are you sure you want to skip password setup? You will only be able to login using Google.')) {
-                window.location.href = '/dashboard';
+        async function skipPasswordSetup() {
+            const result = await Swal.fire({
+                icon: 'question',
+                title: 'Skip Password Setup?',
+                text: 'Are you sure you want to skip password setup? You will only be able to login using Google.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, skip',
+                cancelButtonText: 'Cancel'
+            });
+            if (result.isConfirmed) {
+                redirectBasedOnRole();
             }
         }
 
         // Check if user needs password setup when page loads
         async function checkPasswordSetup() {
             try {
-                const response = await fetch('/api/password/has-password');
-                const data = await response.json();
-                
-                if (response.ok && !data.hasPassword) {
+                // Start the role check immediately
+                const [passwordResp, userResp] = await Promise.all([
+                    fetch('/api/password/has-password'),
+                    fetch('/api/auth/current-user')
+                ]);
+
+                const passwordData = await passwordResp.json();
+                const userData = await userResp.json();
+
+                if (passwordResp.ok && !passwordData.hasPassword) {
                     // Remove loading spinner
                     document.querySelector('.loading').style.display = 'none';
                     // Show password setup modal
                     createPasswordSetupModal();
+                } else if (userData.success && userData.user) {
+                    // Immediate redirect based on role if we have user data
+                    if (userData.user.role === 'admin') {
+                        window.location.href = '/admin-dashboard';
+                    } else if (userData.user.role === 'secretary' || userData.user.role === 'faculty') {
+                        window.location.href = '/dashboard';
+                    } else {
+                        window.location.href = '/?error=invalid_role';
+                    }
                 } else {
-                    // If user already has a password, redirect to dashboard
-                    window.location.href = '/dashboard';
+                    window.location.href = '/?error=auth_failed';
                 }
             } catch (error) {
-                console.error('Error checking password status:', error);
-                alert('Error checking account status. Redirecting to dashboard...');
-                window.location.href = '/dashboard';
+                console.error('Error checking account status:', error);
+                window.location.href = '/?error=auth_failed';
             }
         }
 
-        // Start the process when page loads
-        window.onload = checkPasswordSetup;
+        // Start the process immediately when script loads
+        checkPasswordSetup();
     </script>
 </body>
 </html>

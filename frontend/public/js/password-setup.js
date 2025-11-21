@@ -121,7 +121,7 @@ function setupPasswordModal() {
 
     form.onsubmit = async (e) => {
         e.preventDefault();
-        
+
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
@@ -137,14 +137,26 @@ function setupPasswordModal() {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Password set successfully! You can now use manual login.');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'Password set successfully! You can now use manual login.'
+                });
                 modal.style.display = "none";
             } else {
-                alert(data.message || 'Error setting password');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || 'Error setting password'
+                });
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error setting password. Please try again.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error setting password. Please try again.'
+            });
         }
     };
 
@@ -161,7 +173,7 @@ async function checkPasswordStatus() {
     try {
         const response = await fetch('/api/password/has-password');
         const data = await response.json();
-        
+
         if (response.ok && !data.hasPassword) {
             // Show password setup prompt for Google OAuth users
             const modal = setupPasswordModal();

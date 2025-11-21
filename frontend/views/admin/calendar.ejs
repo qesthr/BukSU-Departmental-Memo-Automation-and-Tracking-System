@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FullCalendar removed - using custom calendar -->
+    <link rel="stylesheet" href="/css/calendar.css">
+    <link rel="stylesheet" href="/css/custom-calendar.css">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+
+    <!-- SweetAlert2 -->
+    <%- include('../../components/sweetalert2'); %>
+
+    <!-- Google OAuth handled server-side; no client secret exposed -->
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+            <main class="main-content">
+                <%- include('../../components/admintopbar') %>
+
+                    <div class="calendar-page">
+                        <aside class="calendar-sidebar">
+                            <div class="sidebar-section">
+                                <div class="mini-cal-header">
+                                    <h3 id="miniCalMonth">Mini Calendar</h3>
+                                    <div class="mini-cal-nav">
+                                        <button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
+                                        <button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
+                                    </div>
+                                </div>
+                                <div id="miniCalendar" class="mini-calendar"></div>
+                            </div>
+                            <div class="sidebar-section">
+                                <h3>My Calendars</h3>
+                                <label><input type="checkbox" id="filterAll" checked> All</label><br />
+                                <label><input type="checkbox" id="filterMine" checked> My Events</label><br />
+                                <label><input type="checkbox" id="filterDepartment" checked> Department</label>
+                            </div>
+                            <div class="sidebar-section">
+                                <h3>Categories</h3>
+                                <div><span class="category-dot cat-today"></span>Today</div>
+                                <div><span class="category-dot cat-urgent"></span>Urgent</div>
+                                <div><span class="category-dot cat-standard"></span>Standard</div>
+                            </div>
+
+                        </aside>
+
+                        <section class="calendar-main">
+                            <div id="calendar"></div>
+                        </section>
+                        <script>
+                            window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
+                            window.currentUser = {
+                                id: '<%= user._id %>',
+                                email: '<%= user.email %>',
+                                firstName: '<%= user.firstName || "" %>',
+                                lastName: '<%= user.lastName || "" %>',
+                                role: '<%= user.role %>',
+                                department: '<%= user.department || "" %>'
+                            };
+                        </script>
+                    </div>
+            </main>
+    </div>
+
+    <!-- Add/Edit Memo Modal -->
+    <div id="memoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="memoModalTitle">Add Memo</h2>
+                <button class="close-modal" id="closeMemoModal"
+                    style="border:none; background:none; font-size:1.5rem; cursor:pointer">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Read-Only View (for Recipients) -->
+                <div id="readOnlyEventView" style="display:none;">
+                    <div class="form-group">
+                        <strong id="readOnlyTitle"></strong>
+                    </div>
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
+                        <div>
+                            <label>Category</label>
+                            <div id="readOnlyCategory"></div>
+                        </div>
+                        <div>
+                            <label>Date</label>
+                            <div id="readOnlyDate"></div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
+                        <div>
+                            <label>Start Time</label>
+                            <div id="readOnlyStart"></div>
+                        </div>
+                        <div>
+                            <label>End Time</label>
+                            <div id="readOnlyEnd"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Participants / Recipients</label>
+                        <div id="readOnlyParticipants"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description / Notes</label>
+                        <div id="readOnlyDescription" style="white-space: pre-wrap; padding: 0.5rem; background: #f3f4f6; border-radius: 4px; min-height: 60px;"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="readOnlyViewMemoBtn" style="display:none;">View Full Memo</button>
+                        <button type="button" class="btn-primary" id="readOnlyOkBtn" style="margin-left:auto">OK</button>
+                    </div>
+                </div>
+
+                <!-- Editable Form (for Creators) -->
+                <form id="memoForm">
+                    <input type="hidden" id="memoEditingSource" value="" />
+                    <input type="hidden" id="memoEditingId" value="" />
+                    <div class="form-group">
+                        <label for="memoTitle">Title of Memo</label>
+                        <input type="text" id="memoTitle" required />
+                    </div>
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
+                        <div>
+                            <label for="memoDate">Date</label>
+                            <input type="date" id="memoDate" required />
+                        </div>
+                        <div>
+                            <label for="memoCategory">Category</label>
+                            <select id="memoCategory">
+                                <option value="standard">🟢 Standard</option>
+                                <option value="urgent">🔴 Urgent</option>
+                                <option value="high">🟠 High Priority</option>
+                                <option value="meeting">🟣 Meeting</option>
+                                <option value="deadline">⏰ Deadline</option>
+                                <option value="reminder">🔔 Reminder</option>
+                                <option value="low">🔵 Low Priority</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
+                        <div>
+                            <label for="memoStart">Start Time</label>
+                            <input type="time" id="memoStart" required />
+                        </div>
+                        <div>
+                            <label for="memoEnd">End Time</label>
+                            <input type="time" id="memoEnd" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="participant-input-container">
+                            <label class="participant-label">Participants / Recipients:</label>
+                            <div class="participant-input-wrapper">
+                                <div id="participantsChips" class="participant-chips-wrapper"></div>
+                                <input type="text" id="participantEmailInput" class="participant-input" placeholder="Type name or email to search recipients..."
+                                    autocomplete="off" />
+                                <ul id="emailSuggestions" class="email-suggestions"></ul>
+                            </div>
+                            <button type="button" class="btn-department-inline"
+                                id="selectDepartmentBtn">Department</button>
+                        </div>
+                        <input type="hidden" id="memoParticipants" value="" />
+                    </div>
+                    <div class="form-group">
+                        <label for="memoDesc">Description / Notes</label>
+                        <textarea id="memoDesc" rows="4"></textarea>
+                        <!-- Attachments container (read-only, appears when event has memoId) -->
+                        <div id="eventAttachmentsContainer" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"></div>
+                    </div>
+                    <!-- Department Dropdown -->
+                    <div id="departmentDropdown" class="department-dropdown" style="display: none;">
+                        <div class="department-dropdown-header">
+                            <span>Select Departments</span>
+                            <button type="button" class="close-dropdown" id="closeDepartmentDropdown">&times;</button>
+                        </div>
+                        <div class="department-dropdown-list" id="departmentList"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelMemo">Cancel</button>
+                        <!-- Archive button - shown only in edit mode -->
+                        <button type="button" class="btn btn-secondary" id="archiveMemo" style="display:none;">Archive</button>
+                        <!-- Delete button - shown only in edit mode -->
+                        <button type="button" class="btn btn-secondary" id="deleteMemo" style="display:none;">Delete</button>
+                        <!-- Submit button - text changes between "Add" and "Update" based on mode -->
+                        <button type="submit" class="btn btn-primary" id="saveMemoBtn">
+                            <span class="btn-text">Add</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="spinner"></span> Updating...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal with Loading/Check Animation -->
+    <div id="eventSuccessModal" class="event-success-modal" style="display: none;">
+        <div class="event-success-modal-content">
+            <div class="success-loader" id="successLoader">
+                <div class="spinner"></div>
+            </div>
+            <div class="success-check" id="successCheck" style="display: none;">
+                <svg viewBox="0 0 52 52">
+                    <circle cx="26" cy="26" r="25" fill="none" class="check-circle" />
+                    <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" class="check-path" />
+                </svg>
+            </div>
+            <p class="success-message" id="successMessage">Saving event...</p>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-overlay"></div>
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h3 id="confirmModalTitle">Confirm</h3>
+                <button class="custom-modal-close" id="confirmModalClose">&times;</button>
+            </div>
+            <div class="custom-modal-body">
+                <p id="confirmModalMessage"></p>
+            </div>
+            <div class="custom-modal-footer">
+                <button class="custom-modal-btn custom-modal-btn-secondary" id="confirmModalCancel">Cancel</button>
+                <button class="custom-modal-btn custom-modal-btn-primary" id="confirmModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alertModal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-overlay"></div>
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h3 id="alertModalTitle">Notice</h3>
+                <button class="custom-modal-close" id="alertModalClose">&times;</button>
+            </div>
+            <div class="custom-modal-body">
+                <p id="alertModalMessage"></p>
+            </div>
+            <div class="custom-modal-footer">
+                <button class="custom-modal-btn custom-modal-btn-primary" id="alertModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/lucide.min.js"></script>
+    <!-- FullCalendar removed - using custom calendar -->
+    <script src="/js/custom-calendar.js"></script>
+    <script src="/js/calendar-custom.js"></script>
+    <script>lucide.createIcons();</script>
+
+</body>
+
+</html>

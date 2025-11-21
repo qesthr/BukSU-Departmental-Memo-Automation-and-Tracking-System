@@ -1,0 +1,962 @@
+/* ===============================
+   User Management Styles (Updated)
+   =============================== */
+
+.dashboard-content {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.content-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Users page specific: prevent main content from scrolling */
+.main-content {
+    overflow-y: hidden;
+}
+
+/* ===== Header ===== */
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.header-title h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: rgb(3, 3, 3);
+    margin-left: 15px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* ===== Search Bar ===== */
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    width: 260px;
+    transition: all 0.2s ease;
+}
+
+.search-container:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
+
+.search-container i {
+    position: absolute;
+    right: 0.75rem;
+    color: var(--secondary);
+    font-size: 1rem;
+}
+
+.search-container img {
+    height: 20px;
+    width: 20px;
+}
+
+/* Highlight search container when input is focused */
+.search-container:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+
+#userSearch {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+    color: var(--text-dark);
+    padding-right: 1.75rem;
+    /* space for the icon */
+}
+
+
+#addUserBtn img.icon-img {
+    width: 18px;
+    /* set desired width */
+    height: 18px;
+    /* set desired height */
+    object-fit: contain;
+    /* ensures image keeps proportions */
+}
+
+
+#userSearch {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+    color: var(--text-dark);
+    padding-right: 1.75rem;
+    /* space for icon */
+}
+
+#userSearch::placeholder {
+    color: var(--secondary);
+    opacity: 0.7;
+}
+
+#userSearch:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+/* ===== Add User Button ===== */
+#addUserBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    /* background: var(--primary); */
+    color: white;
+    border: none;
+    padding: 0.65rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    position: relative;
+    right: 20px;
+}
+
+#addUserBtn i {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+/* ===== Filters ===== */
+.filters-section {
+    margin-bottom: 2rem;
+    background: var(--bg-main);
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.role-filters {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: white;
+    font-size: 0.875rem;
+    color: var(--text-dark);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.filter-btn:hover {
+    background: var(--bg-hover);
+}
+
+.filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.filter-btn .count {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: var(--bg-main);
+    border-radius: 1rem;
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+}
+
+.filter-btn.active .count {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ===== Table Container ===== */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: white;
+    max-height: 350px;
+}
+
+/* ===== Users Table ===== */
+.users-table {
+    width: 100%;
+    min-width: 800px;
+    border-collapse: collapse;
+    background: white;
+}
+
+.table-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 100px;
+    padding: 1rem;
+    background: var(--bg-main);
+    font-weight: 600;
+    color: var(--text-dark);
+    border-bottom: 1px solid var(--border);
+}
+
+.table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 100px;
+    padding: 1rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.2s;
+}
+
+.table-row:hover {
+    background: var(--bg-hover);
+}
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+/* ===== Table Cells ===== */
+.checkbox-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.name-cell {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.user-email {
+    font-size: 0.875rem;
+    color: var(--secondary);
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.role-badge.admin {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.role-badge.secretary {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.role-badge.faculty {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+/* Beautiful Action Buttons */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: #6b7280;
+    position: relative;
+}
+
+.action-btn i {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+}
+
+.action-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Edit Button - Blue */
+.action-btn-edit {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.action-btn-edit:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Archive Button - Orange/Amber */
+.action-btn-archive {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.action-btn-archive:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+/* Unarchive Button - Green */
+.action-btn-unarchive {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.action-btn-unarchive:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+/* View Tabs */
+.view-tab.active {
+    border-bottom-color: #1C89E3 !important;
+    color: #1C89E3 !important;
+    font-weight: 600;
+}
+
+.view-tab:hover {
+    color: #1C89E3;
+}
+
+/* User Menu */
+.user-menu {
+    position: relative;
+}
+
+.user-menu-btn {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    color: var(--secondary);
+    transition: all 0.2s;
+}
+
+.user-menu-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-dark);
+}
+
+.user-menu-dropdown {
+    position: absolute;
+    top: 2rem;
+    right: 0;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    min-width: 180px;
+    z-index: 100;
+    display: none;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--text-dark);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-item:first-child {
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.menu-item:last-child {
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.menu-item:hover {
+    background: var(--bg-hover);
+}
+
+.menu-item.delete-user {
+    color: #dc2626;
+}
+
+.menu-item.delete-user:hover {
+    background: #fee2e2;
+}
+
+.menu-item i {
+    width: 16px;
+    height: 16px;
+}
+
+/* ===== Modals & Forms ===== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    width: 90%;
+    max-width: 500px;
+    margin: 2rem auto;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--secondary);
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    margin-top: -34px;
+}
+
+#addUserModal .modal-content {
+    max-width: 520px;
+    width: 90%;
+    border-radius: 1rem;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+}
+
+#addUserModal .modal-header {
+    padding: 1.5rem 1.75rem 0;
+    border-bottom: none;
+}
+
+#addUserModal .modal-title-group h2 {
+    margin-bottom: 0.2rem;
+    font-size: 1.3rem;
+    color: #ffffff;
+}
+
+#addUserModal .modal-subtitle {
+    margin: 0;
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+#addUserModal .modal-body {
+    margin-top: 0;
+    padding: 1.25rem 1.75rem 1.75rem;
+}
+
+#addUserModal .form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#addUserModal .form-group label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-weight: 500;
+    color: #0f172a;
+    font-size: 0.9rem;
+    white-space: normal;
+}
+
+#addUserModal .form-group input,
+#addUserModal .form-group select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.6rem;
+    min-height: 44px;
+    font-size: 0.95rem;
+    padding: 0.65rem 0.75rem;
+    background: #fff;
+}
+
+#addUserModal .form-group input:focus,
+#addUserModal .form-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.08);
+    outline: none;
+}
+
+#addUserModal .add-user-actions {
+    margin-top: 1.5rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+#addUserModal .add-user-actions .btn {
+    min-height: 44px;
+    border-radius: 0.6rem;
+}
+
+#addUserModal .btn-secondary {
+    background: #f1f5f9;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+}
+
+#addUserModal .btn-secondary:hover {
+    background: #e2e8f0;
+}
+
+@media (max-width: 560px) {
+    #addUserModal .modal-content {
+        width: 94%;
+        margin: 1rem auto;
+    }
+
+    #addUserModal .add-user-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    #addUserModal .add-user-actions .btn {
+        width: 100%;
+    }
+}
+
+#editUserModal .modal-content {
+    max-width: 560px;
+    width: 92%;
+    border-radius: 1rem;
+    box-shadow: 0 25px 45px rgba(15, 23, 42, 0.2);
+}
+
+#editUserModal .modal-header {
+    padding: 1.75rem 1.75rem 0;
+    border-bottom: none;
+}
+
+#editUserModal .modal-title-group h2 {
+    margin-bottom: 0.25rem;
+    font-size: 1.35rem;
+}
+
+#editUserModal .modal-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #64748b;
+}
+
+#editUserModal .modal-body {
+    margin-top: 0;
+    padding: 1.25rem 1.75rem 1.75rem;
+}
+
+#editUserModal .form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#editUserModal .form-group label {
+    margin-bottom: 0.4rem;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #0f172a;
+    white-space: normal;
+    word-break: break-word;
+}
+
+#editUserModal .form-group input,
+#editUserModal .form-group select {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.6rem;
+    min-height: 46px;
+    font-size: 0.95rem;
+    background: #fff;
+}
+
+#editUserModal .form-group input:focus,
+#editUserModal .form-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.08);
+}
+
+#editUserModal .status-grid {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+#editUserModal .checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #f8fafc;
+    min-height: 48px;
+}
+
+#editUserModal .checkbox-field input {
+    width: 18px;
+    height: 18px;
+    min-height: unset;
+}
+
+#editUserModal .checkbox-field label {
+    margin: 0;
+}
+
+#editUserModal .form-note {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+}
+
+#editUserModal .form-actions {
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e2e8f0;
+    gap: 0.75rem;
+}
+
+#editUserModal .btn {
+    min-height: 46px;
+    border-radius: 0.6rem;
+}
+
+#editUserModal .btn-secondary {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+
+#editUserModal .btn-secondary:hover {
+    background: #e2e8f0;
+}
+
+/* Archive/Delete Modal Button Styles */
+#deleteModal .btn-warning {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#deleteModal .btn-warning:hover {
+    background: #d97706;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    transform: translateY(-1px);
+}
+
+#deleteModal .btn-warning:active {
+    transform: translateY(0);
+}
+
+#deleteModal .btn-warning:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 600px) {
+    #editUserModal .modal-content {
+        width: 95%;
+        margin: 1rem auto;
+    }
+
+    #editUserModal .status-grid {
+        flex-direction: column;
+    }
+
+    #editUserModal .form-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    #editUserModal .btn {
+        width: 100%;
+    }
+}
+
+/* Remove scrollbar for profile modal */
+#profileEditModal.modal {
+    overflow: hidden !important;
+}
+
+#profileEditModal .modal-content {
+    max-height: none;
+    overflow: visible;
+}
+
+#profileEditModal .modal-body {
+    max-height: none;
+    overflow: visible;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+/* Button Styles for Profile Modal */
+#profileEditModal .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 120px;
+}
+
+#profileEditModal .btn-primary {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 102, 255, 0.2);
+}
+
+#profileEditModal .btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 102, 255, 0.3);
+}
+
+#profileEditModal .btn-primary:active {
+    transform: translateY(0);
+}
+
+#profileEditModal .btn-secondary {
+    background: #fff;
+    color: var(--text-dark);
+    border: 1.5px solid var(--border);
+}
+
+#profileEditModal .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+#profileEditModal .btn-secondary:active {
+    transform: translateY(0);
+}
+
+/* Input hint styling */
+.input-hint {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+}
+.input-hint.error {
+    color: #dc2626;
+}
+
+/* Invalid input border color */
+.input-error {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 2px rgba(220,38,38,0.1);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 992px) {
+
+    .table-header,
+    .table-row {
+        grid-template-columns: 2fr 1fr 100px;
+    }
+
+    .department-cell {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .role-filters {
+        flex-wrap: wrap;
+    }
+
+    .filter-btn {
+        flex: 1;
+        text-align: center;
+    }
+
+    .table-header,
+    .table-row {
+        grid-template-columns: 2fr 1fr 100px;
+    }
+
+    .checkbox-cell {
+        display: none;
+    }
+
+    .search-container {
+        width: 100%;
+    }
+
+    #addUserBtn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+
+    .table-header,
+    .table-row {
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+    }
+
+    .role-cell {
+        display: none;
+    }
+
+    .name-cell {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 1rem auto;
+    }
+}

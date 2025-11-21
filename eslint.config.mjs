@@ -24,6 +24,14 @@ export default [
         }
     },
     {
-        ignores: ['node_modules/**', 'dist/**', 'build/**']
+        ignores: [
+            'node_modules/**',
+            'dist/**',
+            'build/**',
+            '**/fullcalendar.min.js',
+            '**/fullcalendar.min.css',
+            '**/*.min.js',
+            '**/*.min.css'
+        ]
     }
 ];

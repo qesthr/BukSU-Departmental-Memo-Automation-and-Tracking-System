@@ -1,0 +1,174 @@
+<!-- Sidebar (Faculty) -->
+<aside class="sidebar"
+	   data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'
+	   data-user-role="<%= user.role %>">
+	<div class="sidebar-container">
+		<div class="logo-wrapper">
+			<div class="logo">
+				<div class="logo-img">
+					<img src="/images/memofy-logo.png" alt="Memofy Logo" />
+				</div>
+				<h2>Memofy</h2>
+			</div>
+		</div>
+
+		<nav class="main-nav">
+			<ul>
+				<li class="<%= path === '/dashboard' ? 'active' : '' %>">
+					<a href="/dashboard">
+						<img src="<%= path === '/dashboard' ? '/images/dashboards.png' : '/images/dashboards-in.png' %>" alt="Dashboard" class="nav-icon">
+						<span>Dashboard</span>
+					</a>
+				</li>
+				<li class="<%= path === '/faculty/memos' ? 'active' : '' %>">
+					<a href="/faculty/memos">
+						<img src="<%= path === '/faculty/memos' ? '/images/clipboard.png' : '/images/clipboard-in.png' %>" alt="Memos" class="nav-icon">
+						<span>Memos</span>
+					</a>
+				</li>
+				<li class="<%= path === '/faculty/archive' ? 'active' : '' %>">
+					<a href="/faculty/archive">
+						<i data-lucide="archive"
+							class="nav-archive-icon <%= path === '/faculty/archive' ? 'active' : '' %>"></i>
+						<span>Archive</span>
+					</a>
+				</li>
+				<li class="<%= path === '/faculty/calendar' ? 'active' : '' %>">
+					<a href="/faculty/calendar">
+						<img src="<%= path === '/faculty/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>" alt="Calendar" class="nav-icon">
+						<span>Calendar</span>
+					</a>
+				</li>
+			</ul>
+		</nav>
+
+		<div class="bottom-nav">
+            <a href="/settings" class="nav-item <%= path === '/settings' ? 'active' : '' %>">
+				<i data-lucide="settings"></i>
+				<span>Settings</span>
+			</a>
+			<a href="#" class="nav-item" id="logoutBtn">
+				<i data-lucide="log-out"></i>
+				<span>Logout</span>
+			</a>
+			<div class="profile-section" id="profileSection" style="cursor: pointer;">
+				<img src="<%= user.profilePicture || '/images/memofy-logo.png' %>" alt="Profile" class="profile-img" id="navProfileImg">
+				<div class="profile-info">
+					<h4 class="profile-name" id="navProfileName"><%= user.fullName || user.firstName || 'User' %></h4>
+					<p class="profile-email" id="navProfileEmail"><%= user.email %></p>
+				</div>
+			</div>
+		</div>
+	</div>
+</aside>
+
+<script>
+	(function () {
+		const sidebar = document.querySelector('.sidebar');
+		if (!sidebar) { return; }
+		let settings = {};
+		try {
+			settings = JSON.parse(sidebar.getAttribute('data-user-settings') || '{}');
+		} catch (err) {
+			settings = {};
+		}
+		window.__initialUserSettings = Object.assign({}, window.__initialUserSettings || {}, settings);
+		window.__currentUserRole = sidebar.getAttribute('data-user-role') || window.__currentUserRole || '';
+		const enableDark = !!settings.darkMode;
+		document.documentElement.classList.toggle('dark-mode', enableDark);
+		document.body && document.body.classList.toggle('dark-mode', enableDark);
+	})();
+</script>
+
+<!-- Profile Edit Modal (Faculty) -->
+<div id="profileEditModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Profile</h2>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="profileEditForm">
+                <input type="hidden" id="profileUserId" value="<%= user._id %>">
+
+                <!-- Profile Picture Upload -->
+                <div class="form-group">
+                    <label>Profile Picture</label>
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <img id="profilePreviewImg" src="<%= user.profilePicture || '/images/memofy-logo.png' %>"
+                             alt="Profile Preview"
+                             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #e2e8f0;">
+                    </div>
+                    <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                    <button type="button" id="changePicBtn"
+                        style="width: 100%; padding: 0.75rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+                        Change Profile Picture
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label for="editProfileFirstName">First Name</label>
+                    <input type="text" id="editProfileFirstName" value="<%= user.firstName || '' %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editProfileLastName">Last Name</label>
+                    <input type="text" id="editProfileLastName" value="<%= user.lastName || '' %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editProfileEmail">Email</label>
+                    <input type="email" id="editProfileEmail" value="<%= user.email || '' %>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editProfileDepartment">Department</label>
+                    <input type="text" id="editProfileDepartment" value="<%= user.department || 'N/A' %>" disabled>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Logout Confirmation Modal (Faculty) -->
+<div id="logoutModal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div class="modal-header" style="border: none; padding-bottom: 0;">
+            <button class="close-modal"
+                style="position: absolute; right: 1rem; top: 1rem; border: none; background: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 2rem;">
+            <!-- Memofy Logo -->
+            <div style="margin-bottom: 1.5rem;">
+                <img src="/images/memofy-logo.png" alt="Memofy Logo" style="width: 120px; height: auto;">
+            </div>
+
+            <!-- Message -->
+            <h2 style="margin: 0 0 1rem; font-size: 1.25rem; font-weight: 600; color: #1e293b;">Confirm Logout</h2>
+            <p style="margin: 0 0 2rem; color: #64748b; font-size: 0.875rem;">Are you sure you want to logout?</p>
+
+            <!-- Buttons -->
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary" id="logoutCancelBtn"
+                    style="padding: 0.75rem 1.5rem; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="logoutConfirmBtn"
+                    style="padding: 0.75rem 1.5rem; background: #1C89E3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/sidebar-hover.js"></script>
+<script src="/js/profile-modal.js"></script>
+<script src="/js/logout-modal.js"></script>
+<script src="/js/session-timeout.js"></script>
+

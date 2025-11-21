@@ -1,0 +1,7 @@
+@import url('/css/faculty-dashboard.css');
+
+/* Prevent main content from scrolling on memos page */
+.main-content {
+    overflow-y: hidden;
+}
+

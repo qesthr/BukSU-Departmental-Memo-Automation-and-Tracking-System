@@ -1,0 +1,634 @@
+/* Custom Calendar Styles - Replaces FullCalendar */
+
+.custom-calendar-view {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+}
+
+/* Toolbar */
+.custom-calendar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  position: relative;
+  z-index: 100;
+}
+
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  flex: 0 0 auto;
+  min-width: fit-content;
+}
+
+.toolbar-center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-right {
+  flex: 0 0 auto;
+  min-width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+.toolbar-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 1rem;
+  min-width: 280px;
+  max-width: 400px;
+  text-align: center;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.btn {
+  padding: 0.625rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #374151;
+  white-space: nowrap;
+  min-width: fit-content;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 101;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+.btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  min-width: 100px;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #e5e7eb;
+  min-width: 70px;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.btn-view {
+  background: #fff;
+  border-color: #e5e7eb;
+  min-width: 60px;
+}
+
+.btn-view.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+.btn-view.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.btn-icon {
+  padding: 0.5rem 0.75rem;
+  min-width: 2.5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 1.125rem;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+.btn-google-calendar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  position: relative;
+  z-index: 101;
+  min-width: auto;
+  width: 40px;
+  height: 40px;
+  padding: 0.5rem;
+}
+
+.google-calendar-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* TimeGrid Day View */
+.timegrid-day-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.timegrid-day-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Let child containers handle scrolling */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.timegrid-allday {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  height: 80px; /* Fixed height - will show scrollbar when content exceeds */
+  max-height: 200px; /* Maximum height limit */
+  padding: 0.5rem;
+  overflow: hidden; /* Hide parent overflow */
+  flex-shrink: 0; /* Don't shrink when time grid scrolls */
+  position: relative; /* For proper child positioning */
+}
+
+.timegrid-allday-label {
+  width: 80px;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  align-self: flex-start; /* Align to top */
+}
+
+.timegrid-allday-events {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Prevent horizontal scroll */
+  height: 100%; /* Take full height of parent */
+  max-height: calc(100% - 0.5rem); /* Account for padding */
+  align-content: flex-start; /* Align items to top */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #cbd5e1 #f1f5f9; /* Firefox */
+}
+
+/* Custom scrollbar for all-day events (Webkit browsers) */
+.timegrid-allday-events::-webkit-scrollbar {
+  width: 6px;
+}
+
+.timegrid-allday-events::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.timegrid-allday-events::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.timegrid-allday-events::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.timegrid-slots {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-y: auto; /* Enable scrolling for time slots */
+  min-height: 0; /* Allow flex shrinking */
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+.timegrid-slot-row {
+  display: flex;
+  min-height: 60px;
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+}
+
+.timegrid-time-label {
+  width: 90px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  text-align: right;
+  flex-shrink: 0;
+  border-right: 1px solid #f0f0f0;
+  font-weight: 400;
+}
+
+.timegrid-slot-cell {
+  flex: 1;
+  position: relative;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-right: 1px solid #f3f4f6;
+  background: #fff;
+}
+
+.timegrid-slot-cell:hover {
+  background: #f9fafb;
+}
+
+/* TimeGrid Week View */
+.timegrid-week-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.timegrid-week-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Let child containers handle scrolling */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.timegrid-week-header {
+  display: grid;
+  grid-template-columns: 90px repeat(7, 1fr);
+  border-bottom: 2px solid #e5e7eb;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.timegrid-week-time-col {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  text-align: right;
+  border-right: 1px solid #f0f0f0;
+  font-weight: 400;
+}
+
+.timegrid-week-day-header {
+  padding: 0.75rem;
+  text-align: center;
+  border-right: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.timegrid-week-day-header:hover {
+  background: #f9fafb;
+}
+
+.day-name {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.day-number {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  transition: all 0.2s ease;
+}
+
+.day-number.today {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.day-number.selected:not(.today) {
+  background: #e0e7ff;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
+}
+.timegrid-week-allday {
+    display: grid;
+    grid-template-columns: 90px repeat(7, 1fr);
+    border-bottom: 1px solid #e5e7eb;
+    min-height: 60px;
+    flex-shrink: 0;
+  }
+
+  .timegrid-week-day-cell {
+    padding: 0.5rem;
+    border-right: 1px solid #f3f4f6;
+    min-height: 60px;
+    position: relative;
+  }
+
+  .timegrid-week-day-cell.allday {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  /* ✅ FIXED: scroll container must not be position: relative */
+  .timegrid-week-slots {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    position: static;    /* <— FIXED. Prevents scrollbar duplication */
+  }
+
+  /* Each row is a grid; no positioning that interacts with scrollbar */
+  .timegrid-week-slot-row {
+    display: grid;
+    grid-template-columns: 90px repeat(7, 1fr);
+    min-height: 60px;
+    border-bottom: 1px solid #f0f0f0;
+    position: static; /* <— KEEP static */
+  }
+
+  .timegrid-week-slot-row .timegrid-week-time-col {
+    border-right: 1px solid #f0f0f0;
+    background: #fff;
+  }
+
+  .timegrid-week-slot-row .timegrid-week-day-cell {
+    border-right: 1px solid #f3f4f6;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .timegrid-week-slot-row .timegrid-week-day-cell:hover {
+    background: #f9fafb;
+  }
+
+
+/* DayGrid Month View */
+.daygrid-month-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden; /* Prevent outer overflow */
+}
+
+.daygrid-month-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Allow content to be visible */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.daygrid-month-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 2px solid #e5e7eb;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0; /* Don't shrink header */
+}
+
+.daygrid-month-header-cell {
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  border-right: 1px solid #e5e7eb;
+}
+
+.daygrid-month-header-cell:last-child {
+  border-right: none;
+}
+
+.daygrid-month-days {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Enable scrolling for days */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.daygrid-month-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  min-height: 120px; /* Fixed minimum height per week */
+  height: auto; /* Allow height to grow with content */
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0; /* Don't shrink weeks */
+}
+
+.daygrid-month-day {
+  border-right: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+}
+
+.daygrid-month-day:hover {
+  background: #f9fafb;
+}
+
+.daygrid-month-day.other-month {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.daygrid-month-day.today {
+  background: #eff6ff;
+}
+
+.daygrid-month-day.today .daygrid-month-day-number {
+  background: #3b82f6;
+  color: #fff;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.daygrid-month-day:last-child {
+  border-right: none;
+}
+
+.daygrid-month-day-number {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  color: #1f2937;
+}
+
+.daygrid-month-day-events {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.25rem;
+}
+
+.daygrid-month-more {
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0.125rem 0.25rem;
+  cursor: pointer;
+}
+
+.daygrid-month-more:hover {
+  color: #3b82f6;
+}
+
+/* Event Elements */
+.custom-calendar-event {
+  padding: 0.375rem 0.625rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  margin-bottom: 0.125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  position: relative;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.custom-calendar-event:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-calendar-event.standard {
+  background: #d1fae5;
+  color: #065f46;
+  border-left: 3px solid #10b981;
+}
+
+.custom-calendar-event.urgent {
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 3px solid #ef4444;
+}
+
+.custom-calendar-event.today {
+  background: #fed7aa;
+  color: #9a3412;
+  border-left: 3px solid #f97316;
+}
+
+.custom-calendar-event.holiday {
+  background: #FEF3C7;
+  color: #92400e;
+  border-left: 3px solid #F59E0B;
+  font-weight: 600;
+}
+
+.event-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-time {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  margin-top: 0.125rem;
+}
+
+/* Timed events in time grid - already absolutely positioned in JS */
+.timegrid-slots .custom-calendar-event,
+.timegrid-week-slots .custom-calendar-event {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .custom-calendar-toolbar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toolbar-title {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .timegrid-time-label,
+  .timegrid-week-time-col {
+    width: 60px;
+    font-size: 0.7rem;
+  }
+
+  .daygrid-month-day {
+    min-height: 80px;
+    padding: 0.25rem;
+  }
+}
+

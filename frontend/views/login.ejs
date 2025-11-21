@@ -1,62 +1,673 @@
-<div class="container">
-  <!-- LEFT SIDE -->
-  <div class="left-panel">
-    <div class="logo">
-      <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
-    </div>
-    <p class="tagline">Educate. Innovate. Lead.</p>
-  </div>
+<% if (typeof showMinimalMessageModal !=='undefined' && showMinimalMessageModal) { %>
+    <!DOCTYPE html>
+    <html>
 
-  <!-- RIGHT SIDE -->
-  <div class="right-panel">
-    <div class="layer layer1"></div>
-    <div class="layer layer2"></div>
-    <div class="layer layer3"></div>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Notice</title>
 
-    <!-- Login Form Card -->
-    <div class="login-card hidden" id="loginCard">
-      <img src="/images/Screenshot_2025-09-28_142025.png" alt="Logo Icon" class="small-logo">
-      <h2>Login to your Account</h2>
-      <p class="welcome">Welcome back! Please login to continue.</p>
-      <script>
-        // Remove 'hidden' class to show the login card when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-          document.getElementById('loginCard').classList.remove('hidden');
-        });
-      </script>
+        <!-- Google Analytics Tracking -->
+        <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
-      <form method="post">
-        <div class="input-group">
-          <img src="/images/email.png" alt="Email Icon" class="input-icon">
-          <input type="email" placeholder="Email" required>
+        <style>
+            body {
+                background: #fff;
+                margin: 0;
+                height: 100vh;
+                font-family: 'Inter', Arial, sans-serif;
+            }
+
+            /* Modal info styles reused */
+            .modal {
+                display: block !important;
+                position: fixed;
+                z-index: 1010;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.1); /* Very light backdrop - login page visible */
+            }
+
+            .modal-content {
+                background: #2196f3;
+                color: #fff;
+                border-radius: 13px;
+                margin: 160px auto 0 auto;
+                padding: 30px 27px;
+                max-width: 370px;
+                box-shadow: 0 4px 24px 0 rgba(33, 150, 243, 0.23);
+                font-size: 18px;
+                position: relative;
+                text-align: center;
+            }
+
+            .modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+
+            .modal-title {
+                font-size: 1.35rem;
+                font-weight: 700;
+                color: #fff;
+                width: 100%;
+                text-align: center;
+                margin-bottom: 10px;
+            }
+
+            .message-text {
+                font-size: 1.13rem;
+                font-weight: 500;
+                text-align: center;
+                color: #fff;
+                margin: 14px 0 2px 0;
+            }
+
+            .message-icon {
+                display: block;
+                margin: 0 auto 8px auto;
+            }
+
+            .btn-primary {
+                background: #fff;
+                color: #2196f3;
+                font-weight: bold;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 22px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: all .14s;
+                margin-top: 13px;
+            }
+
+            .btn-primary:hover {
+                background: #f5f8fa;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="messageModal" class="modal modal-info" style="display:block">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">
+                        <%= modalTitle || 'Notice' %>
+                    </span>
+                </div>
+                <div class="message-icon">
+                    <!-- SVG exclamation --><svg width="44" height="44" viewBox="0 0 44 44" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="22" cy="22" r="22" fill="#2196f3" /><text x="50%" y="56%" text-anchor="middle"
+                            fill="#fff" font-size="28" font-family="Arial" dy=".3em">!</text>
+                    </svg>
+                </div>
+                <div class="message-text" id="messageText">
+                    <%= modalMessage || '' %>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-primary" id="minimalOkBtn">OK</button>
+                </div>
+            </div>
         </div>
-        <div class="input-group">
-          <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
-          <input type="password" id="passwordInput" placeholder="Password" required>
+        <script>
+            (function () {
+                function notifyAndReloadOpener() {
+                    try { localStorage.setItem('GOOGLE_AUTH_DISMISSED', '1'); } catch (e) { }
+                    try { if (window.opener && !window.opener.closed) { window.opener.postMessage({ type: 'GOOGLE_AUTH_DISMISSED' }, window.location.origin); } } catch (e) { }
+                    try { if (window.opener && !window.opener.closed) { window.opener.location.replace('/'); } } catch (e) { }
+                    try { if (window.opener && !window.opener.closed) { window.opener.focus(); } } catch (e) { }
+                }
+                function closePopup() {
+                    try { window.close(); } catch (e) { }
+                }
+                function handleOkClose() {
+                    notifyAndReloadOpener();
+                    setTimeout(function () {
+                        // If popup did not close, redirect self as fallback
+                        try { if (!window.closed) { window.location.replace('/'); } } catch (e) { window.location.replace('/'); }
+                        closePopup();
+                    }, 120);
+                }
+                document.getElementById('minimalOkBtn').addEventListener('click', handleOkClose);
+            })();
+        </script>
+    </body>
+
+    </html>
+    <% } else { %>
+        <div class="container">
+            <!-- LEFT SIDE -->
+            <div class="left-panel">
+                <div class="logo">
+                    <img src="/images/BukSU-Logo.png" alt="BukSU Logo">
+                </div>
+                <p class="tagline">Educate. Innovate. Lead.</p>
+            </div>
+
+            <!-- RIGHT SIDE -->
+            <div class="right-panel">
+                <div class="layer layer1"></div>
+                <div class="layer layer2"></div>
+                <div class="layer layer3"></div>
+
+                <!-- Login Form Card -->
+                <div class="login-card hidden" id="loginCard">
+                    <img src="/images/memofy-logo.png" alt="Logo Icon" class="small-logo">
+                    <h2>Login to your Account</h2>
+                    <p class="welcome">Welcome back! Please login to continue.</p>
+
+                    <form id="loginForm" method="POST" action="/auth/login">
+                        <div class="input-group">
+                            <img src="/images/email.png" alt="Email Icon" class="input-icon">
+                            <input type="email" name="email" placeholder="Email" required>
+                        </div>
+                        <div id="loginEmailError" class="inline-error" role="alert" aria-live="polite" style="display:none;color:#ef4444;font-size:13px;margin-top:6px;line-height:1.4;">
+                        </div>
+                        <div class="input-group">
+                            <img src="/images/padlock.png" alt="Password Icon" class="input-icon">
+                            <input type="password" name="password" id="passwordInput" placeholder="Password" required>
+                        </div>
+                        <div id="loginInlineError" class="inline-error" role="alert" aria-live="polite" style="display:none;color:#ef4444;font-size:13px;margin-top:6px;line-height:1.4;">
+                        </div>
+                        <button type="submit" class="login-btn" id="loginButton">Login</button>
+
+                        <div class="forgot-password-link">
+                            <a href="/forgot-password" id="forgotPasswordLink" style="text-decoration:none;">Forgot
+                                Password?</a>
+                        </div>
+
+                        <div class="divider">or</div>
+                    </form>
+
+                    <div id="google-signin-button" class="google-signin-container">
+                        <!-- Placeholder: real button is injected by /js/google-auth-modal.js -->
+                        <div style="text-align:center; color:#666; font-size:14px; padding:12px 0;">Loading Google
+                            Sign-In…</div>
+                    </div>
+
+                    <!-- reCAPTCHA v2 Checkbox for Google sign-in guard -->
+                    <div id="googleRecaptchaSection" style="margin-top: 10px; text-align:center;">
+                        <div id="googleRecaptchaContainer" data-sitekey="<%= RECAPTCHA_SITE_KEY %>"></div>
+                        <div id="googleRecaptchaHint" style="color:#666; font-size:12px; margin-top:6px; display:none;">
+                            Please complete the reCAPTCHA before continuing</div>
+                    </div>
+                </div>
+            </div>
         </div>
-<<<<<<< HEAD
-        <button type="submit" class="login-btn">Login</button>
 
-        <div id="recaptcha" class="g-recaptcha" data-sitekey="YOUR_ACTUAL_SITE_KEY" data-callback="enableSubmit"></div>
-=======
-        <div id="recaptchaContainer" style="display: none; margin: 15px 0; text-align: center;">
-          <div id="recaptcha" class="g-recaptcha" 
-               data-sitekey="<%= process.env.RECAPTCHA_SITE_KEY %>"
-               data-callback="enableSubmit"
-               data-theme="light"
-               style="display: inline-block;"></div>
+        <%- include('modals/forgot-password-modal') %>
+
+        <!-- Reset Code Modal -->
+        <%- include('modals/reset-code-modal') %>
+
+        <!-- Reset Password Modal -->
+        <%- include('modals/reset-password-modal') %>
+
+        <!-- Account Lockout Modal -->
+        <div id="accountLockoutModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-logo-section">
+                        <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                        <span class="modal-title">Account Locked</span>
+                    </div>
+                    <span class="close" id="closeLockoutModal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="lockout-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M18 8H17V6C17 3.24 14.76 1 12 1S7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM12 17C10.9 17 10 16.1 10 15S10.9 13 12 13S14 13.9 14 15S13.1 17 12 17ZM15.1 8H8.9V6C8.9 4.29 10.29 2.9 12 2.9S15.1 4.29 15.1 6V8Z"
+                                fill="#ff6b6b" />
+                        </svg>
+                    </div>
+                    <h2 class="lockout-title">Account Temporarily Locked</h2>
+                    <p class="lockout-message" id="lockoutMessage">
+                        Account is temporarily locked due to too many failed login attempts.
+                    </p>
+                    <div class="lockout-timer">
+                        <div class="timer-circle">
+                            <svg width="120" height="120" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="8" fill="none" />
+                                <circle cx="60" cy="60" r="50" stroke="#1E92F3" stroke-width="8" fill="#1E92F3"
+                                    stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(-90 60 60)" />
+                            </svg>
+                            <div class="timer-text">
+                                <span id="timerMinutes">0</span>
+                                <span class="timer-label">MIN</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="lockout-instruction">
+                        Please wait for the timer to complete before attempting to login again.
+                    </p>
+                    <div class="lockout-actions">
+                        <button type="button" class="btn-secondary" onclick="closeAccountLockoutModal()">Close</button>
+                        <button type="button" class="btn-primary"
+                            onclick="window.location.href='/forgot-password'">Forgot Password?</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <button type="submit" class="login-btn" id="loginButton" disabled>Login</button>
->>>>>>> c57144a61ae6f03366e6dd7a72e8f846279449db
 
-        <div class="divider">or</div>
+        <!-- Generic Message Modal removed on login page; using inline errors instead -->
 
-        <a href="/auth/google" class="google-btn">
-          <img src="/images/google.png" alt="Google Icon">
-          Continue with Google
-        </a>
-      </form>
-    </div>
-  </div>
-</div>
-<script src="/js/password-setup.js"></script>
+        <!-- reCAPTCHA Error Modal -->
+        <div id="recaptchaErrorModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width:420px; text-align:center;">
+                <div class="modal-header">
+                    <div class="modal-logo-section">
+                        <img src="/images/memofy-logo.png" alt="Memofy Logo" class="modal-logo">
+                        <span class="modal-title">reCAPTCHA Verification Failed</span>
+                    </div>
+                    <span class="close" id="closeRecaptchaErrorModal" style="display:none">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="message-icon" id="recaptchaErrorIcon">
+                        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="22" cy="22" r="22" fill="#1E92F3" /><text x="50%" y="56%" text-anchor="middle"
+                                fill="#fff" font-size="28" font-family="Arial" dy=".3em">!</text>
+                        </svg>
+                    </div>
+                    <p class="message-text" style="margin:10px 0 16px 0;">reCAPTCHA verification failed. Please reload
+                        the login page to try again.</p>
+                    <div class="message-actions" style="display:flex; justify-content:center; margin-top:8px;">
+                        <button type="button" class="btn-primary" id="reloadBtn"
+                            style="background:#1E92F3; color:#fff; border:none; padding:7px 25px; border-radius:7px; font-size:17px; font-weight:600; cursor:pointer;">Reload
+                            Page</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            /* Ensure messageModal backdrop shows login page */
+            #messageModal.modal {
+                background: rgba(0, 0, 0, 0.1) !important; /* Very light backdrop - login page visible */
+                backdrop-filter: blur(2px); /* Subtle blur */
+            }
+
+            .modal-info {
+                background: #2196f3 !important;
+                color: #fff !important;
+            }
+
+            #messageModal.modal-info .modal-content {
+                background: #2196f3 !important;
+                color: #fff !important;
+                box-shadow: 0 8px 32px 0 rgba(33, 150, 243, 0.23);
+            }
+
+            #messageModal .message-icon svg,
+            #messageModal .message-icon {
+                display: block;
+                margin: 0 auto 12px auto;
+            }
+
+            #messageModal .message-text {
+                text-align: center !important;
+                font-size: 1.13rem !important;
+                font-weight: 500 !important;
+                margin-top: 10px !important;
+                color: #fff !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                line-height: 1.5 !important;
+                padding: 10px 20px !important;
+            }
+
+            #messageModal.modal-info .modal-title {
+                color: #fff;
+            }
+
+            /* Ensure reCAPTCHA containers are above SweetAlert backdrop */
+            #recaptchaContainer,
+            #googleRecaptchaSection,
+            #googleRecaptchaContainer {
+                position: relative;
+                z-index: 10001 !important;
+            }
+
+            /* Ensure reCAPTCHA widget itself is above SweetAlert */
+            #googleRecaptchaWidget,
+            .g-recaptcha {
+                position: relative;
+                z-index: 10002 !important;
+            }
+
+            /* Progress bar shimmer animation */
+            @keyframes progressShimmer {
+                0% {
+                    background-position: -200% 0;
+                }
+                100% {
+                    background-position: 200% 0;
+                }
+            }
+        </style>
+
+        <!-- SweetAlert2 -->
+        <%- include('../components/sweetalert2'); %>
+
+        <script src="/js/password-setup.js"></script>
+        <script src="/js/forgot-password-modal.js"></script>
+        <script src="/js/google-auth-modal.js"></script>
+        <script src="/js/account-lockout-modal.js"></script>
+        <!-- message-modal.js not used on login page -->
+
+        <!-- Google reCAPTCHA -->
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+        <script src="/js/login-form.js"></script>
+
+        <!-- Google Identity Services -->
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+        <!-- Global message listener for Google OAuth popup -->
+        <script>
+            /**
+             * Global message listener for Google OAuth authentication
+             *
+             * FLOW:
+             * 1. Popup opens for Google authentication
+             * 2. User authenticates with Google
+             * 3. Backend renders google-callback.ejs in popup
+             * 4. Callback sends GOOGLE_AUTH_SUCCESS message via postMessage
+             * 5. Popup closes
+             * 6. This listener receives message and loads dashboard dynamically
+             * 7. Login page is replaced with dashboard content - NO redirect
+             */
+            // Global flag to track authentication completion
+            window.googleAuthCompleted = false;
+            let googleAuthPoller = null;
+
+            // Robust popup closer used by both message and storage flows
+            function closeAuthPopupRobust() {
+                try {
+                    if (window.authPopup && !window.authPopup.closed) {
+                        console.log('🔒 Attempting to close popup (direct)...');
+                        try { window.authPopup.focus(); } catch (e) { }
+                        try { window.authPopup.close(); } catch (e) { }
+
+                        let attempts = 0;
+                        const closer = setInterval(() => {
+                            attempts++;
+                            if (!window.authPopup || window.authPopup.closed || attempts > 20) {
+                                clearInterval(closer);
+                                return;
+                            }
+                            try { window.authPopup.focus(); } catch (e) { }
+                            try { window.authPopup.close(); } catch (e) { }
+                            // If still not closing, navigate popup to self-closing callback page (same-origin)
+                            try { window.authPopup.location.href = '/auth/google/callback-page'; } catch (e) { }
+                            // Some browsers only allow closing about:blank windows
+                            try { window.authPopup.location.replace('about:blank'); } catch (e) { }
+                            // As a fallback, push popup behind and off-screen
+                            try { window.focus(); } catch (e) { }
+                            try { window.authPopup.blur(); } catch (e) { }
+                            try { window.authPopup.moveTo(-10000, 0); } catch (e) { }
+                            try { window.authPopup.resizeTo(1, 1); } catch (e) { }
+                        }, 150);
+                    }
+                } catch (err) {
+                    // ignore
+                }
+            }
+
+            window.addEventListener('message', async (event) => {
+                console.log('📨 Message received from:', event.origin);
+                console.log('📨 Message type:', event.data?.type);
+
+                // Security: Only accept messages from same origin
+                const expectedOrigin = window.location.origin;
+                if (event.origin !== expectedOrigin) {
+                    console.log('⚠️ Ignoring message from different origin');
+                    return;
+                }
+
+                // Handle authentication success message from popup
+                if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+                    console.log('✅ GOOGLE_AUTH_SUCCESS received from popup!');
+                    console.log('🚀 Loading dashboard dynamically...');
+
+                    // Set completion flag so popup monitor knows auth succeeded
+                    window.googleAuthCompleted = true;
+
+                    try {
+                        // Step 1: Get current user info from backend
+                        console.log('📡 Fetching user info from /auth/current-user...');
+                        const res = await fetch('/auth/current-user', {
+                            credentials: 'include'
+                        });
+
+                        if (!res.ok) {
+                            throw new Error('Failed to get user info: ' + res.status);
+                        }
+
+                        const user = await res.json();
+                        console.log('✅ User authenticated:', user.user?.email, '| Role:', user.user?.role);
+
+                        // Step 2: Determine which dashboard to load based on role
+                        let dashboardUrl = '/admin-dashboard';
+                        if (user.user?.role === 'secretary' || user.user?.role === 'faculty') {
+                            dashboardUrl = '/dashboard';
+                        }
+
+                        // Close popup first, then wait briefly for it to close before redirecting
+                        closeAuthPopupRobust();
+                        let waited = 0;
+                        while (window.authPopup && !window.authPopup.closed && waited < 1500) {
+                            await new Promise(r => setTimeout(r, 100));
+                            waited += 100;
+                            try { if (window.authPopup) { window.authPopup.close(); } } catch (e) { }
+                        }
+
+                        console.log('➡️ Redirecting parent to:', dashboardUrl);
+                        window.location.href = dashboardUrl;
+
+                    } catch (error) {
+                        console.error('❌ Error loading dashboard:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to load dashboard. Redirecting as fallback...'
+                        });
+                        // Fallback: redirect if dynamic loading fails
+                        window.location.href = '/admin-dashboard';
+                    }
+                }
+            });
+
+            // Storage fallback listener: if popup couldn't access window.opener, it will set a flag
+            window.addEventListener('storage', async (e) => {
+                if (e.key === 'GOOGLE_AUTH_SUCCESS' && e.newValue === '1') {
+                    console.log('✅ GOOGLE_AUTH_SUCCESS detected via localStorage');
+                    try { localStorage.removeItem('GOOGLE_AUTH_SUCCESS'); } catch (err) { /* ignore */ }
+                    // Defer to allow session cookies to settle
+                    setTimeout(async () => {
+                        closeAuthPopupRobust();
+                        try {
+                            console.log('📡 [storage] Fetching user info from /auth/current-user...');
+                            const res = await fetch('/auth/current-user', { credentials: 'include' });
+                            const data = await res.json();
+                            if (!res.ok || !data.success) {
+                                throw new Error('User not authenticated');
+                            }
+                            let dashboardUrl = '/admin-dashboard';
+                            if (data.user?.role === 'secretary' || data.user?.role === 'faculty') {
+                                dashboardUrl = '/dashboard';
+                            }
+                            console.log('➡️ [storage] Redirecting parent to:', dashboardUrl);
+                            window.location.href = dashboardUrl;
+                        } catch (err2) {
+                            console.log('⚠️ [storage] Falling back to admin-dashboard due to error:', err2?.message);
+                            window.location.href = '/admin-dashboard';
+                        }
+                    }, 200);
+                }
+            });
+
+            // Polling fallback: after popup opens, periodically check auth and redirect parent
+            function startGoogleAuthPoller() {
+                if (googleAuthPoller) return;
+                let elapsed = 0;
+                googleAuthPoller = setInterval(async () => {
+                    elapsed += 700;
+                    try {
+                        if (window.authPopup) {
+                            const res = await fetch('/auth/current-user', { credentials: 'include' });
+                            const data = await res.json();
+                            if (res.ok && data && data.success) {
+                                let dashboardUrl = '/admin-dashboard';
+                                if (data.user?.role === 'secretary' || data.user?.role === 'faculty') {
+                                    dashboardUrl = '/dashboard';
+                                }
+                                clearInterval(googleAuthPoller);
+                                googleAuthPoller = null;
+                                try { closeAuthPopupRobust(); } catch (e) { }
+                                window.location.href = dashboardUrl;
+                            }
+                        }
+                    } catch (e) {
+                        // ignore and continue polling
+                    }
+                    if (elapsed >= 15000) {
+                        clearInterval(googleAuthPoller);
+                        googleAuthPoller = null;
+                    }
+                }, 700);
+            }
+
+            // If the popup API set window.authPopup, begin polling
+            setInterval(() => {
+                if (window.authPopup && !googleAuthPoller) {
+                    startGoogleAuthPoller();
+                }
+            }, 500);
+        </script>
+
+        <!-- Trigger message modal for invalid or expired links -->
+        <% if (typeof showMessageModal !=='undefined' && showMessageModal) { %>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    // Fallback inline message banner for invalid links
+                    var banner = document.getElementById('loginInlineError');
+                    if (banner) {
+                        banner.style.display = 'block';
+                        banner.textContent = '<%= (modalMessage || "Link is not valid any more").replace(/'/g, "\\'") %>';
+                    }
+                });
+            </script>
+            <% } %>
+                <% } %>
+
+                    <script>
+                        // Override global showMessageModal to display inline on the login form
+                        (function () {
+                            function setInlineMessage(text) {
+                                try {
+                                    var el = document.getElementById('loginInlineError');
+                                    if (!el) return;
+                                    el.style.display = 'block';
+                                    el.textContent = text || '';
+                                    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+                                } catch (_) {}
+                            }
+                            window.showMessageModal = function (_title, message, _type) {
+                                setInlineMessage(message || '');
+                            };
+                            window.closeMessageModal = function () {
+                                var el = document.getElementById('loginInlineError');
+                                if (el) { el.style.display = 'none'; el.textContent = ''; }
+                            };
+                        })();
+
+                        // Auto-open Forgot Password modal when redirected with ?forgot=1
+                        (function () {
+                            try {
+                                var params = new URLSearchParams(window.location.search || '');
+                                if (params.get('forgot') === '1' && typeof window.showForgotPasswordModal === 'function') {
+                                    // Defer to ensure modal script is loaded
+                                    setTimeout(function(){ window.showForgotPasswordModal(); }, 50);
+                                }
+                            } catch (_) { /* ignore */ }
+                        })();
+
+                        // Helper to reset and hide all captcha widgets and UI
+                        function resetCaptchaUI() {
+                            try {
+                                // Reset default widget (markup-rendered g-recaptcha in #recaptcha)
+                                if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+                                    try { window.grecaptcha.reset(); } catch (_) { }
+                                }
+                                // Reset programmatically rendered Google button guard, if present
+                                var googleWidget = document.getElementById('googleRecaptchaWidget');
+                                if (googleWidget) {
+                                    var wid = googleWidget.getAttribute('data-widget-id');
+                                    if (wid && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+                                        try { window.grecaptcha.reset(parseInt(wid, 10)); } catch (_) { }
+                                    }
+                                    // Remove widget markup to fully reset
+                                    try { googleWidget.removeAttribute('data-widget-id'); } catch (_) { }
+                                    try { googleWidget.parentNode && (googleWidget.parentNode.innerHTML = ''); } catch (_) { }
+                                }
+                                // Hide containers until next interaction
+                                var recaptchaContainer = document.getElementById('recaptchaContainer');
+                                if (recaptchaContainer) { recaptchaContainer.style.display = 'none'; }
+                                var googleRecaptchaSection = document.getElementById('googleRecaptchaSection');
+                                if (googleRecaptchaSection) { googleRecaptchaSection.style.display = 'none'; }
+                                var googleRecaptchaContainer = document.getElementById('googleRecaptchaContainer');
+                                if (googleRecaptchaContainer) { googleRecaptchaContainer.style.display = 'none'; googleRecaptchaContainer.innerHTML = ''; }
+                                var googleRecaptchaHint = document.getElementById('googleRecaptchaHint');
+                                if (googleRecaptchaHint) { googleRecaptchaHint.style.display = 'none'; }
+                                // Optionally disable login button until next interaction
+                                var loginBtn = document.getElementById('loginButton');
+                                if (loginBtn) {
+                                    try { loginBtn.disabled = true; } catch (_) { }
+                                }
+                            } catch (_) { /* ignore */ }
+                        }
+
+                        // Listener to refresh login and reset reCAPTCHA when popup reports dismissal
+                        window.addEventListener('message', function (ev) {
+                            try {
+                                if (ev.origin !== window.location.origin) return;
+                                if (ev.data && ev.data.type === 'GOOGLE_AUTH_DISMISSED') {
+                                    resetCaptchaUI();
+                                    // As a safety, ensure full refresh (keeps behavior consistent)
+                                    try { window.location.replace('/'); } catch (e) { window.location.href = '/'; }
+                                }
+                            } catch (e) { /* ignore */ }
+                        });
+
+                        // Storage listener as additional fallback from popup
+                        window.addEventListener('storage', function (e) {
+                            try {
+                                if (e.key === 'GOOGLE_AUTH_DISMISSED' && e.newValue === '1') {
+                                    try { localStorage.removeItem('GOOGLE_AUTH_DISMISSED'); } catch (_) { }
+                                    resetCaptchaUI();
+                                    try { window.location.replace('/'); } catch (_) { window.location.href = '/'; }
+                                }
+                            } catch (_) { /* ignore */ }
+                        });
+                    </script>
+
+                    <script>
+                        // Custom modal to replace alert for reCAPTCHA errors in Google sign-in fallback
+                        window.showRecaptchaErrorModal = function () {
+                            try { resetCaptchaUI(); } catch (_) { }
+                            var modal = document.getElementById('recaptchaErrorModal');
+                            var reloadBtn = document.getElementById('reloadBtn');
+                            if (!modal) return;
+                            modal.style.display = 'block';
+                            reloadBtn.onclick = function () {
+                                try { window.location.reload(); } catch (_) { window.location.href = '/'; }
+                            };
+                        };
+                    </script>

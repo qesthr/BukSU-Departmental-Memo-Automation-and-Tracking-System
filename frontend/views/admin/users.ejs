@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users | Memofy</title>
+    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
+    <link rel="stylesheet" href="/css/admin-dash.css">
+    <link rel="stylesheet" href="/css/user-management.css">
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: gaPropertyId }); %>
+
+    <!-- SweetAlert2 -->
+    <%- include('../../components/sweetalert2'); %>
+
+    <script src="/js/lucide.min.js"></script>
+</head>
+
+<body data-current-user='<%- JSON.stringify({
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    department: user.department,
+    canCrossSend: !!user.canCrossSend
+}) %>'>
+    <script>
+        (function () {
+            const root = document.body;
+            if (!root) { return; }
+            try {
+                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+            } catch (err) {
+                window.currentUser = {};
+            }
+        })();
+    </script>
+    <div class="dashboard-container">
+        <%- include('../../components/nav'); %>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <%- include('../../components/admintopbar') %>
+                    <!-- Users Management Content -->
+                    <div class="dashboard-content">
+                        <div class="content-wrapper">
+                            <!-- Header -->
+                            <div class="content-header">
+                                <div class="header-title">
+                                    <h1>Manage Users</h1>
+                                </div>
+
+                                <div class="header-actions">
+                                    <button id="addUserBtn" class="btn btn-primary">
+                                        <img src="/images/plus.png" alt="Add user" class="icon-img">
+                                        <span>Add user</span>
+                                    </button>
+                                </div>
+
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="filters-section">
+                                <div class="view-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
+                                    <button id="activeUsersTab" class="view-tab active" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                        Active Users
+                                    </button>
+                                    <button id="archivedUsersTab" class="view-tab" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                        Archived Users
+                                        <span class="count" id="archivedCount">0</span>
+                                    </button>
+                                </div>
+                                <div class="role-filters" id="roleFilters">
+                                    <button class="filter-btn active" data-role="all">
+                                        All
+                                        <span class="count" id="totalCount">27</span>
+                                    </button>
+                                    <button class="filter-btn" data-role="admin">
+                                        Admin
+                                        <span class="count" id="adminCount">0</span>
+                                    </button>
+                                    <button class="filter-btn" data-role="secretary">
+                                        Secretary
+                                        <span class="count" id="secretaryCount">2</span>
+                                    </button>
+                                    <button class="filter-btn" data-role="faculty">
+                                        Faculty
+                                        <span class="count" id="facultyCount">25</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Users Table -->
+                            <div class="table-container">
+                                <div class="users-table">
+                                    <div class="table-header">
+                                        <div class="name-cell">Name</div>
+                                        <div class="department-cell">Department</div>
+                                        <div class="role-cell">Role</div>
+                                        <div class="actions-cell">Actions</div>
+                                    </div>
+
+                                    <div id="usersList" class="table-body">
+                                        <!-- User rows will be dynamically inserted here -->
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <!-- Add User Modal -->
+                            <div id="addUserModal" class="modal add-user-modal">
+                                <div class="modal-content add-user-modal-content">
+                                    <div class="modal-header">
+                                        <div class="modal-title-group">
+                                            <h2>Add New User</h2>
+                                            <p class="modal-subtitle">Invite a colleague using their BukSU email</p>
+                                        </div>
+                                    </div>
+                                    <div class="modal-body add-user-modal-body">
+                                        <form id="addUserForm">
+                                            <div class="form-stack">
+                                                <div class="form-group">
+                                                    <label for="firstName">First Name</label>
+                                                    <input type="text" id="firstName" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="lastName">Last Name</label>
+                                                    <input type="text" id="lastName" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="email">Email</label>
+                                                    <input type="email" id="email" required
+                                                        pattern="^[A-Za-z0-9._%+-]+@(student\.)?buksu\.edu\.ph$"
+                                                        title="Use an institutional email: @buksu.edu.ph or @student.buksu.edu.ph">
+                                                    <div id="emailHint" class="input-hint error" style="display:none;">Use
+                                                        an institutional email: @buksu.edu.ph or @student.buksu.edu.ph
+                                                    </div>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="department">Department</label>
+                                                    <select id="department" required>
+                                                        <option value="Food Technology">Food Technology</option>
+                                                        <option value="Electronics Technology">Electronics Technology
+                                                        </option>
+                                                        <option value="Automotive Technology">Automotive Technology
+                                                        </option>
+                                                        <option
+                                                            value="Information Technology and Entertainment Multimedia Computing">
+                                                            Information Technology and Entertainment Multimedia
+                                                            Computing
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="role">Role</label>
+                                                    <select id="role" required>
+                                                        <option value="admin">Admin</option>
+                                                        <option value="secretary">Secretary</option>
+                                                        <option value="faculty">Faculty</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-actions add-user-actions">
+                                                <button type="button"
+                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Add User</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Edit User Modal -->
+                            <div id="editUserModal" class="modal edit-user-modal">
+                                <div class="modal-content edit-user-modal-content">
+                                    <div class="modal-header">
+                                        <div class="modal-title-group">
+                                            <h2>Edit User</h2>
+                                            <p class="modal-subtitle">Update profile details and permissions</p>
+                                        </div>
+                                    </div>
+                                    <div class="modal-body edit-user-modal-body">
+                                        <form id="editUserForm">
+                                            <input type="hidden" id="editUserId">
+                                            <input type="hidden" id="editLastUpdatedAt">
+
+                                            <div class="form-stack">
+                                                <div class="form-group">
+                                                    <label for="editFirstName">First Name</label>
+                                                    <input type="text" id="editFirstName" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="editLastName">Last Name</label>
+                                                    <input type="text" id="editLastName" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="editDepartment">Department</label>
+                                                    <select id="editDepartment" required>
+                                                        <option value="Food Technology">Food Technology</option>
+                                                        <option value="Electronics Technology">Electronics Technology
+                                                        </option>
+                                                        <option value="Automotive Technology">Automotive Technology
+                                                        </option>
+                                                        <option
+                                                            value="Information Technology and Entertainment Multimedia Computing">
+                                                            Information Technology and Entertainment Multimedia
+                                                            Computing
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="editRole">Role</label>
+                                                    <select id="editRole" required>
+                                                        <option value="admin">Admin</option>
+                                                        <option value="secretary">Secretary</option>
+                                                        <option value="faculty">Faculty</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="status-grid">
+                                                <div class="form-group checkbox-field" id="editActiveGroup"
+                                                    style="display:flex;">
+                                                    <input type="checkbox" id="editIsActive">
+                                                    <label for="editIsActive">Active</label>
+                                                </div>
+                                                <div class="form-group checkbox-field" id="editCanCrossSendGroup"
+                                                    style="display:none;">
+                                                    <input type="checkbox" id="editCanCrossSend">
+                                                    <label for="editCanCrossSend">Can send to all departments</label>
+                                                </div>
+                                            </div>
+
+                                            <div id="selfEditNote" class="form-note" style="display:none;">
+                                                You are editing your own profile. Role and permissions cannot be
+                                                changed.
+                                            </div>
+
+                                            <div class="form-actions">
+                                                <button type="button"
+                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Delete Confirmation Modal -->
+                            <style>
+                                /* Scoped animations and transitions for delete modal */
+                                #deleteModal .fade-enter {
+                                    opacity: 0;
+                                }
+
+                                #deleteModal.open .fade-enter {
+                                    opacity: 1;
+                                    transition: opacity .2s ease;
+                                }
+
+                                #deleteState .spinner {
+                                    width: 24px;
+                                    height: 24px;
+                                    border: 3px solid #e2e8f0;
+                                    border-top-color: #ef4444;
+                                    border-radius: 50%;
+                                    display: inline-block;
+                                    vertical-align: middle;
+                                    animation: dm-spin 1s linear infinite;
+                                    margin-right: 8px;
+                                }
+
+                                @keyframes dm-spin {
+                                    to {
+                                        transform: rotate(360deg);
+                                    }
+                                }
+
+                                #deleteState .checkwrap {
+                                    width: 36px;
+                                    height: 36px;
+                                    border-radius: 50%;
+                                    background: #e8f5e9;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    margin-right: 8px;
+                                }
+
+                                #deleteState .check {
+                                    stroke: #22c55e;
+                                    stroke-width: 4;
+                                    fill: none;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                    stroke-dasharray: 30;
+                                    stroke-dashoffset: 30;
+                                    animation: dm-draw .4s ease forwards;
+                                }
+
+                                @keyframes dm-draw {
+                                    to {
+                                        stroke-dashoffset: 0;
+                                    }
+                                }
+                            </style>
+                            <div id="deleteModal" class="modal" role="dialog" aria-modal="true"
+                                aria-labelledby="deleteTitle" aria-describedby="deleteMessage">
+                                <div class="modal-content fade-enter">
+                                    <div class="modal-header">
+                                        <h2 id="deleteTitle">Archive User</h2>
+                                        <button class="close-modal" aria-label="Close">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="deleteState" style="margin-bottom:8px;"></div>
+                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users will be hidden from the active users list.</p>
+                                        <div class="form-actions">
+                                            <button type="button" id="cancelDelete"
+                                                class="btn btn-secondary close-modal">Cancel</button>
+                                            <button type="button" class="btn btn-warning"
+                                                id="confirmDelete">Archive</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Change Department Modal -->
+                            <div id="changeDeptModal" class="modal">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h2>Change Department</h2>
+                                        <button class="close-modal">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="changeDeptForm">
+                                            <input type="hidden" id="changeDeptUserId">
+                                            <div class="form-group">
+                                                <label id="changeDeptUserName"></label>
+                                                <select id="changeDeptNewDept" required>
+                                                    <option value="">Select Department</option>
+                                                    <option value="Food Technology">Food Technology</option>
+                                                    <option value="Electronics Technology">Electronics Technology
+                                                    </option>
+                                                    <option value="Automotive Technology">Automotive Technology</option>
+                                                    <option
+                                                        value="Information Technology and Entertainment Multimedia Computing">
+                                                        Information Technology and Entertainment Multimedia Computing
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="button"
+                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Update Department</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Change Role Modal -->
+                            <div id="changeRoleModal" class="modal">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h2>Change Role</h2>
+                                        <button class="close-modal">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="changeRoleForm">
+                                            <input type="hidden" id="changeRoleUserId">
+                                            <div class="form-group">
+                                                <label id="changeRoleUserName"></label>
+                                                <select id="changeRoleNewRole" required>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="secretary">Secretary</option>
+                                                    <option value="faculty">Faculty</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="button"
+                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Update Role</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+            </main>
+    </div>
+
+    <!-- Include needed JS -->
+    <script>
+        window.currentUserId = '<%= user && user._id ? user._id : "" %>';
+    </script>
+    <script src="/js/user-management.js"></script>
+
+    <!-- Initialize Lucide icons -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+    <script src="/js/freezeZoom.js"></script>
+</body>
+
+</html>

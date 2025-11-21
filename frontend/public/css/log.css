@@ -1,0 +1,3243 @@
+.log-layout {
+  display: flex;
+  width: 100%;
+  height: 550px;
+  max-width: 100%;
+  gap: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.log-sidebar {
+  width: 200px;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  padding-right: 1rem;
+  height: 100%;
+}
+
+.compose-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.compose-btn:hover {
+  background: #1d4ed8;
+}
+
+.compose-btn i {
+  width: 20px;
+  height: 20px;
+}
+
+.folders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.folder-item:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.folder-item.active {
+  background: #dbeafe;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.folder-item i {
+  width: 20px;
+  height: 20px;
+}
+
+/* Memo List Area */
+.memo-list-area {
+  flex: 1;
+  width: 100%;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: all 0.4s ease;
+  overflow: visible;
+}
+
+.memo-list-header {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+  background: #fff;
+}
+
+.header-controls {
+  margin-bottom: 12px;
+}
+
+.checkbox-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure checkbox-control only appears in memo list, not in compose modal or preview */
+#composeModal .checkbox-control,
+#previewOverlay .checkbox-control,
+.preview-overlay .checkbox-control {
+  display: none !important;
+}
+
+.checkbox-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+/* Select Dropdown Styles */
+.select-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+  z-index: 10001;
+}
+
+.select-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.select-dropdown-btn:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.select-dropdown-btn .select-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.select-dropdown-btn .dropdown-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+
+.select-dropdown-wrapper.open .select-dropdown-btn .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.select-dropdown-menu {
+  display: none;
+  position: fixed;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+  z-index: 99999;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.select-dropdown-wrapper.open .select-dropdown-menu {
+  display: block;
+}
+
+/* Ensure select dropdown doesn't appear in compose modal or preview */
+#composeModal .select-dropdown-wrapper,
+#composeModal .select-dropdown-menu,
+#previewOverlay .select-dropdown-wrapper,
+#previewOverlay .select-dropdown-menu {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.select-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.select-dropdown-item:hover {
+  background: #f3f4f6;
+}
+
+.select-dropdown-item:active {
+  background: #e5e7eb;
+}
+
+.icon-btn-sm {
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.icon-btn-sm:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.icon-btn-sm i {
+  width: 18px;
+  height: 18px;
+}
+
+.department-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.department-dropdown-wrapper {
+  flex: 1;
+  max-width: 200px;
+}
+
+.priority-dropdown-wrapper {
+  flex: 1;
+  max-width: 180px;
+}
+
+.sort-dropdown-wrapper {
+  flex: 1;
+  max-width: 180px;
+}
+
+.date-filter-wrapper {
+  flex: 1;
+  max-width: 180px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.date-filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.date-filter-input:hover {
+  border-color: #9ca3af;
+}
+
+.date-filter-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.date-filter-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f3f4f6;
+  border: none;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.date-filter-clear:hover {
+  background: #e5e7eb;
+}
+
+.date-filter-clear i {
+  width: 14px;
+  height: 14px;
+  color: #6b7280;
+}
+
+.dept-filter-dropdown,
+.priority-filter-dropdown,
+.sort-dropdown {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+
+.dept-filter-dropdown:hover,
+.priority-filter-dropdown:hover,
+.sort-dropdown:hover {
+  border-color: #9ca3af;
+}
+
+.dept-filter-dropdown:focus,
+.priority-filter-dropdown:focus,
+.sort-dropdown:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.compose-control {
+  margin-left: auto;
+  /* Ensures button goes to the far right */
+}
+
+.memo-list {
+  flex: 1;
+  overflow-y: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+}
+
+.memo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.memo-item:hover {
+  background: #f3f4f6;
+}
+
+.memo-item.active {
+  background: #dbeafe;
+  border-left: 3px solid #2563eb;
+}
+
+.memo-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.memo-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Priority Badges */
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.priority-urgent {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.priority-high {
+  background: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.priority-medium {
+  background: #fef3c7;
+  color: #854d0e;
+  border: 1px solid #fcd34d;
+}
+
+.priority-low {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.memo-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.memo-sender-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.memo-sender-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memo-sender-email {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memo-subject {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memo-preview {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memo-date {
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+}
+
+/* Memo Viewer Area */
+.memo-viewer-area {
+  flex: 1;
+  width: 100%;
+  background: white;
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.empty-state-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+}
+
+.empty-state-view i {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  stroke-width: 1;
+}
+
+.empty-state-view p {
+  font-size: 16px;
+}
+
+.memo-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.viewer-header {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 16px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  color: #9ca3af;
+}
+
+.icon-btn i {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memo-counter {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 8px;
+}
+
+.log-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  /* adds a subtle border */
+  border-radius: 8px;
+  /* rounded edges */
+  box-sizing: border-box;
+}
+
+.viewer-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-text-action {
+  background: none;
+  border: 1px solid #e5e7eb;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-text-action:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.btn-text-action i {
+  width: 16px;
+  height: 16px;
+}
+
+.memo-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 0;
+}
+
+/* PDF-style Memo Header */
+.memo-pdf-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+}
+
+.memo-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 20px 0;
+  color: #111827;
+  letter-spacing: 1px;
+}
+
+.memo-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.memo-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.memo-detail-label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.memo-detail-value {
+  color: #111827;
+  flex: 1;
+}
+
+.memo-detail-to-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.memo-detail-to-text {
+  flex-shrink: 0;
+}
+
+.recipient-avatars-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipient-avatar-inline {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.recipient-avatar-inline:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.recipient-avatar-inline.acknowledged {
+  border-color: #10b981;
+}
+
+.recipient-avatar-inline.unacknowledged {
+  border-color: #ef4444;
+  opacity: 0.7;
+}
+
+.recipient-avatar-inline img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials-inline {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.recipient-avatar-inline.acknowledged .avatar-initials-inline {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.recipient-avatar-inline.unacknowledged .avatar-initials-inline {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.avatar-checkmark-inline {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  border: 2px solid white;
+}
+
+.memo-separator {
+  width: 100%;
+  height: 1px;
+  background: #e5e7eb;
+  margin: 16px 0;
+}
+
+.memo-header-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.sender-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sender-info h3 {
+  font-size: 18px;
+  color: #111827;
+  margin: 0 0 4px 0;
+}
+
+.sender-info p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.memo-body {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  display: block !important;
+  /* Ensure memo body is always visible */
+  visibility: visible !important;
+  min-height: 40px;
+  /* Ensure there's space even if empty */
+}
+
+#memoBodyContent {
+  display: block !important;
+  visibility: visible !important;
+  min-height: 20px;
+  width: 100%;
+}
+
+.memo-attachments {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.attachment-icon {
+  width: 32px;
+  height: 32px;
+  color: #dc2626;
+}
+
+.attachment-info {
+  flex: 1;
+}
+
+.attachment-filename {
+  font-size: 14px;
+  color: #111827;
+  font-weight: 500;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 100000; /* ensure above any dashboard/topbar/calendar elements */
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Show modal when .show class is added */
+.modal.show {
+  display: block;
+}
+
+/* Allow compose modal to show overflow for dropdowns */
+#composeModal.modal {
+  overflow: visible !important;
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: 20px auto;
+  padding: 0;
+  border: none;
+  width: 90%;
+  max-width: 600px;
+  min-height: 400px;
+  max-height: 90vh;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  /* Keep hidden for modal sizing, but allow header fields to overflow */
+  /* Ensure modal doesn't grow beyond max-height */
+  box-sizing: border-box;
+  z-index: 100001;
+}
+
+/* Expanded compose modal - Gmail-style sizing */
+/* For compose modal specifically, allow header area to overflow for dropdowns */
+/* Optimized for 100% zoom - no spacing issues */
+#composeModal .modal-content {
+  max-width: 850px;
+  width: 88%;
+  min-height: 480px;
+  max-height: 85vh;
+  margin: 15px auto;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Expanded header for compose modal */
+/* Minimized for more content space */
+#composeModal .modal-header {
+  padding: 14px 36px;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: white;
+}
+
+.close-modal {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: white;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.close-modal:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.modal-body {
+  padding: 0;
+  overflow: hidden;
+  /* Don't scroll here - let compose-content-area handle it */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  /* Ensure body doesn't expand beyond modal */
+  box-sizing: border-box;
+}
+
+/* Allow compose modal body to show overflow for dropdowns */
+/* Optimized for 100% zoom */
+#composeModal .modal-body {
+  overflow: visible;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  max-height: calc(85vh - 60px); /* Subtract header height */
+}
+
+/* For compose modal, allow header fields area to overflow for dropdowns */
+/* Keep modal-body with overflow hidden for scrolling, but header fields can overflow */
+#composeModal .compose-header-fields {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+#composeModal .compose-inline-fields {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+/* Keep content area scrollable */
+/* Expanded content area for compose modal */
+/* Maximized height for textarea */
+#composeModal .compose-content-area {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  position: relative;
+  z-index: 1;
+  padding: 12px 36px 8px 36px;
+  box-sizing: border-box;
+}
+
+.modal-body form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  max-height: 100%;
+}
+
+/* Allow compose modal form to show overflow for dropdowns */
+/* Optimized for 100% zoom */
+#composeModal .modal-body form {
+  overflow: visible;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  max-height: 100%;
+}
+
+/* Gmail-style compact header fields */
+.compose-header-fields {
+  padding: 8px 16px 0;
+  border-bottom: none;
+  flex-shrink: 0;
+}
+
+/* Expanded header fields for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-header-fields {
+  padding: 8px 36px 0;
+  flex-shrink: 0;
+}
+
+.compose-inline-fields {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: none;
+  transition: border-color 0.2s;
+}
+
+/* Expanded inline fields for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-inline-fields {
+  padding: 8px 0;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+
+.compose-inline-fields .compose-field-inline {
+  flex: 1;
+  /* make both same width */
+}
+
+.compose-inline-fields:focus-within {
+  border-bottom: none;
+}
+
+.compose-field-inline {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+}
+
+.compose-field-inline .compose-field,
+.compose-field-inline .dept-dropdown-btn {
+  width: 100%;
+  min-height: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+/* Expanded inline field elements for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-inline .compose-field,
+#composeModal .compose-field-inline .dept-dropdown-btn {
+  min-height: 36px;
+  height: 36px;
+}
+
+.compose-field-inline .dept-dropdown-btn {
+  padding: 6px 12px;
+  justify-content: space-between;
+}
+
+.compose-field-inline .compose-priority-select {
+  height: 38px;
+  padding: 6px 36px 6px 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Expanded priority select for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-inline .compose-priority-select {
+  height: 36px;
+  padding: 6px 36px 6px 0;
+  font-size: 14px;
+}
+
+.compose-priority-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.compose-priority-select:focus {
+  outline: none;
+  border-bottom-color: #2563eb;
+}
+
+.compose-field-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+/* Expanded field wrapper for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field-wrapper {
+  padding: 8px 0;
+  gap: 14px;
+}
+
+.compose-field-wrapper:focus-within {
+  border-bottom-color: #2563eb;
+}
+
+.compose-field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 32px;
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+
+.compose-field {
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  font-size: 14px;
+  background: transparent;
+  color: #111827;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+/* Expanded compose field for compose modal */
+/* Minimized for more content space */
+#composeModal .compose-field {
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.compose-field:focus {
+  outline: none;
+  border-bottom-color: #2563eb;
+}
+
+.compose-field::placeholder {
+  color: #9ca3af;
+}
+
+/* Recipient chips container (Gmail-style) */
+.recipient-input-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+/* Expanded recipient input for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-input-container {
+  padding: 8px 0;
+  gap: 14px;
+}
+
+.recipient-input-container:focus-within {
+  border-bottom-color: #2563eb;
+}
+
+.recipient-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 32px;
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+
+/* Expanded recipient label for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-label {
+  font-size: 13px;
+  min-width: 36px;
+  padding-top: 6px;
+}
+
+.recipient-input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  position: relative;
+  overflow: visible !important; /* Allow dropdown to overflow */
+}
+
+/* Ensure recipient container allows overflow for dropdown */
+.recipient-input-container {
+  overflow: visible !important; /* Allow dropdown to overflow */
+}
+
+/* Department Members Dropdown */
+.dept-members-dropdown {
+  /* Default styles - positioned below button, centered horizontally */
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  z-index: 99999 !important; /* Very high z-index to appear above modal */
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
+/* Ensure dropdown is visible in compose modal */
+#composeModal .recipient-input-wrapper,
+#composeModal .recipient-input-container {
+  overflow: visible !important;
+}
+
+.dept-members-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.dept-members-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.recipient-chips-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.recipient-input {
+  flex: 1;
+  min-width: 150px;
+  border: none;
+  outline: none;
+  padding: 4px 0;
+  font-size: 14px;
+  background: transparent;
+  color: #111827;
+}
+
+/* Expanded recipient input for compose modal */
+/* Minimized for more content space */
+#composeModal .recipient-input {
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.recipient-input::placeholder {
+  color: #9ca3af;
+}
+
+#recipient-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Enhanced recipient chips with avatars */
+.recipient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  background: #e5e7eb;
+  color: #374151;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px 4px 2px 0;
+  transition: background 0.2s;
+}
+
+.recipient-chip:hover {
+  background: #d1d5db;
+}
+
+.chip-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.chip-name {
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 0 4px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chip-remove:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+/* Collapsible "+N more" chip */
+.more-chip {
+  background: #f3f4f6;
+  cursor: pointer;
+  border: 1px dashed #9ca3af;
+}
+
+.more-chip:hover {
+  background: #e5e7eb;
+  border-color: #6b7280;
+}
+
+.more-text {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.compose-field-dropdown {
+  position: relative;
+}
+
+/* Gmail-style input for template dropdown only */
+.compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn {
+  width: 100%;
+  padding: 6px 0;
+  border: none;
+  border-bottom: none !important;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  color: #111827;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn:focus,
+.compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn:hover {
+  outline: none;
+  border-bottom: none !important;
+}
+
+.compose-field-dropdown:has(#templateDropdownBtn) .dept-dropdown-btn::after {
+  display: none;
+  /* Remove default arrow */
+}
+
+/* Department dropdown should use proper button styling - override compose-field-dropdown */
+#secretaryDeptDropdownWrapper .compose-field-dropdown .dept-dropdown-btn,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn {
+  width: 100%;
+  padding: 10px 16px !important;
+  padding-right: 40px !important;
+  border: 2px solid #d1d5db !important;
+  border-bottom: 2px solid #d1d5db !important;
+  background: white !important;
+  color: #374151 !important;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  position: relative;
+  border-radius: 6px;
+  min-height: 38px;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Remove bottom border from compose modal dropdowns */
+#composeModal .compose-field-dropdown .dept-dropdown-btn {
+  border-bottom: 2px solid #d1d5db !important;
+}
+
+#composeModal .compose-field-dropdown .dept-dropdown-btn:focus,
+#composeModal .compose-field-dropdown .dept-dropdown-btn:hover {
+  border-bottom: 2px solid #d1d5db !important;
+}
+
+#secretaryDeptDropdownWrapper .compose-field-dropdown .dept-dropdown-btn:hover,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn:hover {
+  border-color: #9ca3af !important;
+  background: #f9fafb !important;
+}
+
+#secretaryDeptDropdownWrapper .compose-field-dropdown .dept-dropdown-btn:focus,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn:focus {
+  outline: none;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+#secretaryDeptDropdownWrapper .compose-field-dropdown .dept-dropdown-btn::after,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn::after {
+  content: "▼" !important;
+  font-size: 12px;
+  margin-left: auto;
+  color: #6b7280;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  display: block !important;
+}
+
+/* Remove scroll/number input arrows from all dropdown buttons */
+#composeModal .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-outer-spin-button,
+#composeModal .compose-field-dropdown .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .compose-field-dropdown .dept-dropdown-btn::-webkit-outer-spin-button,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn::-webkit-inner-spin-button,
+.custom-dropdown.compose-field-dropdown .dept-dropdown-btn::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Hide any scroll arrows or spinners */
+#composeModal .dept-dropdown-btn input[type="number"],
+#composeModal .compose-field-dropdown input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide any button elements inside dropdown buttons that might be scroll arrows */
+#composeModal .dept-dropdown-btn button[aria-label*="up"],
+#composeModal .dept-dropdown-btn button[aria-label*="down"],
+#composeModal .dept-dropdown-btn button[aria-label*="scroll"],
+#composeModal .compose-field-dropdown button[aria-label*="up"],
+#composeModal .compose-field-dropdown button[aria-label*="down"],
+#composeModal .compose-field-dropdown button[aria-label*="scroll"] {
+  display: none !important;
+}
+
+/* Ensure dropdown menus are NOT hidden - they come right after buttons */
+#composeModal .dept-dropdown-menu {
+  display: none; /* Default hidden, shown when .open class added */
+}
+
+#composeModal .custom-dropdown.open .dept-dropdown-menu {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#secretaryDeptDropdownWrapper .custom-dropdown.open .dept-dropdown-btn::after,
+.custom-dropdown.compose-field-dropdown.open .dept-dropdown-btn::after {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+.dept-placeholder {
+  color: #9ca3af;
+}
+
+.custom-dropdown.open .dept-dropdown-btn .dept-placeholder,
+.dept-dropdown-btn:not(.empty) .dept-placeholder {
+  color: #111827;
+}
+
+/* Content area - takes most space */
+.compose-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  padding: 12px 16px;
+  overflow-y: auto;
+  /* Make entire area scrollable - text and files together */
+  overflow-x: hidden;
+  position: relative;
+  /* Prevent area from expanding modal */
+  box-sizing: border-box;
+  /* No border between textarea and attachments */
+}
+
+/* Drag-and-drop visual feedback with subtle animation */
+.compose-content-area.drag-over {
+  background: #eff6ff;
+  border: 2px dashed #2563eb;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  animation: dragPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dragPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.15);
+  }
+}
+
+.compose-content-area.drag-over::before {
+  content: "Drop files here to attach";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: #2563eb;
+  z-index: 10;
+  pointer-events: none;
+  background: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Remove old form-group styles - now using Gmail-style compose fields */
+
+/* Attachments preview - Gmail style (inline below text, no separator) */
+.attachment-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  margin: 8px 0 0 0;
+  flex-shrink: 0;
+  /* Don't shrink - show all files */
+  background: transparent;
+  /* Remove border-top - no separator line */
+  border: none;
+  /* Remove max-height and overflow - let parent container scroll */
+  overflow: visible;
+  min-height: 0;
+  /* Prevent container from expanding modal */
+  flex-basis: auto;
+}
+
+/* Reduced spacing for attachment preview in compose modal */
+/* Optimized for 100% zoom */
+#composeModal .attachment-preview-container {
+  margin: 2px 0 0 0;
+  padding: 2px 0;
+  flex-shrink: 0;
+}
+
+.attachment-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s;
+  min-width: 0;
+  /* Gmail-style subtle appearance - no heavy card look */
+  box-shadow: none;
+}
+
+.attachment-preview-chip:hover {
+  border-color: #d1d5db;
+  background: #e5e7eb;
+}
+
+.attachment-preview-chip i {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.attachment-name:hover {
+  text-decoration: underline;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.attachment-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  color: #dc2626;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.attachment-remove:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.attachment-preview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f3f4f6;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.attachment-preview-item .preview-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-preview-item .preview-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.attachment-preview-item .preview-icon.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-size: 18px;
+}
+
+.attachment-preview-item .preview-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #374151;
+}
+
+.attachment-preview-item .remove-preview {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.attachment-preview-item .remove-preview:hover {
+  background: #fee2e2;
+}
+
+/* Upload status indicator */
+.upload-status {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.upload-status.show {
+  display: flex;
+}
+
+.upload-status .upload-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d1d5db;
+  border-top: 2px solid #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+.upload-status .upload-text {
+  flex: 1;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.form-group:has(.rich-text-editor) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Form group styling for content textarea */
+
+/* Content textarea - Gmail style */
+.compose-textarea {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  flex: 0 0 auto;
+  /* Don't flex, let it size naturally */
+  min-height: 150px;
+  /* Remove max-height and overflow - let parent container scroll */
+  overflow: visible;
+  line-height: 1.5;
+  box-sizing: border-box;
+  background: transparent;
+  color: #111827;
+  pointer-events: auto;
+  /* No bottom border - seamless transition to attachments */
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* Expanded textarea for compose modal */
+/* Maximized height for content area - fixed size, no resize */
+#composeModal .compose-textarea {
+  min-height: 350px;
+  max-height: 350px;
+  height: 350px;
+  padding: 16px 0 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 0;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+}
+
+.compose-textarea:focus {
+  outline: none;
+}
+
+.compose-textarea::placeholder {
+  color: #9ca3af;
+}
+
+/* Allow drag-over on textarea too */
+.compose-content-area.drag-over .compose-textarea {
+  pointer-events: none;
+}
+
+/* Compose toolbar (attachment buttons) */
+.compose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  flex-shrink: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Custom Department Dropdown */
+.custom-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.dept-dropdown-btn {
+  width: 100%;
+  padding: 10px 16px;
+  padding-right: 40px;
+  border: 2px solid gray;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Expanded dropdown button for compose modal */
+/* Minimized for more content space */
+#composeModal .dept-dropdown-btn {
+  padding: 8px 16px;
+  padding-right: 40px;
+  font-size: 14px;
+  min-height: 36px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dept-dropdown-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.dept-dropdown-btn:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.dept-dropdown-btn::after {
+  content: "▼";
+  font-size: 12px;
+  margin-left: auto;
+  color: #6b7280;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+/* Remove number input spinners from dropdown buttons */
+.dept-dropdown-btn::-webkit-inner-spin-button,
+.dept-dropdown-btn::-webkit-outer-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-inner-spin-button,
+#composeModal .dept-dropdown-btn::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+.dept-dropdown-btn[type="number"],
+#composeModal .dept-dropdown-btn[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.custom-dropdown.open .dept-dropdown-btn::after {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+/* Base styles for all dropdown menus */
+.dept-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  padding: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+/* Template dropdown menu */
+#templateDropdownMenu.dept-dropdown-menu {
+  z-index: 1000;
+}
+
+/* Department dropdown menu - more specific */
+#deptDropdownMenu.dept-dropdown-menu {
+  z-index: 100000;
+}
+
+.custom-dropdown.open .dept-dropdown-menu {
+  display: block;
+}
+
+/* Allow only dropdowns and specific containers to overflow, not modal-body */
+#composeModal .compose-header-fields,
+#composeModal .compose-inline-fields,
+#composeModal .custom-dropdown,
+#composeModal .dept-dropdown-menu,
+#composeModal .recipient-input-wrapper {
+  overflow: visible !important;
+  /* Ensure dropdown isn't clipped by ancestors */
+}
+
+/* Modal content and body should be constrained but allow dropdowns to overflow */
+.modal#composeModal .modal-content {
+  overflow: hidden;
+}
+
+.modal#composeModal .modal-body {
+  overflow: hidden;
+}
+
+/* Ensure department dropdown appears above all modal content */
+#composeModal .custom-dropdown {
+  position: relative;
+  z-index: 1000;
+  overflow: visible;
+}
+
+/* Department dropdown menu in compose modal - very specific */
+#composeModal #deptDropdownMenu.dept-dropdown-menu {
+  z-index: 100001 !important;
+  position: absolute;
+  display: none;
+}
+
+#composeModal .custom-dropdown.open #deptDropdownMenu.dept-dropdown-menu {
+  display: block !important;
+}
+
+/* Template dropdown menu in compose modal */
+#composeModal #templateDropdownMenu.dept-dropdown-menu {
+  z-index: 100001 !important;
+  position: absolute;
+  display: none;
+}
+
+#composeModal .custom-dropdown.open #templateDropdownMenu.dept-dropdown-menu {
+  display: block !important;
+}
+
+/* Ensure inline fields container allows dropdown overflow */
+#composeModal .compose-inline-fields {
+  position: relative;
+  z-index: 100;
+  overflow: visible;
+}
+
+#composeModal .compose-field-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+#composeModal .compose-field-wrapper .custom-dropdown {
+  z-index: 101;
+  position: relative;
+}
+
+#composeModal .compose-field-wrapper .custom-dropdown .dept-dropdown-menu {
+  z-index: 100000 !important;
+  position: absolute;
+}
+
+/* Signatory section */
+#composeModal .signatory-section {
+  display: none !important; /* Keep hidden - signatures are selected but not displayed */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+  padding: 0 36px 10px !important;
+  flex-shrink: 0;
+}
+
+#composeModal .signatory-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 4px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+  min-height: 140px;
+  background: #fafafa;
+}
+
+#composeModal .signatory-signature {
+  width: 180px;
+  height: 60px;
+  object-fit: contain;
+}
+
+#composeModal .signatory-name {
+  font-weight: 700;
+  color: #111827;
+  margin-top: 8px;
+}
+
+#composeModal .signatory-title {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* Template dropdown radio buttons */
+#composeModal .template-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+#composeModal .add-signature-btn:hover {
+  background: #e5e7eb !important;
+  border-color: #9ca3af !important;
+}
+
+/* Signature archive button in template dropdown */
+#composeModal .signature-archive-btn {
+  background: none !important;
+  border: none !important;
+  color: #f59e0b !important;
+  cursor: pointer !important;
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  opacity: 0.7 !important;
+  transition: all 0.2s !important;
+  display: flex !important;
+  align-items: center !important;
+  margin-left: 8px !important;
+}
+
+#composeModal .signature-archive-btn:hover {
+  opacity: 1 !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #d97706 !important;
+}
+
+#composeModal .signature-archive-btn:active {
+  transform: scale(0.95);
+}
+
+#composeModal .dept-checkbox-label:hover .signature-archive-btn {
+  opacity: 1;
+}
+
+/* Ensure SweetAlert2 appears above compose modal */
+.swal2-container.swal2-backdrop-show {
+  z-index: 100002 !important;
+}
+
+.swal2-container.swal2-backdrop-show .swal2-popup {
+  z-index: 100003 !important;
+}
+
+/* When SweetAlert is shown from compose modal, ensure it's on top */
+.swal2-container.swal2-backdrop-show.swal2-container-compose-modal {
+  z-index: 100002 !important;
+}
+
+.swal2-container.swal2-backdrop-show.swal2-container-compose-modal .swal2-popup {
+  z-index: 100003 !important;
+}
+
+/* In-modal preview overlay */
+#previewOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100001;
+  isolation: isolate;
+}
+
+#previewOverlay .preview-content {
+  background: #fff;
+  width: 90vw;
+  max-width: 900px;
+  height: 85vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  z-index: 1;
+}
+
+#previewOverlay .close-preview {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #6b7280;
+  cursor: pointer;
+  z-index: 10;
+}
+
+#previewOverlay #previewFrame {
+  border: none;
+  width: 100%;
+  height: 100%;
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
+  background: #fff;
+}
+
+.dept-checkbox-label {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.dept-checkbox-label:hover {
+  background: #f3f4f6;
+}
+
+.dept-checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.dept-checkbox-label span {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.dept-dropdown-hr {
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+}
+
+#deptCheckboxesContainer .dept-checkbox-label {
+  font-weight: 400;
+}
+
+/* Sending Modal */
+.sending-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.sending-modal-content {
+  background: white;
+  padding: 32px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.sending-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sending-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Button Loading State */
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-loading .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.select-all-btn {
+  padding: 4px 10px;
+  margin-left: 8px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.select-all-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.optional-label {
+  color: #6b7280;
+  font-weight: normal;
+  font-size: 12px;
+}
+
+/* Attachment buttons */
+.attachment-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.attachment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.attachment-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.attachment-btn i {
+  width: 16px;
+  height: 16px;
+}
+
+.attachment-preview {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.file-preview-item:last-child {
+  margin-bottom: 0;
+}
+
+.file-preview-item .remove-file {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.file-preview-item .remove-file:hover {
+  background: #fee2e2;
+}
+
+/* Additional Quill editor styling */
+.ql-snow .ql-tooltip {
+  z-index: 10001;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.file-preview-container {
+  margin-top: 12px;
+}
+
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.file-preview-item i {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+}
+
+.file-name {
+  flex: 1;
+  color: #1e293b;
+}
+
+.file-size {
+  color: #64748b;
+  font-size: 12px;
+}
+
+input[type="file"] {
+  padding: 8px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+input[type="file"]:hover {
+  border-color: #2563eb;
+  background: #f0f7ff;
+}
+
+input[type="file"]::file-selector-button {
+  padding: 6px 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: #1d4ed8;
+}
+
+/* Quill styles removed - using plain textarea now */
+
+.insert-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-top: 8px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.insert-image-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.insert-image-btn i {
+  width: 16px;
+  height: 16px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+/* Expanded form actions for compose modal */
+/* Optimized for 100% zoom - unified card design, always aligned with content above */
+#composeModal .form-actions {
+    padding: 10px 36px;   /* match modal body padding */
+    gap: 6px;             /* closer gap between buttons */
+    margin: 0;            /* prevent overflow / misalignment */
+    margin-top: auto;     /* push to bottom of form */
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+/* Left side button group (Attach + Calendar) */
+#composeModal .form-actions > .btn-attach,
+#composeModal .form-actions > .btn-calendar {
+    margin-right: 0;
+    margin-left: 0;
+}
+
+/* Cancel button pushes right group to the right side */
+#composeModal .form-actions > .btn-secondary.close-modal {
+    margin-left: auto; /* push to right side */
+    margin-right: 0;
+}
+
+/* Preview button stays close to Cancel */
+#composeModal .form-actions > .btn-secondary#previewMemoBtn {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Send button - rightmost button */
+#composeModal .form-actions > .btn-primary {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+
+/* Attach button styling */
+.btn-attach {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: auto;
+}
+
+/* Expanded attach button for compose modal */
+/* Minimized for more content space */
+#composeModal .btn-attach {
+  padding: 8px 20px !important; /* match Send button padding */
+  font-size: 14px;
+  min-height: 36px;
+  margin: 0;
+  margin-right: 0;
+  flex-shrink: 0;
+  order: -1;
+}
+
+/* Calendar button styling */
+#composeModal .btn-calendar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 20px !important; /* match Send button padding */
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+#composeModal .btn-calendar:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+#composeModal .btn-calendar.scheduled {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+#composeModal .btn-calendar i {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-attach:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.btn-attach i {
+  width: 18px;
+  height: 18px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Expanded buttons for compose modal */
+/* Minimized for more content space */
+#composeModal .btn {
+  padding: 8px 20px !important;
+  font-size: 14px;
+  min-height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* Specific button overrides for consistent sizing */
+#composeModal .btn.btn-secondary,
+#composeModal .btn.btn-primary,
+#composeModal .btn.btn-attach,
+#composeModal .btn.btn-calendar {
+  padding: 8px 20px !important;
+  min-height: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Removed conflicting margin rules - handled by specific button selectors above */
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+/* Responsive Modal Styles */
+@media (max-height: 700px) {
+  .modal {
+    padding: 10px;
+  }
+
+  .modal-content {
+    margin: 10px auto;
+    /* No max-height - modal shows fully */
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  /* Reduce textarea height on smaller screens */
+  #content {
+    height: 200px;
+    min-height: 200px;
+    max-height: 200px;
+  }
+
+  /* Compact attachment preview on small screens */
+  .attachments-preview {
+    max-height: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    margin: 10px auto;
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+  }
+
+  .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  /* Adjust modal for mobile */
+  .modal-content {
+    height: 90vh;
+    max-height: 90vh;
+    width: 95%;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .memo-list-area {
+    width: 300px;
+  }
+
+  .log-sidebar {
+    width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .log-layout {
+    flex-direction: column;
+  }
+
+  .log-sidebar,
+  .memo-list-area {
+    width: 100%;
+  }
+
+  .memo-viewer-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+  }
+}
+
+/* Viewer slide animation */
+.memo-viewer-area {
+  transition: all 0.4s ease;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.memo-viewer-area.active {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+  display: block;
+}
+
+.memo-list-area.shrink {
+  width: 10%;
+  transition: all 0.4s ease;
+}
+
+/* Modal show effect - handled by base .modal styles above */
+
+/* Make sure the list and header adapt */
+
+/* Ensure the main memo container takes full width of the screen */
+.memo-container {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: auto;
+  max-height: 750px;
+  overflow: hidden; /* Removed overflow-y: auto to prevent double scrollbar - inner .memo-list-container handles scrolling */
+}
+
+/* Ensure .log-layout inside it also stretches properly */
+.memo-container .log-layout {
+  flex: 1;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  box-sizing: border-box;
+}
+
+/* Signature Modal Styles */
+.signature-modal .modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.signature-modal form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+}
+
+.signature-form-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 8px;
+}
+
+.signature-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signature-modal .form-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.signature-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111827;
+  background: #fff;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.signature-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.signature-input::placeholder {
+  color: #9ca3af;
+}
+
+/* File Upload Styling */
+.file-upload-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.file-label:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.file-input:focus + .file-label {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.file-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.file-name {
+  font-size: 14px;
+  color: #6b7280;
+  margin-left: auto;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-input:valid + .file-label .file-name,
+.file-input:has(files) + .file-label .file-name {
+  color: #059669;
+  font-weight: 500;
+}
+
+.file-hint {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Signature Modal Actions */
+.signature-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  margin: 0 -24px -24px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  flex-shrink: 0;
+}
+
+.signature-actions .btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.signature-actions .btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.signature-actions .btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.signature-actions .btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+}
+
+.signature-actions .btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+/* Secretary inline department checkbox styling */
+#secretaryDeptCheckboxWrapper .compose-field-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  margin: 0;
+  height: 100%;
+  min-height: 38px;
+  transition: all 0.2s ease;
+}
+
+#secretaryDeptCheckboxWrapper .compose-field-label:hover {
+  border-color: #2563eb;
+  background: #f9fafb;
+}
+
+#secretaryDeptCheckboxWrapper input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #2563eb;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+#secretaryDeptCheckboxWrapper .compose-field-label span {
+  font-size: 14px;
+  color: #374151;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Responsive adjustments for signature modal */
+@media (max-width: 640px) {
+  .signature-modal {
+    max-width: 95% !important;
+  }
+
+  .signature-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .signature-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Acknowledgment Status Section - Compact Version */
+.acknowledgment-status {
+  padding: 12px 20px;
+  padding-bottom: 12px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin: 0;
+  margin-top: auto;
+}
+
+.acknowledgment-header-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.acknowledgment-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.acknowledgment-avatars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.acknowledgment-avatar {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.acknowledgment-avatar:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.acknowledgment-avatar.acknowledged {
+  border-color: #10b981;
+}
+
+.acknowledgment-avatar.unacknowledged {
+  border-color: #ef4444;
+  opacity: 0.7;
+}
+
+.acknowledgment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.acknowledgment-avatar .avatar-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.acknowledgment-avatar.acknowledged .avatar-initials {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.acknowledgment-avatar.unacknowledged .avatar-initials {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.avatar-checkmark {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 8px;
+  font-weight: bold;
+  border: 1.5px solid white;
+}
+
+.reminder-btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.reminder-btn-compact:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+.reminder-btn-compact:active {
+  transform: translateY(0);
+}
+
+.reminder-btn-compact i {
+  width: 14px;
+  height: 14px;
+}
+
+.reminder-btn-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

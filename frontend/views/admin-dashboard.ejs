@@ -1,124 +1,486 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Admin Dashboard | Memofy</title>
-    <link rel="stylesheet" href="/css/admin-dash.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <link rel="stylesheet" href="/css/admin-dashboard.css">
+    <!--<link rel="stylesheet" href="/css/sidebar.css">-->
+    <link rel="stylesheet" href="/css/admintopbar.css">
+    <link rel="stylesheet" href="/css/calendar.css">
+    <link rel="stylesheet" href="/css/custom-calendar.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
 
+    <!-- Google Analytics Tracking -->
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
+
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
+
+        <!-- Google APIs -->
+        <script src="https://apis.google.com/js/api.js"></script>
+        <script src="https://accounts.google.com/gsi/client"></script>
+        <script src="/js/lucide.min.js"></script>
+        <script src="/js/admin-dash.js" defer></script>
 </head>
-<body>
+
+<body data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role }) %>'
+    data-calendar-connected="<%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>">
+    <script>
+        (function () {
+            const root = document.body;
+            if (!root) { return; }
+            try {
+                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
+            } catch (err) {
+                window.currentUser = {};
+            }
+            const calAttr = root.getAttribute('data-calendar-connected');
+            if (calAttr !== null) {
+                window.calendarConnected = calAttr === 'true';
+            }
+        })();
+    </script>
     <div class="dashboard-container">
-        <%- include('nav'); %>
+        <!-- Navigations -->
+        <div class="navigations">
+            <%- include('../components/nav'); %>
+        </div>
 
         <!-- Main Content -->
         <main class="main-content">
-            <header class="top-bar">
-            <h1>Admin Dashboard</h1>
-            <div class="search-section">
-                <input type="text" placeholder="Search...">
-                <i data-lucide="search"></i>
-                <i data-lucide="bell"></i>
-                <img src="/assets/queen.png" alt="Profile" class="avatar">
-            </div>
-            </header>
+            <!-- Header -->
+            <%- include('../components/admintopbar'); %>
 
-            <section class="dashboard-grid">
-            <!-- Illustration -->
-            <div class="hero-card">
-                <img src="/assets/illustration.svg" alt="Dashboard Illustration">
-            </div>
+                <div class="content-area">
+                    <!-- Main Grid -->
+                    <div class="main-grid">
 
-            <!-- Calendar -->
-            <div class="calendar-card">
-                <div class="calendar-header">
-                <h4>October 2025</h4>
+                        <!-- Hero Header -->
+                        <header class="hero-header">
+                            <div class="hero-overlay">
+                                <div class="hero-texts">
+                                    <h1>Admin Dashboard</h1>
+                                    <p>Welcome back, <%= user.firstName %>!</p>
+                                </div>
+                                <div class="hero-img-container">
+                                    <img src="/uploads/hero-header.png" class="hero-img" alt="hero-img">
+                                </div>
+                            </div>
+                        </header>
+
+                        <!-- Dashboard Content -->
+                        <div class="dashboard-content">
+                            <!-- Stats Cards -->
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M20 8.94a1.31 1.31 0 0 0-.06-.27v-.09a1.07 1.07 0 0 0-.19-.28l-6-6a1.07 1.07 0 0 0-.28-.19h-.09L13.06 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8.94Zm-6-3.53L16.59 8H14ZM18 19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5v5a1 1 0 0 0 1 1h5Z"
+                                                fill="currentColor" />
+                                        </svg>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h3>Total Memos</h3>
+                                        <div class="stat-value">0</div>
+                                        <div class="stat-change">0 sent, 0 received</div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <svg viewBox="0 0 352 512" xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M48 363v106H27q-22 0-22 22q0 9 6 15t16 6h298q10 0 16-6t6-15q0-22-22-22h-21V363q0-69-58-107q58-38 58-107V43h21q22 0 22-22q0-9-6-15t-16-6H27Q17 0 11 6T5 21q0 22 22 22h21v106q0 69 58 107q-58 38-58 107zm43-214V43h170v106q0 35-25 60.5T176 235t-60-25.5T91 149zm0 214q0-35 25-60.5t60-25.5t60 25.5t25 60.5v106H91V363zm149-256l-128 42v22q1 5 4.5 12t19.5 18.5t40 11.5t40-10.5t20-20.5l4-11v-64zM112 448h128v-85l-128 21v64z"
+                                                fill="currentColor" />
+                                        </svg>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h3>Pending</h3>
+                                        <div class="stat-value">45</div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <g fill="none">
+                                                <path
+                                                    d="M17.75 3A3.25 3.25 0 0 1 21 6.25v5.772a6.471 6.471 0 0 0-1.5-.709V8.5h-15v9.25c0 .966.784 1.75 1.75 1.75h5.063c.173.534.412 1.037.709 1.5H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5zm0 1.5H6.25A1.75 1.75 0 0 0 4.5 6.25V7h15v-.75a1.75 1.75 0 0 0-1.75-1.75z"
+                                                    fill="currentColor" />
+                                                <path
+                                                    d="M23 17.5a5.5 5.5 0 1 1-11 0a5.5 5.5 0 0 1 11 0zM17.5 14a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zm0 7.125a.625.625 0 1 0 0-1.25a.625.625 0 0 0 0 1.25z"
+                                                    fill="currentColor" />
+                                            </g>
+                                        </svg>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h3>Overdue Memos</h3>
+                                        <div class="stat-value">150</div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M320 16a104 104 0 1 1 0 208a104 104 0 1 1 0-208M96 88a72 72 0 1 1 0 144a72 72 0 1 1 0-144M0 416c0-70.7 57.3-128 128-128c12.8 0 25.2 1.9 36.9 5.4C132 330.2 112 378.8 112 432v16c0 11.4 2.4 22.2 6.7 32H32c-17.7 0-32-14.3-32-32zm521.3 64c4.3-9.8 6.7-20.6 6.7-32v-16c0-53.2-20-101.8-52.9-138.6c11.7-3.5 24.1-5.4 36.9-5.4c70.7 0 128 57.3 128 128v32c0 17.7-14.3 32-32 32zM472 160a72 72 0 1 1 144 0a72 72 0 1 1-144 0M160 432c0-88.4 71.6-160 160-160s160 71.6 160 160v16c0 17.7-14.3 32-32 32H192c-17.7 0-32-14.3-32-32z"
+                                                fill="currentColor" />
+                                        </svg>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h3>Active Users</h3>
+                                        <div class="stat-value">7</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Memos Section -->
+                        <section class="recent-memos-section">
+                            <h2>Recent Memos</h2>
+                            <div class="memo-container">
+                                <div class="memo-list">
+                                    <% const sortedMemos=(allMemos || []).slice().sort(function(a,b){ const
+                                        pa=(a.status==='pending' ) ? 1 : 0; const pb=(b.status==='pending' ) ? 1 : 0; if
+                                        (pb !==pa) return pb - pa; const ad=new Date(a.createdAt || 0).getTime(); const
+                                        bd=new Date(b.createdAt || 0).getTime(); return bd - ad; }); %>
+
+                                        <% if ((sortedMemos || []).length===0) { %>
+                                            <div class="memo-item">
+                                                <i data-lucide="inbox" class="memo-icon"></i>
+                                                <div class="memo-info">
+                                                    <h4>No memos yet</h4>
+                                                    <p>New submissions will appear here</p>
+                                                </div>
+                                            </div>
+                                            <% } %>
+
+                                                <% (sortedMemos || []).forEach(function(memo){ %>
+                                                    <div class="memo-item">
+                                                        <% if (memo.status==='pending' ) { %>
+                                                            <i data-lucide="alert-triangle"
+                                                                class="memo-icon orange"></i>
+                                                            <% } else { %>
+                                                                <i data-lucide="file-text" class="memo-icon blue"></i>
+                                                                <% } %>
+                                                                    <div class="memo-info">
+                                                                        <h4>
+                                                                            <%= memo.subject %>
+                                                                        </h4>
+                                                                        <p>From: <%= memo.sender ?
+                                                                                (memo.sender.firstName + ' ' +
+                                                                                (memo.sender.lastName || '' ))
+                                                                                : 'Unknown' %>
+                                                                        </p>
+                                                                    </div>
+                                                                    <div
+                                                                        style="display:flex; gap:8px; align-items:center;">
+                                                                        <% if (memo.status==='pending' ) { %>
+                                                                            <button class="btn-primary"
+                                                                                onclick="approveMemo('<%= memo._id %>')">Approve</button>
+                                                                            <button class="btn-secondary"
+                                                                                onclick="rejectMemo('<%= memo._id %>')">Reject</button>
+                                                                            <% } else { %>
+                                                                                <span class="memo-date">
+                                                                                    <%= new
+                                                                                        Date(memo.createdAt).toLocaleDateString()
+                                                                                        %>
+                                                                                </span>
+                                                                                <% } %>
+                                                                    </div>
+                                                    </div>
+                                                    <% }); %>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Calendar and Analytics -->
+                        <div class="side-grid">
+                            <div class="calendar-section">
+                                <div class="mini-cal-header" style="margin-bottom: 12px;">
+                                    <h3 id="dashboardMiniCalMonth"
+                                        style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">
+                                        Calendar
+                                    </h3>
+                                    <div class="mini-cal-nav">
+                                        <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev"
+                                            style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
+                                        <button id="dashboardMiniNext" class="btn-icon" aria-label="Next"
+                                            style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
+                                    </div>
+                                </div>
+                                <div id="dashboardMiniCalendar" class="mini-calendar"></div>
+                            </div>
+
+                            <div class="backup-section">
+                                <i data-lucide="cloud" class="backup-icon"></i>
+                                <div class="backup-info">
+                                    <h3>System Status</h3>
+                                    <p>All systems operational</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <table class="calendar-table">
-                <thead>
-                    <tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr>
-                </thead>
-                <tbody>
-                    <!-- Calendar rows go here -->
-                </tbody>
-                </table>
-            </div>
-
-            <!-- Recent Memos -->
-            <div class="recent-memos">
-                <h3>Recent Memos</h3>
-                <div class="memo-card blue">
-                <h4>Faculty Meeting Agenda</h4>
-                <p>Information Technology Department</p>
-                <span>October 5, 2025</span>
-                </div>
-                <div class="memo-card orange">
-                <h4>Urgent: Grade Submission Deadline</h4>
-                <p>Information Technology Department</p>
-                <span>October 7, 2025</span>
-                </div>
-                <div class="memo-card purple">
-                <h4>Holiday Schedule Update</h4>
-                <p>Information Technology Department</p>
-                <span>October 24, 2025</span>
-                </div>
-            </div>
-
-            <!-- Stats and Backup -->
-            <div class="stats-card">
-                <p>Total Memos Sent</p>
-                <h1>1,223</h1>
-                <p class="growth">+10% from last month</p>
-            </div>
-
-            <div class="backup-card">
-                <i data-lucide="cloud"></i>
-                <p>Last backup on Google Drive</p>
-                <span>October 6, 2025</span>
-            </div>
-            </section>
         </main>
     </div>
 
     <script>
-        // Auto logout after 24 hours of inactivity
-        let logoutTimer;
+        lucide.createIcons();
 
-        function resetTimer() {
-            clearTimeout(logoutTimer);
-            logoutTimer = setTimeout(() => {
-                window.location.href = '/auth/logout';
-            }, 24 * 60 * 60 * 1000); // 24 hours
+        async function approveMemo(id) {
+            try {
+                const res = await fetch(`/api/log/memos/${id}/approve`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Approved'
+                });
+                location.reload();
+            } catch (e) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to approve'
+                });
+            }
         }
 
-        // Reset timer on user activity
-        document.addEventListener('mousemove', resetTimer);
-        document.addEventListener('keypress', resetTimer);
-        document.addEventListener('click', resetTimer);
+        function showRejectionReasonModal() {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.id = 'rejectionReasonModal';
+                modal.style.cssText = `
+                    display: flex;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    z-index: 20000;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 2rem;
+                `;
 
-        // Start timer
-        resetTimer();
+                modal.innerHTML = `
+                    <div style="
+                        background: white;
+                        border-radius: 12px;
+                        max-width: 500px;
+                        width: 100%;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    ">
+                        <div style="
+                            padding: 1.5rem;
+                            border-bottom: 1px solid #e5e7eb;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        ">
+                            <h3 style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #111827;">Rejection Reason</h3>
+                            <button id="closeRejectionModal" style="
+                                background: none;
+                                border: none;
+                                font-size: 1.5rem;
+                                color: #6b7280;
+                                cursor: pointer;
+                                padding: 0.5rem;
+                                line-height: 1;
+                                border-radius: 6px;
+                                transition: all 0.2s;
+                            ">&times;</button>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <label style="
+                                display: block;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                color: #374151;
+                                margin-bottom: 0.5rem;
+                            ">Optional reason for rejection:</label>
+                            <textarea id="rejectionReasonInput" style="
+                                width: 100%;
+                                padding: 0.75rem;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 0.875rem;
+                                font-family: inherit;
+                                resize: vertical;
+                                min-height: 100px;
+                                box-sizing: border-box;
+                            " placeholder="Enter reason for rejection (optional)"></textarea>
+                        </div>
+                        <div style="
+                            padding: 1rem 1.5rem;
+                            border-top: 1px solid #e5e7eb;
+                            display: flex;
+                            justify-content: flex-end;
+                            gap: 0.75rem;
+                        ">
+                            <button id="cancelRejectionBtn" style="
+                                padding: 0.625rem 1.25rem;
+                                background: #f3f4f6;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                color: #374151;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            ">Cancel</button>
+                            <button id="confirmRejectionBtn" style="
+                                padding: 0.625rem 1.25rem;
+                                background: #2563eb;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                color: white;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            ">OK</button>
+                        </div>
+                    </div>
+                `;
 
-        //google calendar icon script
-         document.addEventListener("DOMContentLoaded", async () => {
-            const response = await fetch("/api/calendar/events");
-            const events = await response.json();
+                document.body.appendChild(modal);
 
-            const calendarEl = document.getElementById("calendar");
-            const calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: "dayGridMonth",
-            events: events.map(event => ({
-                title: event.summary,
-                start: event.start.dateTime || event.start.date,
-                end: event.end.dateTime || event.end.date,
-            })),
+                const closeModal = () => {
+                    document.body.removeChild(modal);
+                };
+
+                const confirm = () => {
+                    const input = document.getElementById('rejectionReasonInput');
+                    const reason = input ? input.value.trim() : '';
+                    closeModal();
+                    resolve(reason);
+                };
+
+                const cancel = () => {
+                    closeModal();
+                    resolve(null);
+                };
+
+                // Event listeners
+                document.getElementById('closeRejectionModal').addEventListener('click', cancel);
+                document.getElementById('cancelRejectionBtn').addEventListener('click', cancel);
+                document.getElementById('confirmRejectionBtn').addEventListener('click', confirm);
+
+                // Close on background click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        cancel();
+                    }
+                });
+
+                // Close on Escape key
+                const escapeHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        cancel();
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+
+                // Focus on textarea
+                setTimeout(() => {
+                    const input = document.getElementById('rejectionReasonInput');
+                    if (input) input.focus();
+                }, 100);
+
+                // Hover effects
+                const cancelBtn = document.getElementById('cancelRejectionBtn');
+                const confirmBtn = document.getElementById('confirmRejectionBtn');
+                const closeBtn = document.getElementById('closeRejectionModal');
+
+                cancelBtn.addEventListener('mouseenter', () => {
+                    cancelBtn.style.background = '#e5e7eb';
+                });
+                cancelBtn.addEventListener('mouseleave', () => {
+                    cancelBtn.style.background = '#f3f4f6';
+                });
+
+                confirmBtn.addEventListener('mouseenter', () => {
+                    confirmBtn.style.background = '#1d4ed8';
+                });
+                confirmBtn.addEventListener('mouseleave', () => {
+                    confirmBtn.style.background = '#2563eb';
+                });
+
+                closeBtn.addEventListener('mouseenter', () => {
+                    closeBtn.style.background = '#f3f4f6';
+                    closeBtn.style.color = '#111827';
+                });
+                closeBtn.addEventListener('mouseleave', () => {
+                    closeBtn.style.background = 'none';
+                    closeBtn.style.color = '#6b7280';
+                });
             });
-            calendar.render();
-        });
+        }
 
+        async function rejectMemo(id) {
+            try {
+                const reason = await showRejectionReasonModal();
+                if (reason === null) return; // User cancelled
+                const res = await fetch(`/api/log/memos/${id}/reject`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason || '' }),
+                    credentials: 'same-origin'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.message || 'Failed to reject');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message || 'Rejected'
+                });
+                location.reload();
+            } catch (e) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: e?.message || 'Failed to reject'
+                });
+            }
+        }
     </script>
+
+    <!-- Date Details Modal for Mini Calendar -->
+    <div id="dashboardDateModal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-overlay"></div>
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h3 id="dashboardDateModalTitle">Date Details</h3>
+                <button class="custom-modal-close" id="dashboardDateModalClose">&times;</button>
+            </div>
+            <div class="custom-modal-body">
+                <div id="dashboardDateModalContent"></div>
+            </div>
+            <div class="custom-modal-footer">
+                <button class="custom-modal-btn custom-modal-btn-secondary" id="dashboardDateModalCancel">Close</button>
+                <button class="custom-modal-btn custom-modal-btn-primary" id="dashboardDateModalViewCalendar">View Full
+                    Calendar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/js/dashboard-mini-calendar.js"></script>
+    <script src="/js/error-handler.js"></script>
 </body>
+
 </html>
