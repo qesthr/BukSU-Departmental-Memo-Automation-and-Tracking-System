@@ -2828,6 +2828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Regular memo format (unchanged)
             // For sent folder: show recipient info and "Sent:" prefix
             // For inbox/other folders: show sender info (default)
+            // Special case: If current user is the sender, show "To:" (recipients) instead of "From:"
             // Special case: For admin approval/rejection actions, show "You:" instead of "From:"
             let displayUser, displayLabel, subjectPrefix;
 
@@ -2835,10 +2836,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const eventType = memo.metadata?.eventType;
             const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
             const currentUserId = window.currentUser?.id || window.currentUser?._id;
+            const currentUserEmail = window.currentUser?.email?.toLowerCase();
             const isCurrentUserAdmin = window.currentUser?.role === 'admin';
             const isRecipientCurrentUser = memo.recipient && (
                 (memo.recipient._id?.toString() === currentUserId?.toString()) ||
                 (memo.recipient.toString() === currentUserId?.toString())
+            );
+
+            // Check if current user is the sender of this memo
+            const isCurrentUserSender = memo.sender && (
+                (memo.sender._id?.toString() === currentUserId?.toString()) ||
+                (memo.sender.toString() === currentUserId?.toString()) ||
+                (memo.sender.email?.toLowerCase() === currentUserEmail)
             );
 
             if (isSentFolder) {
@@ -2846,13 +2855,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayUser = memo.recipient;
                 displayLabel = 'To';
                 subjectPrefix = 'Sent: ';
-            } else if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
-                // Admin approval/rejection action: show "You:" instead of "From:"
-                displayUser = window.currentUser;
-                displayLabel = 'You';
+            } else if (isCurrentUserSender) {
+                // Current user created this memo: show recipients (who we sent it to)
+                displayUser = memo.recipient;
+                displayLabel = 'To';
                 subjectPrefix = '';
             } else {
                 // Inbox/Received: show sender (who sent it to us)
+                // This includes admin-approved/rejected memos from secretary - show "From: [Secretary]"
                 displayUser = memo.sender;
                 displayLabel = 'From';
                 subjectPrefix = '';

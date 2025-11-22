@@ -51,6 +51,21 @@ async function createBySecretary({ user, payload }) {
 async function approve({ memoId, adminUser }) {
   const memo = await Memo.findById(memoId);
   if (!memo) {throw new Error('Memo not found');}
+
+  // Check if memo has already been approved or rejected by another admin
+  if (memo.status === 'approved' || memo.status === 'rejected') {
+    // Check if this admin already acted on it
+    const hasAdminAction = memo.metadata?.history?.some(h =>
+      (h.by?._id?.toString() === adminUser._id.toString() ||
+       h.by?.toString() === adminUser._id.toString()) &&
+      (h.action === 'approved' || h.action === 'rejected')
+    );
+
+    if (!hasAdminAction) {
+      throw new Error('This memo has already been processed by another admin.');
+    }
+  }
+
   // Mark approval in history; avoid setting a status not allowed by schema
   await appendHistory(memo, adminUser, 'approved');
   await notifySecretary({ memo, actor: adminUser, action: 'approved' });
@@ -117,6 +132,20 @@ async function approve({ memoId, adminUser }) {
 async function reject({ memoId, adminUser, reason }) {
   const memo = await Memo.findById(memoId);
   if (!memo) {throw new Error('Memo not found');}
+
+  // Check if memo has already been approved or rejected by another admin
+  if (memo.status === 'approved' || memo.status === 'rejected') {
+    // Check if this admin already acted on it
+    const hasAdminAction = memo.metadata?.history?.some(h =>
+      (h.by?._id?.toString() === adminUser._id.toString() ||
+       h.by?.toString() === adminUser._id.toString()) &&
+      (h.action === 'approved' || h.action === 'rejected')
+    );
+
+    if (!hasAdminAction) {
+      throw new Error('This memo has already been processed by another admin.');
+    }
+  }
   // Record rejection and keep the record
   await appendHistory(memo, adminUser, 'rejected', reason);
   await notifySecretary({ memo, actor: adminUser, action: 'rejected', reason });
@@ -359,6 +388,20 @@ async function approveWithRollback({ memoId, adminUser }) {
     // Capture before state
     const originalMemo = await Memo.findById(memoId).session(session).lean();
     if (!originalMemo) {throw new Error('Memo not found');}
+
+    // Check if memo has already been approved or rejected by another admin
+    if (originalMemo.status === 'approved' || originalMemo.status === 'rejected') {
+      // Check if this admin already acted on it
+      const hasAdminAction = originalMemo.metadata?.history?.some(h =>
+        (h.by?._id?.toString() === adminUser._id.toString() ||
+         h.by?.toString() === adminUser._id.toString()) &&
+        (h.action === 'approved' || h.action === 'rejected')
+      );
+
+      if (!hasAdminAction) {
+        throw new Error('This memo has already been processed by another admin.');
+      }
+    }
 
     beforeState = {
       originalMemo: {
@@ -645,6 +688,20 @@ async function rejectWithRollback({ memoId, adminUser, reason }) {
   const result = await executeWithRollback(async (session) => {
     const memo = await Memo.findById(memoId).session(session);
     if (!memo) {throw new Error('Memo not found');}
+
+    // Check if memo has already been approved or rejected by another admin
+    if (memo.status === 'approved' || memo.status === 'rejected') {
+      // Check if this admin already acted on it
+      const hasAdminAction = memo.metadata?.history?.some(h =>
+        (h.by?._id?.toString() === adminUser._id.toString() ||
+         h.by?.toString() === adminUser._id.toString()) &&
+        (h.action === 'approved' || h.action === 'rejected')
+      );
+
+      if (!hasAdminAction) {
+        throw new Error('This memo has already been processed by another admin.');
+      }
+    }
 
     // Capture before state
     beforeState = {

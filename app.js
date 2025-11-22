@@ -430,17 +430,36 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
     try {
         const Signature = require('./backend/models/Signature');
 
+        // System-generated activity types to exclude from archive
+        const systemActivityTypes = [
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            'password_reset',
+            'welcome_email',
+            'user_profile_edited'
+        ];
+
         // Get archived memos OR sent/approved memos that can be archived
-        // Include memos where the admin is the sender but NOT the recipient
-        // Exclude the tracking memo where recipient equals sender
+        // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
         const archivedMemos = await Memo.find({
-            sender: req.user._id,
-            recipient: { $ne: req.user._id }, // Exclude memos sent to the admin themselves
-            status: { $in: ['archived', 'sent', 'approved'] },
-            activityType: { $ne: 'system_notification' }
+            $and: [
+                {
+                    $or: [
+                        { sender: req.user._id }, // Admin-created memos
+                        { recipient: req.user._id } // Memos received by admin (including approved/rejected secretary memos)
+                    ]
+                },
+                {
+                    status: { $in: ['archived', 'sent', 'approved'] },
+                    // Exclude system activity types (should only be in Activity Logs)
+                    activityType: { $nin: systemActivityTypes }
+                }
+            ]
         })
             .sort({ createdAt: -1 })
-            .populate('recipient', 'firstName lastName email profilePicture department');
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role');
 
         // Get archived calendar events created by the admin
         const archivedEvents = await CalendarEvent.find({

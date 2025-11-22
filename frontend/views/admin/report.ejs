@@ -11,9 +11,6 @@
     <link rel="stylesheet" href="/css/report.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
@@ -25,395 +22,8 @@
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 
-<body data-initial-stats='<%- JSON.stringify({
-    totalUsers: 0,
-    totalMemos: 0,
-    pageViews: 0,
-    activeUsers: 0,
-    usersChange: "0%",
-    memosChange: "0%",
-    viewsChange: "0%",
-    activeChange: "0%"
-}) %>'
-data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
-
-    <!-- Vue Components -->
-    <script>
-        // Stat Card Component
-        const StatCard = {
-            props: {
-                title: String,
-                value: [String, Number],
-                change: String,
-                icon: String,
-                iconColor: String,
-                iconBg: String
-            },
-            computed: {
-                changeClass() {
-                    if (!this.change) return '';
-                    if (this.change.includes('+')) return 'positive';
-                    if (this.change.includes('-')) return 'negative';
-                    return '';
-                }
-            },
-            template: `
-                <div class="stat-card">
-                    <div class="stat-icon" :style="{ background: iconBg }">
-                        <i :data-lucide="icon" :style="{ color: iconColor }"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3>{{ value }}</h3>
-                        <p>{{ title }}</p>
-                        <span v-if="change" :class="['stat-change', changeClass]">{{ change }}</span>
-                    </div>
-                </div>
-            `,
-            mounted() {
-                lucide.createIcons();
-            }
-        };
-
-        // Activity Table Row Component
-        const ActivityRow = {
-            props: {
-                activity: Object
-            },
-            computed: {
-                formattedDate() {
-                    return new Date(this.activity.timestamp).toLocaleDateString();
-                },
-                userName() {
-                    return this.activity.userName || 'System';
-                },
-                statusClass() {
-                    const status = this.activity.status?.toLowerCase();
-                    if (status === 'success') return 'status-success';
-                    if (status === 'error') return 'status-error';
-                    if (status === 'pending') return 'status-pending';
-                    return 'status-info';
-                }
-            },
-            template: `
-                <tr>
-                    <td>{{ formattedDate }}</td>
-                    <td>{{ userName }}</td>
-                    <td>{{ activity.action }}</td>
-                    <td>{{ activity.department || 'N/A' }}</td>
-                    <td>
-                        <span :class="['status-badge', statusClass]">
-                            {{ activity.status || 'Completed' }}
-                        </span>
-                    </td>
-                </tr>
-            `
-        };
-
-        // Connection Status Component
-        const ConnectionStatus = {
-            props: {
-                connected: Boolean,
-                loading: Boolean,
-                message: String
-            },
-            emits: ['connect'],
-            template: `
-                <div class="connection-status">
-                    <div class="status-indicator">
-                        <div :class="['status-dot', { connected: connected, loading: loading }]"></div>
-                        <span>{{ message }}</span>
-                    </div>
-                    <button
-                        v-if="!connected && !loading"
-                        @click="$emit('connect')"
-                        class="btn btn-primary btn-sm">
-                        <i data-lucide="link"></i>
-                        <span>Connect Google Analytics</span>
-                    </button>
-                </div>
-            `,
-            mounted() {
-                lucide.createIcons();
-            }
-        };
-    </script>
-
-    <!-- Main Vue App -->
-    <script>
-        const { createApp, ref, computed, watch, onMounted } = Vue;
-
-        const app = createApp({
-            components: {
-                StatCard,
-                ActivityRow,
-                ConnectionStatus
-            },
-            setup() {
-                // Reactive state
-                const stats = ref({
-                    totalUsers: '-',
-                    totalMemos: '-',
-                    pageViews: '-',
-                    activeUsers: '-',
-                    usersChange: '-',
-                    memosChange: '-',
-                    viewsChange: '-',
-                    activeChange: '-'
-                });
-
-                const recentActivity = ref([]);
-                const loading = ref(true);
-                const gaConnected = ref(false);
-                const gaLoading = ref(false);
-                const gaStatusMessage = ref('Connecting to Google Analytics...');
-
-                // Filters
-                const dateRange = ref('30');
-                const customDateRange = ref({
-                    startDate: '',
-                    endDate: ''
-                });
-                const showCustomRange = ref(false);
-                const activityMetric = ref('all');
-
-                // Initialize from data attributes
-                try {
-                    const initialStats = document.body.getAttribute('data-initial-stats');
-                    const initialActivity = document.body.getAttribute('data-initial-activity');
-
-                    if (initialStats) {
-                        stats.value = JSON.parse(initialStats);
-                    }
-                    if (initialActivity) {
-                        recentActivity.value = JSON.parse(initialActivity);
-                    }
-                } catch (err) {
-                    console.error('Error parsing initial data:', err);
-                }
-
-                // Computed properties
-                const filteredActivity = computed(() => {
-                    if (activityMetric.value === 'all') {
-                        return recentActivity.value;
-                    }
-                    return recentActivity.value.filter(activity =>
-                        activity.action_type === activityMetric.value
-                    );
-                });
-
-                const statCards = computed(() => [
-                    {
-                        title: 'Total Users',
-                        value: stats.value.totalUsers,
-                        change: stats.value.usersChange,
-                        icon: 'users',
-                        iconColor: '#0284c7',
-                        iconBg: '#e0f2fe'
-                    },
-                    {
-                        title: 'Total Memos',
-                        value: stats.value.totalMemos,
-                        change: stats.value.memosChange,
-                        icon: 'file-text',
-                        iconColor: '#d97706',
-                        iconBg: '#fef3c7'
-                    },
-                    {
-                        title: 'Page Views',
-                        value: stats.value.pageViews,
-                        change: stats.value.viewsChange,
-                        icon: 'trending-up',
-                        iconColor: '#2563eb',
-                        iconBg: '#dbeafe'
-                    },
-                    {
-                        title: 'Active Users',
-                        value: stats.value.activeUsers,
-                        change: stats.value.activeChange,
-                        icon: 'activity',
-                        iconColor: '#059669',
-                        iconBg: '#d1fae5'
-                    }
-                ]);
-
-                // Methods
-                const refreshData = async () => {
-                    loading.value = true;
-                    try {
-                        const params = new URLSearchParams({
-                            days: dateRange.value,
-                            ...(showCustomRange.value && customDateRange.value.startDate && customDateRange.value.endDate && {
-                                startDate: customDateRange.value.startDate,
-                                endDate: customDateRange.value.endDate
-                            })
-                        });
-
-                        const response = await fetch(`/api/analytics/stats?${params}`, {
-                            credentials: 'same-origin'
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.success) {
-                                stats.value = { ...stats.value, ...data.stats };
-                                recentActivity.value = data.recentActivity || [];
-
-                                // Update charts if they exist
-                                if (window.updateCharts) {
-                                    window.updateCharts(data.chartData);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error refreshing data:', error);
-                        showNotification('Failed to refresh data', 'error');
-                    } finally {
-                        loading.value = false;
-                    }
-                };
-
-                const exportReport = async () => {
-                    try {
-                        const params = new URLSearchParams({
-                            days: dateRange.value,
-                            ...(showCustomRange.value && customDateRange.value.startDate && customDateRange.value.endDate && {
-                                startDate: customDateRange.value.startDate,
-                                endDate: customDateRange.value.endDate
-                            })
-                        });
-
-                        const response = await fetch(`/api/analytics/export?${params}`, {
-                            credentials: 'same-origin'
-                        });
-
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `analytics-report-${new Date().toISOString().split('T')[0]}.csv`;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                        }
-                    } catch (error) {
-                        console.error('Error exporting report:', error);
-                        showNotification('Failed to export report', 'error');
-                    }
-                };
-
-                const connectGoogleAnalytics = () => {
-                    // Open GA setup modal
-                    const modal = document.getElementById('gaSetupModal');
-                    if (modal) {
-                        modal.style.display = 'block';
-                    }
-                };
-
-                const checkGAConnection = async () => {
-                    gaLoading.value = true;
-                    try {
-                        const response = await fetch('/api/analytics/ga-status', {
-                            credentials: 'same-origin'
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            gaConnected.value = data.connected;
-                            gaStatusMessage.value = data.connected
-                                ? 'Connected to Google Analytics'
-                                : 'Google Analytics not connected';
-                        }
-                    } catch (error) {
-                        console.error('Error checking GA connection:', error);
-                        gaStatusMessage.value = 'Failed to check Google Analytics connection';
-                    } finally {
-                        gaLoading.value = false;
-                    }
-                };
-
-                const applyCustomDateRange = () => {
-                    if (customDateRange.value.startDate && customDateRange.value.endDate) {
-                        refreshData();
-                    }
-                };
-
-                const showNotification = (message, type = 'info') => {
-                    // Use SweetAlert2 for notifications
-                    if (window.Swal) {
-                        const Toast = Swal.mixin({
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000,
-                            timerProgressBar: true,
-                        });
-
-                        Toast.fire({
-                            icon: type,
-                            title: message
-                        });
-                    } else {
-                        console.log(`${type}: ${message}`);
-                    }
-                };
-
-                // Watchers
-                watch(dateRange, (newValue) => {
-                    if (newValue === 'custom') {
-                        showCustomRange.value = true;
-                    } else {
-                        showCustomRange.value = false;
-                        refreshData();
-                    }
-                });
-
-                // Lifecycle
-                onMounted(() => {
-                    lucide.createIcons();
-                    refreshData();
-                    checkGAConnection();
-
-                    // Load Google Charts
-                    google.charts.load('current', {'packages':['corechart', 'table', 'bar']});
-
-                    // Set up chart rendering when charts are ready
-                    google.charts.setOnLoadCallback(() => {
-                        if (window.initializeCharts) {
-                            window.initializeCharts();
-                        }
-                    });
-                });
-
-                return {
-                    // State
-                    stats,
-                    recentActivity: filteredActivity,
-                    loading,
-                    gaConnected,
-                    gaLoading,
-                    gaStatusMessage,
-                    dateRange,
-                    customDateRange,
-                    showCustomRange,
-                    activityMetric,
-                    // Computed
-                    statCards,
-                    // Methods
-                    refreshData,
-                    exportReport,
-                    connectGoogleAnalytics,
-                    applyCustomDateRange
-                };
-            }
-        });
-
-        app.mount('#app');
-    </script>
-
-    <!-- Vue App Container -->
-    <div id="app" class="dashboard-container">
+<body>
+    <div class="dashboard-container">
         <%- include('../../components/nav'); %>
 
         <!-- Main Content -->
@@ -429,11 +39,11 @@ data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
                             <p class="header-subtitle">Database statistics and Google Analytics insights</p>
                         </div>
                         <div class="header-actions">
-                            <button @click="refreshData" :disabled="loading" class="btn btn-secondary">
-                                <i data-lucide="refresh-cw" :class="{ 'spin': loading }"></i>
-                                <span>{{ loading ? 'Refreshing...' : 'Refresh Data' }}</span>
+                            <button id="refreshDataBtn" class="btn btn-secondary">
+                                <i data-lucide="refresh-cw"></i>
+                                <span>Refresh Data</span>
                             </button>
-                            <button @click="exportReport" class="btn btn-primary">
+                            <button id="exportReportBtn" class="btn btn-primary">
                                 <i data-lucide="download"></i>
                                 <span>Export Report</span>
                             </button>
@@ -444,42 +54,76 @@ data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
                     <div class="date-range-section">
                         <div class="date-range-controls">
                             <label for="dateRange">Time Period:</label>
-                            <select id="dateRange" v-model="dateRange" class="date-range-select">
+                            <select id="dateRange" class="date-range-select">
                                 <option value="7">Last 7 days</option>
                                 <option value="30" selected>Last 30 days</option>
                                 <option value="90">Last 90 days</option>
                                 <option value="365">Last year</option>
                                 <option value="custom">Custom Range</option>
                             </select>
-                            <div v-if="showCustomRange" class="custom-date-range">
-                                <input type="date" v-model="customDateRange.startDate" class="date-input">
+                            <div id="customDateRange" class="custom-date-range" style="display: none;">
+                                <input type="date" id="startDate" class="date-input">
                                 <span>to</span>
-                                <input type="date" v-model="customDateRange.endDate" class="date-input">
-                                <button @click="applyCustomDateRange" class="btn btn-primary btn-sm">Apply</button>
+                                <input type="date" id="endDate" class="date-input">
+                                <button id="applyDateRange" class="btn btn-primary btn-sm">Apply</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- Google Analytics Connection Status -->
-                    <connection-status
-                        :connected="gaConnected"
-                        :loading="gaLoading"
-                        :message="gaStatusMessage"
-                        @connect="connectGoogleAnalytics">
-                    </connection-status>
+                    <div id="gaConnectionStatus" class="connection-status">
+                        <div class="status-indicator">
+                            <div class="status-dot"></div>
+                            <span id="statusText">Connecting to Google Analytics...</span>
+                        </div>
+                        <button id="connectGABtn" class="btn btn-primary btn-sm" style="display: none;">
+                            <i data-lucide="link"></i>
+                            <span>Connect Google Analytics</span>
+                        </button>
+                    </div>
 
                     <!-- Stats Cards -->
                     <div class="stats-grid">
-                        <stat-card
-                            v-for="card in statCards"
-                            :key="card.title"
-                            :title="card.title"
-                            :value="card.value"
-                            :change="card.change"
-                            :icon="card.icon"
-                            :icon-color="card.iconColor"
-                            :icon-bg="card.iconBg">
-                        </stat-card>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #e0f2fe;">
+                                <i data-lucide="users" style="color: #0284c7;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalUsers">-</h3>
+                                <p>Total Users</p>
+                                <span class="stat-change positive" id="usersChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #fef3c7;">
+                                <i data-lucide="file-text" style="color: #d97706;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalMemos">-</h3>
+                                <p>Total Memos</p>
+                                <span class="stat-change" id="memosChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #dbeafe;">
+                                <i data-lucide="trending-up" style="color: #2563eb;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="pageViews">-</h3>
+                                <p>Page Views</p>
+                                <span class="stat-change positive" id="viewsChange">-</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #d1fae5;">
+                                <i data-lucide="activity" style="color: #059669;"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="activeUsers">-</h3>
+                                <p>Active Users</p>
+                                <span class="stat-change positive" id="activeChange">-</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Charts Section -->
@@ -487,7 +131,7 @@ data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
                         <div class="chart-container">
                             <div class="chart-header">
                                 <h2>User Activity Over Time</h2>
-                                <select v-model="activityMetric" class="metric-select">
+                                <select id="activityMetric" class="metric-select">
                                     <option value="all">All Activities</option>
                                     <option value="user_activity">User Activities</option>
                                     <option value="system_notification">System Notifications</option>
@@ -540,19 +184,10 @@ data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <tr v-if="loading">
+                                    <tbody id="activityTableBody">
+                                        <tr>
                                             <td colspan="5" class="loading-state">Loading data...</td>
                                         </tr>
-                                        <tr v-else-if="recentActivity.length === 0">
-                                            <td colspan="5" class="empty-state">No activity found</td>
-                                        </tr>
-                                        <activity-row
-                                            v-else
-                                            v-for="activity in recentActivity"
-                                            :key="activity.id"
-                                            :activity="activity">
-                                        </activity-row>
                                     </tbody>
                                 </table>
                             </div>
@@ -612,19 +247,11 @@ data-initial-activity='<%- JSON.stringify(recentActivity || []) %>'>
         // Initialize Lucide icons
         lucide.createIcons();
 
-        // Add spin animation for refresh button
-        const style = document.createElement('style');
-        style.textContent = `
-            .spin {
-                animation: spin 1s linear infinite;
-            }
-            @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
+        // Load Google Charts
+        google.charts.load('current', {'packages':['corechart', 'table', 'bar']});
     </script>
     <script src="/js/freezeZoom.js"></script>
 </body>
+
 </html>
+
