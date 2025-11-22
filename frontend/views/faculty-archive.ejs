@@ -15,10 +15,20 @@
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
     <script src="/js/lucide.min.js"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 
-<body>
-    <div class="dashboard-container">
+<body
+    data-current-user='<%- JSON.stringify({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        department: user.department || ""
+    }) %>'
+    data-archived-memos='<%- JSON.stringify(archivedMemos || []) %>'>
+
+    <div id="app" class="dashboard-container">
         <%- include('../components/fal-nav'); %>
 
         <main class="main-content">
@@ -26,7 +36,6 @@
 
             <div class="dashboard-content">
                 <div class="log-layout">
-
                     <!-- Archive Memo List Area -->
                     <section class="memo-list-area" style="flex:1 1 auto;">
                         <div class="memo-container">
@@ -36,13 +45,13 @@
                                     <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Received Memos</h2>
                                 </div>
                                 <div class="header-controls">
-                                    <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
+                                    <button @click="refreshArchive" class="icon-btn-sm" title="Refresh">
                                         <i data-lucide="rotate-cw"></i>
                                     </button>
                                 </div>
                                 <div class="department-filters">
                                     <div class="priority-dropdown-wrapper">
-                                        <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                        <select v-model="filters.priority" class="priority-filter-dropdown">
                                             <option value="all">All Priorities</option>
                                             <option value="urgent">🔴 Urgent</option>
                                             <option value="high">🟠 High</option>
@@ -51,7 +60,7 @@
                                         </select>
                                     </div>
                                     <div class="sort-dropdown-wrapper">
-                                        <select id="sortDropdown" class="sort-dropdown">
+                                        <select v-model="filters.sortBy" class="sort-dropdown">
                                             <option value="newest">Newest</option>
                                             <option value="oldest">Oldest</option>
                                             <option value="priority">Priority</option>
@@ -62,45 +71,128 @@
                             </div>
 
                             <div class="memo-list-container">
-                                <div id="archiveList" class="memo-list"></div>
+                                <div class="memo-list">
+                                    <div v-if="filteredMemos.length === 0" class="memo-item">
+                                        <i data-lucide="archive" class="memo-icon"></i>
+                                        <div class="memo-info">
+                                            <h4>No archived memos</h4>
+                                            <p>Archived received memos will appear here</p>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        v-for="(memo, index) in filteredMemos"
+                                        :key="memo._id"
+                                        class="memo-item archived-item"
+                                        @click="openMemo(memo)"
+                                    >
+                                        <img
+                                            :src="getAvatar(memo.sender)"
+                                            :alt="getSenderName(memo.sender)"
+                                            class="memo-avatar"
+                                            @error="handleAvatarError"
+                                        >
+                                        <div class="memo-sender-info">
+                                            <div class="memo-sender-name">From: {{ getSenderName(memo.sender) }}</div>
+                                            <div class="memo-sender-email">{{ memo.sender?.email || '' }}</div>
+                                        </div>
+                                        <div class="memo-item-actions">
+                                            <span :class="getPriorityClass(memo.priority)" :title="memo.priority">
+                                                {{ getPriorityBadge(memo.priority) }}
+                                            </span>
+                                        </div>
+                                        <div class="memo-subject">{{ memo.subject || '' }}</div>
+                                        <div class="memo-date">{{ formatDate(memo.createdAt) }}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
 
                     <!-- Viewer Area -->
-                    <section id="memoViewerArea" class="memo-viewer-area">
-                        <div id="emptyState" class="empty-state-view">
+                    <section
+                        class="memo-viewer-area"
+                        :style="{ display: viewerVisible ? 'block' : 'none', flex: viewerVisible ? '0 0 55%' : 'none' }"
+                    >
+                        <div v-if="!currentMemo" class="empty-state-view">
                             <i data-lucide="archive"></i>
                             <p>Select a memo to view</p>
                         </div>
-                        <div id="memoViewer" class="memo-viewer">
+
+                        <div v-else class="memo-viewer">
                             <div class="viewer-header">
-                                <button id="backBtn" class="icon-btn"><i data-lucide="arrow-left"></i></button>
+                                <button @click="closeViewer" class="icon-btn">
+                                    <i data-lucide="arrow-left"></i>
+                                </button>
                                 <div class="nav-buttons">
-                                    <button id="prevBtn" class="icon-btn"><i data-lucide="chevron-left"></i></button>
-                                    <span id="memoCounter" class="memo-counter">0 of 0</span>
-                                    <button id="nextBtn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
+                                    <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0">
+                                        <i data-lucide="chevron-left"></i>
+                                    </button>
+                                    <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
+                                    <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1">
+                                        <i data-lucide="chevron-right"></i>
+                                    </button>
                                 </div>
                                 <div class="viewer-actions">
-                                    <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
-                                    <button id="unarchiveBtn" class="icon-btn" title="Unarchive Memo"><i data-lucide="archive-restore"></i></button>
-                                    <button id="downloadBtn" class="icon-btn" title="Download Memo"><i data-lucide="download"></i></button>
+                                    <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
+                                        <i data-lucide="bookmark"></i>
+                                    </button>
+                                    <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
+                                        <i data-lucide="archive-restore"></i>
+                                    </button>
+                                    <button @click="downloadMemo" class="icon-btn" title="Download Memo">
+                                        <i data-lucide="download"></i>
+                                    </button>
                                 </div>
                             </div>
+
                             <div class="memo-content">
                                 <div class="memo-pdf-header">
                                     <h1 class="memo-title">MEMO</h1>
                                     <div class="memo-details">
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span id="memoDetailSubject" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span id="memoDetailFrom" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span id="memoDetailTo" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span id="memoDetailDepartment" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span id="memoDetailPriority" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span id="memoDetailDate" class="memo-detail-value"></span></div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">Subject:</span>
+                                            <span class="memo-detail-value">{{ currentMemo.subject || '(No subject)' }}</span>
+                                        </div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">From:</span>
+                                            <span class="memo-detail-value">
+                                                {{ getSenderName(currentMemo.sender) }} ({{ currentMemo.sender?.email || '' }})
+                                            </span>
+                                        </div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">To:</span>
+                                            <span class="memo-detail-value">
+                                                {{ getRecipientName(currentMemo.recipient) }} ({{ currentMemo.recipient?.email || '' }})
+                                            </span>
+                                        </div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">Department:</span>
+                                            <span class="memo-detail-value">{{ currentMemo.department || 'N/A' }}</span>
+                                        </div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">Priority:</span>
+                                            <span class="memo-detail-value">{{ currentMemo.priority || 'medium' }}</span>
+                                        </div>
+                                        <div class="memo-detail-row">
+                                            <span class="memo-detail-label">Date:</span>
+                                            <span class="memo-detail-value">{{ formatDateTime(currentMemo.createdAt) }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div id="memoBodyContent" class="memo-body-content"></div>
-                                <div id="attachments" class="attachments-section"></div>
+
+                                <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
+
+                                <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="attachments-section">
+                                    <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
+                                    <div v-for="attachment in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
+                                        <a :href="attachment.url || attachment.path" target="_blank"
+                                           style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                            <span>{{ attachment.filename || 'Attachment' }}</span>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -110,280 +202,212 @@
     </div>
 
     <script>
-        window.currentUser = {
-            id: '<%= user._id %>',
-            email: '<%= user.email %>',
-            role: '<%= user.role %>',
-            department: '<%= user.department || "" %>'
-        };
+        const { createApp } = Vue;
 
-        window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
-    </script>
-    <script src="/js/log.js"></script>
-    <script src="/js/log-viewer.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const archiveList = document.getElementById('archiveList');
-            const refreshBtn = document.getElementById('refreshBtn');
-            const priorityFilter = document.getElementById('priorityFilterDropdown');
-            const sortDropdown = document.getElementById('sortDropdown');
-            const unarchiveBtn = document.getElementById('unarchiveBtn');
-            const backBtn = document.getElementById('backBtn');
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-            const starBtn = document.getElementById('starBtn');
-            const downloadBtn = document.getElementById('downloadBtn');
-            const memoViewerArea = document.getElementById('memoViewerArea');
-            const emptyState = document.getElementById('emptyState');
-            const memoViewer = document.getElementById('memoViewer');
-            const memoCounter = document.getElementById('memoCounter');
+        createApp({
+            data() {
+                return {
+                    archivedMemos: [],
+                    currentMemo: null,
+                    currentMemoIndex: -1,
+                    viewerVisible: false,
+                    filters: {
+                        priority: 'all',
+                        sortBy: 'newest'
+                    }
+                };
+            },
+            computed: {
+                filteredMemos() {
+                    let memos = [...this.archivedMemos];
 
-            let filteredMemos = [...(window.archivedMemos || [])];
-            let currentMemoIndex = -1;
-            let currentMemoId = null;
+                    if (this.filters.priority !== 'all') {
+                        memos = memos.filter(memo => (memo.priority || '').toLowerCase() === this.filters.priority);
+                    }
 
-            // Render archived memos
-            function renderArchiveList() {
-                if (!archiveList) return;
+                    memos.sort((a, b) => {
+                        switch (this.filters.sortBy) {
+                            case 'newest':
+                                return new Date(b.createdAt) - new Date(a.createdAt);
+                            case 'oldest':
+                                return new Date(a.createdAt) - new Date(b.createdAt);
+                            case 'priority':
+                                const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+                                return (priorityOrder[(b.priority || '').toLowerCase()] || 0) -
+                                       (priorityOrder[(a.priority || '').toLowerCase()] || 0);
+                            case 'subject':
+                                return (a.subject || '').localeCompare(b.subject || '');
+                            default:
+                                return 0;
+                        }
+                    });
 
-                if (filteredMemos.length === 0) {
-                    archiveList.innerHTML = `
-                        <div class="memo-item">
-                            <i data-lucide="archive" class="memo-icon"></i>
-                            <div class="memo-info">
-                                <h4>No archived memos</h4>
-                                <p>Archived received memos will appear here</p>
-                            </div>
-                        </div>`;
+                    return memos;
+                }
+            },
+            mounted() {
+                this.loadInitialData();
+                this.refreshLucideIcons();
+            },
+            methods: {
+                loadInitialData() {
+                    try {
+                        const memoData = document.body.getAttribute('data-archived-memos');
+                        if (memoData) {
+                            this.archivedMemos = JSON.parse(memoData);
+                        }
+                    } catch (error) {
+                        console.error('Error parsing archived memo data:', error);
+                    }
+                },
+
+                refreshLucideIcons() {
                     if (typeof lucide !== 'undefined') {
                         lucide.createIcons();
                     }
-                    return;
-                }
+                },
 
-                archiveList.innerHTML = filteredMemos.map((memo, idx) => {
-                    const senderName = ((memo.sender?.firstName || '') + ' ' + (memo.sender?.lastName || '')).trim();
-                    const senderEmail = memo.sender?.email || '';
-                    const realAvatar = memo.sender?.profilePicture;
-                    const avatarSrc = realAvatar || '/images/memofy-logo.png';
-                    const dateStr = new Date(memo.createdAt).toLocaleDateString();
-                    const pr = (memo.priority || '').toLowerCase();
-                    let badge = '';
-                    if (pr === 'urgent') badge = '<span class="priority-badge priority-urgent" title="Urgent">🔴 URGENT</span>';
-                    else if (pr === 'high') badge = '<span class="priority-badge priority-high" title="High">🟠 HIGH</span>';
-                    else if (pr === 'medium') badge = '<span class="priority-badge priority-medium" title="Medium">🟡 MEDIUM</span>';
-                    else if (pr === 'low') badge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
-
-                    const hasAvatar = realAvatar ? '1' : '0';
-                    return '<div class="memo-item archived-item" data-index="' + idx + '" data-id="' + memo._id + '">' +
-                        '<img src="' + avatarSrc + '" alt="' + senderName + '" class="memo-avatar" data-has-avatar="' + hasAvatar + '">' +
-                        '<div class="memo-sender-info">' +
-                        '<div class="memo-sender-name">From: ' + (senderName || 'Unknown') + '</div>' +
-                        '<div class="memo-sender-email">' + senderEmail + '</div>' +
-                        '</div>' +
-                        '<div class="memo-item-actions">' + badge + '</div>' +
-                        '<div class="memo-subject">' + (memo.subject || '') + '</div>' +
-                        '<div class="memo-date">' + dateStr + '</div>' +
-                        '</div>';
-                }).join('');
-
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-
-                // Add click handlers
-                archiveList.querySelectorAll('.archived-item').forEach(el => {
-                    el.addEventListener('click', async () => {
-                        const id = el.getAttribute('data-id');
-                        if (id) {
-                            try {
-                                const res = await fetch('/api/log/memos/' + id);
-                                const data = await res.json();
-                                if (data && data.success && data.memo) {
-                                    openMemo(data.memo);
-                                    return;
-                                }
-                            } catch (e) { /* fallback below */ }
-                        }
-                        const idx = Number(el.getAttribute('data-index'));
-                        const fallback = filteredMemos[idx];
-                        if (fallback) openMemo(fallback);
-                    });
-                });
-
-                // Lazy-load avatars
-                archiveList.querySelectorAll('img.memo-avatar[data-has-avatar="0"]').forEach(img => {
-                    img.addEventListener('error', function() {
-                        this.src = '/images/memofy-logo.png';
-                    });
-                });
-            }
-
-            // Open memo in viewer
-            function openMemo(memo) {
-                if (!memo) return;
-                currentMemoId = memo._id;
-                currentMemoIndex = filteredMemos.findIndex(m => m._id === memo._id);
-
-                const subjectEl = document.getElementById('memoDetailSubject');
-                const fromEl = document.getElementById('memoDetailFrom');
-                const toEl = document.getElementById('memoDetailTo');
-                const deptEl = document.getElementById('memoDetailDepartment');
-                const prioEl = document.getElementById('memoDetailPriority');
-                const dateEl = document.getElementById('memoDetailDate');
-                const contentEl = document.getElementById('memoBodyContent');
-                const attachmentsEl = document.getElementById('attachments');
-
-                if (subjectEl) subjectEl.textContent = memo.subject || '(No subject)';
-                const senderName = ((memo.sender?.firstName || '') + ' ' + (memo.sender?.lastName || '')).trim();
-                if (fromEl) fromEl.textContent = (senderName || 'Unknown') + ' (' + (memo.sender?.email || '') + ')';
-                const recipName = ((memo.recipient?.firstName || '') + ' ' + (memo.recipient?.lastName || '')).trim();
-                if (toEl) toEl.textContent = (recipName || 'Unknown') + ' (' + (memo.recipient?.email || '') + ')';
-                if (deptEl) deptEl.textContent = memo.department || 'N/A';
-                if (prioEl) prioEl.textContent = memo.priority || 'medium';
-                if (dateEl) dateEl.textContent = new Date(memo.createdAt).toLocaleString();
-                if (contentEl) {
-                    if (memo.htmlContent) {
-                        contentEl.innerHTML = memo.htmlContent;
-                    } else {
-                        const safeContent = (memo.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        contentEl.innerHTML = '<div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">' + safeContent + '</div>';
-                    }
-                }
-
-                // Render attachments
-                if (attachmentsEl && memo.attachments && memo.attachments.length > 0) {
-                    attachmentsEl.innerHTML = '<h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>' +
-                        memo.attachments.map(att => {
-                            const url = att.url || att.path || '';
-                            return `<div style="margin: 8px 0;">
-                                <a href="${url}" target="_blank" style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                                    <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
-                                    <span>${att.filename || 'Attachment'}</span>
-                                </a>
-                            </div>`;
-                        }).join('');
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
-                } else if (attachmentsEl) {
-                    attachmentsEl.innerHTML = '';
-                }
-
-                if (memoCounter) {
-                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
-                }
-
-                if (emptyState) emptyState.style.display = 'none';
-                if (memoViewer) memoViewer.style.display = 'block';
-                if (memoViewerArea) {
-                    memoViewerArea.style.display = 'block';
-                    memoViewerArea.style.flex = '0 0 55%';
-                }
-            }
-
-            // Unarchive memo
-            async function unarchiveMemo(memoId) {
-                if (!memoId) return;
-                try {
-                    const response = await fetch('/api/log/memos/' + memoId, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({ status: 'sent' })
-                    });
-                    const data = await response.json();
-                    if (data && data.success) {
-                        // Remove from list
-                        filteredMemos = filteredMemos.filter(m => m._id !== memoId);
-                        window.archivedMemos = window.archivedMemos.filter(m => m._id !== memoId);
-                        renderArchiveList();
-                        if (emptyState) emptyState.style.display = 'block';
-                        if (memoViewer) memoViewer.style.display = 'none';
-                        if (typeof showNotification === 'function') {
-                            showNotification('Memo unarchived successfully', 'success');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error unarchiving memo:', error);
-                }
-            }
-
-            // Event listeners
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', async () => {
+                refreshArchive() {
                     window.location.reload();
-                });
-            }
+                },
 
-            if (unarchiveBtn) {
-                unarchiveBtn.addEventListener('click', () => {
-                    if (currentMemoId) {
-                        unarchiveMemo(currentMemoId);
+                getSenderName(sender) {
+                    if (!sender) return 'Unknown';
+                    return `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || 'Unknown';
+                },
+
+                getRecipientName(recipient) {
+                    if (!recipient) return 'Unknown';
+                    return `${recipient.firstName || ''} ${recipient.lastName || ''}`.trim() || 'Unknown';
+                },
+
+                getAvatar(sender) {
+                    return sender?.profilePicture || '/images/memofy-logo.png';
+                },
+
+                handleAvatarError(event) {
+                    event.target.src = '/images/memofy-logo.png';
+                },
+
+                getPriorityBadge(priority) {
+                    const pr = (priority || '').toLowerCase();
+                    switch (pr) {
+                        case 'urgent': return '🔴 URGENT';
+                        case 'high': return '🟠 HIGH';
+                        case 'medium': return '🟡 MEDIUM';
+                        case 'low': return '🔵 LOW';
+                        default: return '';
                     }
-                });
-            }
+                },
 
-            if (backBtn) {
-                backBtn.addEventListener('click', () => {
-                    if (emptyState) emptyState.style.display = 'block';
-                    if (memoViewer) memoViewer.style.display = 'none';
-                    if (memoViewerArea) memoViewerArea.style.display = 'none';
-                });
-            }
+                getPriorityClass(priority) {
+                    const pr = (priority || '').toLowerCase();
+                    return `priority-badge priority-${pr}`;
+                },
 
-            if (prevBtn) {
-                prevBtn.addEventListener('click', () => {
-                    if (currentMemoIndex > 0) {
-                        currentMemoIndex--;
-                        openMemo(filteredMemos[currentMemoIndex]);
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString();
+                },
+
+                formatDateTime(dateString) {
+                    return new Date(dateString).toLocaleString();
+                },
+
+                getMemoContent(memo) {
+                    if (memo.htmlContent) {
+                        return memo.htmlContent;
                     }
-                });
-            }
 
-            if (nextBtn) {
-                nextBtn.addEventListener('click', () => {
-                    if (currentMemoIndex < filteredMemos.length - 1) {
-                        currentMemoIndex++;
-                        openMemo(filteredMemos[currentMemoIndex]);
-                    }
-                });
-            }
+                    const safeContent = (memo.content || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    return `<div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">${safeContent}</div>`;
+                },
 
-            // Apply filters
-            if (priorityFilter) {
-                priorityFilter.addEventListener('change', () => {
-                    const priority = priorityFilter.value;
-                    if (priority === 'all') {
-                        filteredMemos = [...(window.archivedMemos || [])];
-                    } else {
-                        filteredMemos = (window.archivedMemos || []).filter(m => (m.priority || '').toLowerCase() === priority);
-                    }
-                    renderArchiveList();
-                });
-            }
+                async openMemo(memo) {
+                    if (!memo) return;
 
-            if (sortDropdown) {
-                sortDropdown.addEventListener('change', () => {
-                    const sort = sortDropdown.value;
-                    filteredMemos.sort((a, b) => {
-                        if (sort === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
-                        if (sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-                        if (sort === 'priority') {
-                            const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-                            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+                    try {
+                        const response = await fetch(`/api/log/memos/${memo._id}`);
+                        const data = await response.json();
+
+                        if (data && data.success && data.memo) {
+                            this.currentMemo = data.memo;
+                        } else {
+                            this.currentMemo = memo;
                         }
-                        if (sort === 'subject') return (a.subject || '').localeCompare(b.subject || '');
-                        return 0;
-                    });
-                    renderArchiveList();
-                });
-            }
+                    } catch (error) {
+                        console.error('Error fetching memo details:', error);
+                        this.currentMemo = memo;
+                    }
 
-            // Initial render
-            renderArchiveList();
-            lucide.createIcons();
-        });
+                    this.currentMemoIndex = this.filteredMemos.findIndex(m => m._id === memo._id);
+                    this.viewerVisible = true;
+                    this.$nextTick(() => this.refreshLucideIcons());
+                },
+
+                closeViewer() {
+                    this.currentMemo = null;
+                    this.currentMemoIndex = -1;
+                    this.viewerVisible = false;
+                },
+
+                prevMemo() {
+                    if (this.currentMemoIndex > 0) {
+                        this.currentMemoIndex--;
+                        this.currentMemo = this.filteredMemos[this.currentMemoIndex];
+                        this.$nextTick(() => this.refreshLucideIcons());
+                    }
+                },
+
+                nextMemo() {
+                    if (this.currentMemoIndex < this.filteredMemos.length - 1) {
+                        this.currentMemoIndex++;
+                        this.currentMemo = this.filteredMemos[this.currentMemoIndex];
+                        this.$nextTick(() => this.refreshLucideIcons());
+                    }
+                },
+
+                async unarchiveCurrentMemo() {
+                    if (!this.currentMemo) return;
+
+                    try {
+                        const response = await fetch(`/api/log/memos/${this.currentMemo._id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ status: 'sent' })
+                        });
+
+                        const data = await response.json();
+                        if (data && data.success) {
+                            this.archivedMemos = this.archivedMemos.filter(m => m._id !== this.currentMemo._id);
+                            this.closeViewer();
+
+                            if (typeof showNotification === 'function') {
+                                showNotification('Memo unarchived successfully', 'success');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error unarchiving memo:', error);
+                    }
+                },
+
+                toggleFavorite() {
+                    console.log('Toggle favorite', this.currentMemo?._id);
+                },
+
+                downloadMemo() {
+                    console.log('Download memo', this.currentMemo?._id);
+                }
+            },
+            watch: {
+                filteredMemos() {
+                    this.$nextTick(() => this.refreshLucideIcons());
+                }
+            }
+        }).mount('#app');
     </script>
 </body>
 </html>

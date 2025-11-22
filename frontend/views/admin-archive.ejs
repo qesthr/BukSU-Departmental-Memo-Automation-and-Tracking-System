@@ -11,14 +11,582 @@
     <link rel="stylesheet" href="/css/user-management.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
     <script src="/js/lucide.min.js"></script>
 </head>
 
-<body>
-    <div class="dashboard-container">
+<body data-current-user='<%- JSON.stringify({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        department: user.department || "",
+        canCrossSend: !!user.canCrossSend
+    }) %>'
+    data-archived-items='<%- JSON.stringify({
+        memos: archivedMemos || [],
+        events: archivedEvents || [],
+        signatures: archivedSignatures || []
+    }) %>'>
+
+    <!-- Vue Components -->
+    <script>
+        // Archive Item Component
+        const ArchiveItem = {
+            props: {
+                item: Object,
+                index: Number,
+                selected: Boolean
+            },
+            emits: ['select'],
+            computed: {
+                itemType() {
+                    return this.item.type;
+                },
+                itemIcon() {
+                    const icons = {
+                        memo: 'file-text',
+                        event: 'calendar',
+                        signature: 'pen-tool'
+                    };
+                    return icons[this.itemType] || 'archive';
+                },
+                itemIconColor() {
+                    const colors = {
+                        memo: '#6366f1',
+                        event: '#8b5cf6',
+                        signature: '#f59e0b'
+                    };
+                    return colors[this.itemType] || '#6b7280';
+                },
+                itemTitle() {
+                    if (this.itemType === 'memo') {
+                        return this.item.subject || '(No subject)';
+                    } else if (this.itemType === 'event') {
+                        return this.item.title || 'Untitled Event';
+                    } else if (this.itemType === 'signature') {
+                        return this.item.displayName || 'Signature';
+                    }
+                    return 'Unknown Item';
+                },
+                itemSubtitle() {
+                    if (this.itemType === 'memo') {
+                        const recipientName = ((this.item.recipient?.firstName || '') + ' ' + (this.item.recipient?.lastName || '')).trim();
+                        return `To: ${recipientName || 'Unknown'}`;
+                    } else if (this.itemType === 'event') {
+                        const dateStr = new Date(this.item.start).toLocaleDateString();
+                        const startTime = new Date(this.item.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        const endTime = new Date(this.item.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        return `${dateStr} • ${startTime} - ${endTime}`;
+                    } else if (this.itemType === 'signature') {
+                        return this.item.roleTitle || 'Signature';
+                    }
+                    return '';
+                },
+                itemDate() {
+                    const date = new Date(this.item.updatedAt || this.item.createdAt);
+                    return date.toLocaleDateString();
+                },
+                priorityBadge() {
+                    if (this.itemType === 'memo') {
+                        const pr = (this.item.priority || '').toLowerCase();
+                        const badges = {
+                            urgent: { text: '🔴 URGENT', class: 'priority-urgent' },
+                            high: { text: '🟠 HIGH', class: 'priority-high' },
+                            medium: { text: '🟡 MEDIUM', class: 'priority-medium' },
+                            low: { text: '🔵 LOW', class: 'priority-low' }
+                        };
+                        return badges[pr] || null;
+                    } else if (this.itemType === 'event') {
+                        const category = this.item.category || 'standard';
+                        const badges = {
+                            urgent: { text: '🔴 URGENT', class: 'priority-urgent' },
+                            high: { text: '🟠 HIGH', class: 'priority-high' },
+                            meeting: { text: '🟣 MEETING', class: 'priority-high' },
+                            deadline: { text: '⏰ DEADLINE', class: 'priority-urgent' },
+                            reminder: { text: '🔔 REMINDER', class: 'priority-medium' },
+                            low: { text: '🔵 LOW', class: 'priority-low' },
+                            standard: { text: '🟢 STANDARD', class: 'priority-medium' }
+                        };
+                        return badges[category] || badges.standard;
+                    }
+                    return null;
+                },
+                hasAvatar() {
+                    return this.itemType === 'memo' && this.item.recipient?.profilePicture;
+                },
+                avatarSrc() {
+                    return this.item.recipient?.profilePicture || '/images/memofy-logo.png';
+                }
+            },
+            methods: {
+                handleClick() {
+                    this.$emit('select', this.item, this.index);
+                },
+                handleAvatarError(event) {
+                    event.target.src = '/images/memofy-logo.png';
+                }
+            },
+            template: `
+                <div
+                    :class="['memo-item', 'archived-item', 'archived-' + itemType, { selected }]"
+                    @click="handleClick">
+
+                    <!-- Avatar/Icon -->
+                    <template v-if="itemType === 'memo' && hasAvatar">
+                        <img
+                            :src="avatarSrc"
+                            :alt="itemSubtitle"
+                            class="memo-avatar"
+                            @error="handleAvatarError">
+                    </template>
+                    <template v-else>
+                        <i :data-lucide="itemIcon" class="memo-icon" :style="{ color: itemIconColor, width: '40px', height: '40px' }"></i>
+                    </template>
+
+                    <!-- Content -->
+                    <div class="memo-sender-info">
+                        <div class="memo-sender-name">
+                            <template v-if="itemType === 'memo'">📄 Memo</template>
+                            <template v-else-if="itemType === 'event'">📅 Calendar Event</template>
+                            <template v-else-if="itemType === 'signature'">✍️ Signature</template>
+                        </div>
+                        <div class="memo-sender-email">{{ itemSubtitle }}</div>
+                    </div>
+
+                    <!-- Priority Badge -->
+                    <div class="memo-item-actions" v-if="priorityBadge">
+                        <span :class="['priority-badge', priorityBadge.class]" :title="priorityBadge.text.replace(/[🔴🟠🟡🔵🟣🔔⏰]/g, '')">
+                            {{ priorityBadge.text }}
+                        </span>
+                    </div>
+
+                    <!-- Subject/Title -->
+                    <div class="memo-subject">{{ itemTitle }}</div>
+
+                    <!-- Date -->
+                    <div class="memo-date">Archived: {{ itemDate }}</div>
+                </div>
+            `,
+            mounted() {
+                lucide.createIcons();
+            }
+        };
+
+        // Archive Viewer Component
+        const ArchiveViewer = {
+            props: {
+                item: Object,
+                currentIndex: Number,
+                totalItems: Number
+            },
+            emits: ['close', 'navigate', 'unarchive'],
+            computed: {
+                itemType() {
+                    return this.item?.type;
+                },
+                formattedDate() {
+                    if (!this.item) return '';
+                    const date = new Date(this.item.updatedAt || this.item.createdAt);
+                    return date.toLocaleString();
+                },
+                canNavigate() {
+                    return this.totalItems > 1;
+                }
+            },
+            methods: {
+                handleBack() {
+                    this.$emit('close');
+                },
+                handlePrev() {
+                    this.$emit('navigate', -1);
+                },
+                handleNext() {
+                    this.$emit('navigate', 1);
+                },
+                handleUnarchive() {
+                    this.$emit('unarchive', this.item);
+                }
+            },
+            template: `
+                <div class="memo-viewer">
+                    <div class="viewer-header">
+                        <button @click="handleBack" class="icon-btn">
+                            <i data-lucide="arrow-left"></i>
+                        </button>
+                        <div class="nav-buttons" v-if="canNavigate">
+                            <button @click="handlePrev" class="icon-btn" :disabled="currentIndex <= 0">
+                                <i data-lucide="chevron-left"></i>
+                            </button>
+                            <span class="memo-counter">{{ currentIndex + 1 }} of {{ totalItems }}</span>
+                            <button @click="handleNext" class="icon-btn" :disabled="currentIndex >= totalItems - 1">
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="viewer-actions">
+                            <button @click="handleUnarchive" class="icon-btn" title="Unarchive">
+                                <i data-lucide="archive-restore"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="memo-content">
+                        <div class="memo-pdf-header">
+                            <h1 class="memo-title">
+                                <template v-if="itemType === 'memo'">MEMO</template>
+                                <template v-else-if="itemType === 'event'">CALENDAR EVENT</template>
+                                <template v-else-if="itemType === 'signature'">SIGNATURE</template>
+                            </h1>
+                            <div class="memo-details">
+                                <!-- Memo Details -->
+                                <template v-if="itemType === 'memo'">
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span class="memo-detail-value">{{ item.subject || '(No subject)' }}</span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span class="memo-detail-value">
+                                        {{ (item.sender?.firstName + ' ' + (item.sender?.lastName || '')).trim() || 'Unknown' }} ({{ item.sender?.email || '' }})
+                                    </span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span class="memo-detail-value">
+                                        {{ (item.recipient?.firstName + ' ' + (item.recipient?.lastName || '')).trim() || 'Unknown' }} ({{ item.recipient?.email || '' }})
+                                    </span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span class="memo-detail-value">{{ item.department || 'N/A' }}</span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span class="memo-detail-value">{{ item.priority || 'medium' }}</span></div>
+                                </template>
+
+                                <!-- Event Details -->
+                                <template v-else-if="itemType === 'event'">
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Title:</span><span class="memo-detail-value">{{ item.title || '(No title)' }}</span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Created By:</span><span class="memo-detail-value">
+                                        {{ (item.createdBy?.firstName + ' ' + (item.createdBy?.lastName || '')).trim() || 'Unknown' }} ({{ item.createdBy?.email || '' }})
+                                    </span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span class="memo-detail-value">
+                                        {{ new Date(item.start).toLocaleDateString() }} • {{ new Date(item.start).toLocaleTimeString() }} - {{ new Date(item.end).toLocaleTimeString() }}
+                                    </span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Category:</span><span class="memo-detail-value">{{ item.category || 'standard' }}</span></div>
+                                </template>
+
+                                <!-- Signature Details -->
+                                <template v-else-if="itemType === 'signature'">
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Name:</span><span class="memo-detail-value">{{ item.displayName || '(No name)' }}</span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Title:</span><span class="memo-detail-value">{{ item.roleTitle || 'N/A' }}</span></div>
+                                    <div class="memo-detail-row"><span class="memo-detail-label">Created By:</span><span class="memo-detail-value">
+                                        {{ (item.createdBy?.firstName + ' ' + (item.createdBy?.lastName || '')).trim() || 'Unknown' }} ({{ item.createdBy?.email || '' }})
+                                    </span></div>
+                                </template>
+
+                                <div class="memo-detail-row"><span class="memo-detail-label">Archived:</span><span class="memo-detail-value">{{ formattedDate }}</span></div>
+                            </div>
+                            <div class="memo-separator"></div>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="memo-body-content">
+                            <template v-if="itemType === 'memo'">
+                                <div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">
+                                    {{ item.content || '(No content)' }}
+                                </div>
+                            </template>
+
+                            <template v-else-if="itemType === 'event'">
+                                <div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">
+                                    {{ item.description || '(No description)' }}
+                                </div>
+                            </template>
+
+                            <template v-else-if="itemType === 'signature'">
+                                <div style="text-align: center; padding: 2rem;">
+                                    <img
+                                        :src="item.imageUrl || '/images/placeholder.png'"
+                                        :alt="item.displayName"
+                                        style="max-width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; background: #fff;"
+                                        @error="$event.target.src='/images/placeholder.png'">
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            `,
+            mounted() {
+                lucide.createIcons();
+            }
+        };
+
+        // Empty State Component
+        const EmptyState = {
+            props: ['message'],
+            template: `
+                <div class="empty-state-view">
+                    <i data-lucide="archive"></i>
+                    <p>{{ message || 'Select an item to view' }}</p>
+                </div>
+            `,
+            mounted() {
+                lucide.createIcons();
+            }
+        };
+    </script>
+
+    <!-- Main Vue App -->
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue;
+
+        const app = createApp({
+            components: {
+                ArchiveItem,
+                ArchiveViewer,
+                EmptyState
+            },
+            setup() {
+                // Reactive state
+                const currentUser = ref({});
+                const archivedItems = ref([]);
+                const filteredItems = ref([]);
+                const currentItem = ref(null);
+                const currentIndex = ref(-1);
+                const loading = ref(false);
+
+                // Filters
+                const archiveTypeFilter = ref('all');
+                const priorityFilter = ref('all');
+                const sortBy = ref('newest');
+
+                // Initialize from data attributes
+                try {
+                    const userData = document.body.getAttribute('data-current-user');
+                    const archiveData = document.body.getAttribute('data-archived-items');
+
+                    if (userData) {
+                        currentUser.value = JSON.parse(userData);
+                    }
+                    if (archiveData) {
+                        const data = JSON.parse(archiveData);
+                        // Combine all archived items with their types
+                        archivedItems.value = [
+                            ...(data.memos || []).map(m => ({ ...m, type: 'memo' })),
+                            ...(data.events || []).map(e => ({ ...e, type: 'event' })),
+                            ...(data.signatures || []).map(s => ({ ...s, type: 'signature' }))
+                        ];
+
+                        // Sort by newest first
+                        sortItems('newest');
+                        filteredItems.value = [...archivedItems.value];
+                    }
+                } catch (err) {
+                    console.error('Error parsing archive data:', err);
+                }
+
+                // Computed properties
+                const totalItems = computed(() => filteredItems.value.length);
+                const showViewer = computed(() => currentItem.value !== null);
+
+                // Filter and sort items
+                watch([archiveTypeFilter, priorityFilter, sortBy], () => {
+                    applyFilters();
+                });
+
+                const applyFilters = () => {
+                    let result = [...archivedItems.value];
+
+                    // Apply type filter
+                    if (archiveTypeFilter.value !== 'all') {
+                        result = result.filter(item => item.type === archiveTypeFilter.value);
+                    }
+
+                    // Apply priority filter
+                    if (priorityFilter.value !== 'all') {
+                        result = result.filter(item => {
+                            if (item.type === 'memo') {
+                                return (item.priority || '').toLowerCase() === priorityFilter.value;
+                            } else if (item.type === 'event') {
+                                const category = (item.category || '').toLowerCase();
+                                const priorityMap = {
+                                    urgent: ['urgent', 'deadline'],
+                                    high: ['high', 'meeting'],
+                                    medium: ['standard', 'reminder'],
+                                    low: ['low']
+                                };
+                                return priorityMap[priorityFilter.value]?.includes(category) || false;
+                            }
+                            // Signatures don't have priority, show all when type is filtered
+                            return true;
+                        });
+                    }
+
+                    // Apply sorting
+                    sortItems(sortBy.value, result);
+                    filteredItems.value = result;
+                };
+
+                const sortItems = (sortType, items = archivedItems.value) => {
+                    items.sort((a, b) => {
+                        if (sortType === 'newest') {
+                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                            return bDate - aDate;
+                        }
+                        if (sortType === 'oldest') {
+                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+                            return aDate - bDate;
+                        }
+                        if (sortType === 'priority') {
+                            const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+                            const getPriority = (item) => {
+                                if (item.type === 'event') {
+                                    const category = item.category || 'standard';
+                                    if (category === 'urgent' || category === 'deadline') return 'urgent';
+                                    if (category === 'high' || category === 'meeting') return 'high';
+                                    if (category === 'low') return 'low';
+                                    return 'medium';
+                                }
+                                return item.priority || 'medium';
+                            };
+                            const aPriority = getPriority(a);
+                            const bPriority = getPriority(b);
+                            return (priorityOrder[bPriority] || 0) - (priorityOrder[aPriority] || 0);
+                        }
+                        if (sortType === 'subject') {
+                            const getTitle = (item) => {
+                                if (item.type === 'memo') return item.subject || '';
+                                if (item.type === 'event') return item.title || '';
+                                if (item.type === 'signature') return item.displayName || '';
+                                return '';
+                            };
+                            return getTitle(a).localeCompare(getTitle(b));
+                        }
+                        return 0;
+                    });
+                };
+
+                // Item actions
+                const selectItem = (item, index) => {
+                    currentItem.value = item;
+                    currentIndex.value = index;
+                };
+
+                const closeViewer = () => {
+                    currentItem.value = null;
+                    currentIndex.value = -1;
+                };
+
+                const navigateItem = (direction) => {
+                    const newIndex = currentIndex.value + direction;
+                    if (newIndex >= 0 && newIndex < filteredItems.value.length) {
+                        selectItem(filteredItems.value[newIndex], newIndex);
+                    }
+                };
+
+                const unarchiveItem = async (item) => {
+                    if (!item) return;
+
+                    try {
+                        let endpoint = '';
+                        let method = 'POST';
+                        let body = {};
+
+                        if (item.type === 'signature') {
+                            endpoint = `/api/signatures/${item._id}/unarchive`;
+                        } else if (item.type === 'event') {
+                            endpoint = `/api/calendar/events/${item._id}`;
+                            method = 'PUT';
+                            body = { category: 'standard' };
+                        } else {
+                            endpoint = `/api/log/memos/${item._id}`;
+                            method = 'PUT';
+                            body = { status: 'sent' };
+                        }
+
+                        const response = await fetch(endpoint, {
+                            method,
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: Object.keys(body).length ? JSON.stringify(body) : undefined
+                        });
+
+                        if (response.ok) {
+                            // Remove item from lists
+                            archivedItems.value = archivedItems.value.filter(i => i._id !== item._id);
+                            applyFilters();
+                            closeViewer();
+
+                            // Show success message
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Unarchived',
+                                    text: `${item.type} has been unarchived successfully`,
+                                    timer: 2000,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+                            }
+                        } else {
+                            throw new Error('Failed to unarchive item');
+                        }
+                    } catch (error) {
+                        console.error('Error unarchiving item:', error);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to unarchive item. Please try again.',
+                                timer: 3000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        }
+                    }
+                };
+
+                const refreshArchive = async () => {
+                    loading.value = true;
+                    try {
+                        // Reload the page to get fresh data
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Error refreshing archive:', error);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                // Lifecycle
+                onMounted(() => {
+                    lucide.createIcons();
+                });
+
+                return {
+                    // State
+                    currentUser,
+                    archivedItems: filteredItems,
+                    currentItem,
+                    currentIndex,
+                    loading,
+                    archiveTypeFilter,
+                    priorityFilter,
+                    sortBy,
+                    // Computed
+                    totalItems,
+                    showViewer,
+                    // Methods
+                    selectItem,
+                    closeViewer,
+                    navigateItem,
+                    unarchiveItem,
+                    refreshArchive
+                };
+            }
+        });
+
+        app.mount('#app');
+    </script>
+
+    <!-- Vue App Container -->
+    <div id="app" class="dashboard-container">
         <%- include('../components/nav'); %>
 
         <main class="main-content">
@@ -26,8 +594,7 @@
 
             <div class="dashboard-content">
                 <div class="log-layout">
-
-                    <!-- Archive Memo List Area -->
+                    <!-- Archive List Area -->
                     <section class="memo-list-area" style="flex:1 1 auto;">
                         <div class="memo-container">
                             <div class="memo-list-header">
@@ -36,13 +603,13 @@
                                     <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archive</h2>
                                 </div>
                                 <div class="header-controls">
-                                    <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
-                                        <i data-lucide="rotate-cw"></i>
+                                    <button @click="refreshArchive" :disabled="loading" class="icon-btn-sm" title="Refresh">
+                                        <i data-lucide="rotate-cw" :class="{ 'spin': loading }"></i>
                                     </button>
                                 </div>
                                 <div class="department-filters">
                                     <div class="priority-dropdown-wrapper">
-                                        <select id="archiveTypeFilterDropdown" class="priority-filter-dropdown">
+                                        <select v-model="archiveTypeFilter" class="priority-filter-dropdown">
                                             <option value="all">All Types</option>
                                             <option value="memo">📄 Memos</option>
                                             <option value="event">📅 Calendar Events</option>
@@ -50,7 +617,7 @@
                                         </select>
                                     </div>
                                     <div class="priority-dropdown-wrapper">
-                                        <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                        <select v-model="priorityFilter" class="priority-filter-dropdown">
                                             <option value="all">All Priorities</option>
                                             <option value="urgent">🔴 Urgent</option>
                                             <option value="high">🟠 High</option>
@@ -59,7 +626,7 @@
                                         </select>
                                     </div>
                                     <div class="sort-dropdown-wrapper">
-                                        <select id="sortDropdown" class="sort-dropdown">
+                                        <select v-model="sortBy" class="sort-dropdown">
                                             <option value="newest">Newest</option>
                                             <option value="oldest">Oldest</option>
                                             <option value="priority">Priority</option>
@@ -70,47 +637,47 @@
                             </div>
 
                             <div class="memo-list-container">
-                                <div id="archiveList" class="memo-list"></div>
+                                <div class="memo-list">
+                                    <div v-if="loading" class="loading-state">
+                                        <i data-lucide="loader" class="spin"></i>
+                                        <span>Loading archive...</span>
+                                    </div>
+
+                                    <div v-else-if="archivedItems.length === 0" class="empty-state">
+                                        <i data-lucide="archive"></i>
+                                        <p>No archived items found</p>
+                                    </div>
+
+                                    <archive-item
+                                        v-else
+                                        v-for="(item, index) in archivedItems"
+                                        :key="`${item.type}-${item._id}`"
+                                        :item="item"
+                                        :index="index"
+                                        :selected="currentItem && currentItem._id === item._id"
+                                        @select="selectItem">
+                                    </archive-item>
+                                </div>
                             </div>
                         </div>
                     </section>
 
                     <!-- Viewer Area -->
-                    <section id="memoViewerArea" class="memo-viewer-area">
-                        <div id="emptyState" class="empty-state-view">
-                            <i data-lucide="archive"></i>
-                            <p>Select a memo to view</p>
-                        </div>
-                        <div id="memoViewer" class="memo-viewer">
-                            <div class="viewer-header">
-                                <button id="backBtn" class="icon-btn"><i data-lucide="arrow-left"></i></button>
-                                <div class="nav-buttons">
-                                    <button id="prevBtn" class="icon-btn"><i data-lucide="chevron-left"></i></button>
-                                    <span id="memoCounter" class="memo-counter">0 of 0</span>
-                                    <button id="nextBtn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
-                                </div>
-                                <div class="viewer-actions">
-                                    <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
-                                    <button id="unarchiveBtn" class="icon-btn" title="Unarchive Memo"><i data-lucide="archive-restore"></i></button>
-                                    <button id="downloadBtn" class="icon-btn" title="Download Memo"><i data-lucide="download"></i></button>
-                                </div>
-                            </div>
-                            <div class="memo-content">
-                                <div class="memo-pdf-header">
-                                    <h1 class="memo-title">MEMO</h1>
-                                    <div class="memo-details">
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span id="memoDetailSubject" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span id="memoDetailFrom" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span id="memoDetailTo" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span id="memoDetailDepartment" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span id="memoDetailPriority" class="memo-detail-value"></span></div>
-                                        <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span id="memoDetailDate" class="memo-detail-value"></span></div>
-                                    </div>
-                                </div>
-                                <div id="memoBodyContent" class="memo-body-content"></div>
-                                <div id="attachments" class="attachments-section"></div>
-                            </div>
-                        </div>
+                    <section class="memo-viewer-area" :style="{ display: showViewer ? 'block' : 'none', flex: showViewer ? '0 0 55%' : 'none' }">
+                        <empty-state
+                            v-if="!showViewer"
+                            message="Select an item to view">
+                        </empty-state>
+
+                        <archive-viewer
+                            v-else
+                            :item="currentItem"
+                            :current-index="currentIndex"
+                            :total-items="totalItems"
+                            @close="closeViewer"
+                            @navigate="navigateItem"
+                            @unarchive="unarchiveItem">
+                        </archive-viewer>
                     </section>
                 </div>
             </div>
@@ -118,665 +685,43 @@
     </div>
 
     <script>
-        window.currentUser = {
-            id: '<%= user._id %>',
-            email: '<%= user.email %>',
-            role: '<%= user.role %>',
-            department: '<%= user.department || "" %>',
-            canCrossSend: <%= user.canCrossSend || false %>
-        };
+        // Initialize Lucide icons
+        lucide.createIcons();
 
-        window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
-        window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
-        window.archivedSignatures = <%- JSON.stringify(archivedSignatures || []) %>;
+        // Add CSS for loading spinner
+        const style = document.createElement('style');
+        style.textContent = `
+            .spin {
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            .loading-state {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                padding: 2rem;
+                color: #6b7280;
+            }
+            .empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 3rem 2rem;
+                color: #6b7280;
+                text-align: center;
+            }
+            .empty-state i {
+                width: 48px;
+                height: 48px;
+                margin-bottom: 1rem;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
-    <script src="/js/log.js"></script>
-    <script src="/js/log-viewer.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const archiveList = document.getElementById('archiveList');
-            const refreshBtn = document.getElementById('refreshBtn');
-            const archiveTypeFilter = document.getElementById('archiveTypeFilterDropdown');
-            const priorityFilter = document.getElementById('priorityFilterDropdown');
-            const sortDropdown = document.getElementById('sortDropdown');
-            const unarchiveBtn = document.getElementById('unarchiveBtn');
-            const backBtn = document.getElementById('backBtn');
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-            const starBtn = document.getElementById('starBtn');
-            const downloadBtn = document.getElementById('downloadBtn');
-            const memoViewerArea = document.getElementById('memoViewerArea');
-            const emptyState = document.getElementById('emptyState');
-            const memoViewer = document.getElementById('memoViewer');
-            const memoCounter = document.getElementById('memoCounter');
-
-            // Combine memos, calendar events, and signatures
-            let allArchivedItems = [
-                ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
-                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
-                ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
-            ];
-
-            // Sort by newest first (most recently archived at top)
-            // Use updatedAt (when archived) or createdAt as fallback
-            allArchivedItems.sort((a, b) => {
-                const aDate = new Date(a.updatedAt || a.createdAt || 0);
-                const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                return bDate - aDate; // Newest first
-            });
-
-            let filteredMemos = [...allArchivedItems];
-            let currentMemoIndex = -1;
-            let currentMemoId = null;
-
-            // Render archived memos and events
-            function renderArchiveList() {
-                if (!archiveList) return;
-
-                if (filteredMemos.length === 0) {
-                    const archiveType = archiveTypeFilter ? archiveTypeFilter.value : 'all';
-                    let emptyMessage = 'No archived items';
-                    let emptyDescription = 'Archived memos, calendar events, and signatures will appear here';
-
-                    if (archiveType === 'memo') {
-                        emptyDescription = 'No archived memos found';
-                    } else if (archiveType === 'event') {
-                        emptyDescription = 'No archived calendar events found';
-                    } else if (archiveType === 'signature') {
-                        emptyDescription = 'No archived signatures found';
-                    }
-
-                    archiveList.innerHTML = `
-                        <div class="memo-item">
-                            <i data-lucide="archive" class="memo-icon"></i>
-                            <div class="memo-info">
-                                <h4>${emptyMessage}</h4>
-                                <p>${emptyDescription}</p>
-                            </div>
-                        </div>`;
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
-                    return;
-                }
-
-                archiveList.innerHTML = filteredMemos.map((item, idx) => {
-                    // Handle signatures
-                    if (item.type === 'signature') {
-                        const signature = item;
-                        const createdBy = signature.createdBy
-                            ? `${signature.createdBy.firstName || ''} ${signature.createdBy.lastName || ''}`.trim() || signature.createdBy.email
-                            : 'Unknown';
-                        const archivedDate = new Date(signature.updatedAt || signature.createdAt).toLocaleDateString();
-
-                        return '<div class="memo-item archived-item archived-signature" data-index="' + idx + '" data-id="' + signature._id + '" data-type="signature">' +
-                            '<i data-lucide="pen-tool" class="memo-icon" style="width: 40px; height: 40px; color: #f59e0b;"></i>' +
-                            '<div class="memo-sender-info">' +
-                            '<div class="memo-sender-name">✍️ Signature</div>' +
-                            '<div class="memo-sender-email">' + signature.displayName + '</div>' +
-                            '</div>' +
-                            '<div class="memo-item-actions"></div>' +
-                            '<div class="memo-subject">' + signature.roleTitle + '</div>' +
-                            '<div class="memo-date">Archived: ' + archivedDate + '</div>' +
-                            '</div>';
-                    }
-
-                    // Handle calendar events differently
-                    if (item.type === 'event') {
-                        const event = item;
-                        const dateStr = new Date(event.start).toLocaleDateString();
-                        const startTime = new Date(event.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                        const endTime = new Date(event.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                        const category = event.category || 'standard';
-                        let badge = '';
-                        if (category === 'urgent') badge = '<span class="priority-badge priority-urgent" title="Urgent">🔴 URGENT</span>';
-                        else if (category === 'high') badge = '<span class="priority-badge priority-high" title="High">🟠 HIGH</span>';
-                        else if (category === 'meeting') badge = '<span class="priority-badge priority-high" title="Meeting">🟣 MEETING</span>';
-                        else if (category === 'deadline') badge = '<span class="priority-badge priority-urgent" title="Deadline">⏰ DEADLINE</span>';
-                        else if (category === 'reminder') badge = '<span class="priority-badge priority-medium" title="Reminder">🔔 REMINDER</span>';
-                        else if (category === 'low') badge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
-                        else badge = '<span class="priority-badge priority-medium" title="Standard">🟢 STANDARD</span>';
-
-                        return '<div class="memo-item archived-item archived-event" data-index="' + idx + '" data-id="' + event._id + '" data-type="event">' +
-                            '<i data-lucide="calendar" class="memo-icon" style="width: 40px; height: 40px; color: #6366f1;"></i>' +
-                            '<div class="memo-sender-info">' +
-                            '<div class="memo-sender-name">📅 Calendar Event</div>' +
-                            '<div class="memo-sender-email">' + dateStr + ' • ' + startTime + ' - ' + endTime + '</div>' +
-                            '</div>' +
-                            '<div class="memo-item-actions">' + badge + '</div>' +
-                            '<div class="memo-subject">' + (event.title || 'Untitled Event') + '</div>' +
-                            '<div class="memo-date">Archived: ' + new Date(event.updatedAt || event.createdAt).toLocaleDateString() + '</div>' +
-                            '</div>';
-                    }
-
-                    // Handle memos (existing code)
-                    const memo = item;
-                    const recipientName = ((memo.recipient?.firstName || '') + ' ' + (memo.recipient?.lastName || '')).trim();
-                    const recipientEmail = memo.recipient?.email || '';
-                    const realAvatar = memo.recipient?.profilePicture;
-                    const avatarSrc = realAvatar || '/images/memofy-logo.png';
-                    const dateStr = new Date(memo.createdAt).toLocaleDateString();
-                    const pr = (memo.priority || '').toLowerCase();
-                    let badge = '';
-                    if (pr === 'urgent') badge = '<span class="priority-badge priority-urgent" title="Urgent">🔴 URGENT</span>';
-                    else if (pr === 'high') badge = '<span class="priority-badge priority-high" title="High">🟠 HIGH</span>';
-                    else if (pr === 'medium') badge = '<span class="priority-badge priority-medium" title="Medium">🟡 MEDIUM</span>';
-                    else if (pr === 'low') badge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
-
-                    const hasAvatar = realAvatar ? '1' : '0';
-                    return '<div class="memo-item archived-item" data-index="' + idx + '" data-id="' + memo._id + '">' +
-                        '<img src="' + avatarSrc + '" alt="' + recipientName + '" class="memo-avatar" data-has-avatar="' + hasAvatar + '">' +
-                        '<div class="memo-sender-info">' +
-                        '<div class="memo-sender-name">To: ' + (recipientName || 'Unknown') + '</div>' +
-                        '<div class="memo-sender-email">' + recipientEmail + '</div>' +
-                        '</div>' +
-                        '<div class="memo-item-actions">' + badge + '</div>' +
-                        '<div class="memo-subject">' + (memo.subject || '') + '</div>' +
-                        '<div class="memo-date">' + dateStr + '</div>' +
-                        '</div>';
-                }).join('');
-
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-
-                // Add click handlers
-                archiveList.querySelectorAll('.archived-item').forEach(el => {
-                    el.addEventListener('click', async () => {
-                        const id = el.getAttribute('data-id');
-                        const type = el.getAttribute('data-type');
-                        const idx = Number(el.getAttribute('data-index'));
-                        const item = filteredMemos[idx];
-
-                        if (type === 'signature') {
-                            // Handle signature - show unarchive confirmation only, don't open viewer
-                            if (item) {
-                                // Ensure viewer is hidden
-                                if (emptyState) emptyState.style.display = 'block';
-                                if (memoViewer) memoViewer.style.display = 'none';
-                                if (memoViewerArea) memoViewerArea.style.display = 'none';
-                                // Show SweetAlert confirmation
-                                showUnarchiveSignatureConfirmation(item._id, item.displayName || item.roleTitle || 'this signature');
-                            }
-                        } else if (type === 'event') {
-                            // Handle calendar event
-                            if (item) {
-                                openEvent(item);
-                            }
-                        } else {
-                            // Handle memo
-                            if (id) {
-                                try {
-                                    const res = await fetch('/api/log/memos/' + id);
-                                    const data = await res.json();
-                                    if (data && data.success && data.memo) {
-                                        openMemo(data.memo);
-                                        return;
-                                    }
-                                } catch (e) { /* fallback below */ }
-                            }
-                            if (item) openMemo(item);
-                        }
-                    });
-                });
-
-                // Lazy-load avatars
-                archiveList.querySelectorAll('img.memo-avatar[data-has-avatar="0"]').forEach(img => {
-                    img.addEventListener('error', function() {
-                        this.src = '/images/memofy-logo.png';
-                    });
-                });
-            }
-
-            // Open calendar event in viewer
-            function openEvent(event) {
-                if (!event) return;
-                currentMemoId = event._id;
-                currentMemoIndex = filteredMemos.findIndex(e => e._id === event._id && e.type === 'event');
-
-                const subjectEl = document.getElementById('memoDetailSubject');
-                const fromEl = document.getElementById('memoDetailFrom');
-                const toEl = document.getElementById('memoDetailTo');
-                const deptEl = document.getElementById('memoDetailDepartment');
-                const prioEl = document.getElementById('memoDetailPriority');
-                const dateEl = document.getElementById('memoDetailDate');
-                const contentEl = document.getElementById('memoBodyContent');
-
-                if (subjectEl) subjectEl.textContent = event.title || '(No title)';
-                const creatorName = ((event.createdBy?.firstName || '') + ' ' + (event.createdBy?.lastName || '')).trim();
-                if (fromEl) fromEl.textContent = (creatorName || 'Unknown') + ' (' + (event.createdBy?.email || '') + ')';
-
-                // Format participants
-                let participantsText = 'None';
-                if (event.participants) {
-                    const parts = [];
-                    if (event.participants.departments && Array.isArray(event.participants.departments) && event.participants.departments.length > 0) {
-                        parts.push('Departments: ' + event.participants.departments.join(', '));
-                    }
-                    if (event.participants.emails && Array.isArray(event.participants.emails) && event.participants.emails.length > 0) {
-                        const emailList = event.participants.emails.map(e => typeof e === 'string' ? e : e.email).join(', ');
-                        parts.push('Emails: ' + emailList);
-                    }
-                    participantsText = parts.length > 0 ? parts.join('; ') : 'None';
-                }
-                if (toEl) toEl.textContent = participantsText;
-                if (deptEl) deptEl.textContent = 'N/A';
-
-                const categoryLabels = {
-                    urgent: '🔴 Urgent',
-                    high: '🟠 High Priority',
-                    standard: '🟢 Standard',
-                    meeting: '🟣 Meeting',
-                    deadline: '⏰ Deadline',
-                    reminder: '🔔 Reminder',
-                    low: '🔵 Low Priority',
-                    archived: '📦 Archived'
-                };
-                if (prioEl) prioEl.textContent = categoryLabels[event.category] || event.category || 'Standard';
-
-                const startDate = new Date(event.start);
-                const endDate = new Date(event.end);
-                const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                const startTime = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                const endTime = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                if (dateEl) dateEl.textContent = dateStr + ' • ' + startTime + ' - ' + endTime;
-
-                if (contentEl) {
-                    const safeContent = (event.description || '(No description)').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    contentEl.innerHTML = '<div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">' + safeContent + '</div>';
-                }
-
-                if (memoCounter) {
-                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
-                }
-
-                if (emptyState) emptyState.style.display = 'none';
-                if (memoViewer) memoViewer.style.display = 'block';
-                if (memoViewerArea) {
-                    memoViewerArea.style.display = 'block';
-                    memoViewerArea.style.flex = '0 0 55%';
-                }
-            }
-
-            // Open signature in viewer
-            function openSignature(signature) {
-                if (!signature) return;
-                currentMemoId = signature._id;
-                currentMemoIndex = filteredMemos.findIndex(s => s._id === signature._id && s.type === 'signature');
-
-                const subjectEl = document.getElementById('memoDetailSubject');
-                const fromEl = document.getElementById('memoDetailFrom');
-                const toEl = document.getElementById('memoDetailTo');
-                const deptEl = document.getElementById('memoDetailDepartment');
-                const prioEl = document.getElementById('memoDetailPriority');
-                const dateEl = document.getElementById('memoDetailDate');
-                const contentEl = document.getElementById('memoBodyContent');
-
-                if (subjectEl) subjectEl.textContent = signature.displayName || '(No name)';
-                const createdBy = signature.createdBy
-                    ? `${signature.createdBy.firstName || ''} ${signature.createdBy.lastName || ''}`.trim() || signature.createdBy.email
-                    : 'Unknown';
-                if (fromEl) fromEl.textContent = createdBy + (signature.createdBy?.email ? ' (' + signature.createdBy.email + ')' : '');
-                if (toEl) toEl.textContent = signature.roleTitle || 'N/A';
-                if (deptEl) deptEl.textContent = 'N/A';
-                if (prioEl) prioEl.textContent = 'Signature';
-                if (dateEl) {
-                    const archivedDate = new Date(signature.updatedAt || signature.createdAt);
-                    dateEl.textContent = archivedDate.toLocaleString();
-                }
-                if (contentEl) {
-                    contentEl.innerHTML = '<div style="text-align: center; padding: 2rem;">' +
-                        '<img src="' + (signature.imageUrl || '/images/placeholder.png') + '" alt="' + signature.displayName + '" ' +
-                        'style="max-width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; background: #fff;" ' +
-                        'onerror="this.src=\'/images/placeholder.png\'">' +
-                        '</div>';
-                }
-
-                if (memoCounter) {
-                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
-                }
-
-                if (emptyState) emptyState.style.display = 'none';
-                if (memoViewer) memoViewer.style.display = 'block';
-                if (memoViewerArea) {
-                    memoViewerArea.style.display = 'block';
-                    memoViewerArea.style.flex = '0 0 55%';
-                }
-            }
-
-            // Open memo in viewer
-            function openMemo(memo) {
-                if (!memo) return;
-                currentMemoId = memo._id;
-                currentMemoIndex = filteredMemos.findIndex(m => m._id === memo._id && m.type === 'memo');
-
-                const subjectEl = document.getElementById('memoDetailSubject');
-                const fromEl = document.getElementById('memoDetailFrom');
-                const toEl = document.getElementById('memoDetailTo');
-                const deptEl = document.getElementById('memoDetailDepartment');
-                const prioEl = document.getElementById('memoDetailPriority');
-                const dateEl = document.getElementById('memoDetailDate');
-                const contentEl = document.getElementById('memoBodyContent');
-
-                if (subjectEl) subjectEl.textContent = memo.subject || '(No subject)';
-                const senderName = ((memo.sender?.firstName || '') + ' ' + (memo.sender?.lastName || '')).trim();
-                if (fromEl) fromEl.textContent = (senderName || 'Unknown') + ' (' + (memo.sender?.email || '') + ')';
-                const recipName = ((memo.recipient?.firstName || '') + ' ' + (memo.recipient?.lastName || '')).trim();
-                if (toEl) toEl.textContent = (recipName || 'Unknown') + ' (' + (memo.recipient?.email || '') + ')';
-                if (deptEl) deptEl.textContent = memo.department || 'N/A';
-                if (prioEl) prioEl.textContent = memo.priority || 'medium';
-                if (dateEl) dateEl.textContent = new Date(memo.createdAt).toLocaleString();
-                if (contentEl) {
-                    const safeContent = (memo.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    contentEl.innerHTML = '<div style="white-space: pre-wrap; line-height: 1.6; color: #111827;">' + safeContent + '</div>';
-                }
-
-                if (memoCounter) {
-                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
-                }
-
-                if (emptyState) emptyState.style.display = 'none';
-                if (memoViewer) memoViewer.style.display = 'block';
-                if (memoViewerArea) {
-                    memoViewerArea.style.display = 'block';
-                    memoViewerArea.style.flex = '0 0 55%';
-                }
-            }
-
-            // Show unarchive signature confirmation (SweetAlert)
-            async function showUnarchiveSignatureConfirmation(signatureId, signatureName) {
-                if (typeof Swal === 'undefined') {
-                    if (confirm(`Are you sure you want to unarchive "${signatureName}"?`)) {
-                        await unarchiveItem(signatureId, 'signature');
-                    }
-                    return;
-                }
-
-                Swal.fire({
-                    title: 'Unarchive Signature',
-                    html: `Are you sure you want to unarchive <strong>${signatureName}</strong>?<br><br>This will restore the signature to the template dropdown.`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Unarchive',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#10b981',
-                    cancelButtonColor: '#6b7280',
-                    reverseButtons: true,
-                    focusConfirm: false,
-                    focusCancel: true,
-                    allowOutsideClick: false,
-                    allowEscapeKey: true,
-                    showLoaderOnConfirm: true,
-                    preConfirm: async () => {
-                        return await unarchiveItem(signatureId, 'signature');
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed && result.value) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Unarchived',
-                            text: `Signature "${signatureName}" has been unarchived successfully`,
-                            timer: 2000,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
-                        });
-                    }
-                });
-            }
-
-            // Unarchive memo, event, or signature
-            async function unarchiveItem(itemId, itemType) {
-                if (!itemId) return;
-                try {
-                    if (itemType === 'signature') {
-                        // Unarchive signature (set isActive to true)
-                        const response = await fetch('/api/signatures/' + itemId + '/unarchive', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'same-origin'
-                        });
-                        const data = await response.json();
-                        if (!response.ok || !data || !data.success) {
-                            throw new Error(data?.message || 'Failed to unarchive signature');
-                        }
-
-                        // Remove from window arrays
-                        window.archivedSignatures = (window.archivedSignatures || []).filter(s => s._id !== itemId);
-
-                        // Rebuild allArchivedItems and reapply filters
-                        rebuildAllArchivedItems();
-                        applyFilters();
-
-                        if (emptyState) emptyState.style.display = 'block';
-                        if (memoViewer) memoViewer.style.display = 'none';
-                        return true; // Return success for SweetAlert
-                    } else if (itemType === 'event') {
-                        // Unarchive calendar event (change category back to standard)
-                        const response = await fetch('/api/calendar/events/' + itemId, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'same-origin',
-                            body: JSON.stringify({ category: 'standard' })
-                        });
-                        if (response.ok) {
-                            // Remove from list
-                            filteredMemos = filteredMemos.filter(e => !(e._id === itemId && e.type === 'event'));
-                            window.archivedEvents = (window.archivedEvents || []).filter(e => e._id !== itemId);
-                            renderArchiveList();
-                            if (emptyState) emptyState.style.display = 'block';
-                            if (memoViewer) memoViewer.style.display = 'none';
-                            if (typeof showNotification === 'function') {
-                                showNotification('Event unarchived successfully', 'success');
-                            }
-                        }
-                    } else {
-                        // Unarchive memo
-                        const response = await fetch('/api/log/memos/' + itemId, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'same-origin',
-                            body: JSON.stringify({ status: 'sent' })
-                        });
-                        const data = await response.json();
-                        if (data && data.success) {
-                            // Remove from list
-                            filteredMemos = filteredMemos.filter(m => !(m._id === itemId && m.type === 'memo'));
-                            window.archivedMemos = (window.archivedMemos || []).filter(m => m._id !== itemId);
-                            renderArchiveList();
-                            if (emptyState) emptyState.style.display = 'block';
-                            if (memoViewer) memoViewer.style.display = 'none';
-                            if (typeof showNotification === 'function') {
-                                showNotification('Memo unarchived successfully', 'success');
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error unarchiving item:', error);
-                    if (typeof Swal !== 'undefined') {
-                        Swal.showValidationMessage(error.message || 'Failed to unarchive item. Please try again.');
-                    }
-                    return false; // Return failure for SweetAlert
-                }
-            }
-
-            // Event listeners
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', async () => {
-                    try {
-                        // Reload the page to refresh all archived items (memos, events, signatures)
-                        window.location.reload();
-                    } catch (error) {
-                        console.error('Error refreshing archive:', error);
-                    }
-                });
-            }
-
-            if (unarchiveBtn) {
-                unarchiveBtn.addEventListener('click', () => {
-                    if (currentMemoId && currentMemoIndex >= 0) {
-                        const item = filteredMemos[currentMemoIndex];
-                        if (item) {
-                            // For signatures, show SweetAlert confirmation instead of direct unarchive
-                            if (item.type === 'signature') {
-                                showUnarchiveSignatureConfirmation(currentMemoId, item.displayName || item.roleTitle || 'this signature');
-                            } else {
-                                unarchiveItem(currentMemoId, item.type || 'memo');
-                            }
-                        }
-                    }
-                });
-            }
-
-            if (backBtn) {
-                backBtn.addEventListener('click', () => {
-                    if (emptyState) emptyState.style.display = 'block';
-                    if (memoViewer) memoViewer.style.display = 'none';
-                    if (memoViewerArea) memoViewerArea.style.display = 'none';
-                });
-            }
-
-            if (prevBtn) {
-                prevBtn.addEventListener('click', () => {
-                    // Find previous non-signature item
-                    let newIndex = currentMemoIndex - 1;
-                    while (newIndex >= 0 && filteredMemos[newIndex]?.type === 'signature') {
-                        newIndex--;
-                    }
-                    if (newIndex >= 0) {
-                        currentMemoIndex = newIndex;
-                        const item = filteredMemos[currentMemoIndex];
-                        if (item.type === 'event') {
-                            openEvent(item);
-                        } else {
-                            openMemo(item);
-                        }
-                    }
-                });
-            }
-
-            if (nextBtn) {
-                nextBtn.addEventListener('click', () => {
-                    // Find next non-signature item
-                    let newIndex = currentMemoIndex + 1;
-                    while (newIndex < filteredMemos.length && filteredMemos[newIndex]?.type === 'signature') {
-                        newIndex++;
-                    }
-                    if (newIndex < filteredMemos.length) {
-                        currentMemoIndex = newIndex;
-                        const item = filteredMemos[currentMemoIndex];
-                        if (item.type === 'event') {
-                            openEvent(item);
-                        } else {
-                            openMemo(item);
-                        }
-                    }
-                });
-            }
-
-            // Rebuild allArchivedItems from window arrays
-            function rebuildAllArchivedItems() {
-                allArchivedItems = [
-                    ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
-                    ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
-                    ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
-                ];
-                // Sort by newest first
-                allArchivedItems.sort((a, b) => {
-                    const aDate = new Date(a.updatedAt || a.createdAt || 0);
-                    const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                    return bDate - aDate; // Newest first
-                });
-            }
-
-            // Apply filters function
-            function applyFilters() {
-                const archiveType = archiveTypeFilter ? archiveTypeFilter.value : 'all';
-                const priority = priorityFilter ? priorityFilter.value : 'all';
-
-                // First filter by archive type
-                let typeFiltered = allArchivedItems;
-                if (archiveType !== 'all') {
-                    typeFiltered = allArchivedItems.filter(item => item.type === archiveType);
-                }
-
-                // Then filter by priority
-                if (priority === 'all') {
-                    filteredMemos = typeFiltered;
-                } else {
-                    filteredMemos = typeFiltered.filter(item => {
-                        if (item.type === 'signature') {
-                            // Signatures don't have priority, show all when "all" is selected
-                            return priority === 'all';
-                        } else if (item.type === 'event') {
-                            const category = (item.category || '').toLowerCase();
-                            // Map event categories to priority filter
-                            if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
-                            if (priority === 'high') return category === 'high' || category === 'meeting';
-                            if (priority === 'medium') return category === 'standard' || category === 'reminder';
-                            if (priority === 'low') return category === 'low';
-                            return false;
-                        } else {
-                            return (item.priority || '').toLowerCase() === priority;
-                        }
-                    });
-                }
-
-                renderArchiveList();
-            }
-
-            // Apply archive type filter
-            if (archiveTypeFilter) {
-                archiveTypeFilter.addEventListener('change', () => {
-                    applyFilters();
-                });
-            }
-
-            // Apply priority filter
-            if (priorityFilter) {
-                priorityFilter.addEventListener('change', () => {
-                    applyFilters();
-                });
-            }
-
-            if (sortDropdown) {
-                sortDropdown.addEventListener('change', () => {
-                    const sort = sortDropdown.value;
-                    filteredMemos.sort((a, b) => {
-                        if (sort === 'newest') {
-                            // Use updatedAt (when archived) or createdAt as fallback
-                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
-                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                            return bDate - aDate; // Newest first
-                        }
-                        if (sort === 'oldest') {
-                            // Use updatedAt (when archived) or createdAt as fallback
-                            const aDate = new Date(a.updatedAt || a.createdAt || 0);
-                            const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                            return aDate - bDate; // Oldest first
-                        }
-                        if (sort === 'priority') {
-                            const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-                            const aPriority = a.type === 'event' ? (a.category === 'urgent' || a.category === 'deadline' ? 'urgent' : a.category === 'high' || a.category === 'meeting' ? 'high' : a.category === 'low' ? 'low' : 'medium') : (a.priority || 'medium');
-                            const bPriority = b.type === 'event' ? (b.category === 'urgent' || b.category === 'deadline' ? 'urgent' : b.category === 'high' || b.category === 'meeting' ? 'high' : b.category === 'low' ? 'low' : 'medium') : (b.priority || 'medium');
-                            return (priorityOrder[bPriority] || 0) - (priorityOrder[aPriority] || 0);
-                        }
-                        if (sort === 'subject') {
-                            const aTitle = a.type === 'event' ? (a.title || '') : a.type === 'signature' ? (a.displayName || '') : (a.subject || '');
-                            const bTitle = b.type === 'event' ? (b.title || '') : b.type === 'signature' ? (b.displayName || '') : (b.subject || '');
-                            return aTitle.localeCompare(bTitle);
-                        }
-                        return 0;
-                    });
-                    renderArchiveList();
-                });
-            }
-
-            // Initial render with filters applied
-            applyFilters();
-        });
-    </script>
-
 </body>
 </html>
-
