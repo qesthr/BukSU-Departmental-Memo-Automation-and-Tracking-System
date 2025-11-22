@@ -36,7 +36,7 @@
                             <div class="memo-list-header">
                                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                                     <i data-lucide="archive" style="width: 24px; height: 24px; color: #6366f1;"></i>
-                                        <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Received Memos</h2>
+                                        <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Sent Memos</h2>
                                 </div>
                                 <div class="header-controls">
                                         <button @click="refreshMemos" class="icon-btn-sm" :disabled="isLoading" title="Refresh">
@@ -71,7 +71,7 @@
                                             <i data-lucide="archive" class="memo-icon"></i>
                                             <div class="memo-info">
                                                 <h4>No archived memos</h4>
-                                                <p>Archived received memos will appear here</p>
+                                                <p>Archived sent memos will appear here</p>
                                             </div>
                                     </div>
 
@@ -83,14 +83,14 @@
                                             @click="openMemo(memo)"
                                         >
                                             <img
-                                                :src="getAvatar(memo.sender)"
-                                                :alt="getSenderName(memo.sender)"
+                                                :src="getAvatar(memo.recipient)"
+                                                :alt="getRecipientName(memo.recipient)"
                                                 class="memo-avatar"
                                                 @error="handleAvatarError"
                                             >
                                             <div class="memo-sender-info">
-                                                <div class="memo-sender-name">From: {{ getSenderName(memo.sender) }}</div>
-                                                <div class="memo-sender-email">{{ memo.sender?.email || '' }}</div>
+                                                <div class="memo-sender-name">To: {{ getRecipientName(memo.recipient) }}</div>
+                                                <div class="memo-sender-email">{{ memo.recipient?.email || '' }}</div>
                                             </div>
                                             <div class="memo-item-actions">
                                                 <span :class="getPriorityClass(memo.priority)" :title="memo.priority">
@@ -253,14 +253,15 @@
             methods: {
                 refreshLucideIcons() {
                     if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
+                        lucide.createIcons();
                     }
                 },
 
                 async fetchArchivedMemos() {
                     this.isLoading = true;
                     try {
-                        const response = await fetch('/api/log/memos?folder=archive', {
+                        // Changed endpoint to fetch sent memos instead of received
+                        const response = await fetch('/api/log/memos?folder=archive&type=sent', {
                             credentials: 'same-origin'
                         });
                         const data = await response.json();
@@ -286,8 +287,8 @@
                     return `${recipient.firstName || ''} ${recipient.lastName || ''}`.trim() || 'Unknown';
                 },
 
-                getAvatar(sender) {
-                    return sender?.profilePicture || '/images/memofy-logo.png';
+                getAvatar(recipient) {
+                    return recipient?.profilePicture || '/images/memofy-logo.png';
                 },
 
                 handleAvatarError(event) {
