@@ -115,6 +115,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/signatures', signatureRoutes);
 app.use('/api/rollback', rollbackRoutes);
+app.use('/api/system', require('./backend/routes/systemRoutes'));
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
 app.use('/api/analytics', require('./backend/routes/analyticsRoutes'));
 app.use('/analytics', require('./backend/routes/analyticsRoutes'));

@@ -1127,7 +1127,9 @@ exports.createMemo = async (req, res) => {
         populatedMemo.attachments = createdMemos[0].attachments;
 
         // Create calendar event if date/time is provided
-        if (eventDate && createdMemos.length > 0) {
+        // IMPORTANT: For secretaries, skip calendar event creation here - it will be created after admin approval
+        // Only create calendar events immediately for admins (non-secretary users)
+        if (eventDate && createdMemos.length > 0 && !isSecretary) {
             try {
                 const CalendarEvent = require('../models/CalendarEvent');
 
@@ -1260,8 +1262,10 @@ exports.createMemo = async (req, res) => {
         }
 
         // Trigger Google Drive backup asynchronously (non-blocking)
-        // Only for Admin and Secretary roles, and only if Drive is connected
-        if ((user.role === 'admin' || user.role === 'secretary')) {
+        // IMPORTANT: For secretaries, skip Google Drive backup here - it will be backed up after admin approval
+        // Only backup immediately for admins (non-secretary users)
+        // For secretaries, backup happens in memoWorkflowService.js after approval
+        if (user.role === 'admin' && !isSecretary) {
             // Run backup in background - don't wait for it
             googleDriveService.uploadMemoToDrive(populatedMemo)
                 .then((driveFileId) => {

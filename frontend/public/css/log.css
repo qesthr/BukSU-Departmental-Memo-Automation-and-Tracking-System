@@ -1988,6 +1988,13 @@
   display: block;
 }
 
+/* Ensure template dropdown menu shows when parent has open class */
+#composeModal .custom-dropdown.open #templateDropdownMenu {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 /* Allow only dropdowns and specific containers to overflow, not modal-body */
 #composeModal .compose-header-fields,
 #composeModal .compose-inline-fields,
@@ -2011,7 +2018,15 @@
 #composeModal .custom-dropdown {
   position: relative;
   z-index: 1000;
-  overflow: visible;
+  overflow: visible !important;
+}
+
+/* Specifically for template dropdown container - multiple selectors for compatibility */
+#composeModal .custom-dropdown:has(#templateDropdownBtn),
+#composeModal .compose-inline-fields > .custom-dropdown:first-child {
+  z-index: 100002 !important;
+  position: relative;
+  overflow: visible !important;
 }
 
 /* Department dropdown menu in compose modal - very specific */
@@ -2019,28 +2034,75 @@
   z-index: 100001 !important;
   position: absolute;
   display: none;
+  visibility: hidden;
+  opacity: 0;
 }
 
 #composeModal .custom-dropdown.open #deptDropdownMenu.dept-dropdown-menu {
   display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Secretary department dropdown wrapper - ensure menu appears in front */
+#secretaryDeptDropdownWrapper .dept-dropdown-menu {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin-top: 4px !important;
+  z-index: 100002 !important;
+  display: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+#secretaryDeptDropdownWrapper .custom-dropdown.open .dept-dropdown-menu {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 100002 !important;
+}
+
+/* Ensure secretary wrapper allows overflow */
+#secretaryDeptDropdownWrapper {
+  position: relative !important;
+  z-index: 100002 !important;
+  overflow: visible !important;
+}
+
+#secretaryDeptDropdownWrapper .custom-dropdown {
+  position: relative !important;
+  z-index: 100002 !important;
+  overflow: visible !important;
 }
 
 /* Template dropdown menu in compose modal */
 #composeModal #templateDropdownMenu.dept-dropdown-menu {
-  z-index: 100001 !important;
-  position: absolute;
+  z-index: 100002 !important;
+  position: absolute !important;
   display: none;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin-top: 4px !important;
 }
 
-#composeModal .custom-dropdown.open #templateDropdownMenu.dept-dropdown-menu {
+/* Multiple selectors to ensure template dropdown menu shows when open */
+#composeModal .custom-dropdown.open #templateDropdownMenu.dept-dropdown-menu,
+#composeModal .custom-dropdown.open #templateDropdownMenu {
   display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 100002 !important;
 }
 
 /* Ensure inline fields container allows dropdown overflow */
 #composeModal .compose-inline-fields {
   position: relative;
   z-index: 100;
-  overflow: visible;
+  overflow: visible !important;
+  isolation: isolate; /* Create new stacking context for dropdowns */
 }
 
 #composeModal .compose-field-wrapper {

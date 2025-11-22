@@ -343,15 +343,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function attachTemplateHandlers(modal){
+    // Expose attachTemplateHandlers globally for admin view
+    window.attachTemplateHandlers = function(modal){
         const dropdownBtn = modal.querySelector('#templateDropdownBtn');
         const dropdownMenu = modal.querySelector('#templateDropdownMenu');
         const container = modal.querySelector('#templateSignaturesContainer');
         const addBtn = modal.querySelector('#addSignatureBtn');
-        if (!dropdownBtn || !dropdownMenu || !container) {return;}
+
+        console.log('attachTemplateHandlers called', { dropdownBtn, dropdownMenu, container }); // Debug log
+
+        if (!dropdownBtn || !dropdownMenu || !container) {
+            console.warn('Template dropdown elements not found', { dropdownBtn: !!dropdownBtn, dropdownMenu: !!dropdownMenu, container: !!container });
+            return;
+        }
 
         const dropdown = dropdownBtn.closest('.custom-dropdown');
-        if (!dropdown) {return;}
+        if (!dropdown) {
+            console.warn('Template dropdown parent .custom-dropdown not found');
+            return;
+        }
+
+        console.log('Template dropdown found:', dropdown); // Debug log
 
         // Load signatures and populate dropdown
         async function populateTemplateDropdown(){
@@ -439,22 +451,108 @@ document.addEventListener('DOMContentLoaded', () => {
         populateTemplateDropdown();
 
         // Toggle dropdown
-        dropdownBtn.addEventListener('click', (e)=>{
+        // Remove any existing event listeners to prevent duplicates
+        const newDropdownBtn = dropdownBtn.cloneNode(true);
+        dropdownBtn.parentNode.replaceChild(newDropdownBtn, dropdownBtn);
+
+        // Update reference to the new button
+        const currentDropdownBtn = newDropdownBtn;
+
+        currentDropdownBtn.addEventListener('click', (e)=>{
             e.preventDefault();
             e.stopPropagation();
+            console.log('Template dropdown button clicked'); // Debug log
             // Close department dropdown if open
             const deptBtn = modal.querySelector('#deptDropdownBtn');
-            const deptDropdown = deptBtn ? deptBtn.closest('.custom-dropdown') : null;
-            if (deptDropdown) { deptDropdown.classList.remove('open'); }
+            let deptDropdown = deptBtn ? deptBtn.closest('.custom-dropdown') : null;
+            // Also check secretary wrapper location
+            if (!deptDropdown) {
+                const secretaryWrapper = modal.querySelector('#secretaryDeptDropdownWrapper');
+                if (secretaryWrapper) {
+                    const secretaryDeptBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+                    deptDropdown = secretaryDeptBtn ? secretaryDeptBtn.closest('.custom-dropdown') : null;
+                }
+            }
+            if (deptDropdown && deptDropdown.classList.contains('open')) {
+                deptDropdown.classList.remove('open');
+                // Also hide the department menu explicitly
+                const deptMenu = deptDropdown.querySelector('#deptDropdownMenu');
+                if (deptMenu) {
+                    deptMenu.style.display = 'none';
+                    deptMenu.style.visibility = 'hidden';
+                    deptMenu.style.opacity = '0';
+                }
+            }
+            const isOpen = dropdown.classList.contains('open');
+            console.log('Dropdown open state before toggle:', isOpen); // Debug log
             dropdown.classList.toggle('open');
+            const isOpenAfter = dropdown.classList.contains('open');
+            console.log('Dropdown open state after toggle:', isOpenAfter); // Debug log
+            console.log('Dropdown element:', dropdown); // Debug log
+            console.log('Menu element:', dropdownMenu); // Debug log
+
+            // Force display if open class is added (fallback if CSS doesn't apply)
+            if (isOpenAfter) {
+                dropdownMenu.style.display = 'block';
+                dropdownMenu.style.visibility = 'visible';
+                dropdownMenu.style.opacity = '1';
+                dropdownMenu.style.zIndex = '100002';
+            } else {
+                dropdownMenu.style.display = 'none';
+            }
+
+            // Force display check after a brief delay to ensure CSS has applied
+            setTimeout(() => {
+                const computedStyle = window.getComputedStyle(dropdownMenu);
+                console.log('Menu computed style after toggle:', {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    zIndex: computedStyle.zIndex,
+                    hasOpenClass: dropdown.classList.contains('open'),
+                    parentHasOpenClass: dropdown.classList.contains('open')
+                }); // Debug log
+
+                // If still not visible, force it
+                if (dropdown.classList.contains('open') && computedStyle.display === 'none') {
+                    console.warn('Template dropdown menu not showing, forcing display');
+                    dropdownMenu.style.display = 'block';
+                    dropdownMenu.style.visibility = 'visible';
+                    dropdownMenu.style.opacity = '1';
+                    dropdownMenu.style.zIndex = '100002';
+                }
+            }, 10);
         });
 
-        // Close on outside click
-        document.addEventListener('click', (e)=>{
-            if (!dropdown.contains(e.target)){
-                dropdown.classList.remove('open');
+        // Close on outside click - use a named function so we can remove it if needed
+        const handleOutsideClick = (e)=>{
+            // Don't close if clicking on the dropdown button or inside the dropdown
+            // Also check if clicking on any element within the template dropdown structure
+            const isClickInside = dropdown.contains(e.target) ||
+                                 currentDropdownBtn.contains(e.target) ||
+                                 dropdownMenu.contains(e.target) ||
+                                 e.target.closest('#templateDropdownMenu') ||
+                                 e.target.closest('#templateDropdownBtn');
+
+            if (isClickInside){
+                return;
             }
-        });
+
+            // Only close if dropdown is actually open
+            if (dropdown.classList.contains('open')) {
+                dropdown.classList.remove('open');
+                // Also hide the menu explicitly
+                if (dropdownMenu) {
+                    dropdownMenu.style.display = 'none';
+                    dropdownMenu.style.visibility = 'hidden';
+                    dropdownMenu.style.opacity = '0';
+                }
+            }
+        };
+
+        // Remove any existing listener and add new one with capture phase to handle it first
+        document.removeEventListener('click', handleOutsideClick, true);
+        document.addEventListener('click', handleOutsideClick, true);
 
         // Handle checkbox changes (multiple selection)
         let selectedIds = [];
@@ -522,8 +620,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const previewBtn = modal.querySelector('#previewMemoBtn');
         if (previewBtn){
-            previewBtn.addEventListener('click', async ()=>{
+            // Remove any existing event listeners by cloning
+            const newPreviewBtn = previewBtn.cloneNode(true);
+            previewBtn.parentNode.replaceChild(newPreviewBtn, previewBtn);
+
+            newPreviewBtn.addEventListener('click', async (e)=>{
+                e.preventDefault();
+                e.stopPropagation();
                 try{
+                    console.log('Preview button clicked'); // Debug log
                     const payload = collectMemoPayload(modal, { preview: true });
                     // If there are image attachments selected but not yet uploaded, upload for preview
                     if (Array.isArray(selectedFiles) && selectedFiles.length > 0){
@@ -546,7 +651,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin', body: JSON.stringify(payload)
                     });
+
+                    if (!res.ok) {
+                        const errorText = await res.text().catch(() => 'Unknown error');
+                        console.error('Preview API error:', res.status, errorText);
+                        throw new Error(`Preview failed: ${res.status} ${errorText}`);
+                    }
+
                     const data = await res.json().catch(()=>({}));
+                    console.log('Preview response:', data); // Debug log
+
                     if (data?.previewUrl || data?.html){
                         const overlay = document.getElementById('previewOverlay');
                         const frame = document.getElementById('previewFrame');
@@ -582,10 +696,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }catch(err){
+                    console.error('Preview error:', err);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Preview failed'
+                        text: err.message || 'Preview failed. Please check the console for details.'
                     });
                 }
             });
@@ -2054,9 +2169,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!composeModal) {return;}
         }
 
-        const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
-        const dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
-        const selectAll = composeModal.querySelector('#selectAllDepts');
+        // Check both admin location and secretary wrapper location
+        let dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+        let dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+
+        // For secretaries with canCrossSend, check secretary wrapper first
+        if (!dropdownBtn || !dropdownMenu) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                dropdownBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+                dropdownMenu = secretaryWrapper.querySelector('#deptDropdownMenu');
+            }
+        }
+
+        // Check both locations for selectAll checkbox
+        let selectAll = composeModal.querySelector('#selectAllDepts');
+        if (!selectAll) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                selectAll = secretaryWrapper.querySelector('#selectAllDepts');
+            }
+        }
+
         let deptOptions = composeModal.querySelectorAll('.dept-option');
 
         if (!dropdownBtn || !dropdownMenu) {
@@ -2066,19 +2200,86 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove any existing click handlers to prevent duplicates
         const newBtn = dropdownBtn.cloneNode(true);
         dropdownBtn.parentNode.replaceChild(newBtn, dropdownBtn);
-        const freshBtn = composeModal.querySelector('#deptDropdownBtn');
+
+        // Get the fresh button - check both locations again after cloning
+        let freshBtn = composeModal.querySelector('#deptDropdownBtn');
+        if (!freshBtn) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                freshBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+            }
+        }
+
+        if (!freshBtn) {
+            console.error('initCustomDepartmentDropdown: Could not find deptDropdownBtn after cloning');
+            return;
+        }
+
+        // Get the fresh dropdown menu - check both locations again after cloning
+        let freshDropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+        if (!freshDropdownMenu) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                freshDropdownMenu = secretaryWrapper.querySelector('#deptDropdownMenu');
+            }
+        }
+
+        if (!freshDropdownMenu) {
+            console.error('initCustomDepartmentDropdown: Could not find deptDropdownMenu after cloning');
+            return;
+        }
+
         const deptDropdown = freshBtn.closest('.custom-dropdown');
 
         // Toggle dropdown on button click
         freshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            // Close template dropdown if open
+            const templateBtn = composeModal.querySelector('#templateDropdownBtn');
+            const templateDropdown = templateBtn ? templateBtn.closest('.custom-dropdown') : null;
+            if (templateDropdown && templateDropdown.classList.contains('open')) {
+                templateDropdown.classList.remove('open');
+                // Also hide the template menu explicitly
+                const templateMenu = templateDropdown.querySelector('#templateDropdownMenu');
+                if (templateMenu) {
+                    templateMenu.style.display = 'none';
+                    templateMenu.style.visibility = 'hidden';
+                    templateMenu.style.opacity = '0';
+                }
+            }
             // Close other open dropdowns inside compose modal (e.g., template)
             composeModal.querySelectorAll('.custom-dropdown.open').forEach(dd => {
-                if (dd !== deptDropdown) { dd.classList.remove('open'); }
+                if (dd !== deptDropdown) {
+                    dd.classList.remove('open');
+                    // Also hide their menus
+                    const menu = dd.querySelector('.dept-dropdown-menu');
+                    if (menu) {
+                        menu.style.display = 'none';
+                        menu.style.visibility = 'hidden';
+                        menu.style.opacity = '0';
+                    }
+                }
             });
             if (deptDropdown) {
+                const isOpen = deptDropdown.classList.contains('open');
                 deptDropdown.classList.toggle('open');
+                const isOpenAfter = deptDropdown.classList.contains('open');
+
+                // Force display if open class is added (fallback if CSS doesn't apply)
+                if (isOpenAfter && freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'block';
+                    freshDropdownMenu.style.visibility = 'visible';
+                    freshDropdownMenu.style.opacity = '1';
+                    freshDropdownMenu.style.zIndex = '100002';
+                    freshDropdownMenu.style.position = 'absolute';
+                    freshDropdownMenu.style.top = '100%';
+                    freshDropdownMenu.style.left = '0';
+                    freshDropdownMenu.style.right = '0';
+                    freshDropdownMenu.style.marginTop = '4px';
+                } else if (!isOpenAfter && freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'none';
+                }
             }
         });
 
@@ -2090,8 +2291,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Close this dropdown when clicking outside
         const handleOutsideClick = (e) => {
-            if (deptDropdown && !deptDropdown.contains(e.target)) {
+            // Don't close if clicking on template dropdown elements
+            const templateDropdown = composeModal.querySelector('#templateDropdownBtn')?.closest('.custom-dropdown');
+            const isClickOnTemplate = templateDropdown && (
+                templateDropdown.contains(e.target) ||
+                e.target.closest('#templateDropdownBtn') ||
+                e.target.closest('#templateDropdownMenu')
+            );
+
+            // Don't close if clicking on department dropdown button or menu
+            const isClickOnDept = deptDropdown && (
+                deptDropdown.contains(e.target) ||
+                freshBtn.contains(e.target) ||
+                freshDropdownMenu.contains(e.target) ||
+                e.target.closest('#deptDropdownBtn') ||
+                e.target.closest('#deptDropdownMenu')
+            );
+
+            // Only close if clicking outside BOTH dropdowns and dropdown is actually open
+            if (deptDropdown && deptDropdown.classList.contains('open') && !isClickOnDept && !isClickOnTemplate) {
                 deptDropdown.classList.remove('open');
+                // Also hide the menu explicitly
+                if (freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'none';
+                    freshDropdownMenu.style.visibility = 'hidden';
+                    freshDropdownMenu.style.opacity = '0';
+                }
             }
         };
         document.addEventListener('click', handleOutsideClick, true);
@@ -2147,7 +2372,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize secretary department checkbox handler
-    function initSecretaryDeptCheckbox(composeModal) {
+    // Expose initSecretaryDeptCheckbox globally for admin view
+    window.initSecretaryDeptCheckbox = function(composeModal) {
         const sendToAllDeptCheckbox = composeModal.querySelector('#sendToAllDeptCheckbox');
         const selectedDepartmentsInput = composeModal.querySelector('#selectedDepartments');
         const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
@@ -3547,6 +3773,167 @@ document.addEventListener('DOMContentLoaded', () => {
         if (attachmentsDiv) {
             attachmentsDiv.innerHTML = '';
             attachmentsDiv.style.display = 'none';
+        }
+
+        // Show approve/reject buttons for admin when viewing pending secretary memos
+        const memoViewerModal = document.getElementById('memoViewerModal');
+        if (memoViewerModal) {
+            let footer = memoViewerModal.querySelector('.memo-viewer-footer');
+            if (!footer) {
+                // Create footer if it doesn't exist
+                footer = document.createElement('div');
+                footer.className = 'memo-viewer-footer';
+                footer.style.cssText = 'padding: 16px 24px; border-top: 1px solid #e5e7eb; display: none; justify-content: flex-end; gap: 12px; align-items: center;';
+                // Append footer to modal-content, not memo-content
+                const modalContent = memoViewerModal.querySelector('.modal-content');
+                if (modalContent) {
+                    modalContent.appendChild(footer);
+                } else {
+                    // Fallback: append to memoViewer
+                    const memoViewer = memoViewerModal.querySelector('#memoViewer');
+                    if (memoViewer) {
+                        memoViewer.appendChild(footer);
+                    }
+                }
+            }
+
+            // Clear existing buttons
+            footer.innerHTML = '';
+
+            // Check if this is a pending secretary memo that needs admin approval
+            const statusStr = (memo.status || '').toLowerCase();
+            const isPendingStatus = ['pending_admin', 'pending'].includes(statusStr);
+            const isAdminUser = (window.currentUser && (window.currentUser.role === 'admin'));
+            const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                                   (memo.subject && memo.subject.includes('Calendar Event')) ||
+                                   (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
+            // Show buttons if: pending status AND admin user AND not calendar event
+            if (!isCalendarEvent && isAdminUser && isPendingStatus) {
+                footer.style.display = 'flex';
+                footer.style.flexDirection = 'row';
+                footer.style.gap = '12px';
+                footer.style.justifyContent = 'flex-end';
+                footer.style.alignItems = 'center';
+
+                const rejectBtn = document.createElement('button');
+                rejectBtn.textContent = 'Reject';
+                rejectBtn.style.cssText = 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                rejectBtn.addEventListener('mouseenter', () => {
+                    rejectBtn.style.background = '#e5e7eb';
+                });
+                rejectBtn.addEventListener('mouseleave', () => {
+                    rejectBtn.style.background = '#f3f4f6';
+                });
+                rejectBtn.addEventListener('click', async () => {
+                    // Show prompt for rejection reason
+                    const { value: reason } = await Swal.fire({
+                        title: 'Reject Memo',
+                        input: 'textarea',
+                        inputLabel: 'Rejection Reason (optional)',
+                        inputPlaceholder: 'Enter reason for rejection...',
+                        inputAttributes: {
+                            'aria-label': 'Enter rejection reason'
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: 'Reject',
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonText: 'Cancel',
+                        inputValidator: (value) => {
+                            // Reason is optional, so no validation needed
+                            return null;
+                        }
+                    });
+
+                    if (reason !== undefined) {
+                        try {
+                            const response = await fetch(`/api/log/memos/${memo._id}/reject`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({ reason: reason || '' })
+                            });
+
+                            const data = await response.json();
+                            if (data.success) {
+                                await Swal.fire({
+                                    icon: 'success',
+                                    title: 'Memo Rejected',
+                                    text: data.message || 'Memo has been rejected.'
+                                });
+                                // Refresh memo list
+                                if (typeof fetchMemos === 'function') {
+                                    fetchMemos();
+                                }
+                                // Close modal
+                                if (memoViewerModal) {
+                                    memoViewerModal.style.display = 'none';
+                                }
+                            } else {
+                                throw new Error(data.message || 'Failed to reject memo');
+                            }
+                        } catch (error) {
+                            console.error('Error rejecting memo:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'Failed to reject memo'
+                            });
+                        }
+                    }
+                });
+
+                const approveBtn = document.createElement('button');
+                approveBtn.textContent = 'Approve';
+                approveBtn.style.cssText = 'background:#1C89E3;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                approveBtn.addEventListener('mouseenter', () => {
+                    approveBtn.style.background = '#1570cd';
+                });
+                approveBtn.addEventListener('mouseleave', () => {
+                    approveBtn.style.background = '#1C89E3';
+                });
+                approveBtn.addEventListener('click', async () => {
+                    try {
+                        const response = await fetch(`/api/log/memos/${memo._id}/approve`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+
+                        const data = await response.json();
+                        if (data.success) {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Memo Approved',
+                                text: data.message || 'Memo has been approved and sent to recipients.'
+                            });
+                            // Refresh memo list
+                            if (typeof fetchMemos === 'function') {
+                                fetchMemos();
+                            }
+                            // Close modal
+                            if (memoViewerModal) {
+                                memoViewerModal.style.display = 'none';
+                            }
+                        } else {
+                            throw new Error(data.message || 'Failed to approve memo');
+                        }
+                    } catch (error) {
+                        console.error('Error approving memo:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: error.message || 'Failed to approve memo'
+                        });
+                    }
+                });
+
+                footer.appendChild(rejectBtn);
+                footer.appendChild(approveBtn);
+            } else {
+                // Hide footer if buttons shouldn't be shown
+                footer.style.display = 'none';
+            }
         }
     }
 

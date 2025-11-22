@@ -578,8 +578,12 @@
                 function onDateFilterChange() {
                     const dateFilter = document.getElementById('dateFilterInput');
                     if (dateFilter) {
-                        dateFilter.value = filters.value.date;
-                        dateFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                        // Only update if value actually changed to prevent infinite loop
+                        if (dateFilter.value !== filters.value.date) {
+                            dateFilter.value = filters.value.date;
+                            // Don't dispatch event - Vue's v-model already handles the change
+                            // This prevents infinite recursion
+                        }
                     }
                     setTimeout(updateMemoCounter, 100);
                 }
@@ -597,8 +601,12 @@
                     filters.value.date = '';
                     const dateFilter = document.getElementById('dateFilterInput');
                     if (dateFilter) {
-                        dateFilter.value = '';
-                        dateFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                        // Only update if value actually changed to prevent infinite loop
+                        if (dateFilter.value !== '') {
+                            dateFilter.value = '';
+                            // Don't dispatch event - Vue's v-model already handles the change
+                            // This prevents infinite recursion
+                        }
                     }
                     setTimeout(updateMemoCounter, 100);
                 }
@@ -623,15 +631,26 @@
 
                         // Trigger any initialization that log.js would do
                         // Check if log.js has attached handlers
+                        // Use a longer timeout to ensure log.js has loaded
                         setTimeout(() => {
                             // If log.js has a function to initialize compose modal, call it
                             if (typeof window.attachTemplateHandlers === 'function') {
+                                console.log('Admin: Calling attachTemplateHandlers');
                                 window.attachTemplateHandlers(composeModal);
+                            } else {
+                                console.warn('Admin: attachTemplateHandlers not available yet, retrying...');
+                                // Retry after a longer delay if function not available
+                                setTimeout(() => {
+                                    if (typeof window.attachTemplateHandlers === 'function') {
+                                        console.log('Admin: Retry - Calling attachTemplateHandlers');
+                                        window.attachTemplateHandlers(composeModal);
+                                    }
+                                }, 200);
                             }
                             if (typeof window.initSecretaryDeptCheckbox === 'function') {
                                 window.initSecretaryDeptCheckbox(composeModal);
                             }
-                        }, 50);
+                        }, 200);
                     }
                 }
 

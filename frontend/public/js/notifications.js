@@ -258,15 +258,28 @@
     async function fetchNotifications() {
         try {
             const response = await fetch('/api/log/notifications', {
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                redirect: 'manual' // Don't follow redirects automatically
             });
+
+            // Handle redirects manually
+            if (response.type === 'opaqueredirect' || response.status === 0) {
+                // This is a redirect, likely to /unauthorized - silently fail
+                return;
+            }
+
             if (!response.ok) {
                 // Don't show error if unauthorized - user might not be logged in
-                if (response.status === 401) {
+                if (response.status === 401 || response.status === 403) {
                     return; // Silently fail if not authenticated
                 }
-                throw new Error(`HTTP ${response.status}`);
+                // Only throw for other errors
+                if (response.status >= 500) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return; // Silently fail for client errors
             }
+
             const data = await response.json();
 
             if (data.success) {
@@ -276,8 +289,12 @@
                 renderNotifications();
             }
         } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Error fetching notifications:', error);
+            // Only log network errors, not redirect/unauthorized errors
+            if (error.name !== 'TypeError' || !error.message.includes('Failed to fetch')) {
+                // eslint-disable-next-line no-console
+                console.error('Error fetching notifications:', error);
+            }
+            // Silently handle network errors (SSL, connection issues, etc.)
         }
     }
 
@@ -447,8 +464,10 @@
                 // ALL notifications should open in modal - use the notification's own ID if no memoId
                 const targetMemoId = memoId || id;
 
-                // For pending_memo notifications, use originalMemoId to fetch the actual pending memo
-                const finalMemoId = (notificationType === 'pending_memo' && originalMemoId) ? originalMemoId : targetMemoId;
+                // For any notification with originalMemoId, use originalMemoId to fetch the actual pending memo
+                // This ensures we always fetch the original pending memo for secretary-created memos
+                // Check if originalMemoId exists and use it (regardless of notification type)
+                const finalMemoId = originalMemoId ? originalMemoId : targetMemoId;
 
                 // eslint-disable-next-line no-console
                 console.log('Opening notification modal with ID:', finalMemoId, 'Type:', notificationType);
@@ -583,9 +602,37 @@
                 return;
             }
 
-            const memo = data.memo;
+            let memo = data.memo;
             // eslint-disable-next-line no-console
             console.log('Memo fetched:', memo);
+
+            // If this is a notification memo with an originalMemoId, fetch the original pending memo
+            // This ensures we show approve/reject buttons for the actual pending memo
+            if (memo.metadata && (memo.metadata.originalMemoId || memo.metadata.relatedMemoId)) {
+                const originalMemoId = memo.metadata.originalMemoId || memo.metadata.relatedMemoId;
+                // Check if the current memo is not pending (it's a notification memo)
+                const isNotificationMemo = memo.status !== 'pending_admin' && memo.status !== 'PENDING_ADMIN' && memo.status !== 'pending' && memo.status !== 'PENDING';
+
+                if (isNotificationMemo && originalMemoId) {
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log('Fetching original pending memo:', originalMemoId);
+                        const originalResponse = await fetch(`/api/log/memos/${originalMemoId}`, { credentials: 'same-origin' });
+                        const originalData = await originalResponse.json();
+
+                        if (originalResponse.ok && originalData.success && originalData.memo) {
+                            // Use the original pending memo instead
+                            memo = originalData.memo;
+                            // eslint-disable-next-line no-console
+                            console.log('Using original pending memo:', memo);
+                        }
+                    } catch (fetchError) {
+                        // eslint-disable-next-line no-console
+                        console.warn('Could not fetch original memo, using notification memo:', fetchError);
+                        // Continue with notification memo if fetch fails
+                    }
+                }
+            }
 
             // Create or get memo modal
             let memoModal = document.getElementById('notificationMemoModal');
@@ -1141,8 +1188,14 @@
                 const isPendingStatus = ['pending_admin','PENDING_ADMIN','pending','PENDING'].includes(statusStr);
                 const looksPendingBySubject = (memo.subject || '').toLowerCase().includes('pending approval');
                 const isAdminUser = (window.currentUser && (window.currentUser.role === 'admin'));
+
+                // Also check if this is a notification memo that points to a pending memo
+                // If we have originalMemoId, we should fetch that memo to check its status
+                const hasOriginalMemoId = memo.metadata && (memo.metadata.originalMemoId || memo.metadata.relatedMemoId);
+
                 // Show buttons if: pending status OR notification about pending memo OR subject contains "pending approval"
-                if (!isCalendarEvent && isAdminUser && (isPendingStatus || isNotificationAboutPending || looksPendingBySubject)) {
+                // OR if this is a notification memo with an originalMemoId (we'll fetch the original to check)
+                if (!isCalendarEvent && isAdminUser && (isPendingStatus || isNotificationAboutPending || looksPendingBySubject || hasOriginalMemoId)) {
                     footer.style.display = 'flex';
                     footer.style.flexDirection = 'row';
                     footer.style.gap = '12px';

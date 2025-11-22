@@ -511,12 +511,30 @@
                                 <div id="dashboardMiniCalendar" class="mini-calendar"></div>
                             </div>
 
-                            <div class="backup-section">
-                                <i data-lucide="cloud" class="backup-icon"></i>
-                                <div class="backup-info">
-                                    <h3>System Status</h3>
-                                    <p>All systems operational</p>
+                            <div class="backup-section system-status-widget" id="systemStatusWidget">
+                                <div class="system-status-header">
+                                    <div class="system-status-icon-container">
+                                        <i data-lucide="activity" class="backup-icon system-status-icon" id="systemStatusIcon"></i>
+                                        <span class="status-indicator" id="statusIndicator"></span>
+                                    </div>
+                                    <div class="backup-info">
+                                        <div class="system-status-title-row">
+                                            <h3>System Status</h3>
+                                            <button class="system-status-refresh-btn" id="systemStatusRefresh" title="Refresh status">
+                                                <i data-lucide="refresh-cw"></i>
+                                            </button>
+                                        </div>
+                                        <p class="system-status-text" id="systemStatusText">Checking...</p>
+                                        <p class="system-status-time" id="systemStatusTime"></p>
+                                    </div>
                                 </div>
+                                <div class="system-status-details" id="systemStatusDetails" style="display: none;">
+                                    <div class="system-status-services" id="systemStatusServices"></div>
+                                </div>
+                                <button class="system-status-toggle" id="systemStatusToggle">
+                                    <span class="toggle-text">Show Details</span>
+                                    <i data-lucide="chevron-down" class="toggle-icon"></i>
+                                </button>
                             </div>
                         </div>
                     </div>

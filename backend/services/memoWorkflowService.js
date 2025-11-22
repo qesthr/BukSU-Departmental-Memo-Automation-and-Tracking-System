@@ -69,7 +69,7 @@ async function approve({ memoId, adminUser }) {
   // Mark approval in history; avoid setting a status not allowed by schema
   await appendHistory(memo, adminUser, 'approved');
   await notifySecretary({ memo, actor: adminUser, action: 'approved' });
-  await deliver({ memo, actor: adminUser });
+  const deliverResult = await deliver({ memo, actor: adminUser });
   await archivePendingAdminNotifications(memoId);
 
   // Keep the original pending memo for audit; mark as APPROVED
@@ -111,17 +111,58 @@ async function approve({ memoId, adminUser }) {
   }
 
   // Fire-and-forget Google Drive backup of the approved memo
+  // Use the delivered memo (createdMemos[0]) instead of the original pending memo
+  // This ensures the recipient field shows the actual recipient, not the secretary
   try {
-    // Do not block the response; log result asynchronously
-    googleDriveService.uploadMemoToDrive(memo)
-      .then((driveFileId) => {
-        // eslint-disable-next-line no-console
-        console.log(`✅ Approved memo backed up to Google Drive: ${driveFileId}`);
-      })
-      .catch((backupError) => {
-        // eslint-disable-next-line no-console
-        console.error('⚠️ Google Drive backup failed after approval:', backupError?.message || backupError);
-      });
+    // deliver() now returns { memo, createdMemos, calendarEvents }
+    const createdMemos = deliverResult?.createdMemos || [];
+
+    // If deliver() didn't return createdMemos, query for them
+    let recipientMemos = createdMemos;
+    if (!recipientMemos || recipientMemos.length === 0) {
+      recipientMemos = await Memo.find({
+        'metadata.originalMemoId': memo._id.toString(),
+        status: { $in: ['sent', 'approved', 'read'] }
+      }).limit(1).lean();
+    }
+
+    if (recipientMemos && recipientMemos.length > 0) {
+      // Use the first recipient memo which has the correct recipient
+      const deliveredMemoId = recipientMemos[0]._id;
+      Memo.findById(deliveredMemoId)
+        .populate('sender', 'firstName lastName email profilePicture department')
+        .populate('recipient', 'firstName lastName email profilePicture department')
+        .lean()
+        .then((populatedMemo) => {
+          if (populatedMemo) {
+            // Also populate recipients array if it exists
+            if (populatedMemo.recipients && Array.isArray(populatedMemo.recipients) && populatedMemo.recipients.length > 0) {
+              return User.find({ _id: { $in: populatedMemo.recipients } })
+                .select('firstName lastName email profilePicture department')
+                .lean()
+                .then((recipientUsers) => {
+                  populatedMemo.recipients = recipientUsers;
+                  populatedMemo.attachments = memo.attachments || [];
+                  return googleDriveService.uploadMemoToDrive(populatedMemo);
+                });
+            } else {
+              populatedMemo.attachments = memo.attachments || [];
+              return googleDriveService.uploadMemoToDrive(populatedMemo);
+            }
+          }
+          return null;
+        })
+        .then((driveFileId) => {
+          if (driveFileId) {
+            // eslint-disable-next-line no-console
+            console.log(`✅ Approved memo backed up to Google Drive: ${driveFileId}`);
+          }
+        })
+        .catch((backupError) => {
+          // eslint-disable-next-line no-console
+          console.error('⚠️ Google Drive backup failed after approval:', backupError?.message || backupError);
+        });
+    }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('Drive backup trigger error (approval):', e?.message || e);
@@ -223,7 +264,7 @@ async function deliver({ memo, actor }) {
   if (uniqueRecipients.length === 0) {
     // eslint-disable-next-line no-console
     console.warn('No faculty recipients found for memo delivery');
-    return memo;
+    return { memo, createdMemos: [], calendarEvents: [] };
   }
 
   // Check for existing memos to prevent duplicates
@@ -246,7 +287,7 @@ async function deliver({ memo, actor }) {
   if (recipientsToCreate.length === 0) {
     // eslint-disable-next-line no-console
     console.log(`All recipients already have memos for originalMemoId: ${originalMemoId}`);
-    return memo;
+    return { memo, createdMemos: [], calendarEvents: [] };
   }
 
   // Create recipient memos - one memo per faculty recipient
@@ -360,8 +401,15 @@ async function deliver({ memo, actor }) {
       });
 
       console.log(`✅ Calendar event created for approved memo: ${memo.subject} (Event ID: ${calendarEvent._id})`);
+
+      // Mark workflow memo as approved (not sent) and persist history
+      memo.status = MEMO_STATUS.APPROVED;
+      await appendHistory(memo, actor, 'sent');
+      await memo.save();
+      return { memo, createdMemos, calendarEvents: [calendarEvent] }; // Return created memos and calendar event
     } catch (calendarError) {
       console.error('⚠️ Failed to create calendar event for approved memo:', calendarError.message);
+      // Continue to return even if calendar event creation failed
     }
   }
 
@@ -369,7 +417,7 @@ async function deliver({ memo, actor }) {
   memo.status = MEMO_STATUS.APPROVED;
   await appendHistory(memo, actor, 'sent');
   await memo.save();
-  return memo;
+  return { memo, createdMemos, calendarEvents: [] }; // Return created memos for Google Drive backup
 }
 
 // Enhanced versions with rollback support (NEW - doesn't break existing code)
@@ -474,13 +522,43 @@ async function approveWithRollback({ memoId, adminUser }) {
       .catch(err => console.error('Notification failed:', err));
 
     // Google Drive backup (fire-and-forget, outside transaction)
-    googleDriveService.uploadMemoToDrive(memo)
-      .then((driveFileId) => {
-        console.log(`✅ Approved memo backed up to Google Drive: ${driveFileId}`);
-      })
-      .catch((backupError) => {
-        console.error('⚠️ Google Drive backup failed after approval:', backupError?.message || backupError);
-      });
+    // Use the delivered memo (createdMemos[0]) instead of the original pending memo
+    // This ensures the recipient field shows the actual recipient, not the secretary
+    if (deliveryResult && deliveryResult.createdMemos && deliveryResult.createdMemos.length > 0) {
+      // Use the first delivered memo which has the correct recipient
+      const deliveredMemoId = deliveryResult.createdMemos[0]._id;
+      Memo.findById(deliveredMemoId)
+        .populate('sender', 'firstName lastName email profilePicture department')
+        .populate('recipient', 'firstName lastName email profilePicture department')
+        .lean()
+        .then((populatedMemo) => {
+          if (populatedMemo) {
+            // Also populate recipients array if it exists
+            if (populatedMemo.recipients && Array.isArray(populatedMemo.recipients) && populatedMemo.recipients.length > 0) {
+              return User.find({ _id: { $in: populatedMemo.recipients } })
+                .select('firstName lastName email profilePicture department')
+                .lean()
+                .then((recipientUsers) => {
+                  populatedMemo.recipients = recipientUsers;
+                  populatedMemo.attachments = memo.attachments || [];
+                  return googleDriveService.uploadMemoToDrive(populatedMemo);
+                });
+            } else {
+              populatedMemo.attachments = memo.attachments || [];
+              return googleDriveService.uploadMemoToDrive(populatedMemo);
+            }
+          }
+          return null;
+        })
+        .then((driveFileId) => {
+          if (driveFileId) {
+            console.log(`✅ Approved memo backed up to Google Drive: ${driveFileId}`);
+          }
+        })
+        .catch((backupError) => {
+          console.error('⚠️ Google Drive backup failed after approval:', backupError?.message || backupError);
+        });
+    }
 
     return memo;
   });
