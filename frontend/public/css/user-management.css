@@ -12,6 +12,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 1rem;
+    margin-top: 10px;
 }
 
 /* Users page specific: prevent main content from scrolling */
@@ -912,6 +913,7 @@
     margin-top: 0.4rem;
     font-size: 0.85rem;
 }
+
 .input-hint.error {
     color: #dc2626;
 }
@@ -919,7 +921,7 @@
 /* Invalid input border color */
 .input-error {
     border-color: #dc2626 !important;
-    box-shadow: 0 0 0 2px rgba(220,38,38,0.1);
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
 }
 
 /* ===== Responsive ===== */

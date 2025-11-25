@@ -12,15 +12,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Analytics Tracking -->
-    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../../components/sweetalert2'); %>
+        <!-- SweetAlert2 -->
+        <%- include('../../components/sweetalert2'); %>
 
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+            <!-- Vue 3 CDN -->
+            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
-    <script src="/js/lucide.min.js"></script>
+            <script src="/js/lucide.min.js"></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -41,48 +41,54 @@
             }
         })();
     </script>
-        <div class="dashboard-container">
+    <div class="dashboard-container">
         <%- include('../../components/nav'); %>
 
             <!-- Main Content -->
-        <main class="main-content">
+            <main class="main-content">
                 <%- include('../../components/admintopbar') %>
 
-                <div class="log-layout">
+                    <div class="log-layout">
 
                         <!-- Memo List Area -->
                         <section class="memo-list-area">
-                        <div class="memo-container">
-                            <div class="memo-list-header">
+                            <div class="memo-container">
+                                <div class="memo-list-header">
                                     <div class="header-controls">
-                                        <div class="checkbox-control" style="display: flex; align-items: center; gap: 8px;">
+                                        <div class="checkbox-control"
+                                            style="display: flex; align-items: center; gap: 8px;">
                                             <div class="select-dropdown-wrapper">
-                                                <button id="selectDropdownBtn" class="select-dropdown-btn" type="button">
+                                                <button id="selectDropdownBtn" class="select-dropdown-btn"
+                                                    type="button">
                                                     <i data-lucide="square" class="select-icon"></i>
                                                     <i data-lucide="chevron-down" class="dropdown-arrow"></i>
                                                 </button>
                                                 <div id="selectDropdownMenu" class="select-dropdown-menu">
-                                                    <button type="button" class="select-dropdown-item" data-action="all">All</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="none">None</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="read">Read</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="unread">Unread</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="starred">Starred</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="unstarred">Unstarred</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="all">All</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="none">None</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="read">Read</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="unread">Unread</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="starred">Starred</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="unstarred">Unstarred</button>
                                                 </div>
-                                </div>
-                                            <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected" style="display: none;">
+                                            </div>
+                                            <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected"
+                                                style="display: none;">
                                                 <i data-lucide="archive"></i>
-                                    </button>
-                                </div>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div class="department-filters" id="filterControls">
                                         <div class="department-dropdown-wrapper">
-                                            <select
-                                                id="deptFilterDropdown"
-                                                class="dept-filter-dropdown"
-                                                v-model="filters.department"
-                                                @change="onFilterChange">
+                                            <select id="deptFilterDropdown" class="dept-filter-dropdown"
+                                                v-model="filters.department" @change="onFilterChange">
                                                 <option value="all">All Departments</option>
                                                 <option v-for="dept in departments" :key="dept" :value="dept">
                                                     {{ dept }}
@@ -90,70 +96,50 @@
                                             </select>
                                         </div>
 
-                                    <div class="priority-dropdown-wrapper">
-                                            <select
-                                                id="priorityFilterDropdown"
-                                                class="priority-filter-dropdown"
-                                                v-model="filters.priority"
-                                                @change="onFilterChange">
-                                            <option value="all">All Priorities</option>
-                                            <option value="urgent">🔴 Urgent</option>
-                                            <option value="high">🟠 High</option>
-                                            <option value="medium">🟡 Medium</option>
-                                            <option value="low">🔵 Low</option>
-                                        </select>
-                                    </div>
+                                        <div class="priority-dropdown-wrapper">
+                                            <select id="priorityFilterDropdown" class="priority-filter-dropdown"
+                                                v-model="filters.priority" @change="onFilterChange">
+                                                <option value="all">All Priorities</option>
+                                                <option value="urgent">🔴 Urgent</option>
+                                                <option value="high">🟠 High</option>
+                                                <option value="medium">🟡 Medium</option>
+                                                <option value="low">🔵 Low</option>
+                                            </select>
+                                        </div>
 
-                                    <div class="sort-dropdown-wrapper">
-                                            <select
-                                                id="sortDropdown"
-                                                class="sort-dropdown"
-                                                v-model="filters.sort"
+                                        <div class="sort-dropdown-wrapper">
+                                            <select id="sortDropdown" class="sort-dropdown" v-model="filters.sort"
                                                 @change="onSortChange">
-                                            <option value="newest">Newest</option>
-                                            <option value="oldest">Oldest</option>
-                                            <option value="priority">Priority</option>
-                                            <option value="subject">Subject (A-Z)</option>
+                                                <option value="newest">Newest</option>
+                                                <option value="oldest">Oldest</option>
+                                                <option value="priority">Priority</option>
+                                                <option value="subject">Subject (A-Z)</option>
                                                 <option value="sender">Sender/Recipient (A-Z)</option>
                                                 <option value="sent">Sent by Me</option>
-                                        </select>
-                                    </div>
+                                            </select>
+                                        </div>
 
                                         <div class="date-filter-wrapper">
-                                            <input
-                                                type="date"
-                                                id="dateFilterInput"
-                                                class="date-filter-input"
-                                                title="Filter by date"
-                                                v-model="filters.date"
+                                            <input type="date" id="dateFilterInput" class="date-filter-input"
+                                                title="Filter by date" v-model="filters.date"
                                                 @change="onDateFilterChange">
-                                            <button
-                                                id="clearDateFilter"
-                                                class="date-filter-clear"
-                                                title="Clear date filter"
-                                                v-show="filters.date"
+                                            <button id="clearDateFilter" class="date-filter-clear"
+                                                title="Clear date filter" v-show="filters.date"
                                                 @click="clearDateFilter">
                                                 <i data-lucide="x"></i>
                                             </button>
-                            </div>
+                                        </div>
 
                                         <!-- Search input (if not already present) -->
                                         <div class="search-filter-wrapper" style="display: none;" id="searchWrapper">
-                                            <input
-                                                type="text"
-                                                id="globalSearchInput"
-                                                class="search-input"
-                                                placeholder="Search memos..."
-                                                v-model="filters.search"
+                                            <input type="text" id="globalSearchInput" class="search-input"
+                                                placeholder="Search memos..." v-model="filters.search"
                                                 @input="onSearchChange">
                                         </div>
 
                                         <!-- Compose button - inside Vue, handled by Vue's event system -->
                                         <div class="compose-control">
-                                            <button
-                                                class="compose-btn"
-                                                id="composeBtn"
-                                                type="button"
+                                            <button class="compose-btn" id="composeBtn" type="button"
                                                 @click="openComposeModal">
                                                 <i data-lucide="pen-tool"></i>
                                                 <span>Compose</span>
@@ -163,78 +149,81 @@
                                 </div>
                             </div>
 
-                                <div id="memoList" class="memo-list">
-                                    <!-- Memos will be loaded here -->
-                                </div>
-                        </div>
+                            <div id="memoList" class="memo-list">
+                                <!-- Memos will be loaded here -->
+                            </div>
+                    </div>
                     </section>
 
-                        <!-- Memo Viewer Modal (converted from side view) -->
-                        <div id="memoViewerModal" class="modal memo-viewer-modal" style="display: none;">
-                            <div class="modal-content memo-viewer-modal-content">
-                                <div id="memoViewer" class="memo-viewer">
-                                    <div class="viewer-header">
-                                        <button id="backBtn" class="icon-btn" title="Close">
-                                            <i data-lucide="x"></i>
+                    <!-- Memo Viewer Modal (converted from side view) -->
+                    <div id="memoViewerModal" class="modal memo-viewer-modal" style="display: none;">
+                        <div class="modal-content memo-viewer-modal-content">
+                            <div id="memoViewer" class="memo-viewer">
+                                <div class="viewer-header">
+                                    <button id="backBtn" class="icon-btn" title="Close">
+                                        <i data-lucide="x"></i>
+                                    </button>
+                                    <div class="nav-buttons">
+                                        <button id="prevBtn" class="icon-btn" title="Previous Memo">
+                                            <i data-lucide="chevron-left"></i>
                                         </button>
-                                        <div class="nav-buttons">
-                                            <button id="prevBtn" class="icon-btn" title="Previous Memo">
-                                                <i data-lucide="chevron-left"></i>
-                                            </button>
-                                            <span id="memoCounter" class="memo-counter">0 of 0</span>
-                                            <button id="nextBtn" class="icon-btn" title="Next Memo">
-                                                <i data-lucide="chevron-right"></i>
-                                            </button>
-                                        </div>
-                                        <div class="viewer-actions">
-                                            <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
-                                            <button id="downloadBtn" class="icon-btn" title="Download Memo"><i data-lucide="download"></i></button>
-                                            <button id="archiveBtn" class="icon-btn" title="Archive"><i data-lucide="archive"></i></button>
-                                        </div>
+                                        <span id="memoCounter" class="memo-counter">0 of 0</span>
+                                        <button id="nextBtn" class="icon-btn" title="Next Memo">
+                                            <i data-lucide="chevron-right"></i>
+                                        </button>
                                     </div>
+                                    <div class="viewer-actions">
+                                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i
+                                                data-lucide="bookmark"></i></button>
+                                        <button id="downloadBtn" class="icon-btn" title="Download Memo"><i
+                                                data-lucide="download"></i></button>
+                                        <button id="archiveBtn" class="icon-btn" title="Archive"><i
+                                                data-lucide="archive"></i></button>
+                                    </div>
+                                </div>
 
-                                    <div class="memo-content">
-                                        <!-- Memo Header (PDF-style format) -->
-                                        <div class="memo-pdf-header">
-                                            <h1 class="memo-title">MEMO</h1>
-                                            <div class="memo-details">
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Subject:</span>
-                                                    <span id="memoDetailSubject" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">From:</span>
-                                                    <span id="memoDetailFrom" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">To:</span>
-                                                    <span id="memoDetailTo" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Department:</span>
-                                                    <span id="memoDetailDepartment" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Priority:</span>
-                                                    <span id="memoDetailPriority" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Date:</span>
-                                                    <span id="memoDetailDate" class="memo-detail-value"></span>
-                                                </div>
+                                <div class="memo-content">
+                                    <!-- Memo Header (PDF-style format) -->
+                                    <div class="memo-pdf-header">
+                                        <h1 class="memo-title">MEMO</h1>
+                                        <div class="memo-details">
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Subject:</span>
+                                                <span id="memoDetailSubject" class="memo-detail-value"></span>
                                             </div>
-                                            <div class="memo-separator"></div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">From:</span>
+                                                <span id="memoDetailFrom" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">To:</span>
+                                                <span id="memoDetailTo" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Department:</span>
+                                                <span id="memoDetailDepartment" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Priority:</span>
+                                                <span id="memoDetailPriority" class="memo-detail-value"></span>
+                                            </div>
+                                            <div class="memo-detail-row">
+                                                <span class="memo-detail-label">Date:</span>
+                                                <span id="memoDetailDate" class="memo-detail-value"></span>
+                                            </div>
                                         </div>
-                                        <div class="memo-body">
-                                            <div id="memoBodyContent"></div>
-                                        </div>
-                                        <div id="attachments" class="memo-attachments"></div>
+                                        <div class="memo-separator"></div>
                                     </div>
+                                    <div class="memo-body">
+                                        <div id="memoBodyContent"></div>
+                                    </div>
+                                    <div id="attachments" class="memo-attachments"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-            </main>
+    </div>
+    </main>
     </div>
 
     <!-- Compose Modal -->
@@ -258,7 +247,8 @@
                         </div>
                         <div class="compose-field-wrapper">
                             <label class="compose-field-label" style="display: none;">Subject</label>
-                            <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
+                            <input type="text" id="subject" style="border-bottom: 1px solid black;"
+                                class="compose-field" placeholder="Subject" required>
                         </div>
                         <div class="compose-inline-fields">
                             <div class="custom-dropdown compose-field-dropdown compose-field-inline">
@@ -274,7 +264,8 @@
                                         <!-- Signatures loaded dynamically -->
                                     </div>
                                     <hr class="dept-dropdown-hr">
-                                    <button type="button" id="addSignatureBtn" class="add-signature-btn" style="width:100%; padding:8px; margin-top:4px; background:#f3f4f6; border:1px dashed #d1d5db; border-radius:6px; cursor:pointer; color:#2563eb; font-size:13px; font-weight:500;">
+                                    <button type="button" id="addSignatureBtn" class="add-signature-btn"
+                                        style="width:100%; padding:8px; margin-top:4px; background:#f3f4f6; border:1px dashed #d1d5db; border-radius:6px; cursor:pointer; color:#2563eb; font-size:13px; font-weight:500;">
                                         + Add Signature
                                     </button>
                                 </div>
@@ -337,7 +328,8 @@
                             <span id="calendarBtnText" style="margin-left: 6px; font-size: 13px;">Schedule</span>
                         </button>
                         <button type="button" class="btn btn-secondary close-modal">Cancel</button>
-                        <button type="button" class="btn btn-secondary" id="previewMemoBtn" title="Preview PDF">Preview</button>
+                        <button type="button" class="btn btn-secondary" id="previewMemoBtn"
+                            title="Preview PDF">Preview</button>
                         <button type="submit" class="btn btn-primary" id="sendMemoBtn">
                             <span class="btn-text">Send</span>
                             <span class="btn-loading" style="display: none;">
@@ -370,16 +362,19 @@
                     <div class="signature-form-content">
                         <div class="form-group">
                             <label for="signatureName">Name</label>
-                            <input type="text" id="signatureName" name="displayName" class="signature-input" placeholder="e.g., Dr. John Doe" required>
+                            <input type="text" id="signatureName" name="displayName" class="signature-input"
+                                placeholder="e.g., Dr. John Doe" required>
                         </div>
                         <div class="form-group">
                             <label for="signatureTitle">Title/Role</label>
-                            <input type="text" id="signatureTitle" name="roleTitle" class="signature-input" placeholder="e.g., University President" required>
+                            <input type="text" id="signatureTitle" name="roleTitle" class="signature-input"
+                                placeholder="e.g., University President" required>
                         </div>
                         <div class="form-group">
                             <label for="signatureImage">Signature Image</label>
                             <div class="file-upload-wrapper">
-                                <input type="file" id="signatureImage" name="image" accept="image/*" required class="file-input">
+                                <input type="file" id="signatureImage" name="image" accept="image/*" required
+                                    class="file-input">
                                 <label for="signatureImage" class="file-label">
                                     <span class="file-icon">📎</span>
                                     <span class="file-text">Choose File</span>
@@ -390,20 +385,22 @@
                         </div>
                     </div>
                     <div class="form-actions signature-actions">
-                        <button type="button" class="btn btn-secondary close-modal" data-modal="addSignatureModal">Cancel</button>
+                        <button type="button" class="btn btn-secondary close-modal"
+                            data-modal="addSignatureModal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Add Signature</button>
                     </div>
                 </form>
-                                            </div>
-                                        </div>
-                                    </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Schedule Date/Time Modal -->
     <div id="scheduleModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width: 550px; width: 90%;">
             <div class="modal-header">
                 <h2>Schedule Memo</h2>
-                <button class="close-modal" onclick="document.getElementById('scheduleModal').style.display='none'">&times;</button>
+                <button class="close-modal"
+                    onclick="document.getElementById('scheduleModal').style.display='none'">&times;</button>
             </div>
             <div class="modal-body" style="padding: 24px;">
                 <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -412,14 +409,16 @@
                         <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0;">Start</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     📅 Start Date
                                 </label>
                                 <input type="date" id="scheduleStartDate"
                                     style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                             </div>
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     🕐 Start Time
                                 </label>
                                 <input type="time" id="scheduleStartTime"
@@ -433,42 +432,52 @@
                         <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0;">End</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     📅 End Date
                                 </label>
                                 <input type="date" id="scheduleEndDate"
                                     style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                             </div>
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     🕐 End Time
                                 </label>
                                 <input type="time" id="scheduleEndTime"
                                     style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
-                                        </div>
-                                    </div>
-                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Legacy fields (hidden, kept for backward compatibility) -->
                     <input type="date" id="scheduleDate" style="display: none;">
                     <input type="time" id="scheduleTime" style="display: none;">
 
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px;">
-                        <input type="checkbox" id="scheduleAllDay" style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;">
-                        <label for="scheduleAllDay" style="font-size: 14px; color: #374151; cursor: pointer; margin: 0; flex: 1;">
+                    <div
+                        style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                        <input type="checkbox" id="scheduleAllDay"
+                            style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;">
+                        <label for="scheduleAllDay"
+                            style="font-size: 14px; color: #374151; cursor: pointer; margin: 0; flex: 1;">
                             All Day Event
                         </label>
                     </div>
-                    <div style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #2563eb;">
-                        <strong>📌 Schedule Send:</strong> This memo will be sent at the scheduled start date and time, and will appear in your calendar and all recipients' calendars until the end date and time.
-                            </div>
+                    <div
+                        style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #2563eb;">
+                        <strong>📌 Schedule Send:</strong> This memo will be sent at the scheduled start date and time,
+                        and will appear in your calendar and all recipients' calendars until the end date and time.
+                    </div>
                 </div>
             </div>
-            <div class="form-actions" style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="button" class="btn btn-secondary" id="clearScheduleBtn" style="padding: 10px 20px; font-size: 14px;">
+            <div class="form-actions"
+                style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" id="clearScheduleBtn"
+                    style="padding: 10px 20px; font-size: 14px;">
                     Clear
                 </button>
-                <button type="button" class="btn btn-primary" id="saveScheduleBtn" style="padding: 10px 24px; font-size: 14px;">
+                <button type="button" class="btn btn-primary" id="saveScheduleBtn"
+                    style="padding: 10px 24px; font-size: 14px;">
                     Save
                 </button>
             </div>
@@ -684,7 +693,7 @@
                 if (typeof window !== 'undefined') {
                     const originalApplyFilters = window.applyFilters;
                     if (typeof originalApplyFilters === 'function') {
-                        window.applyFilters = function(...args) {
+                        window.applyFilters = function (...args) {
                             const result = originalApplyFilters.apply(this, args);
                             setTimeout(updateMemoCounter, 50);
                             return result;
@@ -746,7 +755,7 @@
         lucide.createIcons();
 
         // Convert memo viewer from side view to modal
-        (function() {
+        (function () {
             const memoViewerModal = document.getElementById('memoViewerModal');
             const memoViewer = document.getElementById('memoViewer');
             const backBtn = document.getElementById('backBtn');
@@ -772,8 +781,8 @@
             }
 
             // Monitor memoViewer display changes and convert to modal
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
+            const observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                         const display = window.getComputedStyle(memoViewer).display;
                         if (display === 'flex' && memoViewerModal.style.display !== 'block') {
@@ -794,7 +803,7 @@
 
             // Also check periodically (fallback)
             let lastDisplay = '';
-            setInterval(function() {
+            setInterval(function () {
                 const currentDisplay = memoViewer.style.display;
                 if (currentDisplay !== lastDisplay) {
                     lastDisplay = currentDisplay;
@@ -806,7 +815,7 @@
 
             // Close modal when clicking back button
             if (backBtn) {
-                backBtn.addEventListener('click', function() {
+                backBtn.addEventListener('click', function () {
                     closeMemoModal();
                     // Also hide the viewer
                     memoViewer.style.display = 'none';
@@ -814,7 +823,7 @@
             }
 
             // Close modal when clicking outside (on modal backdrop)
-            memoViewerModal.addEventListener('click', function(e) {
+            memoViewerModal.addEventListener('click', function (e) {
                 if (e.target === memoViewerModal) {
                     closeMemoModal();
                     memoViewer.style.display = 'none';
@@ -822,7 +831,7 @@
             });
 
             // Close modal with Escape key
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && memoViewerModal.style.display === 'block') {
                     closeMemoModal();
                     memoViewer.style.display = 'none';
@@ -831,9 +840,9 @@
 
             // Patch the selectMemo function to open modal
             // Wait for log.js to load
-            setTimeout(function() {
+            setTimeout(function () {
                 // Intercept memo item clicks
-                document.addEventListener('click', function(e) {
+                document.addEventListener('click', function (e) {
                     const memoItem = e.target.closest('.memo-item');
                     if (memoItem && memoItem.dataset.index !== undefined) {
                         // Open modal when memo is clicked

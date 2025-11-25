@@ -1,6 +1,5 @@
 <!-- Sidebar -->
-<aside class="sidebar"
-    data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'
+<aside class="sidebar" data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'
     data-user-role="<%= user.role %>">
     <div class="sidebar-container">
         <!-- Logo -->
@@ -41,8 +40,8 @@
                 </li>
                 <li class="<%= path === '/admin/archive' ? 'active' : '' %>">
                     <a href="/admin/archive">
-                        <i data-lucide="archive"
-                            class="nav-archive-icon <%= path === '/admin/archive' ? 'active' : '' %>"></i>
+                        <img src="<%= path === '/admin/archive' ? '/images/archive.png' : '/images/archive-in.png' %>"
+                            alt="Archive" class="nav-icon">
                         <span>Archive</span>
                     </a>
                 </li>
@@ -60,14 +59,15 @@
                         <span>Report</span>
                     </a>
                 </li>
-                <% if (user.role === 'admin') { %>
-                <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">
-                    <a href="/admin/activity-logs">
-                        <i data-lucide="activity" class="nav-icon"></i>
-                        <span>Activity Logs</span>
-                    </a>
-                </li>
-                <% } %>
+                <% if (user.role==='admin' ) { %>
+                    <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">
+                        <a href="/admin/activity-logs">
+                            <img src="<%= path === '/admin/activity-logs' ? '/images/pulse.png' : '/images/pulse-in.png' %>"
+                                alt="Activity Logs" class="nav-icon">
+                            <span>Activity Logs</span>
+                        </a>
+                    </li>
+                    <% } %>
             </ul>
         </nav>
 

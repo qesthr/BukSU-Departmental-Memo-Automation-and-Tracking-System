@@ -20,17 +20,18 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../components/sweetalert2'); %>
+        <!-- SweetAlert2 -->
+        <%- include('../components/sweetalert2'); %>
 
-    <!-- Google APIs -->
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <script src="/js/lucide.min.js"></script>
-    <script src="/js/admin-dash.js" defer></script>
+            <!-- Google APIs -->
+            <script src="https://apis.google.com/js/api.js"></script>
+            <script src="https://accounts.google.com/gsi/client"></script>
+            <script src="/js/lucide.min.js"></script>
+            <script src="/js/admin-dash.js" defer></script>
 </head>
 
-<body data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role, firstName: user.firstName }) %>'
+<body
+    data-current-user='<%- JSON.stringify({ id: user._id, email: user.email, role: user.role, firstName: user.firstName }) %>'
     data-calendar-connected="<%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>">
 
     <!-- Define ALL Vue Components FIRST -->
@@ -470,75 +471,74 @@
                 <!-- Header -->
                 <%- include('../components/admintopbar'); %>
 
-                <div class="content-area">
-                    <!-- Main Grid -->
-                    <div class="main-grid">
+                    <div class="content-area">
+                        <!-- Main Grid -->
+                        <div class="main-grid">
 
-                        <!-- Hero Header Component -->
-                        <hero-header :user-name="userFirstName"></hero-header>
+                            <!-- Hero Header Component -->
+                            <hero-header :user-name="userFirstName"></hero-header>
 
-                        <!-- Dashboard Content -->
-                        <div class="dashboard-content">
-                            <!-- Stats Cards -->
-                            <div class="stats-grid">
-                                <stats-card v-for="stat in statsData" :key="stat.title" :stat="stat"></stats-card>
-                            </div>
-                        </div>
-
-                        <!-- Memo List Component -->
-                        <memo-list
-                            :memos="sortedMemos"
-                            :loading="loading"
-                            @approve="approveMemo"
-                            @reject="rejectMemo">
-                        </memo-list>
-
-                        <!-- Calendar and Analytics (Non-Vue parts) -->
-                        <div class="side-grid">
-                            <div class="calendar-section">
-                                <div class="mini-cal-header" style="margin-bottom: 12px;">
-                                    <h3 id="dashboardMiniCalMonth"
-                                        style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">
-                                        Calendar
-                                    </h3>
-                                    <div class="mini-cal-nav">
-                                        <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev"
-                                            style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
-                                        <button id="dashboardMiniNext" class="btn-icon" aria-label="Next"
-                                            style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
-                                    </div>
+                            <!-- Dashboard Content -->
+                            <div class="dashboard-content">
+                                <!-- Stats Cards -->
+                                <div class="stats-grid">
+                                    <stats-card v-for="stat in statsData" :key="stat.title" :stat="stat"></stats-card>
                                 </div>
-                                <div id="dashboardMiniCalendar" class="mini-calendar"></div>
                             </div>
 
-                            <div class="backup-section system-status-widget" id="systemStatusWidget">
-                                <div class="system-status-header">
-                                    <div class="system-status-icon-container">
-                                        <i data-lucide="activity" class="backup-icon system-status-icon" id="systemStatusIcon"></i>
-                                        <span class="status-indicator" id="statusIndicator"></span>
-                                    </div>
-                                    <div class="backup-info">
-                                        <div class="system-status-title-row">
-                                            <h3>System Status</h3>
-                                            <button class="system-status-refresh-btn" id="systemStatusRefresh" title="Refresh status">
-                                                <i data-lucide="refresh-cw"></i>
-                                            </button>
+                            <!-- Memo List Component -->
+                            <memo-list :memos="sortedMemos" :loading="loading" @approve="approveMemo"
+                                @reject="rejectMemo">
+                            </memo-list>
+
+                            <!-- Calendar and Analytics (Non-Vue parts) -->
+                            <div class="side-grid">
+                                <div class="calendar-section">
+                                    <div class="mini-cal-header" style="margin-bottom: 12px;">
+                                        <h3 id="dashboardMiniCalMonth"
+                                            style="margin: 0; font-size: 1rem; color: #1f2937; font-weight: 600;">
+                                            Calendar
+                                        </h3>
+                                        <div class="mini-cal-nav">
+                                            <button id="dashboardMiniPrev" class="btn-icon" aria-label="Prev"
+                                                style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8249;</button>
+                                            <button id="dashboardMiniNext" class="btn-icon" aria-label="Next"
+                                                style="border: 1px solid #e2e8f0; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">&#8250;</button>
                                         </div>
-                                        <p class="system-status-text" id="systemStatusText">Checking...</p>
-                                        <p class="system-status-time" id="systemStatusTime"></p>
                                     </div>
+                                    <div id="dashboardMiniCalendar" class="mini-calendar"></div>
                                 </div>
-                                <div class="system-status-details" id="systemStatusDetails" style="display: none;">
-                                    <div class="system-status-services" id="systemStatusServices"></div>
+
+                                <div class="backup-section system-status-widget" id="systemStatusWidget">
+                                    <div class="system-status-header">
+                                        <div class="system-status-icon-container">
+                                            <i data-lucide="activity" class="backup-icon system-status-icon"
+                                                id="systemStatusIcon"></i>
+                                            <span class="status-indicator" id="statusIndicator"></span>
+                                        </div>
+                                        <div class="backup-info">
+                                            <div class="system-status-title-row">
+                                                <h3>System Status</h3>
+                                                <button class="system-status-refresh-btn" id="systemStatusRefresh"
+                                                    title="Refresh status">
+                                                    <i data-lucide="refresh-cw"></i>
+                                                </button>
+                                            </div>
+                                            <p class="system-status-text" id="systemStatusText">Checking...</p>
+                                            <p class="system-status-time" id="systemStatusTime"></p>
+                                        </div>
+                                    </div>
+                                    <div class="system-status-details" id="systemStatusDetails" style="display: none;">
+                                        <div class="system-status-services" id="systemStatusServices"></div>
+                                    </div>
+                                    <button class="system-status-toggle" id="systemStatusToggle">
+                                        <span class="toggle-text">Show Details</span>
+                                        <i data-lucide="chevron-down" class="toggle-icon"></i>
+                                    </button>
                                 </div>
-                                <button class="system-status-toggle" id="systemStatusToggle">
-                                    <span class="toggle-text">Show Details</span>
-                                    <i data-lucide="chevron-down" class="toggle-icon"></i>
-                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
             </main>
         </div>
     </div>
@@ -561,7 +561,8 @@
             </div>
             <div class="custom-modal-footer">
                 <button class="custom-modal-btn custom-modal-btn-secondary" id="dashboardDateModalCancel">Close</button>
-                <button class="custom-modal-btn custom-modal-btn-primary" id="dashboardDateModalViewCalendar">View Full Calendar</button>
+                <button class="custom-modal-btn custom-modal-btn-primary" id="dashboardDateModalViewCalendar">View Full
+                    Calendar</button>
             </div>
         </div>
     </div>
@@ -573,7 +574,7 @@
         // Fix data initialization with JSON.stringify (for joenil work)
         window.initialDashboardData = {
             stats: [],
-            memos: <%- JSON.stringify(allMemos || []) %>
+            memos: <% - JSON.stringify(allMemos || []) %>
         };
 
         // Mount Vue app after DOM is ready (ensures #app element exists)
@@ -604,4 +605,5 @@
         }
     </script>
 </body>
+
 </html>

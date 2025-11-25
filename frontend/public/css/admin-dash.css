@@ -278,81 +278,81 @@ body {
 
 /* Stats Grid */
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-  box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .stat-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 0.875rem 1rem;
-  display: flex;
-  align-items: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  gap: 0.75rem;
-  box-sizing: border-box;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 0.875rem 1rem;
+    display: flex;
+    align-items: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 0.75rem;
+    box-sizing: border-box;
 }
 
 .stat-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  color: #4a6cf7;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    color: #4a6cf7;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .stat-icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .stat-info {
-  flex: 1;
-  min-width: 0;
+    flex: 1;
+    min-width: 0;
 }
 
 .stat-info h3 {
-  font-size: 0.875rem;
-  color: #333;
-  margin-bottom: 4px;
-  font-weight: 500;
-  line-height: 1.2;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
+    font-size: 0.875rem;
+    color: #333;
+    margin-bottom: 4px;
+    font-weight: 500;
+    line-height: 1.2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .stat-value {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #222;
-  line-height: 1.2;
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: #222;
+    line-height: 1.2;
 }
 
 .stat-change {
-  font-size: 0.75rem;
-  color: #777;
-  margin-top: 2px;
-  line-height: 1.2;
+    font-size: 0.75rem;
+    color: #777;
+    margin-top: 2px;
+    line-height: 1.2;
 }
 
 /* Hover effect for stat cards */
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Main Grid Layout */
@@ -415,6 +415,7 @@ body {
     border: 1px solid var(--border);
     padding: 0.75rem;
     background: #fff;
+    margin-top: 10px;
 }
 
 /* Scrollbar styling for memo container */
@@ -616,10 +617,13 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
         transform: scale(1);
     }
+
     50% {
         opacity: 0.7;
         transform: scale(1.1);
@@ -673,6 +677,7 @@ body {
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -711,6 +716,7 @@ body {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -934,12 +940,15 @@ body {
     .main-grid {
         grid-template-columns: 1fr 420px;
     }
+
     .side-grid {
         max-width: 420px;
     }
+
     .hero-texts h1 {
         font-size: 2rem;
     }
+
     .hero-texts p {
         font-size: 1.125rem;
     }
@@ -949,6 +958,7 @@ body {
     .main-grid {
         grid-template-columns: 1fr 340px;
     }
+
     .side-grid {
         max-width: 340px;
     }
@@ -959,6 +969,7 @@ body {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto auto 1fr;
     }
+
     .side-grid {
         grid-column: 1;
         grid-row: 4;
@@ -967,15 +978,19 @@ body {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
     }
+
     .hero-header {
         grid-row: 1;
     }
+
     .dashboard-content {
         grid-row: 2;
     }
+
     .recent-memos-section {
         grid-row: 3;
     }
+
     .memo-container {
         max-height: 400px;
     }
@@ -987,94 +1002,118 @@ body {
         width: calc(100% - 70px);
         padding: 1rem;
     }
+
     .main-grid {
         gap: 1rem;
         margin-top: 1rem;
     }
+
     .side-grid {
         grid-template-columns: 1fr;
     }
+
     .hero-header {
         min-height: 160px;
     }
+
     .hero-overlay {
         min-height: 160px;
         padding: 1rem;
         grid-template-columns: 1fr;
     }
+
     .hero-img-container {
         display: none;
     }
+
     .hero-texts {
         text-align: center;
         align-items: center;
     }
+
     .hero-texts h1 {
         font-size: 1.5rem;
     }
+
     .hero-texts p {
         font-size: 0.9rem;
     }
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 0.75rem;
     }
+
     .stat-card {
         padding: 1rem;
     }
+
     .recent-memos-section {
         padding: 1rem;
     }
+
     .recent-memos-section h2 {
         font-size: 1.25rem;
         margin-bottom: 1rem;
     }
+
     .memo-container {
         max-height: 350px;
         padding: 0.5rem;
     }
+
     .calendar-section,
     .backup-section {
         padding: 1rem;
     }
+
     .sidebar {
         width: 70px;
         padding: 0.75rem;
         z-index: 100;
     }
+
     .logo h2,
     .main-nav span,
     .bottom-nav span,
     .profile-info {
         display: none;
     }
+
     .profile-section {
         padding: 0.5rem;
     }
+
     .stat-card {
         padding: 0.75rem;
         flex-direction: row;
         align-items: center;
         gap: 0.5rem;
     }
+
     .stat-icon {
         width: 32px;
         height: 32px;
     }
+
     .stat-info h3 {
         font-size: 0.8125rem;
     }
+
     .stat-value {
         font-size: 1.125rem;
     }
+
     .stat-change {
         font-size: 0.6875rem;
     }
+
     .memo-item {
         flex-wrap: wrap;
         padding: 0.75rem;
     }
-    .memo-item > div:last-child {
+
+    .memo-item>div:last-child {
         width: 100%;
         justify-content: flex-end;
         margin-top: 0.5rem;

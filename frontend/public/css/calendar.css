@@ -1,5 +1,6 @@
 .calendar-page {
     display: grid;
+    margin-top: 10px;
     grid-template-columns: 200px 1fr;
     gap: 0.5rem;
     height: 35rem;
@@ -230,8 +231,10 @@
     min-height: 32px;
     position: relative;
     padding: 4px 0;
-    overflow: visible; /* allow dropdown to overflow */
-    z-index: 2; /* sit above adjacent inputs */
+    overflow: visible;
+    /* allow dropdown to overflow */
+    z-index: 2;
+    /* sit above adjacent inputs */
 }
 
 .participant-chips-wrapper {
@@ -289,6 +292,7 @@
         opacity: 0;
         transform: translateY(-5px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -365,8 +369,13 @@
 
 /* Loading spinner animation */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .participant-chip {
@@ -802,6 +811,7 @@
         opacity: 0;
         transform: translateY(-20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
