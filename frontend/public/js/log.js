@@ -3560,8 +3560,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     return email ? `${name} (${email})` : name || email || 'Unknown';
                 }).filter(Boolean).join(', ');
                 memoDetailTo.textContent = recipientList || 'Unknown Recipient';
+
+                // Clear inline avatars - avatars only show in acknowledgment status section below
+                const avatarsDiv = document.getElementById('recipientAvatarsInline');
+                if (avatarsDiv) {
+                    avatarsDiv.innerHTML = '';
+                }
             } else {
                 memoDetailTo.textContent = 'Unknown Recipient';
+                // Clear avatars if no recipients
+                const avatarsDiv = document.getElementById('recipientAvatarsInline');
+                if (avatarsDiv) {
+                    avatarsDiv.innerHTML = '';
+                }
             }
         }
 

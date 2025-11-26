@@ -441,7 +441,8 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             'user_profile_edited'
         ];
 
-        // Get archived memos OR sent/approved memos that can be archived
+        // Get archived memos (explicitly archived or approved)
+        // Note: 'sent' status memos should appear in inbox, not archive
         // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
         const archivedMemos = await Memo.find({
             $and: [
@@ -452,7 +453,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
                     ]
                 },
                 {
-                    status: { $in: ['archived', 'sent', 'approved'] },
+                    status: { $in: ['archived', 'approved'] },
                     // Exclude system activity types (should only be in Activity Logs)
                     activityType: { $nin: systemActivityTypes }
                 }

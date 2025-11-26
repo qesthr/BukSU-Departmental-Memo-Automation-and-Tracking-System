@@ -206,9 +206,12 @@
                                                     <span class="memo-detail-label">From:</span>
                                                     <span id="memoDetailFrom" class="memo-detail-value"></span>
                                                 </div>
-                                                <div class="memo-detail-row">
+                                                <div class="memo-detail-row memo-detail-row-to">
                                                     <span class="memo-detail-label">To:</span>
-                                                    <span id="memoDetailTo" class="memo-detail-value"></span>
+                                                    <div class="memo-detail-value memo-detail-to-container">
+                                                        <span id="memoDetailTo" class="memo-detail-to-text"></span>
+                                                        <div id="recipientAvatarsInline" class="recipient-avatars-inline"></div>
+                                                    </div>
                                                 </div>
                                                 <div class="memo-detail-row">
                                                     <span class="memo-detail-label">Department:</span>
@@ -229,6 +232,17 @@
                                             <div id="memoBodyContent"></div>
                                         </div>
                                         <div id="attachments" class="memo-attachments"></div>
+                                    </div>
+                                    <!-- Acknowledgment Status Section (outside memo-content, for approved memos) -->
+                                    <div id="acknowledgmentStatus" class="acknowledgment-status" style="display: none;">
+                                        <div class="acknowledgment-header-compact">
+                                            <span class="acknowledgment-label">Acknowledgment Status:</span>
+                                            <div id="acknowledgmentAvatars" class="acknowledgment-avatars"></div>
+                                            <button id="reminderBtnCompact" class="reminder-btn-compact" title="Send Reminder" style="display: none;">
+                                                <i data-lucide="bell"></i>
+                                                <span>Reminder</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
