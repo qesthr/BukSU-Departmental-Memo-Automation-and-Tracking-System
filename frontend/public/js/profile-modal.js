@@ -1,3 +1,5 @@
+/* global Swal */
+
 // Profile Edit Modal Functionality
 document.addEventListener('DOMContentLoaded', () => {
     const profileSection = document.getElementById('profileSection');
@@ -83,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Use self-update endpoint for non-admins
-            const response = await fetch(`/api/auth/me`, {
+            const response = await fetch(`/auth/me`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -101,22 +103,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update nav profile display (check if elements exist)
                 const navProfileName = document.getElementById('navProfileName');
                 const navProfileEmail = document.getElementById('navProfileEmail');
-                if (navProfileName) navProfileName.textContent = `${firstName} ${lastName}`;
-                if (navProfileEmail) navProfileEmail.textContent = email;
+                if (navProfileName) {navProfileName.textContent = `${firstName} ${lastName}`;}
+                if (navProfileEmail) {navProfileEmail.textContent = email;}
 
                 // If profile picture was changed
                 const fileInput = document.getElementById('profilePictureInput');
                 if (fileInput && fileInput.files && fileInput.files.length > 0) {
-                    uploadProfilePicture(userId, fileInput.files[0]);
+                    await uploadProfilePicture(userId, fileInput.files[0]);
                 }
 
-                showNotification('Profile updated successfully', 'success');
                 closeModal(profileModal);
 
-                // Reload page to update all references
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                // Smooth loading effect, then green success check, then auto‑reload
+                if (typeof Swal !== 'undefined') {
+                    // Step 1: loading spinner
+                    Swal.fire({
+                        title: 'Saving changes...',
+                        text: 'Please wait a moment.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Step 2: after 2s, show green success check, then reload
+                    setTimeout(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Profile updated',
+                            text: 'Your changes have been saved.',
+                            confirmButtonColor: '#16a34a',
+                            showConfirmButton: false,
+                            timer: 1200,
+                            timerProgressBar: true,
+                            willClose: () => {
+                                window.location.reload();
+                            }
+                        });
+                    }, 2000);
+                } else {
+                    // Fallback without SweetAlert
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                }
             } else {
                 showNotification(data.message || 'Error updating profile', 'error');
             }
@@ -131,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('profilePicture', file);
 
         try {
-                const response = await fetch(`/api/auth/me/profile-picture`, { method: 'POST', body: formData });
+                const response = await fetch(`/auth/me/profile-picture`, { method: 'POST', body: formData });
 
             if (response.ok) {
                 const data = await response.json();
@@ -146,8 +177,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showNotification(message, type) {
-        // You can implement your notification system here
-        console.log(`${type}: ${message}`);
+        // Prefer SweetAlert2 when available
+        if (typeof Swal !== 'undefined') {
+            const isSuccess = type === 'success';
+            Swal.fire({
+                icon: isSuccess ? 'success' : (type === 'error' ? 'error' : 'info'),
+                title: isSuccess ? 'Profile Updated' : 'Notice',
+                text: message || (isSuccess ? 'Your profile has been updated successfully.' : ''),
+                confirmButtonColor: isSuccess ? '#16a34a' : '#3b82f6'
+            });
+        } else {
+            // Fallback to console if SweetAlert2 is not loaded
+            console.log(`${type}: ${message}`);
+        }
     }
 });
 

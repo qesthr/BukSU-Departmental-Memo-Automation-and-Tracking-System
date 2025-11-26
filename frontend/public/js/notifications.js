@@ -464,10 +464,15 @@
                 // ALL notifications should open in modal - use the notification's own ID if no memoId
                 const targetMemoId = memoId || id;
 
-                // For any notification with originalMemoId, use originalMemoId to fetch the actual pending memo
-                // This ensures we always fetch the original pending memo for secretary-created memos
-                // Check if originalMemoId exists and use it (regardless of notification type)
-                const finalMemoId = originalMemoId ? originalMemoId : targetMemoId;
+                // Only admins (or pending memo notifications) should fall back to the original memo.
+                const canViewOriginal =
+                    originalMemoId &&
+                    (
+                        notificationType === 'pending_memo' ||
+                        (window.currentUser && window.currentUser.role === 'admin')
+                    );
+
+                const finalMemoId = canViewOriginal ? originalMemoId : targetMemoId;
 
                 // eslint-disable-next-line no-console
                 console.log('Opening notification modal with ID:', finalMemoId, 'Type:', notificationType);

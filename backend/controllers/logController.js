@@ -97,21 +97,32 @@ exports.getAllMemos = async (req, res) => {
                 // Status filter already excludes pending, so secretaries won't see their own pending memos
                 // For secretaries, show approved/rejected memos but NOT approval/rejection notification memos
                 // (notification memos appear in notifications dropdown, not inbox)
-                if (user.role === 'secretary') {
-                    query = {
-                        recipient: userId,
-                        status: { $in: ['sent', 'approved', 'rejected'] },
-                        activityType: { $nin: systemActivityTypes },
-                        // Exclude acknowledgment notifications
-                        // Exclude admin memo copies (memos created for admin's inbox)
-                        // Exclude approval/rejection notification memos (they appear in notifications, not inbox)
-                        $nor: [
-                            { 'metadata.notificationType': 'acknowledgment' },
-                            { subject: /^Memo Acknowledged:/i },
-                            { 'metadata.eventType': 'memo_approved_by_admin' },
-                            { 'metadata.eventType': 'memo_review_decision' }
-                        ]
-                    };
+            if (user.role === 'secretary') {
+                query = {
+                    $and: [
+                        {
+                            $or: [
+                                {
+                                    recipient: userId,
+                                    status: { $in: ['sent', 'approved', 'rejected'] }
+                                },
+                                {
+                                    sender: userId,
+                                    status: { $nin: ['deleted'] }
+                                }
+                            ]
+                        },
+                        {
+                            activityType: { $nin: systemActivityTypes },
+                            $nor: [
+                                { 'metadata.notificationType': 'acknowledgment' },
+                                { subject: /^Memo Acknowledged:/i },
+                                { 'metadata.eventType': 'memo_approved_by_admin' },
+                                { 'metadata.eventType': 'memo_review_decision' }
+                            ]
+                        }
+                    ]
+                };
                 } else {
                     query = {
                         recipient: userId,
@@ -164,7 +175,8 @@ exports.getAllMemos = async (req, res) => {
             }
 
             if (user && user.role === 'admin') {
-                // Admin archive: show memos sent by admin OR received by admin (that are archived)
+                // Admin archive: show memos sent by admin OR received by admin (that are explicitly archived)
+                // Note: 'sent' status memos should appear in inbox, not archive
                 query = {
                     $and: [
                         {
@@ -174,7 +186,7 @@ exports.getAllMemos = async (req, res) => {
                             ]
                         },
                         {
-                            status: { $in: ['archived', 'sent', 'approved'] },
+                            status: { $in: ['archived', 'approved'] },
                             // Exclude system activity types (should only be in Activity Logs)
                             activityType: { $nin: systemActivityTypes }
                         }
@@ -182,10 +194,11 @@ exports.getAllMemos = async (req, res) => {
                 };
             } else {
                 // Regular users: show archived memos sent by user
+                // Note: 'sent' status memos should appear in inbox, not archive
                 query = {
                     sender: userId,
                     recipient: { $ne: userId }, // Exclude memos sent to the user themselves
-                    status: { $in: ['archived', 'sent', 'approved'] },
+                    status: { $in: ['archived', 'approved'] },
                     activityType: { $ne: 'system_notification' }
                 };
             }
@@ -234,7 +247,7 @@ exports.getAllMemos = async (req, res) => {
             }
 
             // Exclude delivered copies for all users
-            if (isDeliveredCopy) {
+            if (isDeliveredCopy && user.role === 'admin') {
                 return false;
             }
 

@@ -48,6 +48,15 @@
   let registeredUsers = [];
   let participantsData = { departments: [], emails: [] };
 
+  // Filter state
+  let calendarFilters = {
+    mine: false,
+    department: false
+  };
+  let categoryFilter = null; // null = all categories, or 'urgent', 'today', etc.
+  let allEventsCache = []; // Cache all events for client-side filtering
+  let isInitialLoad = true; // Track if this is the first load
+
   // Modal functions (from original calendar.js)
   function showConfirmModal(message, title = 'Confirm') {
     return new Promise((resolve) => {
@@ -154,6 +163,9 @@
         }
       }, 100);
     }
+
+    // Initialize filters
+    initFilters();
 
     // Load events
     loadEvents();
@@ -340,12 +352,14 @@
         return eventEnd >= now && category !== 'archived';
       });
 
-      // Update calendar with only active (non-past) events
-      customCalendar.setEvents(activeEvents);
+      // Cache all active events for filtering
+      allEventsCache = activeEvents;
 
-      // Update mini calendar events (already filtered above)
-      miniCalendarEvents = activeEvents;
-      renderMiniCalendar();
+      // Apply filters and update calendar
+      applyFilters();
+
+      // Mark that initial load is complete
+      isInitialLoad = false;
 
     } catch (err) {
       console.error('Error loading events:', err);
@@ -2097,6 +2111,176 @@
     if (participantsHiddenInput) {
       participantsHiddenInput.value = JSON.stringify(participantsData);
     }
+  }
+
+  /**
+   * Apply filters to events and update calendar
+   */
+  function applyFilters() {
+    if (!customCalendar || allEventsCache.length === 0) {
+      return;
+    }
+
+    let filteredEvents = [...allEventsCache];
+
+    // Filter by calendar type (My Events, Department)
+    // Only filter if at least one checkbox is checked
+    if (calendarFilters.mine || calendarFilters.department) {
+      filteredEvents = filteredEvents.filter(event => {
+        const isCreator = event.extendedProps?.isCreator === true;
+        const hasDepartmentParticipants = event.extendedProps?.participants?.departments?.length > 0;
+        const userDepartment = window.currentUser?.department;
+        let matches = false;
+
+        // Show if "My Events" is checked and user is creator
+        if (calendarFilters.mine && isCreator) {
+          matches = true;
+        }
+
+        // Show if "Department" is checked and event has department participants matching user's department
+        if (!matches && calendarFilters.department && hasDepartmentParticipants && userDepartment) {
+          const eventDepartments = event.extendedProps.participants.departments || [];
+          if (eventDepartments.includes(userDepartment)) {
+            matches = true;
+          }
+        }
+
+        return matches;
+      });
+    } else {
+      // If no filters are checked, show all events (no filtering)
+      // This means all events from cache will be shown
+    }
+
+    // Filter by category
+    if (categoryFilter) {
+      filteredEvents = filteredEvents.filter(event => {
+        const eventCategory = event.extendedProps?.category || event.category || 'standard';
+
+        // Map UI category names to backend category values
+        if (categoryFilter === 'today') {
+          // For "Today", show events happening today
+          const today = new Date();
+          const eventStart = new Date(event.start);
+          return eventStart.toDateString() === today.toDateString();
+        } else if (categoryFilter === 'urgent') {
+          return eventCategory === 'urgent' || eventCategory === 'high';
+        }
+        return eventCategory === categoryFilter;
+      });
+    }
+
+    // Check if no events match the filter (only show message if we have events but none match)
+    // Show when filters are active and result in no events
+    const hasActiveFilters = (calendarFilters.mine || calendarFilters.department) || categoryFilter !== null;
+    if (!isInitialLoad && filteredEvents.length === 0 && allEventsCache.length > 0 && hasActiveFilters) {
+      // Show SweetAlert notification
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'info',
+          title: 'No Events Found',
+          text: 'No events match the selected filters.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#1C89E3',
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        // Fallback to alert if SweetAlert is not available
+        alert('No events match the selected filters.');
+      }
+    }
+
+    // Update calendar with filtered events
+    customCalendar.setEvents(filteredEvents);
+
+    // Update mini calendar events
+    miniCalendarEvents = filteredEvents;
+    renderMiniCalendar();
+  }
+
+  /**
+   * Initialize filter UI and event listeners
+   */
+  function initFilters() {
+    // Get filter checkboxes
+    const filterMine = document.getElementById('filterMine');
+    const filterDepartment = document.getElementById('filterDepartment');
+
+    // Initialize checkbox states
+    if (filterMine) {
+      filterMine.checked = calendarFilters.mine;
+      filterMine.addEventListener('change', (e) => {
+        calendarFilters.mine = e.target.checked;
+        applyFilters();
+      });
+    }
+
+    if (filterDepartment) {
+      filterDepartment.checked = calendarFilters.department;
+      filterDepartment.addEventListener('change', (e) => {
+        calendarFilters.department = e.target.checked;
+        applyFilters();
+      });
+    }
+
+    // Initialize category filters
+    // Find the Categories section and get its child divs
+    const categoriesSection = Array.from(document.querySelectorAll('.sidebar-section')).find(section => {
+      const h3 = section.querySelector('h3');
+      return h3 && h3.textContent.trim() === 'Categories';
+    });
+    const categoryItems = categoriesSection ? Array.from(categoriesSection.querySelectorAll('div')).filter(div => {
+      // Only get divs that contain category-dot spans (not the h3)
+      return div.querySelector('.category-dot');
+    }) : [];
+
+    categoryItems.forEach((item, index) => {
+      // Make categories clickable
+      item.style.cursor = 'pointer';
+      item.style.userSelect = 'none';
+
+      // Add active state styling
+      if (!item.classList.contains('category-filter')) {
+        item.classList.add('category-filter');
+      }
+
+      item.addEventListener('click', () => {
+        // Remove active state from all categories
+        categoryItems.forEach(cat => {
+          cat.style.fontWeight = 'normal';
+          cat.style.opacity = '1';
+        });
+
+        // Set active state for clicked category
+        item.style.fontWeight = '600';
+        item.style.opacity = '0.8';
+
+        // Determine category filter value
+        const text = item.textContent.trim().toLowerCase();
+        // Toggle filter: if clicking the same category, clear it; otherwise set it
+        if (categoryFilter === 'today' && text === 'today') {
+          categoryFilter = null; // Clear filter
+          item.style.fontWeight = 'normal';
+          item.style.opacity = '1';
+        } else if (categoryFilter === 'urgent' && text === 'urgent') {
+          categoryFilter = null; // Clear filter
+          item.style.fontWeight = 'normal';
+          item.style.opacity = '1';
+        } else {
+          // Set new filter
+          if (text === 'today') {
+            categoryFilter = 'today';
+          } else if (text === 'urgent') {
+            categoryFilter = 'urgent';
+          } else {
+            categoryFilter = null; // Show all
+          }
+        }
+
+        applyFilters();
+      });
+    });
   }
 
 })();

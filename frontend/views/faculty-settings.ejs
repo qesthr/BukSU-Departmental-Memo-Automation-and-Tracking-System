@@ -59,33 +59,49 @@
                     </div>
 
                     <div class="settings-card">
-                        <h3>Preferences</h3>
-                        <p>Adjust appearance and security options.</p>
+                        <h3>Notification Preferences</h3>
+                        <p>Choose how you’d like to be notified about important updates.</p>
                         <div class="preferences-grid">
                             <div class="setting-row">
                                 <div class="setting-info">
+<<<<<<< HEAD
                                     <h4>Dark Mode</h4>
                                     <p>Toggle a theme that's easier on the eyes.</p>
                                 </div>
                                 <label class="switch">
                                     <input type="checkbox" v-model="settings.darkMode" @change="updateSetting('darkMode', $event.target.checked)">
+=======
+                                    <h4>Email me when I receive new memos</h4>
+                                    <p>Get an email whenever a memo is sent to you.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="memoEmailToggle">
+>>>>>>> f00053134ca7dca831b15d8e6b5e24fe42a175b5
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="setting-row">
                                 <div class="setting-info">
-                                    <h4>Two-Factor Authentication</h4>
-                                    <p>Send an OTP to your email for each login.</p>
+                                    <h4>Email me about profile or account changes</h4>
+                                    <p>Be notified if your profile details are updated.</p>
                                 </div>
                                 <label class="switch">
+<<<<<<< HEAD
                                     <input type="checkbox" v-model="settings.twoFactorEnabled" @change="updateSetting('twoFactorEnabled', $event.target.checked)">
+=======
+                                    <input type="checkbox" id="profileUpdateToggle">
+>>>>>>> f00053134ca7dca831b15d8e6b5e24fe42a175b5
                                     <span class="slider"></span>
                                 </label>
                             </div>
                         </div>
+<<<<<<< HEAD
                         <div class="settings-feedback" :class="securityFeedback.type" role="status">
                             {{ securityFeedback.message }}
                         </div>
+=======
+                        <div class="settings-feedback" id="notificationFeedback" role="status"></div>
+>>>>>>> f00053134ca7dca831b15d8e6b5e24fe42a175b5
                     </div>
                 </div>
             </section>

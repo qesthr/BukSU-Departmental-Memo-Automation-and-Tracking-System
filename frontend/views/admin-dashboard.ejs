@@ -463,13 +463,13 @@
         <div class="dashboard-container">
             <!-- Navigations -->
             <div class="navigations">
-                <%- include('../components/nav'); %>
+                <%- include('../components/nav', { skipScripts: true }); %>
             </div>
 
             <!-- Main Content -->
             <main class="main-content">
                 <!-- Header -->
-                <%- include('../components/admintopbar'); %>
+                <%- include('../components/admintopbar', { skipScripts: true }); %>
 
                     <div class="content-area">
                         <!-- Main Grid -->
@@ -543,6 +543,15 @@
         </div>
     </div>
 
+    <!-- Scripts from included components (moved outside Vue app to avoid warnings) -->
+    <!-- These will be initialized after Vue mounts (see script at end of file) -->
+    <script src="/js/sidebar-hover.js"></script>
+    <script src="/js/profile-modal.js"></script>
+    <script src="/js/logout-modal.js"></script>
+    <script src="/js/session-timeout.js"></script>
+    <script src="/js/contextual-search.js"></script>
+    <script src="/js/notifications.js" defer></script>
+
     <script>
         // Only keep lucide icons initialization if needed for non-Vue parts
         lucide.createIcons();
@@ -574,7 +583,7 @@
         // Fix data initialization with JSON.stringify (for joenil work)
         window.initialDashboardData = {
             stats: [],
-            memos: <% - JSON.stringify(allMemos || []) %>
+            memos: <%- JSON.stringify(allMemos || []) %>
         };
 
         // Mount Vue app after DOM is ready (ensures #app element exists)
@@ -583,23 +592,41 @@
             if (appElement && !appElement.__vue_app__) {
                 const mountedApp = window.vueApp.mount('#app');
 
-                // Wait for Vue to render, then initialize calendar
+                // Wait for Vue to render, then initialize everything
+                const initAfterVue = () => {
+                    // Initialize sidebar settings (from nav.ejs) - must run after Vue renders
+                    (function () {
+                        const sidebar = document.querySelector('.sidebar');
+                        if (!sidebar) { return; }
+                        let settings = {};
+                        try {
+                            settings = JSON.parse(sidebar.getAttribute('data-user-settings') || '{}');
+                        } catch (err) {
+                            settings = {};
+                        }
+                        window.__initialUserSettings = Object.assign({}, window.__initialUserSettings || {}, settings);
+                        window.__currentUserRole = sidebar.getAttribute('data-user-role') || window.__currentUserRole || '';
+                        const enableDark = !!settings.darkMode;
+                        document.documentElement.classList.toggle('dark-mode', enableDark);
+                        document.body && document.body.classList.toggle('dark-mode', enableDark);
+                    })();
+
+                    // Initialize calendar after Vue has rendered
+                    if (window.initDashboardMiniCalendar) {
+                        window.initDashboardMiniCalendar();
+                    }
+
+                    // Re-initialize lucide icons for any dynamically rendered elements
+                    lucide.createIcons();
+                };
+
                 if (mountedApp && mountedApp.$nextTick) {
                     mountedApp.$nextTick(() => {
-                        // Initialize calendar after Vue has rendered
-                        setTimeout(() => {
-                            if (window.initDashboardMiniCalendar) {
-                                window.initDashboardMiniCalendar();
-                            }
-                        }, 200);
+                        setTimeout(initAfterVue, 200);
                     });
                 } else {
                     // Fallback: wait a bit then initialize
-                    setTimeout(() => {
-                        if (window.initDashboardMiniCalendar) {
-                            window.initDashboardMiniCalendar();
-                        }
-                    }, 300);
+                    setTimeout(initAfterVue, 300);
                 }
             }
         }

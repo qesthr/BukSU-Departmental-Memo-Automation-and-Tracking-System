@@ -191,13 +191,25 @@ app.use('/admin', require('./frontend/routes/adminRoutes'));
 app.get('/settings', isAuthenticated, validateUserRole, (req, res) => {
     const role = (req.user && req.user.role) || '';
     if (role === 'admin') {
-        return res.render('admin/settings', { user: req.user, path: '/settings' });
+        return res.render('admin/settings', {
+            pageTitle: 'Admin Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     if (role === 'secretary') {
-        return res.render('secretary-settings', { user: req.user, path: '/settings' });
+        return res.render('secretary-settings', {
+            pageTitle: 'Secretary Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     if (role === 'faculty') {
-        return res.render('faculty-settings', { user: req.user, path: '/settings' });
+        return res.render('faculty-settings', {
+            pageTitle: 'Faculty Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     return res.redirect('/login');
 });
@@ -211,7 +223,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.get('/', (req, res) => {
-    res.render('login'); // frontend/views/login.ejs
+    res.render('login', { pageTitle: 'Memofy Login Page' }); // frontend/views/login.ejs
 });
 
 // Unauthorized access page - plain white background with error modal
@@ -224,6 +236,7 @@ app.get('/login', (req, res) => {
     const { error, message } = req.query || {};
     if (error === 'account_not_found') {
         return res.render('login', {
+            pageTitle: 'Memofy Login Page',
             showMinimalMessageModal: true,
             modalTitle: 'Account Not Found',
             modalMessage: message || 'Your account has not been added by an administrator. Please contact your administrator to create your account.',
@@ -232,20 +245,25 @@ app.get('/login', (req, res) => {
     }
     if (error || message) {
         return res.render('login', {
+            pageTitle: 'Memofy Login Page',
             showMessageModal: true,
             modalTitle: error ? 'Login Error' : 'Message',
             modalMessage: message || 'Authentication failed. Please try again.',
             modalType: 'error'
         });
     }
-    return res.render('login');
+    return res.render('login', { pageTitle: 'Memofy Login Page' });
 });
 
 // Admin Calendar
 app.get('/calendar', isAuthenticated, (req, res) => {
     const role = req.user?.role;
     if (role === 'admin') {
-        return res.render('admin/calendar', { user: req.user, path: '/calendar' });
+        return res.render('admin/calendar', {
+            pageTitle: 'Admin Calendar | Memofy',
+            user: req.user,
+            path: '/calendar'
+        });
     }
     if (role === 'secretary') {
         return res.redirect('/secretary/calendar');
@@ -255,12 +273,20 @@ app.get('/calendar', isAuthenticated, (req, res) => {
 
 // Secretary Calendar - only for secretaries (admin blocked)
 app.get('/secretary/calendar', isAuthenticated, validateUserRole, requireRole('secretary'), (req, res) => {
-    return res.render('secretary-calendar', { user: req.user, path: '/calendar' });
+    return res.render('secretary-calendar', {
+        pageTitle: 'Secretary Calendar | Memofy',
+        user: req.user,
+        path: '/calendar'
+    });
 });
 
 // Faculty Calendar - view-only, only for faculty
 app.get('/faculty/calendar', isAuthenticated, validateUserRole, requireRole('faculty'), (req, res) => {
-    return res.render('faculty-calendar', { user: req.user, path: '/faculty/calendar' });
+    return res.render('faculty-calendar', {
+        pageTitle: 'Faculty Calendar | Memofy',
+        user: req.user,
+        path: '/faculty/calendar'
+    });
 });
 
 
@@ -297,12 +323,18 @@ app.get('/admin-dashboard', isAuthenticated, validateUserRole, isAdmin, async (r
             .populate('sender', 'firstName lastName email')
             .populate('recipient', 'firstName lastName email');
         res.render('admin-dashboard', {
+            pageTitle: 'Admin Dashboard | Memofy',
             user: req.user,
             path: '/admin-dashboard',
             allMemos
         });
     } catch (e) {
-        res.render('admin-dashboard', { user: req.user, path: '/admin-dashboard', allMemos: [] });
+        res.render('admin-dashboard', {
+            pageTitle: 'Admin Dashboard | Memofy',
+            user: req.user,
+            path: '/admin-dashboard',
+            allMemos: []
+        });
     }
 });
 
@@ -314,9 +346,19 @@ app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary'
         try {
             const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
                 .populate('recipient', 'firstName lastName email');
-            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos });
+            return res.render('secretary-dashboard', {
+                pageTitle: 'Secretary Dashboard | Memofy',
+                user: req.user,
+                path: '/dashboard',
+                memos
+            });
         } catch (e) {
-            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos: [] });
+            return res.render('secretary-dashboard', {
+                pageTitle: 'Secretary Dashboard | Memofy',
+                user: req.user,
+                path: '/dashboard',
+                memos: []
+            });
         }
     }
 
@@ -341,6 +383,7 @@ app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary'
             });
 
             return res.render('faculty-dashboard', {
+                pageTitle: 'Faculty Dashboard | Memofy',
                 user: req.user,
                 path: '/dashboard',
                 receivedMemos: receivedMemos || [],
@@ -349,6 +392,7 @@ app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary'
         } catch (e) {
             console.error('Error fetching faculty dashboard data:', e);
             return res.render('faculty-dashboard', {
+                pageTitle: 'Faculty Dashboard | Memofy',
                 user: req.user,
                 path: '/dashboard',
                 receivedMemos: [],
@@ -380,9 +424,21 @@ app.get('/secretary/memos', isAuthenticated, validateUserRole, requireRole('secr
         })
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email');
-        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos, received });
+        return res.render('secretary-memos', {
+            pageTitle: 'Secretary Memos | Memofy',
+            user: req.user,
+            path: '/secretary/memos',
+            memos,
+            received
+        });
     } catch (e) {
-        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos: [], received: [] });
+        return res.render('secretary-memos', {
+            pageTitle: 'Secretary Memos | Memofy',
+            user: req.user,
+            path: '/secretary/memos',
+            memos: [],
+            received: []
+        });
     }
 });
 
@@ -410,6 +466,7 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
             .populate('createdBy', 'firstName lastName email');
 
         return res.render('secretary-archive', {
+            pageTitle: 'Secretary Archive | Memofy',
             user: req.user,
             path: '/secretary/archive',
             archivedMemos: archivedMemos || [],
@@ -418,6 +475,7 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
     } catch (e) {
         console.error('Error fetching archived memos:', e);
         return res.render('secretary-archive', {
+            pageTitle: 'Secretary Archive | Memofy',
             user: req.user,
             path: '/secretary/archive',
             archivedMemos: [],
@@ -441,7 +499,8 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             'user_profile_edited'
         ];
 
-        // Get archived memos OR sent/approved memos that can be archived
+        // Get archived memos (explicitly archived or approved)
+        // Note: 'sent' status memos should appear in inbox, not archive
         // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
         const archivedMemos = await Memo.find({
             $and: [
@@ -452,7 +511,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
                     ]
                 },
                 {
-                    status: { $in: ['archived', 'sent', 'approved'] },
+                    status: { $in: ['archived', 'approved'] },
                     // Exclude system activity types (should only be in Activity Logs)
                     activityType: { $nin: systemActivityTypes }
                 }
@@ -478,6 +537,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             .populate('createdBy', 'firstName lastName email');
 
         return res.render('admin-archive', {
+            pageTitle: 'Admin Archive | Memofy',
             user: req.user,
             path: '/admin/archive',
             archivedMemos: archivedMemos || [],
@@ -487,6 +547,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
     } catch (e) {
         console.error('Error fetching archived items:', e);
         return res.render('admin-archive', {
+            pageTitle: 'Admin Archive | Memofy',
             user: req.user,
             path: '/admin/archive',
             archivedMemos: [],
@@ -514,9 +575,19 @@ app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('facult
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received });
+        return res.render('faculty-memos', {
+            pageTitle: 'Faculty Memos | Memofy',
+            user: req.user,
+            path: '/faculty/memos',
+            received
+        });
     } catch (e) {
-        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received: [] });
+        return res.render('faculty-memos', {
+            pageTitle: 'Faculty Memos | Memofy',
+            user: req.user,
+            path: '/faculty/memos',
+            received: []
+        });
     }
 });
 
@@ -532,10 +603,20 @@ app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('facu
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: archivedMemos || [] });
+        return res.render('faculty-archive', {
+            pageTitle: 'Faculty Archive | Memofy',
+            user: req.user,
+            path: '/faculty/archive',
+            archivedMemos: archivedMemos || []
+        });
     } catch (e) {
         console.error('Error fetching archived memos:', e);
-        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: [] });
+        return res.render('faculty-archive', {
+            pageTitle: 'Faculty Archive | Memofy',
+            user: req.user,
+            path: '/faculty/archive',
+            archivedMemos: []
+        });
     }
 });
 
@@ -548,6 +629,7 @@ app.get('/log', (req, res) => {
         }
         // Admins and secretaries go to admin log
         res.render('admin/log', {
+            pageTitle: 'Activity Log | Memofy',
             user: req.user,
             path: '/log'
         });
@@ -571,12 +653,5 @@ app.use(errorHandler);
 // Listen on all network interfaces (0.0.0.0) to allow remote access
 // For localhost-only access, use: app.listen(port, 'localhost', ...)
 app.listen(port, '0.0.0.0', () => {
-    const localIP = require('os').networkInterfaces();
-    const ipv4 = Object.values(localIP)
-        .flat()
-        .find(i => i.family === 'IPv4' && !i.internal)?.address;
     console.info(`Server is running at http://localhost:${port}`);
-    if (ipv4) {
-        console.info(`Server also accessible at http://${ipv4}:${port}`);
-    }
 });
