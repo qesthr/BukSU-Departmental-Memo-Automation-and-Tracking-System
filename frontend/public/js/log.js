@@ -2529,6 +2529,86 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // "To me" dropdown toggle (Gmail-style - click to show details popup)
+    // Use event delegation on memo viewer modal
+    const memoViewerModal = document.getElementById('memoViewerModal');
+    if (memoViewerModal) {
+        memoViewerModal.addEventListener('click', (e) => {
+            const toDropdownToggle = e.target.closest('#toDropdownToggle');
+            const detailsPopup = document.getElementById('memoDetailsPopup');
+
+            // Don't close if clicking inside the popup
+            if (detailsPopup && detailsPopup.contains(e.target)) {
+                return;
+            }
+
+            if (toDropdownToggle) {
+                // Toggle popup when clicking the dropdown
+                e.stopPropagation();
+                if (detailsPopup) {
+                    const isHidden = detailsPopup.style.display === 'none' || !detailsPopup.style.display;
+
+                    if (isHidden) {
+                        // Calculate position relative to the dropdown (fixed positioning uses viewport coordinates)
+                        const rect = toDropdownToggle.getBoundingClientRect();
+                        detailsPopup.style.display = 'block';
+                        detailsPopup.style.top = (rect.bottom + 8) + 'px';
+                        detailsPopup.style.left = rect.left + 'px';
+                    } else {
+                        detailsPopup.style.display = 'none';
+                    }
+
+                    // Update chevron icon
+                    const chevronIcon = toDropdownToggle.querySelector('[data-lucide="chevron-down"], [data-lucide="chevron-up"]');
+                    if (chevronIcon) {
+                        if (isHidden) {
+                            chevronIcon.setAttribute('data-lucide', 'chevron-up');
+                        } else {
+                            chevronIcon.setAttribute('data-lucide', 'chevron-down');
+                        }
+                        lucide.createIcons();
+                    }
+                }
+            } else if (detailsPopup && detailsPopup.style.display !== 'none') {
+                // Close popup when clicking outside
+                detailsPopup.style.display = 'none';
+                const chevronIcon = document.querySelector('#toDropdownToggle [data-lucide="chevron-up"]');
+                if (chevronIcon) {
+                    chevronIcon.setAttribute('data-lucide', 'chevron-down');
+                    lucide.createIcons();
+                }
+            }
+        });
+
+        // Reposition popup on scroll/resize to keep it aligned (floating, not scrollable)
+        let repositionTimeout;
+        function repositionPopup() {
+            const detailsPopup = document.getElementById('memoDetailsPopup');
+            const toDropdownToggle = document.getElementById('toDropdownToggle');
+
+            if (detailsPopup && detailsPopup.style.display !== 'none' && toDropdownToggle) {
+                clearTimeout(repositionTimeout);
+                repositionTimeout = setTimeout(() => {
+                    const rect = toDropdownToggle.getBoundingClientRect();
+                    detailsPopup.style.top = (rect.bottom + 8) + 'px';
+                    detailsPopup.style.left = rect.left + 'px';
+                }, 10);
+            }
+        }
+
+        // Reposition on memo content scroll
+        const memoContent = document.querySelector('.memo-content');
+        if (memoContent) {
+            memoContent.addEventListener('scroll', repositionPopup);
+        }
+
+        // Reposition on window scroll
+        window.addEventListener('scroll', repositionPopup, true);
+
+        // Reposition on window resize
+        window.addEventListener('resize', repositionPopup);
+    }
+
     if (downloadBtn) {
         downloadBtn.addEventListener('click', async () => {
             if (!currentMemoId || currentMemoIndex < 0 || !filteredMemos[currentMemoIndex]) {return;}
@@ -2712,25 +2792,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
-                // Show SweetAlert toast notification
+                // Show SweetAlert modal notification
                 Swal.fire({
                     icon: 'success',
                     title: 'Memo Archived',
                     text: 'Memo has been archived successfully',
-                    timer: 3000,
-                    showConfirmButton: false,
-                    toast: true,
-                    position: 'top-end',
-                    showCancelButton: false
+                    timer: 2000,
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#1C89E3',
+                    allowOutsideClick: true,
+                    allowEscapeKey: true
                 });
 
                 // Remove from lists
                 memos = memos.filter(m => m._id !== currentMemoId);
                 filteredMemos = filteredMemos.filter(m => m._id !== currentMemoId);
 
-                // If archived memo was the current one, go to default view
+                // If archived memo was the current one, go to default view and close modal
                 if (currentMemoId === archivedMemoId) {
                     showDefaultView();
+                    // Close the memo viewer modal
+                    const memoViewerModal = document.getElementById('memoViewerModal');
+                    if (memoViewerModal) {
+                        memoViewerModal.style.display = 'none';
+                        document.body.style.overflow = ''; // Restore scrolling
+                    }
                 }
 
                 renderMemoList();
@@ -3483,111 +3570,127 @@ document.addEventListener('DOMContentLoaded', () => {
             memoPdfHeader.style.display = isCalendarEvent ? 'none' : 'block';
         }
 
-        // Update the memo viewer content (now that it's visible)
+        // Update the memo viewer content (Gmail-style format)
         const memoDetailSubject = document.getElementById('memoDetailSubject');
-        const memoDetailFrom = document.getElementById('memoDetailFrom');
-        const memoDetailTo = document.getElementById('memoDetailTo');
-        const memoDetailDepartment = document.getElementById('memoDetailDepartment');
-        const memoDetailPriority = document.getElementById('memoDetailPriority');
-        const memoDetailDate = document.getElementById('memoDetailDate');
+        const memoSenderAvatar = document.getElementById('memoSenderAvatar');
+        const memoDetailFromName = document.getElementById('memoDetailFromName');
+        const memoDetailFromEmail = document.getElementById('memoDetailFromEmail');
+        const memoDetailToPreview = document.getElementById('memoDetailToPreview');
         const memoBodyContent = document.getElementById('memoBodyContent');
         const attachmentsDiv = document.getElementById('attachments');
 
-        // Update memo details (PDF-style format)
+        // Popup elements
+        const memoDetailSubjectPopup = document.getElementById('memoDetailSubjectPopup');
+        const memoDetailFromPopup = document.getElementById('memoDetailFromPopup');
+        const memoDetailToPopup = document.getElementById('memoDetailToPopup');
+        const memoDetailDepartmentPopup = document.getElementById('memoDetailDepartmentPopup');
+        const memoDetailPriorityPopup = document.getElementById('memoDetailPriorityPopup');
+        const memoDetailDatePopup = document.getElementById('memoDetailDatePopup');
+
+        // Update subject title
         if (memoDetailSubject) {
             memoDetailSubject.textContent = memo.subject || '(No subject)';
         }
+        if (memoDetailSubjectPopup) {
+            memoDetailSubjectPopup.textContent = memo.subject || '(No subject)';
+        }
 
-        if (memoDetailFrom) {
-            // Check if this is an admin approval/rejection action memo
-            const eventType = memo.metadata?.eventType;
-            const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
-            const currentUserId = window.currentUser?.id || window.currentUser?._id;
-            const isCurrentUserAdmin = window.currentUser?.role === 'admin';
-            const isRecipientCurrentUser = memo.recipient && (
-                (memo.recipient._id?.toString() === currentUserId?.toString()) ||
-                (memo.recipient.toString() === currentUserId?.toString())
-            );
+        // Get sender info
+        const eventType = memo.metadata?.eventType;
+        const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
+        const currentUserId = window.currentUser?.id || window.currentUser?._id;
+        const isCurrentUserAdmin = window.currentUser?.role === 'admin';
+        const isRecipientCurrentUser = memo.recipient && (
+            (memo.recipient._id?.toString() === currentUserId?.toString()) ||
+            (memo.recipient.toString() === currentUserId?.toString())
+        );
 
-            let displayName, displayEmail, displayLabel;
-            if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
-                // Admin approval/rejection action: show "You:" instead of "From:"
-                displayLabel = 'You';
-                displayName = window.currentUser?.firstName && window.currentUser?.lastName
-                    ? `${window.currentUser.firstName} ${window.currentUser.lastName}`.trim()
-                    : window.currentUser?.email || 'You';
-                displayEmail = window.currentUser?.email || '';
+        let displayName, displayEmail, senderAvatar;
+        if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
+            // Admin approval/rejection action: show current user
+            displayName = window.currentUser?.firstName && window.currentUser?.lastName
+                ? `${window.currentUser.firstName} ${window.currentUser.lastName}`.trim()
+                : window.currentUser?.email || 'You';
+            displayEmail = window.currentUser?.email || '';
+            senderAvatar = window.currentUser?.profilePicture || '/images/memofy-logo.png';
+        } else {
+            // Regular memo: show sender
+            displayName = memo.sender
+                ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
+                : 'Unknown Sender';
+            displayEmail = memo.sender?.email || '';
+            senderAvatar = memo.sender?.profilePicture || '/images/memofy-logo.png';
+        }
+
+        // Update sender avatar
+        if (memoSenderAvatar) {
+            memoSenderAvatar.src = senderAvatar;
+            memoSenderAvatar.alt = displayName;
+            memoSenderAvatar.onerror = function() {
+                this.src = '/images/memofy-logo.png';
+            };
+        }
+
+        // Update sender name and email
+        if (memoDetailFromName) {
+            memoDetailFromName.textContent = displayName || 'Unknown';
+        }
+        if (memoDetailFromEmail) {
+            memoDetailFromEmail.textContent = displayEmail || '';
+        }
+        if (memoDetailFromPopup) {
+            memoDetailFromPopup.textContent = displayEmail ? `${displayName} (${displayEmail})` : displayName;
+        }
+
+        // Get all recipients (from recipients array or single recipient)
+        const allRecipients = [];
+        if (memo.recipients && memo.recipients.length > 0) {
+            allRecipients.push(...memo.recipients);
+        } else if (memo.recipient) {
+            allRecipients.push(memo.recipient);
+        }
+
+        // Format recipients list
+        const recipientList = allRecipients.map(recip => {
+            // Handle both populated objects and ObjectIds
+            if (typeof recip === 'string' || recip instanceof Object && !recip.firstName && !recip.email) {
+                // It's an ObjectId, skip it (shouldn't happen if populated correctly)
+                return null;
+            }
+            const name = `${recip.firstName || ''} ${recip.lastName || ''}`.trim();
+            const email = recip.email || '';
+            return email ? `${name} (${email})` : name || email || 'Unknown';
+        }).filter(Boolean);
+
+        // Set "to me" preview text
+        if (memoDetailToPreview) {
+            if (allRecipients.length === 0) {
+                memoDetailToPreview.textContent = 'Unknown Recipient';
+            } else if (allRecipients.length === 1) {
+                memoDetailToPreview.textContent = 'to me';
             } else {
-                // Regular memo: show sender
-                displayLabel = 'From';
-                displayName = memo.sender
-                    ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
-                    : 'Unknown Sender';
-                displayEmail = memo.sender?.email || '';
-            }
-
-            // Update the label (find the label element that comes before memoDetailFrom)
-            const fromRow = memoDetailFrom.closest('.memo-detail-row');
-            if (fromRow) {
-                const labelElement = fromRow.querySelector('.memo-detail-label');
-                if (labelElement) {
-                    labelElement.textContent = displayLabel + ':';
-                }
-            }
-
-            memoDetailFrom.textContent = displayEmail ? `${displayName} (${displayEmail})` : displayName;
-        }
-
-        if (memoDetailTo) {
-            // Get all recipients (from recipients array or single recipient)
-            const allRecipients = [];
-            if (memo.recipients && memo.recipients.length > 0) {
-                allRecipients.push(...memo.recipients);
-            } else if (memo.recipient) {
-                allRecipients.push(memo.recipient);
-            }
-
-            if (allRecipients.length > 0) {
-                // Format recipients list
-                const recipientList = allRecipients.map(recip => {
-                    // Handle both populated objects and ObjectIds
-                    if (typeof recip === 'string' || recip instanceof Object && !recip.firstName && !recip.email) {
-                        // It's an ObjectId, skip it (shouldn't happen if populated correctly)
-                        return null;
-                    }
-                    const name = `${recip.firstName || ''} ${recip.lastName || ''}`.trim();
-                    const email = recip.email || '';
-                    return email ? `${name} (${email})` : name || email || 'Unknown';
-                }).filter(Boolean).join(', ');
-                memoDetailTo.textContent = recipientList || 'Unknown Recipient';
-
-                // Clear inline avatars - avatars only show in acknowledgment status section below
-                const avatarsDiv = document.getElementById('recipientAvatarsInline');
-                if (avatarsDiv) {
-                    avatarsDiv.innerHTML = '';
-                }
-            } else {
-                memoDetailTo.textContent = 'Unknown Recipient';
-                // Clear avatars if no recipients
-                const avatarsDiv = document.getElementById('recipientAvatarsInline');
-                if (avatarsDiv) {
-                    avatarsDiv.innerHTML = '';
-                }
+                memoDetailToPreview.textContent = `to me +${allRecipients.length - 1} more`;
             }
         }
 
-        if (memoDetailDepartment) {
-            memoDetailDepartment.textContent = memo.department || 'N/A';
+        // Set full recipient list in popup
+        if (memoDetailToPopup) {
+            memoDetailToPopup.textContent = recipientList.length > 0 ? recipientList.join(', ') : 'Unknown Recipient';
         }
 
-        if (memoDetailPriority) {
-            memoDetailPriority.textContent = memo.priority || 'medium';
+        // Update other popup fields
+        if (memoDetailDepartmentPopup) {
+            memoDetailDepartmentPopup.textContent = memo.department || 'N/A';
+        }
+        if (memoDetailPriorityPopup) {
+            memoDetailPriorityPopup.textContent = memo.priority || 'medium';
+        }
+        if (memoDetailDatePopup) {
+            memoDetailDatePopup.textContent = new Date(memo.createdAt).toLocaleString();
         }
 
-        if (memoDetailDate && memo.createdAt) {
-            const date = new Date(memo.createdAt);
-            memoDetailDate.textContent = date.toLocaleString();
-        }
+        // Initialize Lucide icons for the dropdown chevron
+        lucide.createIcons();
 
         // Display memo content with attachments (Gmail-style: inline, no separator)
         if (memoBodyContent) {

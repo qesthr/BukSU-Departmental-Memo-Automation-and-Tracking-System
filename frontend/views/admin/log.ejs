@@ -182,91 +182,72 @@
                                     </div>
                                 </div>
 
-<<<<<<< HEAD
                                     <div class="memo-content">
-                                        <!-- Memo Header (PDF-style format) -->
-                                        <div class="memo-pdf-header">
-                                            <h1 class="memo-title">MEMO</h1>
-                                            <div class="memo-details">
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Subject:</span>
-                                                    <span id="memoDetailSubject" class="memo-detail-value"></span>
+                                        <!-- Gmail-style Memo Header -->
+                                        <div class="memo-gmail-header">
+                                            <!-- Subject Title -->
+                                            <h2 id="memoDetailSubject" class="memo-subject-title"></h2>
+
+                                            <!-- Sender Info with Avatar -->
+                                            <div class="memo-sender-header">
+                                                <img id="memoSenderAvatar" src="/images/memofy-logo.png" alt="Sender" class="memo-sender-avatar-img">
+                                                <div class="memo-sender-info-header">
+                                                    <div class="memo-sender-name-header" id="memoDetailFromName"></div>
+                                                    <div class="memo-sender-email-header" id="memoDetailFromEmail"></div>
                                                 </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">From:</span>
-                                                    <span id="memoDetailFrom" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row memo-detail-row-to">
-                                                    <span class="memo-detail-label">To:</span>
-                                                    <div class="memo-detail-value memo-detail-to-container">
-                                                        <span id="memoDetailTo" class="memo-detail-to-text"></span>
-                                                        <div id="recipientAvatarsInline" class="recipient-avatars-inline"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Department:</span>
-                                                    <span id="memoDetailDepartment" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Priority:</span>
-                                                    <span id="memoDetailPriority" class="memo-detail-value"></span>
-                                                </div>
-                                                <div class="memo-detail-row">
-                                                    <span class="memo-detail-label">Date:</span>
-                                                    <span id="memoDetailDate" class="memo-detail-value"></span>
-                                                </div>
-=======
-                                <div class="memo-content">
-                                    <!-- Memo Header (PDF-style format) -->
-                                    <div class="memo-pdf-header">
-                                        <h1 class="memo-title">MEMO</h1>
-                                        <div class="memo-details">
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Subject:</span>
-                                                <span id="memoDetailSubject" class="memo-detail-value"></span>
                                             </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">From:</span>
-                                                <span id="memoDetailFrom" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">To:</span>
-                                                <span id="memoDetailTo" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Department:</span>
-                                                <span id="memoDetailDepartment" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Priority:</span>
-                                                <span id="memoDetailPriority" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Date:</span>
-                                                <span id="memoDetailDate" class="memo-detail-value"></span>
->>>>>>> 51982973d70de2489d4ceeadd212a7300bb4836e
+
+                                            <!-- "To me" Dropdown -->
+                                            <div class="memo-to-dropdown-header" id="toDropdownToggle" style="cursor: pointer; padding: 8px 0; color: #6b7280; font-size: 13px; position: relative;">
+                                                <span id="memoDetailToPreview" style="text-decoration: underline;">to me</span>
+                                                <i data-lucide="chevron-down" style="width: 16px; height: 16px; margin-left: 4px;"></i>
+
+                                                <!-- Details Popup (floating overlay, hidden by default) -->
+                                                <div id="memoDetailsPopup" class="memo-details-popup" style="display: none;">
+                                            <div class="memo-details-popup-content">
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">Subject:</span>
+                                                    <span id="memoDetailSubjectPopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">From:</span>
+                                                    <span id="memoDetailFromPopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">To:</span>
+                                                    <span id="memoDetailToPopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">Department:</span>
+                                                    <span id="memoDetailDepartmentPopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">Priority:</span>
+                                                    <span id="memoDetailPriorityPopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                <div class="memo-detail-popup-row">
+                                                    <span class="memo-detail-popup-label">Date:</span>
+                                                    <span id="memoDetailDatePopup" class="memo-detail-popup-value"></span>
+                                                </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="memo-separator"></div>
-                                    </div>
-<<<<<<< HEAD
-                                    <!-- Acknowledgment Status Section (outside memo-content, for approved memos) -->
-                                    <div id="acknowledgmentStatus" class="acknowledgment-status" style="display: none;">
-                                        <div class="acknowledgment-header-compact">
-                                            <span class="acknowledgment-label">Acknowledgment Status:</span>
-                                            <div id="acknowledgmentAvatars" class="acknowledgment-avatars"></div>
-                                            <button id="reminderBtnCompact" class="reminder-btn-compact" title="Send Reminder" style="display: none;">
-                                                <i data-lucide="bell"></i>
-                                                <span>Reminder</span>
-                                            </button>
+                                        <div class="memo-body">
+                                            <div id="memoBodyContent"></div>
                                         </div>
+                                        <!-- Acknowledgment Status Section (for approved memos) -->
+                                        <div id="acknowledgmentStatus" class="acknowledgment-status" style="display: none;">
+                                            <div class="acknowledgment-header-compact">
+                                                <span class="acknowledgment-label">Acknowledgment Status:</span>
+                                                <div id="acknowledgmentAvatars" class="acknowledgment-avatars"></div>
+                                                <button id="reminderBtnCompact" class="reminder-btn-compact" title="Send Reminder" style="display: none;">
+                                                    <i data-lucide="bell"></i>
+                                                    <span>Reminder</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="attachments" class="memo-attachments"></div>
                                     </div>
-=======
-                                    <div class="memo-body">
-                                        <div id="memoBodyContent"></div>
-                                    </div>
-                                    <div id="attachments" class="memo-attachments"></div>
->>>>>>> 51982973d70de2489d4ceeadd212a7300bb4836e
                                 </div>
                             </div>
                         </div>
