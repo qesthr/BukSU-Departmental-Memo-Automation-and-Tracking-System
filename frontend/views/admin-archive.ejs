@@ -147,9 +147,8 @@
             canCrossSend: <%= user.canCrossSend || false %>
         };
 
-        window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
-        window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
-        window.archivedSignatures = <%- JSON.stringify(archivedSignatures || []) %>;
+        window.archivedMemos = <% - JSON.stringify(archivedMemos || []) %>;
+        window.archivedEvents = <% - JSON.stringify(archivedEvents || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
@@ -170,11 +169,10 @@
             const memoViewer = document.getElementById('memoViewer');
             const memoCounter = document.getElementById('memoCounter');
 
-            // Combine memos, calendar events, and signatures
+            // Combine memos and calendar events
             const allArchivedItems = [
                 ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
-                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
-                ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
+                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' }))
             ];
 
             // Sort by newest first (most recently archived at top)
@@ -199,7 +197,7 @@
                             <i data-lucide="archive" class="memo-icon"></i>
                             <div class="memo-info">
                                 <h4>No archived items</h4>
-                                <p>Archived memos, calendar events, and signatures will appear here</p>
+                                <p>Archived memos and calendar events will appear here</p>
                             </div>
                         </div>`;
                     if (typeof lucide !== 'undefined') {
@@ -209,28 +207,6 @@
                 }
 
                 archiveList.innerHTML = filteredMemos.map((item, idx) => {
-                    // Handle signatures
-                    if (item.type === 'signature') {
-                        const signature = item;
-                        const creatorName = ((signature.createdBy?.firstName || '') + ' ' + (signature.createdBy?.lastName || '')).trim();
-                        const creatorEmail = signature.createdBy?.email || '';
-                        const realAvatar = signature.createdBy?.profilePicture;
-                        const avatarSrc = realAvatar || '/images/memofy-logo.png';
-                        const dateStr = new Date(signature.updatedAt || signature.createdAt).toLocaleDateString();
-                        const signatureName = signature.name || 'Unnamed Signature';
-
-                        return '<div class="memo-item archived-item archived-signature" data-index="' + idx + '" data-id="' + signature._id + '" data-type="signature">' +
-                            '<img src="' + avatarSrc + '" alt="' + creatorName + '" class="memo-avatar" data-has-avatar="' + (realAvatar ? '1' : '0') + '">' +
-                            '<div class="memo-sender-info">' +
-                            '<div class="memo-sender-name">✍️ Signature: ' + signatureName + '</div>' +
-                            '<div class="memo-sender-email">Created by: ' + (creatorName || 'Unknown') + ' (' + creatorEmail + ')</div>' +
-                            '</div>' +
-                            '<div class="memo-item-actions"></div>' +
-                            '<div class="memo-subject">Signature Template</div>' +
-                            '<div class="memo-date">Archived: ' + dateStr + '</div>' +
-                            '</div>';
-                    }
-
                     // Handle calendar events differently
                     if (item.type === 'event') {
                         const event = item;
@@ -298,12 +274,7 @@
                         const idx = Number(el.getAttribute('data-index'));
                         const item = filteredMemos[idx];
 
-                        if (type === 'signature') {
-                            // Handle signature
-                            if (item) {
-                                openSignature(item);
-                            }
-                        } else if (type === 'event') {
+                        if (type === 'event') {
                             // Handle calendar event
                             if (item) {
                                 openEvent(item);
@@ -399,45 +370,6 @@
                 openMemoModal();
             }
 
-            // Open signature in viewer
-            function openSignature(signature) {
-                if (!signature) return;
-                currentMemoId = signature._id;
-                currentMemoIndex = filteredMemos.findIndex(s => s._id === signature._id && s.type === 'signature');
-
-                const subjectEl = document.getElementById('memoDetailSubject');
-                const fromEl = document.getElementById('memoDetailFrom');
-                const toEl = document.getElementById('memoDetailTo');
-                const deptEl = document.getElementById('memoDetailDepartment');
-                const prioEl = document.getElementById('memoDetailPriority');
-                const dateEl = document.getElementById('memoDetailDate');
-                const contentEl = document.getElementById('memoBodyContent');
-
-                if (subjectEl) subjectEl.textContent = signature.name || 'Unnamed Signature';
-                const creatorName = ((signature.createdBy?.firstName || '') + ' ' + (signature.createdBy?.lastName || '')).trim();
-                if (fromEl) fromEl.textContent = (creatorName || 'Unknown') + ' (' + (signature.createdBy?.email || '') + ')';
-                if (toEl) toEl.textContent = 'N/A';
-                if (deptEl) deptEl.textContent = signature.createdBy?.department || 'N/A';
-                if (prioEl) prioEl.textContent = 'Signature Template';
-                if (dateEl) dateEl.textContent = new Date(signature.updatedAt || signature.createdAt).toLocaleString();
-                if (contentEl) {
-                    const signatureImg = signature.signatureImage || signature.imageUrl || '';
-                    const signatureHTML = signatureImg
-                        ? `<div style="text-align: center; padding: 2rem;">
-                            <img src="${signatureImg}" alt="Signature" style="max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: white; padding: 1rem;">
-                           </div>`
-                        : '<div style="text-align: center; padding: 2rem; color: #9ca3af;">No signature image available</div>';
-                    contentEl.innerHTML = signatureHTML;
-                }
-
-                if (memoCounter) {
-                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
-                }
-
-                // Open modal and show signature
-                openMemoModal();
-            }
-
             // Open memo in viewer
             function openMemo(memo) {
                 if (!memo) return;
@@ -496,41 +428,11 @@
                 }
             }
 
-            // Unarchive memo, event, or signature
+            // Unarchive memo or event
             async function unarchiveItem(itemId, itemType) {
                 if (!itemId) return;
                 try {
-                    if (itemType === 'signature') {
-                        // Unarchive signature (set isActive back to true)
-                        const response = await fetch('/api/signatures/' + itemId + '/unarchive', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'same-origin'
-                        });
-                        if (response.ok) {
-                            // Remove from list
-                            filteredMemos = filteredMemos.filter(s => !(s._id === itemId && s.type === 'signature'));
-                            window.archivedSignatures = (window.archivedSignatures || []).filter(s => s._id !== itemId);
-                            renderArchiveList();
-                            closeMemoModal();
-                            // Show SweetAlert modal notification
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Signature Unarchived',
-                                    text: 'Signature has been unarchived successfully',
-                                    timer: 2000,
-                                    showConfirmButton: true,
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#1C89E3',
-                                    allowOutsideClick: true,
-                                    allowEscapeKey: true
-                                });
-                            } else if (typeof showNotification === 'function') {
-                                showNotification('Signature unarchived successfully', 'success');
-                            }
-                        }
-                    } else if (itemType === 'event') {
+                    if (itemType === 'event') {
                         // Unarchive calendar event (change category back to standard)
                         const response = await fetch('/api/calendar/events/' + itemId, {
                             method: 'PUT',
@@ -544,20 +446,7 @@
                             window.archivedEvents = (window.archivedEvents || []).filter(e => e._id !== itemId);
                             renderArchiveList();
                             closeMemoModal();
-                            // Show SweetAlert modal notification
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Event Unarchived',
-                                    text: 'Event has been unarchived successfully',
-                                    timer: 2000,
-                                    showConfirmButton: true,
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#1C89E3',
-                                    allowOutsideClick: true,
-                                    allowEscapeKey: true
-                                });
-                            } else if (typeof showNotification === 'function') {
+                            if (typeof showNotification === 'function') {
                                 showNotification('Event unarchived successfully', 'success');
                             }
                         }
@@ -576,20 +465,7 @@
                             window.archivedMemos = (window.archivedMemos || []).filter(m => m._id !== itemId);
                             renderArchiveList();
                             closeMemoModal();
-                            // Show SweetAlert modal notification
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Memo Unarchived',
-                                    text: 'Memo has been unarchived successfully',
-                                    timer: 2000,
-                                    showConfirmButton: true,
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#1C89E3',
-                                    allowOutsideClick: true,
-                                    allowEscapeKey: true
-                                });
-                            } else if (typeof showNotification === 'function') {
+                            if (typeof showNotification === 'function') {
                                 showNotification('Memo unarchived successfully', 'success');
                             }
                         }
@@ -655,14 +531,7 @@
                 prevBtn.addEventListener('click', () => {
                     if (currentMemoIndex > 0) {
                         currentMemoIndex--;
-                        const item = filteredMemos[currentMemoIndex];
-                        if (item.type === 'signature') {
-                            openSignature(item);
-                        } else if (item.type === 'event') {
-                            openEvent(item);
-                        } else {
-                            openMemo(item);
-                        }
+                        openMemo(filteredMemos[currentMemoIndex]);
                     }
                 });
             }
@@ -671,14 +540,7 @@
                 nextBtn.addEventListener('click', () => {
                     if (currentMemoIndex < filteredMemos.length - 1) {
                         currentMemoIndex++;
-                        const item = filteredMemos[currentMemoIndex];
-                        if (item.type === 'signature') {
-                            openSignature(item);
-                        } else if (item.type === 'event') {
-                            openEvent(item);
-                        } else {
-                            openMemo(item);
-                        }
+                        openMemo(filteredMemos[currentMemoIndex]);
                     }
                 });
             }
@@ -699,10 +561,6 @@
                                 if (priority === 'medium') return category === 'standard' || category === 'reminder';
                                 if (priority === 'low') return category === 'low';
                                 return false;
-                            } else if (item.type === 'signature') {
-                                // Signatures don't have priority, so they show for all or none
-                                // For now, show signatures for all priorities
-                                return true;
                             } else {
                                 return (item.priority || '').toLowerCase() === priority;
                             }
