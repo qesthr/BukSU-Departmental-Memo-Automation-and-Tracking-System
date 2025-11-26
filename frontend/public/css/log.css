@@ -952,7 +952,7 @@
     /* Ensure there's space even if empty */
     width: 100%;
     max-width: 1200px;
-    margin: 0 auto;
+    margin: 16px auto 0 auto; /* add breathing space below memo-gmail-header */
 }
 
 #memoBodyContent {
@@ -2428,6 +2428,7 @@
     cursor: pointer;
     border-radius: 6px;
     transition: background 0.2s;
+    list-style: none;
 }
 
 .dept-checkbox-label:hover {
@@ -2451,6 +2452,12 @@
     margin: 8px 0;
     border: none;
     border-top: 1px solid #e5e7eb;
+}
+
+#deptCheckboxesContainer {
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
 #deptCheckboxesContainer .dept-checkbox-label {

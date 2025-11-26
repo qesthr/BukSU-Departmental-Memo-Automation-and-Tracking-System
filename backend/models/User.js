@@ -201,6 +201,11 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Whether user (typically a secretary) is allowed to add/manage memo signatures
+    canAddSignature: {
+        type: Boolean,
+        default: true
+    },
     resetPasswordCode: {
         type: String,
         sparse: true

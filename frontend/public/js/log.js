@@ -2091,14 +2091,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!container || !dropdownBtn || !dropdownMenu) {
+                // For pages/roles that don't have a department dropdown (e.g., faculty dashboard),
+                // just exit quietly instead of logging an error.
                 // eslint-disable-next-line no-console
-                console.error('Department dropdown elements not found:', {
-                    container: !!container,
-                    dropdownBtn: !!dropdownBtn,
-                    dropdownMenu: !!dropdownMenu,
-                    userRole,
-                    canCrossSend
-                });
+                console.warn('loadDepartments: Department dropdown elements not found for role:', userRole, 'canCrossSend:', canCrossSend);
                 return;
             }
 
@@ -2138,11 +2134,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('loadDepartments: No departments available to display');
             } else {
                 availableDepartments.forEach(dept => {
+                    const displayName = (dept === 'Information Technology and Entertainment Multimedia Computing')
+                        ? 'IT/EMC'
+                        : dept;
                     const label = document.createElement('label');
                     label.className = 'dept-checkbox-label';
                     label.innerHTML = `
                         <input type="checkbox" class="dept-checkbox dept-option" value="${dept}">
-                        <span>${dept}</span>
+                        <span>${displayName}</span>
                     `;
                     container.appendChild(label);
                 });
@@ -2359,6 +2358,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const total = deptOptions.length;
             const ph = freshBtn.querySelector('.dept-placeholder');
 
+            // Helper to map internal department value to display label
+            const formatDeptLabel = (dept) => {
+                if (dept === 'Information Technology and Entertainment Multimedia Computing') {
+                    return 'IT/EMC';
+                }
+                return dept;
+            };
+
             if (selected.length === 0) {
                 if (ph) { ph.textContent = 'Department'; } else { freshBtn.textContent = 'Department'; }
                 freshBtn.classList.add('empty');
@@ -2366,11 +2373,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 freshBtn.classList.remove('empty');
                 if (ph) {
                     if (selected.length === total && selectAll) { ph.textContent = 'All Departments'; }
-                    else if (selected.length === 1) { ph.textContent = selected[0]; }
+                    else if (selected.length === 1) { ph.textContent = formatDeptLabel(selected[0]); }
                     else { ph.textContent = `${selected.length} departments selected`; }
                 } else {
                     if (selected.length === total && selectAll) { freshBtn.textContent = 'All Departments'; }
-                    else if (selected.length === 1) { freshBtn.textContent = selected[0]; }
+                    else if (selected.length === 1) { freshBtn.textContent = formatDeptLabel(selected[0]); }
                     else { freshBtn.textContent = `${selected.length} departments selected`; }
                 }
             }
@@ -4366,20 +4373,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayMemoContent(data.memo);
                     }
 
-                    // Show success notification
-                    if (typeof showNotification === 'function') {
-                        showNotification('Memo acknowledged successfully', 'success');
-                    } else if (typeof Swal !== 'undefined') {
+                    // Show success notification via SweetAlert when available
+                    if (typeof Swal !== 'undefined') {
                         Swal.fire({
                             icon: 'success',
-                            title: 'Acknowledged',
-                            text: 'Memo acknowledged successfully',
-                            timer: 2000,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
+                            title: 'Memo has been acknowledged',
+                            timer: 1500,
+                            showConfirmButton: false
                         });
+                    } else if (typeof showNotification === 'function') {
+                        showNotification('Memo acknowledged successfully', 'success');
                     }
+
+                    // Close memo viewer modal after acknowledging
+                    hideMemoViewer();
                 } else {
                     throw new Error(data?.message || 'Failed to acknowledge memo');
                 }

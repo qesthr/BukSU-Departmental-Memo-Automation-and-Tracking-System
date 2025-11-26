@@ -53,31 +53,31 @@
                     </div>
 
                     <div class="settings-card">
-                        <h3>Preferences</h3>
-                        <p>Adjust appearance and security options.</p>
+                        <h3>Notification Preferences</h3>
+                        <p>Choose how you’d like to be notified about important updates.</p>
                         <div class="preferences-grid">
                             <div class="setting-row">
                                 <div class="setting-info">
-                                    <h4>Dark Mode</h4>
-                                    <p>Toggle a theme that’s easier on the eyes.</p>
+                                    <h4>Email me when I receive new memos</h4>
+                                    <p>Get an email whenever a memo is sent to you.</p>
                                 </div>
                                 <label class="switch">
-                                    <input type="checkbox" id="darkModeToggle" data-setting="darkMode">
+                                    <input type="checkbox" id="memoEmailToggle">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="setting-row">
                                 <div class="setting-info">
-                                    <h4>Two-Factor Authentication</h4>
-                                    <p>Send an OTP to your email for each login.</p>
+                                    <h4>Email me about profile or account changes</h4>
+                                    <p>Be notified if your profile details are updated.</p>
                                 </div>
                                 <label class="switch">
-                                    <input type="checkbox" id="twoFactorToggle" data-setting="twoFactorEnabled">
+                                    <input type="checkbox" id="profileUpdateToggle">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                         </div>
-                        <div class="settings-feedback" id="securityFeedback" role="status"></div>
+                        <div class="settings-feedback" id="notificationFeedback" role="status"></div>
                     </div>
                 </div>
             </section>

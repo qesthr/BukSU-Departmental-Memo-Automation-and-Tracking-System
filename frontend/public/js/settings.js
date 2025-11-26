@@ -1,3 +1,4 @@
+/* global Swal */
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof window === 'undefined') { return; }
 
@@ -19,7 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileUpdateToggle = document.getElementById('profileUpdateToggle');
 
     function setFeedback(el, message, type = 'success') {
-        if (!el || !message) { return; }
+        if (!message) { return; }
+
+        // Prefer SweetAlert2 for clear feedback
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: type === 'success' ? 'success' : 'error',
+                title: type === 'success' ? 'Saved successfully' : 'Something went wrong',
+                text: message,
+                timer: 1600,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        // Fallback to inline text feedback
+        if (!el) { return; }
         el.textContent = message;
         el.classList.remove('success', 'error');
         el.classList.add(type);

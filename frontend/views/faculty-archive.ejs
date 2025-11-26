@@ -109,93 +109,108 @@
                         </div>
                     </section>
 
-                    <!-- Viewer Area -->
-                    <section
-                        class="memo-viewer-area"
-                        :style="{ display: viewerVisible ? 'block' : 'none', flex: viewerVisible ? '0 0 55%' : 'none' }"
+                    <!-- Memo Viewer Modal (same behavior as memos inbox) -->
+                    <div
+                        id="memoViewerModal"
+                        class="modal memo-viewer-modal"
+                        :class="{ show: viewerVisible }"
+                        @click.self="closeViewer"
                     >
-                        <div v-if="!currentMemo" class="empty-state-view">
-                            <i data-lucide="archive"></i>
-                            <p>Select a memo to view</p>
-                        </div>
-
-                        <div v-else class="memo-viewer">
-                            <div class="viewer-header">
-                                <button @click="closeViewer" class="icon-btn">
-                                    <i data-lucide="arrow-left"></i>
-                                </button>
-                                <div class="nav-buttons">
-                                    <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0">
-                                        <i data-lucide="chevron-left"></i>
-                                    </button>
-                                    <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
-                                    <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1">
-                                        <i data-lucide="chevron-right"></i>
-                                    </button>
-                                </div>
-                                <div class="viewer-actions">
-                                    <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
-                                        <i data-lucide="bookmark"></i>
-                                    </button>
-                                    <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
-                                        <i data-lucide="archive-restore"></i>
-                                    </button>
-                                    <button @click="downloadMemo" class="icon-btn" title="Download Memo">
-                                        <i data-lucide="download"></i>
-                                    </button>
-                                </div>
+                        <div class="modal-content memo-viewer-modal-content">
+                            <div v-if="!currentMemo" class="empty-state-view">
+                                <i data-lucide="archive"></i>
+                                <p>Select a memo to view</p>
                             </div>
 
-                            <div class="memo-content">
-                                <div class="memo-pdf-header">
-                                    <h1 class="memo-title">MEMO</h1>
-                                    <div class="memo-details">
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Subject:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.subject || '(No subject)' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">From:</span>
-                                            <span class="memo-detail-value">
-                                                {{ getSenderName(currentMemo.sender) }} ({{ currentMemo.sender?.email || '' }})
-                                            </span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">To:</span>
-                                            <span class="memo-detail-value">
-                                                {{ getRecipientName(currentMemo.recipient) }} ({{ currentMemo.recipient?.email || '' }})
-                                            </span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Department:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.department || 'N/A' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Priority:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.priority || 'medium' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Date:</span>
-                                            <span class="memo-detail-value">{{ formatDateTime(currentMemo.createdAt) }}</span>
-                                        </div>
+                            <div v-else class="memo-viewer">
+                                <div class="viewer-header">
+                                    <button @click="closeViewer" class="icon-btn" title="Close">
+                                        <i data-lucide="x"></i>
+                                    </button>
+                                    <div class="nav-buttons">
+                                        <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0">
+                                            <i data-lucide="chevron-left"></i>
+                                        </button>
+                                        <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
+                                        <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1">
+                                            <i data-lucide="chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div class="viewer-actions">
+                                        <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
+                                            <i data-lucide="bookmark"></i>
+                                        </button>
+                                        <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
+                                            <i data-lucide="archive-restore"></i>
+                                        </button>
+                                        <button @click="downloadMemo" class="icon-btn" title="Download Memo">
+                                            <i data-lucide="download"></i>
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
+                                <div class="memo-content">
+                                    <!-- Gmail-style header, same look as faculty memos inbox -->
+                                    <div class="memo-gmail-header">
+                                        <h2 class="memo-subject-title">
+                                            {{ currentMemo.subject || '(No subject)' }}
+                                        </h2>
 
-                                <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="attachments-section">
-                                    <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
-                                    <div v-for="attachment in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
-                                        <a :href="attachment.url || attachment.path" target="_blank"
-                                           style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
-                                            <span>{{ attachment.filename || 'Attachment' }}</span>
-                                        </a>
+                                        <div class="memo-sender-header">
+                                            <img
+                                                :src="getAvatar(currentMemo.sender)"
+                                                :alt="getSenderName(currentMemo.sender)"
+                                                class="memo-sender-avatar-img"
+                                                @error="handleAvatarError"
+                                            >
+                                            <div class="memo-sender-info-header">
+                                                <div class="memo-sender-name-header">
+                                                    {{ getSenderName(currentMemo.sender) }}
+                                                </div>
+                                                <div class="memo-sender-email-header">
+                                                    {{ currentMemo.sender?.email || '' }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="memo-to-dropdown-header" style="cursor: default; padding: 8px 0; color: #6b7280; font-size: 13px;">
+                                            <span style="text-decoration: underline;">
+                                                to {{ getRecipientName(currentMemo.recipient) }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="memo-body">
+                                        <div v-html="getMemoContent(currentMemo)"></div>
+                                    </div>
+
+                                    <div
+                                        v-if="currentMemo.attachments && currentMemo.attachments.length > 0"
+                                        id="attachments"
+                                        class="memo-attachments"
+                                    >
+                                        <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">
+                                            Attachments:
+                                        </h3>
+                                        <div
+                                            v-for="attachment in currentMemo.attachments"
+                                            :key="attachment.filename"
+                                            style="margin: 8px 0;"
+                                        >
+                                            <a
+                                                :href="attachment.url || attachment.path"
+                                                target="_blank"
+                                                style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px;"
+                                            >
+                                                <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                                <span>{{ attachment.filename || 'Attachment' }}</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
                 </div>
             </div>
         </main>

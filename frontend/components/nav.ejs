@@ -158,7 +158,11 @@
 
                 <div class="form-group">
                     <label for="editProfileEmail">Email</label>
-                    <input type="email" id="editProfileEmail" value="<%= user.email || '' %>" required>
+                    <input type="email"
+                           id="editProfileEmail"
+                           value="<%= user.email || '' %>"
+                           disabled
+                           aria-disabled="true">
                 </div>
 
                 <div class="form-group">

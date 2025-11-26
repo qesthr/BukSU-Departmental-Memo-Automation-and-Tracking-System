@@ -240,6 +240,11 @@
                                                     <input type="checkbox" id="editCanCrossSend">
                                                     <label for="editCanCrossSend">Can send to all departments</label>
                                                 </div>
+                                                <div class="form-group checkbox-field" id="editCanAddSignatureGroup"
+                                                    style="display:none;">
+                                                    <input type="checkbox" id="editCanAddSignature">
+                                                    <label for="editCanAddSignature">Can add memo signatures</label>
+                                                </div>
                                             </div>
 
                                             <div id="selfEditNote" class="form-note" style="display:none;">
@@ -904,6 +909,8 @@
                     const editActiveGroup = document.getElementById('editActiveGroup');
                     const editCanCrossSend = document.getElementById('editCanCrossSend');
                     const editCanCrossSendGroup = document.getElementById('editCanCrossSendGroup');
+                    const editCanAddSignature = document.getElementById('editCanAddSignature');
+                    const editCanAddSignatureGroup = document.getElementById('editCanAddSignatureGroup');
                     const editLastUpdatedAt = document.getElementById('editLastUpdatedAt');
                     const selfEditNote = document.getElementById('selfEditNote');
 
@@ -938,7 +945,7 @@
                         }
                     }
 
-                    // CanCrossSend checkbox for secretaries
+                    // Secretary-specific permission checkboxes
                     if (user.role === 'secretary') {
                         if (editCanCrossSendGroup) {
                             editCanCrossSendGroup.style.display = 'flex';
@@ -946,12 +953,25 @@
                         if (editCanCrossSend) {
                             editCanCrossSend.checked = !!user.canCrossSend;
                         }
+                        if (editCanAddSignatureGroup) {
+                            editCanAddSignatureGroup.style.display = 'flex';
+                        }
+                        if (editCanAddSignature) {
+                            // Default to true when undefined to keep existing behavior
+                            editCanAddSignature.checked = (user.canAddSignature !== false);
+                        }
                     } else {
                         if (editCanCrossSendGroup) {
                             editCanCrossSendGroup.style.display = 'none';
                         }
                         if (editCanCrossSend) {
                             editCanCrossSend.checked = false;
+                        }
+                        if (editCanAddSignatureGroup) {
+                            editCanAddSignatureGroup.style.display = 'none';
+                        }
+                        if (editCanAddSignature) {
+                            editCanAddSignature.checked = false;
                         }
                     }
 
