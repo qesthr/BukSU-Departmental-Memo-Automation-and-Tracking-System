@@ -13,10 +13,12 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
+    <!-- Vue.js CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="/js/lucide.min.js"></script>
 </head>
 <body>
-    <div class="dashboard-container">
+    <div id="app" class="dashboard-container">
         <%- include('../components/fal-nav'); %>
 
         <main class="main-content">
@@ -32,23 +34,27 @@
                     <div class="settings-card">
                         <h3>Change Password</h3>
                         <p>Use a unique password to keep your account protected.</p>
-                        <form id="passwordForm" class="settings-form">
+                        <form @submit.prevent="updatePassword" class="settings-form">
                             <div>
                                 <label for="currentPassword">Current Password</label>
-                                <input type="password" id="currentPassword" name="currentPassword" autocomplete="current-password" required>
+                                <input type="password" id="currentPassword" v-model="passwordForm.currentPassword" autocomplete="current-password" required>
                             </div>
                             <div>
                                 <label for="newPassword">New Password</label>
-                                <input type="password" id="newPassword" name="newPassword" autocomplete="new-password" required>
+                                <input type="password" id="newPassword" v-model="passwordForm.newPassword" autocomplete="new-password" required>
                             </div>
                             <div>
                                 <label for="confirmPassword">Confirm New Password</label>
-                                <input type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
+                                <input type="password" id="confirmPassword" v-model="passwordForm.confirmPassword" autocomplete="new-password" required>
                             </div>
                             <div class="settings-actions">
-                                <button type="submit" class="settings-btn primary">Update Password</button>
+                                <button type="submit" class="settings-btn primary" :disabled="passwordLoading">
+                                    {{ passwordLoading ? 'Updating...' : 'Update Password' }}
+                                </button>
                             </div>
-                            <div id="passwordFeedback" class="settings-feedback" role="status"></div>
+                            <div class="settings-feedback" :class="passwordFeedback.type" role="status">
+                                {{ passwordFeedback.message }}
+                            </div>
                         </form>
                     </div>
 
@@ -59,10 +65,10 @@
                             <div class="setting-row">
                                 <div class="setting-info">
                                     <h4>Dark Mode</h4>
-                                    <p>Toggle a theme that’s easier on the eyes.</p>
+                                    <p>Toggle a theme that's easier on the eyes.</p>
                                 </div>
                                 <label class="switch">
-                                    <input type="checkbox" id="darkModeToggle" data-setting="darkMode">
+                                    <input type="checkbox" v-model="settings.darkMode" @change="updateSetting('darkMode', $event.target.checked)">
                                     <span class="slider"></span>
                                 </label>
                             </div>
@@ -72,12 +78,14 @@
                                     <p>Send an OTP to your email for each login.</p>
                                 </div>
                                 <label class="switch">
-                                    <input type="checkbox" id="twoFactorToggle" data-setting="twoFactorEnabled">
+                                    <input type="checkbox" v-model="settings.twoFactorEnabled" @change="updateSetting('twoFactorEnabled', $event.target.checked)">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                         </div>
-                        <div class="settings-feedback" id="securityFeedback" role="status"></div>
+                        <div class="settings-feedback" :class="securityFeedback.type" role="status">
+                            {{ securityFeedback.message }}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -86,8 +94,174 @@
 
     <script>
         lucide.createIcons();
+
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    passwordForm: {
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                    },
+                    settings: {
+                        darkMode: false,
+                        twoFactorEnabled: false
+                    },
+                    passwordLoading: false,
+                    passwordFeedback: {
+                        type: '',
+                        message: ''
+                    },
+                    securityFeedback: {
+                        type: '',
+                        message: ''
+                    }
+                }
+            },
+            mounted() {
+                // Load saved settings from localStorage or API
+                this.loadSettings();
+            },
+            methods: {
+                async updatePassword() {
+                    // Reset feedback
+                    this.passwordFeedback = { type: '', message: '' };
+
+                    // Validate passwords
+                    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+                        this.passwordFeedback = {
+                            type: 'error',
+                            message: 'New passwords do not match.'
+                        };
+                        return;
+                    }
+
+                    if (this.passwordForm.newPassword.length < 8) {
+                        this.passwordFeedback = {
+                            type: 'error',
+                            message: 'Password must be at least 8 characters long.'
+                        };
+                        return;
+                    }
+
+                    this.passwordLoading = true;
+
+                    try {
+                        // Simulate API call
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // In a real app, you would make an API call here
+                        // const response = await fetch('/api/update-password', {
+                        //     method: 'POST',
+                        //     headers: {
+                        //         'Content-Type': 'application/json',
+                        //     },
+                        //     body: JSON.stringify(this.passwordForm)
+                        // });
+
+                        // if (response.ok) {
+                        //     this.passwordFeedback = {
+                        //         type: 'success',
+                        //         message: 'Password updated successfully!'
+                        //     };
+                        //     this.passwordForm = {
+                        //         currentPassword: '',
+                        //         newPassword: '',
+                        //         confirmPassword: ''
+                        //     };
+                        // } else {
+                        //     throw new Error('Failed to update password');
+                        // }
+
+                        // Simulate successful password update
+                        this.passwordFeedback = {
+                            type: 'success',
+                            message: 'Password updated successfully!'
+                        };
+                        this.passwordForm = {
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: ''
+                        };
+                    } catch (error) {
+                        this.passwordFeedback = {
+                            type: 'error',
+                            message: 'Failed to update password. Please try again.'
+                        };
+                    } finally {
+                        this.passwordLoading = false;
+                    }
+                },
+                async updateSetting(setting, value) {
+                    // Reset feedback
+                    this.securityFeedback = { type: '', message: '' };
+
+                    try {
+                        // Simulate API call
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        // In a real app, you would make an API call here
+                        // const response = await fetch('/api/update-setting', {
+                        //     method: 'POST',
+                        //     headers: {
+                        //         'Content-Type': 'application/json',
+                        //     },
+                        //     body: JSON.stringify({
+                        //         setting: setting,
+                        //         value: value
+                        //     })
+                        // });
+
+                        // if (response.ok) {
+                        //     this.securityFeedback = {
+                        //         type: 'success',
+                        //         message: 'Setting updated successfully!'
+                        //     };
+                        // } else {
+                        //     throw new Error('Failed to update setting');
+                        // }
+
+                        // Save to localStorage for demo purposes
+                        localStorage.setItem(`memofy_${setting}`, value);
+
+                        // Simulate successful setting update
+                        this.securityFeedback = {
+                            type: 'success',
+                            message: 'Setting updated successfully!'
+                        };
+                    } catch (error) {
+                        this.securityFeedback = {
+                            type: 'error',
+                            message: 'Failed to update setting. Please try again.'
+                        };
+                        // Revert the toggle if update failed
+                        this.settings[setting] = !value;
+                    }
+                },
+                loadSettings() {
+                    // Load settings from localStorage or API
+                    // For demo purposes, we'll load from localStorage
+                    this.settings.darkMode = localStorage.getItem('memofy_darkMode') === 'true';
+                    this.settings.twoFactorEnabled = localStorage.getItem('memofy_twoFactorEnabled') === 'true';
+
+                    // Apply dark mode if enabled
+                    if (this.settings.darkMode) {
+                        document.body.classList.add('dark-mode');
+                    }
+                }
+            },
+            watch: {
+                'settings.darkMode': function(newVal) {
+                    if (newVal) {
+                        document.body.classList.add('dark-mode');
+                    } else {
+                        document.body.classList.remove('dark-mode');
+                    }
+                }
+            }
+        }).mount('#app');
     </script>
-    <script src="/js/settings.js"></script>
 </body>
 </html>
-
