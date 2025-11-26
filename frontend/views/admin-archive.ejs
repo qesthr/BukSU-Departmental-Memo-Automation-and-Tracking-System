@@ -14,69 +14,74 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <script src="/js/lucide.min.js"></script>
+        <script src="/js/lucide.min.js"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <%- include('../components/nav'); %>
 
-        <main class="main-content">
-            <%- include('../components/admintopbar'); %>
+            <main class="main-content">
+                <%- include('../components/admintopbar'); %>
 
-            <div class="dashboard-content">
-                <div class="log-layout">
+                    <div class="dashboard-content">
+                        <div class="log-layout">
 
-                    <!-- Archive Memo List Area -->
-                    <section class="memo-list-area" style="flex:1 1 auto;">
-                        <div class="memo-container">
-                            <div class="memo-list-header">
-                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                    <i data-lucide="archive" style="width: 24px; height: 24px; color: #6366f1;"></i>
-                                    <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archive</h2>
-                                </div>
-                                <div class="header-controls">
-                                    <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
-                                        <i data-lucide="rotate-cw"></i>
-                                    </button>
-                                </div>
-                                <div class="department-filters">
-                                    <div class="priority-dropdown-wrapper">
-                                        <select id="priorityFilterDropdown" class="priority-filter-dropdown">
-                                            <option value="all">All Priorities</option>
-                                            <option value="urgent">🔴 Urgent</option>
-                                            <option value="high">🟠 High</option>
-                                            <option value="medium">🟡 Medium</option>
-                                            <option value="low">🔵 Low</option>
-                                        </select>
+                            <!-- Archive Memo List Area -->
+                            <section class="memo-list-area" style="flex:1 1 auto;">
+                                <div class="memo-container">
+                                    <div class="memo-list-header">
+                                        <div
+                                            style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                            <i data-lucide="archive"
+                                                style="width: 24px; height: 24px; color: #6366f1;"></i>
+                                            <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">
+                                                Archive</h2>
+                                        </div>
+                                        <div class="header-controls">
+                                            <button id="refreshBtn" class="icon-btn-sm" title="Refresh">
+                                                <i data-lucide="rotate-cw"></i>
+                                            </button>
+                                        </div>
+                                        <div class="department-filters">
+                                            <div class="priority-dropdown-wrapper">
+                                                <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                                    <option value="all">All Priorities</option>
+                                                    <option value="urgent">🔴 Urgent</option>
+                                                    <option value="high">🟠 High</option>
+                                                    <option value="medium">🟡 Medium</option>
+                                                    <option value="low">🔵 Low</option>
+                                                </select>
+                                            </div>
+                                            <div class="sort-dropdown-wrapper">
+                                                <select id="sortDropdown" class="sort-dropdown">
+                                                    <option value="newest">Newest</option>
+                                                    <option value="oldest">Oldest</option>
+                                                    <option value="priority">Priority</option>
+                                                    <option value="subject">Subject (A-Z)</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="sort-dropdown-wrapper">
-                                        <select id="sortDropdown" class="sort-dropdown">
-                                            <option value="newest">Newest</option>
-                                            <option value="oldest">Oldest</option>
-                                            <option value="priority">Priority</option>
-                                            <option value="subject">Subject (A-Z)</option>
-                                        </select>
+
+                                    <div class="memo-list-container">
+                                        <div id="archiveList" class="memo-list"></div>
                                     </div>
+                                </div>
+                            </section>
+
+                            <!-- Empty State (shown when no memo is selected) -->
+                            <div id="emptyState" class="empty-state-view"
+                                style="display: flex; align-items: center; justify-content: center; flex: 1; min-height: 400px;">
+                                <div style="text-align: center;">
+                                    <i data-lucide="archive"
+                                        style="width: 48px; height: 48px; color: #9ca3af; margin-bottom: 1rem;"></i>
+                                    <p style="color: #6b7280; font-size: 14px;">Select a memo to view</p>
                                 </div>
                             </div>
-
-                            <div class="memo-list-container">
-                                <div id="archiveList" class="memo-list"></div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Empty State (shown when no memo is selected) -->
-                    <div id="emptyState" class="empty-state-view" style="display: flex; align-items: center; justify-content: center; flex: 1; min-height: 400px;">
-                        <div style="text-align: center;">
-                            <i data-lucide="archive" style="width: 48px; height: 48px; color: #9ca3af; margin-bottom: 1rem;"></i>
-                            <p style="color: #6b7280; font-size: 14px;">Select a memo to view</p>
                         </div>
                     </div>
-                </div>
-            </div>
-        </main>
+            </main>
     </div>
 
     <!-- Memo Viewer Modal (converted from side view) -->
@@ -93,21 +98,30 @@
                         <button id="nextBtn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
                     </div>
                     <div class="viewer-actions">
-                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
-                        <button id="unarchiveBtn" class="icon-btn" title="Unarchive Memo"><i data-lucide="archive-restore"></i></button>
-                        <button id="downloadBtn" class="icon-btn" title="Download Memo"><i data-lucide="download"></i></button>
+                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i
+                                data-lucide="bookmark"></i></button>
+                        <button id="unarchiveBtn" class="icon-btn" title="Unarchive Memo"><i
+                                data-lucide="archive-restore"></i></button>
+                        <button id="downloadBtn" class="icon-btn" title="Download Memo"><i
+                                data-lucide="download"></i></button>
                     </div>
                 </div>
                 <div class="memo-content">
                     <div class="memo-pdf-header">
                         <h1 class="memo-title">MEMO</h1>
                         <div class="memo-details">
-                            <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span id="memoDetailSubject" class="memo-detail-value"></span></div>
-                            <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span id="memoDetailFrom" class="memo-detail-value"></span></div>
-                            <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span id="memoDetailTo" class="memo-detail-value"></span></div>
-                            <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span id="memoDetailDepartment" class="memo-detail-value"></span></div>
-                            <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span id="memoDetailPriority" class="memo-detail-value"></span></div>
-                            <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span id="memoDetailDate" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">Subject:</span><span
+                                    id="memoDetailSubject" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">From:</span><span
+                                    id="memoDetailFrom" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">To:</span><span
+                                    id="memoDetailTo" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">Department:</span><span
+                                    id="memoDetailDepartment" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">Priority:</span><span
+                                    id="memoDetailPriority" class="memo-detail-value"></span></div>
+                            <div class="memo-detail-row"><span class="memo-detail-label">Date:</span><span
+                                    id="memoDetailDate" class="memo-detail-value"></span></div>
                         </div>
                         <div class="memo-separator"></div>
                     </div>
@@ -119,9 +133,9 @@
             </div>
         </div>
     </div>
-                </div>
-            </div>
-        </main>
+    </div>
+    </div>
+    </main>
     </div>
 
     <script>
@@ -133,8 +147,8 @@
             canCrossSend: <%= user.canCrossSend || false %>
         };
 
-        window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
-        window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
+        window.archivedMemos = <% - JSON.stringify(archivedMemos || []) %>;
+        window.archivedEvents = <% - JSON.stringify(archivedEvents || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
@@ -284,7 +298,7 @@
 
                 // Lazy-load avatars
                 archiveList.querySelectorAll('img.memo-avatar[data-has-avatar="0"]').forEach(img => {
-                    img.addEventListener('error', function() {
+                    img.addEventListener('error', function () {
                         this.src = '/images/memofy-logo.png';
                     });
                 });
@@ -594,5 +608,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>

@@ -14,13 +14,13 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: gaPropertyId }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../../components/sweetalert2'); %>
+        <!-- SweetAlert2 -->
+        <%- include('../../components/sweetalert2'); %>
 
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+            <!-- Vue 3 CDN -->
+            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
-    <script src="/js/lucide.min.js"></script>
+            <script src="/js/lucide.min.js"></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -39,7 +39,7 @@
             <main class="main-content">
                 <%- include('../../components/admintopbar') %>
                     <!-- Users Management Content -->
-                    <div class="dashboard-content">
+                    <div class="dashboard-content" style="margin-top: 10px;">
                         <div class="content-wrapper">
                             <!-- Header -->
                             <div class="content-header">
@@ -59,15 +59,13 @@
                             <!-- Filters -->
                             <div class="filters-section">
                                 <div class="view-tabs">
-                                    <button
-                                        @click="currentView = 'active'"
+                                    <button @click="currentView = 'active'"
                                         :class="['view-tab', { active: currentView === 'active' }]"
                                         :style="getTabStyle('active')"
                                         style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; transition: all 0.2s;">
                                         Active Users
                                     </button>
-                                    <button
-                                        @click="currentView = 'archived'"
+                                    <button @click="currentView = 'archived'"
                                         :class="['view-tab', { active: currentView === 'archived' }]"
                                         :style="getTabStyle('archived')"
                                         style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; transition: all 0.2s;">
@@ -76,9 +74,7 @@
                                     </button>
                                 </div>
                                 <div class="role-filters">
-                                    <button
-                                        v-for="roleFilter in roleFilters"
-                                        :key="roleFilter.value"
+                                    <button v-for="roleFilter in roleFilters" :key="roleFilter.value"
                                         @click="currentFilter = roleFilter.value"
                                         :class="['filter-btn', { active: currentFilter === roleFilter.value }]"
                                         :data-role="roleFilter.value">
@@ -101,22 +97,18 @@
                                     <div class="table-body">
                                         <!-- Vue renders here - user-management.js will be prevented from rendering -->
                                         <div id="usersList" style="display: none;"></div>
-                                        <div v-if="loading" class="table-row" style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
+                                        <div v-if="loading" class="table-row"
+                                            style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
                                             <div>Loading users...</div>
                                         </div>
-                                        <div v-else-if="filteredUsers.length === 0" class="table-row" style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
+                                        <div v-else-if="filteredUsers.length === 0" class="table-row"
+                                            style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
                                             <div>No users found</div>
                                         </div>
-                                        <user-row
-                                            v-for="user in filteredUsers"
-                                            :key="user._id"
-                                            :user="user"
-                                            :current-user-id="currentUserId"
-                                            :is-locked="isLockedByOther(user._id)"
-                                            :lock-info="userLocks[user._id]"
-                                            :current-view="currentView"
-                                            @edit="handleEditUser"
-                                            @archive="handleArchiveUser"
+                                        <user-row v-for="user in filteredUsers" :key="user._id" :user="user"
+                                            :current-user-id="currentUserId" :is-locked="isLockedByOther(user._id)"
+                                            :lock-info="userLocks[user._id]" :current-view="currentView"
+                                            @edit="handleEditUser" @archive="handleArchiveUser"
                                             @unarchive="handleUnarchiveUser">
                                         </user-row>
                                     </div>
@@ -149,7 +141,8 @@
                                                     <input type="email" id="email" required
                                                         pattern="^[A-Za-z0-9._%+-]+@(student\.)?buksu\.edu\.ph$"
                                                         title="Use an institutional email: @buksu.edu.ph or @student.buksu.edu.ph">
-                                                    <div id="emailHint" class="input-hint error" style="display:none;">Use
+                                                    <div id="emailHint" class="input-hint error" style="display:none;">
+                                                        Use
                                                         an institutional email: @buksu.edu.ph or @student.buksu.edu.ph
                                                     </div>
                                                 </div>
@@ -192,8 +185,9 @@
                                 <div class="modal-content edit-user-modal-content">
                                     <div class="modal-header">
                                         <div class="modal-title-group">
-                                            <h2>Edit User</h2>
-                                            <p class="modal-subtitle">Update profile details and permissions</p>
+                                            <h2 style="color: white;">Edit User</h2>
+                                            <p class="modal-subtitle" style="color: white;">Update profile details and
+                                                permissions</p>
                                         </div>
                                     </div>
                                     <div class="modal-body edit-user-modal-body">
@@ -254,8 +248,8 @@
                                             </div>
 
                                             <div class="form-actions">
-                                                <button type="button"
-                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="button" class="btn btn-secondary close-modal"
+                                                    style="font-size: 16px;">Cancel</button>
                                                 <button type="submit" class="btn btn-primary">Save Changes</button>
                                             </div>
                                         </form>
@@ -330,7 +324,8 @@
                                     </div>
                                     <div class="modal-body">
                                         <div id="deleteState" style="margin-bottom:8px;"></div>
-                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users will be hidden from the active users list.</p>
+                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users
+                                            will be hidden from the active users list.</p>
                                         <div class="form-actions">
                                             <button type="button" id="cancelDelete"
                                                 class="btn btn-secondary close-modal">Cancel</button>
@@ -739,7 +734,7 @@
                     if (!userId) return;
                     try {
                         await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST', credentials: 'same-origin' });
-                    } catch {}
+                    } catch { }
                 };
 
                 const startEditTimers = (userId) => {
@@ -784,7 +779,7 @@
                     secondsRemaining.value = 30;
                     const targetId = userId || currentEditingUserId.value;
                     if (targetId) {
-                        fetch(`/api/users/lock-user/${targetId}/refresh`, { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+                        fetch(`/api/users/lock-user/${targetId}/refresh`, { method: 'POST', credentials: 'same-origin' }).catch(() => { });
                         editInactivityTimer.value = setTimeout(() => {
                             autoCloseEdit(targetId, 'Session expired — no activity detected.');
                         }, 30000);
@@ -800,7 +795,7 @@
                         badge.id = 'editLockCountdown';
                         badge.style.marginLeft = 'auto';
                         badge.style.fontSize = '.85rem';
-                        badge.style.color = '#64748b';
+                        badge.style.color = '#fffff';
                         if (header) header.appendChild(badge);
                     }
                     return badge;
@@ -885,7 +880,7 @@
                                 conflictOverlay.classList.remove('open');
                                 if (retry) retry.disabled = false;
                             }
-                        } catch {}
+                        } catch { }
                     }, 2000);
 
                     conflictOverlay.classList.add('open');
@@ -1170,7 +1165,7 @@
                                 const d = JSON.parse(ev.data);
                                 showToast(`${d.editorName || 'An admin'} updated ${d.name || 'a user'}`);
                                 fetchUsers(currentFilter.value);
-                            } catch {}
+                            } catch { }
                         });
                         es.addEventListener('lock_released', () => {
                             fetchUsers(currentFilter.value);
@@ -1178,7 +1173,7 @@
                         es.addEventListener('lock_acquired', () => {
                             fetchUsers(currentFilter.value);
                         });
-                    } catch {}
+                    } catch { }
                 };
 
                 // Lifecycle
@@ -1211,7 +1206,7 @@
                     const setupFormRefreshHooks = () => {
                         const originalAddUser = window.addUser;
                         if (originalAddUser && !originalAddUser.__vueWrapped) {
-                            window.addUser = async function(...args) {
+                            window.addUser = async function (...args) {
                                 const result = await originalAddUser.apply(this, args);
                                 fetchUsers(currentFilter.value);
                                 return result;
@@ -1221,7 +1216,7 @@
 
                         const originalUpdateUser = window.updateUser;
                         if (originalUpdateUser && !originalUpdateUser.__vueWrapped) {
-                            window.updateUser = async function(...args) {
+                            window.updateUser = async function (...args) {
                                 const result = await originalUpdateUser.apply(this, args);
                                 fetchUsers(currentFilter.value);
                                 return result;
@@ -1231,7 +1226,7 @@
 
                         const originalUpdateUserDepartment = window.updateUserDepartment;
                         if (originalUpdateUserDepartment && !originalUpdateUserDepartment.__vueWrapped) {
-                            window.updateUserDepartment = async function(...args) {
+                            window.updateUserDepartment = async function (...args) {
                                 const result = await originalUpdateUserDepartment.apply(this, args);
                                 fetchUsers(currentFilter.value);
                                 return result;
@@ -1241,7 +1236,7 @@
 
                         const originalUpdateUserRole = window.updateUserRole;
                         if (originalUpdateUserRole && !originalUpdateUserRole.__vueWrapped) {
-                            window.updateUserRole = async function(...args) {
+                            window.updateUserRole = async function (...args) {
                                 const result = await originalUpdateUserRole.apply(this, args);
                                 fetchUsers(currentFilter.value);
                                 return result;
