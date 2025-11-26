@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Initialize
     // Only fetch memos if we're on a page with memo list (not dashboard)
+    const prefetchedMemos = window.prefetchedMemos || window.receivedMemos;
+    if (memoList && Array.isArray(prefetchedMemos) && prefetchedMemos.length > 0) {
+        memos = prefetchedMemos;
+        applyFilters();
+    }
+
     if (memoList || !window.isDashboardPage) {
         fetchMemos();
     }
@@ -2534,6 +2540,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const memoViewerModal = document.getElementById('memoViewerModal');
     if (memoViewerModal) {
         memoViewerModal.addEventListener('click', (e) => {
+            if (e.target === memoViewerModal) {
+                showDefaultView();
+                return;
+            }
             const toDropdownToggle = e.target.closest('#toDropdownToggle');
             const detailsPopup = document.getElementById('memoDetailsPopup');
 
@@ -3644,10 +3654,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Get all recipients (from recipients array or single recipient)
         const allRecipients = [];
+        const currentUserIdForRecipients = window.currentUser?._id || window.currentUser?.id;
+
         if (memo.recipients && memo.recipients.length > 0) {
-            allRecipients.push(...memo.recipients);
+            memo.recipients.forEach(recipient => {
+                const recipientId = recipient._id?.toString() || recipient.toString();
+                if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
+                    allRecipients.push(recipient);
+                }
+            });
         } else if (memo.recipient) {
-            allRecipients.push(memo.recipient);
+            const recipientId = memo.recipient._id?.toString() || memo.recipient.toString();
+            if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
+                allRecipients.push(memo.recipient);
+            }
         }
 
         // Format recipients list
@@ -4053,12 +4073,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show memo viewer
     function showMemoViewer() {
+        if (memoViewerModal) {
+            memoViewerModal.style.display = 'flex';
+            memoViewerModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
         if (emptyState) {emptyState.style.display = 'none';}
         if (memoViewer) {memoViewer.style.display = 'flex';}
     }
 
     // Show default empty view
     function showDefaultView() {
+        if (memoViewerModal) {
+            memoViewerModal.style.display = 'none';
+            memoViewerModal.classList.remove('open');
+        }
+        document.body.style.overflow = '';
         if (emptyState) {emptyState.style.display = 'flex';}
         if (memoViewer) {memoViewer.style.display = 'none';}
         currentMemoIndex = -1;
