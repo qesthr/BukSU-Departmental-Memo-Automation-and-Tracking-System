@@ -84,16 +84,22 @@ app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
 // Session configuration
+// Determine if we're in production (HTTPS) - check both NODE_ENV and BASE_URL
+const isProduction = process.env.NODE_ENV === 'production' || 
+                     (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://'));
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'fallback_secret_key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction, // true for HTTPS (production), false for HTTP (localhost)
         httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+        sameSite: 'lax', // Works for same-site requests (OAuth callback is same domain)
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        // Don't set domain - let browser handle it automatically
+    },
+    name: 'connect.sid' // Explicit session cookie name
 }));
 
 // Initialize Passport and restore authentication state from session

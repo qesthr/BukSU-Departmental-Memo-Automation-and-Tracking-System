@@ -22,17 +22,65 @@
         console.log('Window opener:', !!window.opener);
 
         // Check if this is a popup or full-page redirect
-        // Always signal parent and attempt to close; NEVER redirect to dashboard here
         if (window.opener) {
+            // POPUP MODE: Send message to parent and close popup
             console.log('✅ Popup detected - sending message to parent');
-            try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin); } catch (e) {}
+            try { 
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin); 
+            } catch (e) {
+                console.error('Error sending message to parent:', e);
+            }
+
+            // Storage fallback so parent can detect success even if opener is missing
+            try { localStorage.setItem('GOOGLE_AUTH_SUCCESS', '1'); } catch (e) {}
+
+            // Try closing popup if possible
+            setTimeout(() => { 
+                try { 
+                    window.close(); 
+                } catch (e) {
+                    console.log('Could not close popup:', e);
+                } 
+            }, 200);
+        } else {
+            // FULL-PAGE REDIRECT MODE: Fetch user info and redirect to dashboard
+            console.log('✅ Full-page redirect detected - fetching user info and redirecting');
+            
+            (async () => {
+                try {
+                    // Wait a moment for session to be established
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Fetch user info to determine which dashboard to redirect to
+                    const res = await fetch('/auth/current-user', {
+                        credentials: 'include'
+                    });
+
+                    if (!res.ok) {
+                        throw new Error('Failed to get user info: ' + res.status);
+                    }
+
+                    const data = await res.json();
+                    console.log('✅ User authenticated:', data.user?.email, '| Role:', data.user?.role);
+
+                    // Determine dashboard URL based on role
+                    let dashboardUrl = '/admin-dashboard';
+                    if (data.user?.role === 'secretary') {
+                        dashboardUrl = '/secretary-dashboard';
+                    } else if (data.user?.role === 'faculty') {
+                        dashboardUrl = '/faculty-dashboard';
+                    }
+
+                    console.log('➡️ Redirecting to:', dashboardUrl);
+                    window.location.href = dashboardUrl;
+
+                } catch (error) {
+                    console.error('❌ Error getting user info:', error);
+                    // Fallback: redirect to login with error
+                    window.location.href = '/login?error=auth_failed';
+                }
+            })();
         }
-
-        // Storage fallback so parent can detect success even if opener is missing
-        try { localStorage.setItem('GOOGLE_AUTH_SUCCESS', '1'); } catch (e) {}
-
-        // Try closing popup if possible
-        setTimeout(() => { try { window.close(); } catch (e) {} }, 200);
     </script>
 </body>
 </html>
