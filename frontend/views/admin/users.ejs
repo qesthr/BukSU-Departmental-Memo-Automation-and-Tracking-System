@@ -454,6 +454,10 @@
                     if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
                         return '/images/memofy-logo.png';
                     }
+                    // Do not cache-bust data/blob URIs (query params break them)
+                    if (typeof profilePicture === 'string' && (profilePicture.startsWith('data:') || profilePicture.startsWith('blob:'))) {
+                        return profilePicture;
+                    }
                     // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
                     // Fallback to current time if updatedAt is not available
                     const cacheBuster = props.user.updatedAt

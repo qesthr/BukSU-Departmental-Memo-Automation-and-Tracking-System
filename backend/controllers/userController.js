@@ -485,14 +485,22 @@ exports.uploadProfilePicture = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const profilePictureUrl = `/images/uploads/${req.file.filename}`;
+        const mimeType = req.file.mimetype || 'image/png';
+        const base64Data = req.file.buffer?.toString('base64');
 
-        await User.findByIdAndUpdate(id, { profilePicture: profilePictureUrl });
+        if (!base64Data) {
+            return res.status(400).json({ message: 'Invalid image data' });
+        }
+
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+        await User.findByIdAndUpdate(id, { profilePicture: dataUrl });
+        console.log(`[ProfilePicture] Admin ${req.user?.email || req.user?._id || 'unknown'} updated ${id}'s profile picture (stored ${base64Data.length} bytes in DB).`);
 
         res.json({
             success: true,
             message: 'Profile picture updated successfully',
-            profilePicture: profilePictureUrl
+            profilePicture: dataUrl
         });
     } catch (error) {
         console.error('Error uploading profile picture:', error);
