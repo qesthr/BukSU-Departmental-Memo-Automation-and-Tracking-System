@@ -1,16 +1,46 @@
 const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
 const { OAuth2 } = google.auth;
+let sgMail = null;
+try {
+    // Optional dependency – only used when SENDGRID_API_KEY is configured
+    // This avoids hard failures if the package is not installed yet.
+    // eslint-disable-next-line global-require
+    sgMail = require('@sendgrid/mail');
+} catch (e) {
+    sgMail = null;
+}
 
 class EmailService {
     constructor() {
         this.transporter = null;
         this.gmailClient = null; // googleapis Gmail client for API sends
+        this.sgClient = null; // SendGrid client for HTTP API sends
         this.initializeTransporter();
     }
 
     async sendInvitationEmail(email, context) {
-        // Prefer Gmail API if configured
+        // Prefer SendGrid HTTP API if configured (works on Render free tier)
+        if (this.sgClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : (process.env.SMTP_USER || undefined);
+                const msg = {
+                    to: email,
+                    from,
+                    subject: "You've been invited to join Memofy",
+                    html: this.generateInvitationEmailHTML(context)
+                };
+                const [res] = await this.sgClient.send(msg);
+                return { success: true, messageId: res.headers['x-message-id'] || null, transport: 'sendgrid' };
+            } catch (err) {
+                console.error('SendGrid invitation send failed, falling back to other transports:', err.message);
+                // fall through to other transports if available
+            }
+        }
+
+        // Next, prefer Gmail API if configured
         if (this.gmailClient) {
             try {
                 const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
@@ -70,7 +100,16 @@ class EmailService {
 
     initializeTransporter() {
         try {
-            // Initialize Gmail API client if credentials provided
+            // Highest priority: SendGrid HTTP API (best for Render free tier)
+            if (process.env.SENDGRID_API_KEY && sgMail) {
+                sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+                this.sgClient = sgMail;
+                this.transporter = null; // Avoid SMTP entirely when SendGrid is configured
+                console.log('SendGrid email API configured – using HTTP instead of SMTP');
+                return;
+            }
+
+            // Next: Initialize Gmail API client if credentials provided
             if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN && process.env.SMTP_USER) {
                 const oAuth2Client = new OAuth2(
                     process.env.GMAIL_CLIENT_ID,
@@ -91,7 +130,7 @@ class EmailService {
                     }
                 });
             } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-                // Fallback to basic SMTP
+                // Fallback to basic SMTP (for local dev or environments that allow SMTP)
                 this.transporter = nodemailer.createTransport({
                     host: process.env.SMTP_HOST || 'smtp.gmail.com',
                     port: process.env.SMTP_PORT || 587,
@@ -106,7 +145,7 @@ class EmailService {
                 return;
             }
 
-            // Verify transporter configuration when available
+            // Verify transporter configuration when available (skip when using SendGrid)
             if (this.transporter) {
                 this.transporter.verify((error, success) => {
                     if (error) {
