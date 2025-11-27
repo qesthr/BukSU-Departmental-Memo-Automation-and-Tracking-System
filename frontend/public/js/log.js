@@ -3823,14 +3823,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#039;');
                 htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6; color: #111827;">${safeContent}</div>`;
-            } else {
-                // Show message if content is empty but still show attachments if any
-                htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6;">No text content</div>`;
-            }
-
-            // Ensure content is always visible even if htmlContent is empty
-            if (!htmlContent && (!memo.attachments || memo.attachments.length === 0)) {
-                htmlContent = '<div style="color: #9ca3af; font-style: italic; line-height: 1.6;">This memo has no content.</div>';
             }
 
             // Add rejection reason display if memo was rejected
