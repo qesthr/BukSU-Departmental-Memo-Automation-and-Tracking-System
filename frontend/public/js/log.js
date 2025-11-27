@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Expose attachTemplateHandlers globally for admin view
     window.attachTemplateHandlers = function(modal){
-        const dropdownBtn = modal.querySelector('#templateDropdownBtn');
+        let dropdownBtn = modal.querySelector('#templateDropdownBtn');
         const dropdownMenu = modal.querySelector('#templateDropdownMenu');
         const container = modal.querySelector('#templateSignaturesContainer');
         const addBtn = modal.querySelector('#addSignatureBtn');
@@ -460,11 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove any existing event listeners to prevent duplicates
         const newDropdownBtn = dropdownBtn.cloneNode(true);
         dropdownBtn.parentNode.replaceChild(newDropdownBtn, dropdownBtn);
+        dropdownBtn = newDropdownBtn;
 
-        // Update reference to the new button
-        const currentDropdownBtn = newDropdownBtn;
-
-        currentDropdownBtn.addEventListener('click', (e)=>{
+        dropdownBtn.addEventListener('click', (e)=>{
             e.preventDefault();
             e.stopPropagation();
             console.log('Template dropdown button clicked'); // Debug log
@@ -535,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Don't close if clicking on the dropdown button or inside the dropdown
             // Also check if clicking on any element within the template dropdown structure
             const isClickInside = dropdown.contains(e.target) ||
-                                 currentDropdownBtn.contains(e.target) ||
+                                 dropdownBtn.contains(e.target) ||
                                  dropdownMenu.contains(e.target) ||
                                  e.target.closest('#templateDropdownMenu') ||
                                  e.target.closest('#templateDropdownBtn');
@@ -591,10 +589,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (placeholder){
                     const validIds = selectedIds.filter(id => id !== 'none');
                     if (validIds.length === 0){
-                        placeholder.textContent = 'Template: None';
+                        placeholder.textContent = 'Signature: None';
                     } else if (validIds.length === 1){
                         const sig = (window.allowedSignatures||[]).find(s => (s.id||s._id) === validIds[0]);
-                        placeholder.textContent = `Template: ${sig?.displayName || sig?.roleTitle || 'Selected'}`;
+                        placeholder.textContent = `Signature: ${sig?.displayName || sig?.roleTitle || 'Selected'}`;
                     } else {
                         placeholder.textContent = `${validIds.length} signatures selected`;
                     }
@@ -616,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Reset on modal open
         const placeholder = dropdownBtn.querySelector('.template-placeholder');
-        if (placeholder) {placeholder.textContent = 'Template: None';}
+        if (placeholder) {placeholder.textContent = 'Signature: None';}
         const noneCheckbox = dropdownMenu.querySelector('input[value="none"]');
         if (noneCheckbox) {noneCheckbox.checked = true;}
         dropdownMenu.querySelectorAll('.template-checkbox').forEach(cb => {
