@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }
-            } catch (error) {
+            } catch {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'error',
@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }
-            } catch (error) {
+            } catch {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'error',
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }
-            } catch (error) {
+            } catch {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'error',
@@ -184,16 +184,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-// Show message function - replaced with SweetAlert2
-function showMessage(message, type) {
-    if (typeof Swal !== 'undefined') {
-        const icon = type === 'success' ? 'success' : 'error';
-        Swal.fire({
-            icon: icon,
-            title: type === 'success' ? 'Success' : 'Error',
-            text: message,
-            confirmButtonColor: type === 'success' ? '#10b981' : '#ef4444'
-        });
-    }
-}
