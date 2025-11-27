@@ -147,8 +147,8 @@
             canCrossSend: <%= user.canCrossSend || false %>
         };
 
-        window.archivedMemos = <% - JSON.stringify(archivedMemos || []) %>;
-        window.archivedEvents = <% - JSON.stringify(archivedEvents || []) %>;
+        window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
+        window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
