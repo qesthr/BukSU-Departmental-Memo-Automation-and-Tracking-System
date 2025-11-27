@@ -272,7 +272,6 @@ async function loadAnalyticsData() {
         // Always load database statistics (these are always available)
         await loadDatabaseStats();
         await loadDatabaseCharts(startDate, endDate);
-        await loadRecentActivity();
 
         // Load Google Analytics data if connected (silently handle errors)
         if (analyticsData.isConnected) {
@@ -835,105 +834,6 @@ async function loadMemoStatsChart(startDate, endDate) {
     } catch (error) {
         console.error('Error loading memo stats chart:', error);
     }
-}
-
-/**
- * Load recent activity
- */
-async function loadRecentActivity() {
-    try {
-        const response = await fetch('/api/analytics/db/activity?limit=50', {
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to load recent activity');
-        }
-
-        const activities = await response.json();
-        displayRecentActivity(activities);
-
-    } catch (error) {
-        console.error('Error loading recent activity:', error);
-        const tbody = document.getElementById('activityTableBody');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Failed to load activity</td></tr>';
-        }
-    }
-}
-
-/**
- * Display recent activity in table
- */
-function displayRecentActivity(activities) {
-    const tbody = document.getElementById('activityTableBody');
-    if (!tbody) {return;}
-
-    if (!activities || activities.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-state">No activity found</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = activities.map(activity => {
-        const date = new Date(activity.date).toLocaleDateString();
-        const senderName = activity.sender ? activity.sender.name : 'Unknown';
-        const recipientName = activity.recipient ? activity.recipient.name : 'Unknown';
-        const action = activity.status === 'sent' ? 'Sent' :
-                      activity.status === 'read' ? 'Read' :
-                      activity.status === 'pending' ? 'Pending' : activity.status;
-
-        // Determine department display
-        let departmentDisplay = '';
-
-        // If departments array exists and has values, use those
-        if (activity.departments && Array.isArray(activity.departments) && activity.departments.length > 0) {
-            // If multiple departments, join them with comma
-            if (activity.departments.length > 1) {
-                departmentDisplay = activity.departments.join(', ');
-            } else {
-                departmentDisplay = activity.departments[0];
-            }
-        }
-        // If recipients array exists, get unique departments from recipients
-        else if (activity.recipients && Array.isArray(activity.recipients) && activity.recipients.length > 0) {
-            const deptSet = new Set();
-            activity.recipients.forEach(recipient => {
-                if (recipient && recipient.department) {
-                    deptSet.add(recipient.department);
-                }
-            });
-            const deptArray = Array.from(deptSet);
-            if (deptArray.length > 0) {
-                departmentDisplay = deptArray.length > 1 ? deptArray.join(', ') : deptArray[0];
-            }
-        }
-        // If single recipient exists, use their department
-        else if (activity.recipient && activity.recipient.department) {
-            departmentDisplay = activity.recipient.department;
-        }
-        // Fallback to memo's department field
-        else if (activity.department) {
-            departmentDisplay = activity.department;
-        }
-        // If sender is Admin and no department info, leave blank
-        else if (activity.sender && activity.sender.department === 'Admin') {
-            departmentDisplay = '';
-        }
-        // Final fallback
-        else {
-            departmentDisplay = activity.sender?.department || '';
-        }
-
-        return `
-            <tr>
-                <td>${date}</td>
-                <td>${senderName}</td>
-                <td>${action}</td>
-                <td>${departmentDisplay}</td>
-                <td><span class="status-badge status-${activity.status}">${action}</span></td>
-            </tr>
-        `;
-    }).join('');
 }
 
 /**

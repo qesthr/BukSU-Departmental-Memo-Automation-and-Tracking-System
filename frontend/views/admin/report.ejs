@@ -20,6 +20,17 @@
             <script src="/js/lucide.min.js"></script>
             <!-- Google Charts API for data visualization -->
             <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+            <script>
+                if (window.google && google.charts) {
+                    google.charts.load('current', { packages: ['corechart', 'table', 'bar'] });
+                } else {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        if (window.google && google.charts) {
+                            google.charts.load('current', { packages: ['corechart', 'table', 'bar'] });
+                        }
+                    });
+                }
+            </script>
 </head>
 
 <body>
@@ -167,32 +178,6 @@
                                 </div>
                             </div>
 
-                            <!-- Data Tables Section -->
-                            <div class="tables-section">
-                                <div class="table-container">
-                                    <div class="table-header">
-                                        <h2>Recent Activity</h2>
-                                    </div>
-                                    <div class="table-wrapper">
-                                        <table class="data-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>User</th>
-                                                    <th>Action</th>
-                                                    <th>Department</th>
-                                                    <th>Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="activityTableBody">
-                                                <tr>
-                                                    <td colspan="5" class="loading-state">Loading data...</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
             </main>
@@ -246,10 +231,9 @@
 
     <script>
         // Initialize Lucide icons
-        lucide.crateIcons();
-
-        // Load Google Charts
-        google.charts.load('current', { 'packages': ['corechart', 'table', 'bar'] });
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        }
     </script>
     <script src="/js/freezeZoom.js"></script>
 </body>
