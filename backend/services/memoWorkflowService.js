@@ -402,6 +402,16 @@ async function deliver({ memo, actor }) {
 
       console.log(`✅ Calendar event created for approved memo: ${memo.subject} (Event ID: ${calendarEvent._id})`);
 
+      // Sync event to participants' Google Calendars (async, don't wait)
+      try {
+        const { syncEventToParticipantsGoogleCalendars } = require('./calendarService');
+        syncEventToParticipantsGoogleCalendars(calendarEvent, { isUpdate: false })
+          .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
+      } catch (syncError) {
+        console.error('Error initiating Google Calendar sync for memo:', syncError);
+        // Don't fail if sync fails
+      }
+
       // Mark workflow memo as approved (not sent) and persist history
       memo.status = MEMO_STATUS.APPROVED;
       await appendHistory(memo, actor, 'sent');
@@ -741,6 +751,17 @@ async function deliverWithRollback({ memo, actor, session }) {
       }, { session });
 
       console.log(`✅ Calendar event created for approved memo: ${memo.subject} (Event ID: ${calendarEvent._id})`);
+
+      // Sync event to participants' Google Calendars (async, don't wait)
+      // Note: This runs outside the transaction since it's async and doesn't need to be rolled back
+      try {
+        const { syncEventToParticipantsGoogleCalendars } = require('./calendarService');
+        syncEventToParticipantsGoogleCalendars(calendarEvent, { isUpdate: false })
+          .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
+      } catch (syncError) {
+        console.error('Error initiating Google Calendar sync for memo:', syncError);
+        // Don't fail if sync fails
+      }
     } catch (calendarError) {
       console.error('⚠️ Failed to create calendar event for approved memo:', calendarError.message);
       throw calendarError; // Re-throw to trigger rollback

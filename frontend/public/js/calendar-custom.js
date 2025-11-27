@@ -11,6 +11,244 @@
   let selectedDate = new Date();
   let miniCursor = new Date();
 
+  // Attachment Modal Functions (similar to log.js)
+  let currentAttachments = [];
+  let currentAttachmentIndex = 0;
+
+  function createAttachmentModal() {
+    // Check if modal already exists
+    if (document.getElementById('attachmentViewerModal')) {
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'attachmentViewerModal';
+    modal.className = 'modal';
+    modal.style.cssText = 'display: none; position: fixed; z-index: 100002; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
+    modal.innerHTML = `
+      <div class="attachment-modal-content" style="position: relative; background-color: #fff; margin: 2% auto; padding: 0; width: 90%; max-width: 1200px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="attachment-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;">
+          <div style="flex: 1;">
+            <h3 id="attachmentFileName" style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #111827;"></h3>
+            <p id="attachmentFileSize" style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;"></p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="attachmentPrevBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Previous">
+              <i data-lucide="chevron-left" style="width: 20px; height: 20px;"></i>
+            </button>
+            <button id="attachmentNextBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Next">
+              <i data-lucide="chevron-right" style="width: 20px; height: 20px;"></i>
+            </button>
+            <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.875rem;" title="Download">
+              <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+              <span>Download</span>
+            </a>
+            <button id="attachmentCloseBtn" style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; font-size: 1.5rem; line-height: 1; color: #6b7280;" title="Close">×</button>
+          </div>
+        </div>
+        <div id="attachmentViewerBody" style="flex: 1; overflow: auto; padding: 1.5rem; display: flex; align-items: center; justify-content: center; min-height: 400px; background: #f9fafb;">
+          <div id="attachmentViewerContent" style="width: 100%; text-align: center;"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const closeBtn = document.getElementById('attachmentCloseBtn');
+    const prevBtn = document.getElementById('attachmentPrevBtn');
+    const nextBtn = document.getElementById('attachmentNextBtn');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeAttachmentModal);
+    }
+
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeAttachmentModal();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modalEl = document.getElementById('attachmentViewerModal');
+        if (modalEl && modalEl.style.display !== 'none') {
+          closeAttachmentModal();
+        }
+      }
+    });
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => showPreviousAttachment());
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => showNextAttachment());
+    }
+
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
+
+  function openAttachmentModal(attachments, index) {
+    currentAttachments = attachments;
+    currentAttachmentIndex = index;
+    createAttachmentModal();
+    showAttachment(currentAttachmentIndex);
+    const modal = document.getElementById('attachmentViewerModal');
+    if (modal) {
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      modal.style.zIndex = '100002';
+    }
+  }
+
+  function closeAttachmentModal() {
+    const modal = document.getElementById('attachmentViewerModal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    currentAttachments = [];
+    currentAttachmentIndex = 0;
+  }
+
+  function showAttachment(index) {
+    if (!currentAttachments || currentAttachments.length === 0 || index < 0 || index >= currentAttachments.length) {
+      return;
+    }
+
+    const attachment = currentAttachments[index];
+    const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+    const isPDF = attachment.mimetype === 'application/pdf';
+    const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+    // Update file info
+    const fileNameEl = document.getElementById('attachmentFileName');
+    const fileSizeEl = document.getElementById('attachmentFileSize');
+    const downloadBtn = document.getElementById('attachmentDownloadBtn');
+    const contentEl = document.getElementById('attachmentViewerContent');
+    const prevBtn = document.getElementById('attachmentPrevBtn');
+    const nextBtn = document.getElementById('attachmentNextBtn');
+
+    if (fileNameEl) {
+      fileNameEl.textContent = attachment.filename || 'Attachment';
+    }
+    if (fileSizeEl) {
+      const size = attachment.size || 0;
+      const formatSize = size < 1024 ? size + ' B' :
+                        size < 1024 * 1024 ? (size / 1024).toFixed(1) + ' KB' :
+                        (size / (1024 * 1024)).toFixed(1) + ' MB';
+      fileSizeEl.textContent = `${formatSize} • ${index + 1} of ${currentAttachments.length}`;
+    }
+    if (downloadBtn) {
+      downloadBtn.href = attachmentUrl;
+      downloadBtn.download = attachment.filename;
+    }
+
+    // Show/hide navigation buttons
+    if (prevBtn) {
+      prevBtn.style.display = currentAttachments.length > 1 ? 'block' : 'none';
+    }
+    if (nextBtn) {
+      nextBtn.style.display = currentAttachments.length > 1 ? 'block' : 'none';
+    }
+
+    // Display content
+    if (contentEl) {
+      if (isImage) {
+        contentEl.innerHTML = `<img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: calc(90vh - 200px); height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />`;
+      } else if (isPDF) {
+        // Intercept print events immediately to prevent print dialog
+        const preventPrint = (e) => {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          e.stopPropagation();
+          return false;
+        };
+
+        window.addEventListener('beforeprint', preventPrint, true);
+        window.addEventListener('print', preventPrint, true);
+        document.addEventListener('beforeprint', preventPrint, true);
+        document.addEventListener('print', preventPrint, true);
+
+        // Show loading state first
+        contentEl.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: center; height: calc(90vh - 200px); background: #f9fafb;">
+            <div style="text-align: center;">
+              <div style="width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+              <p style="color: #6b7280; margin: 0;">Loading PDF preview...</p>
+            </div>
+          </div>
+          <style>
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          </style>
+        `;
+
+        // Load PDF in iframe after modal is fully visible
+        setTimeout(() => {
+          const iframe = document.createElement('iframe');
+          const pdfUrl = attachmentUrl.includes('#')
+            ? attachmentUrl + '&toolbar=1&navpanes=0'
+            : attachmentUrl + '#toolbar=1&navpanes=0';
+          iframe.src = pdfUrl;
+          iframe.style.cssText = 'width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px; display: block;';
+          iframe.title = attachment.filename;
+          iframe.setAttribute('allow', 'fullscreen');
+
+          iframe.onload = function() {
+            try {
+              const iframeWindow = iframe.contentWindow;
+              if (iframeWindow) {
+                iframeWindow.addEventListener('beforeprint', preventPrint, true);
+                iframeWindow.addEventListener('print', preventPrint, true);
+              }
+            } catch (e) {
+              // Cross-origin restrictions - ignore
+            }
+          };
+
+          contentEl.innerHTML = '';
+          contentEl.appendChild(iframe);
+        }, 200);
+      } else {
+        contentEl.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <i data-lucide="file" style="width: 64px; height: 64px; color: #9ca3af; margin-bottom: 1rem;"></i>
+            <p style="color: #6b7280; margin: 0.5rem 0;">This file type cannot be previewed.</p>
+            <a href="${attachmentUrl}" download="${attachment.filename}" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">Download File</a>
+          </div>
+        `;
+      }
+    }
+
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
+
+  function showPreviousAttachment() {
+    if (currentAttachmentIndex > 0) {
+      currentAttachmentIndex--;
+      showAttachment(currentAttachmentIndex);
+    }
+  }
+
+  function showNextAttachment() {
+    if (currentAttachmentIndex < currentAttachments.length - 1) {
+      currentAttachmentIndex++;
+      showAttachment(currentAttachmentIndex);
+    }
+  }
+
+  // Expose function globally for use in calendar event modals
+  window.openCalendarAttachmentModal = function(attachments, index) {
+    openAttachmentModal(attachments, index);
+  };
+
   // DOM elements
   const mini = document.getElementById('miniCalendar');
   const miniMonthEl = document.getElementById('miniCalMonth');
@@ -209,6 +447,7 @@
     window.renderParticipantsChips = renderParticipantsChips;
     window.loadParticipantsForEdit = loadParticipantsForEdit;
     window.openEventModalForEdit = openEventModalForEdit;
+    window.loadEvents = loadEvents; // Expose loadEvents for mini calendar navigation
   }
 
   /**
@@ -298,11 +537,12 @@
   /**
    * Load events from backend
    */
-  async function loadEvents() {
+  async function loadEvents(targetDate = null) {
     try {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      // Use targetDate if provided (for navigation), otherwise use current date
+      const referenceDate = targetDate || new Date();
+      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1);
+      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 2, 0);
 
       const startStr = formatDateForAPI(start);
       const endStr = formatDateForAPI(end);
@@ -343,13 +583,18 @@
         }
       }
 
-      // Filter out past events and archived events - only show active events
-      // Reuse 'now' variable declared at the start of the function
+      // Filter out archived events - show all events (including past) when navigating to specific dates
+      // Only filter past events on initial load
+      const now = new Date();
       const activeEvents = allEvents.filter(e => {
         const eventEnd = new Date(e.end);
         const category = e.extendedProps?.category || e.category || 'standard';
-        // Exclude archived events and past events
-        return eventEnd >= now && category !== 'archived';
+        // Exclude archived events
+        // If targetDate is provided (navigation), show all events in the range
+        // Otherwise (initial load), filter out past events
+        if (category === 'archived') return false;
+        if (targetDate) return true; // Show all events when navigating to a specific date
+        return eventEnd >= now; // Filter past events only on initial load
       });
 
       // Cache all active events for filtering
@@ -644,47 +889,66 @@
       miniMonthEl.textContent = miniCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
 
+    // Create header row for day names (matching secretary/faculty structure)
+    const headerRow = document.createElement('div');
+    headerRow.className = 'mini-cal-header-row';
     const dow = ['S','M','T','W','T','F','S'];
     dow.forEach(ch => {
-      const el = document.createElement('div');
-      el.className = 'mini-dow';
+      const el = document.createElement('span');
+      el.className = 'mini-cal-day-header';
       el.textContent = ch;
-      mini.appendChild(el);
+      headerRow.appendChild(el);
     });
+    mini.appendChild(headerRow);
 
-    const startDay = new Date(miniCursor);
+    // Create days container (matching secretary/faculty structure)
+    const daysContainer = document.createElement('div');
+    daysContainer.className = 'mini-cal-days';
+
+    const startDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth(), 1);
     const firstDow = startDay.getDay();
-    for (let i = 0; i < firstDow; i += 1) {
-      const spacer = document.createElement('div');
-      spacer.className = 'mini-day';
-      mini.appendChild(spacer);
-    }
+    const lastDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth() + 1, 0);
+    const daysInMonth = lastDay.getDate();
 
-    const month = miniCursor.getMonth();
-    const year = miniCursor.getFullYear();
-    const iter = new Date(miniCursor);
+    // First day of the calendar grid (may be from previous month)
+    const calendarStart = new Date(startDay);
+    calendarStart.setDate(startDay.getDate() - firstDow);
 
-    while (iter.getMonth() === month) {
+    // Generate 42 days (6 weeks) to match secretary/faculty structure
+    for (let i = 0; i < 42; i++) {
+      const currentDate = new Date(calendarStart);
+      currentDate.setDate(calendarStart.getDate() + i);
+
       const el = document.createElement('div');
-      el.className = 'mini-day';
-      const dayNumber = iter.getDate();
+      el.className = 'mini-cal-day';
+      const dayNumber = currentDate.getDate();
       el.textContent = String(dayNumber);
 
+      // Check if this date is from current month
+      const isCurrentMonth = currentDate.getMonth() === miniCursor.getMonth();
+      if (!isCurrentMonth) {
+        el.classList.add('mini-cal-day-other');
+      }
+
+      // Check if today
       const todayInManila = getTodayInManila();
-      const iterDateStr = formatDateManila(iter);
+      const iterDateStr = formatDateManila(currentDate);
       const todayDateStr = formatDateManila(todayInManila);
       if (iterDateStr === todayDateStr) {
-        el.classList.add('mini-today');
+        el.classList.add('mini-cal-day-today');
       }
 
-      const iterDate = new Date(iter.getFullYear(), iter.getMonth(), iter.getDate());
+      // Check if selected
+      const iterDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
       const selectedDateNormalized = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       if (iterDate.getTime() === selectedDateNormalized.getTime()) {
-        el.classList.add('mini-selected');
+        el.classList.add('mini-cal-day-selected');
       }
 
-      const dayEvents = getEventsForDate(iter);
+      // Check for events
+      const dayEvents = getEventsForDate(currentDate);
       if (dayEvents.length > 0) {
+        el.classList.add('mini-cal-day-has-events');
         const indicatorContainer = document.createElement('div');
         indicatorContainer.className = 'mini-event-indicators';
         const priorityCategory = getHighestPriorityCategory(dayEvents);
@@ -697,17 +961,30 @@
         el.appendChild(indicatorContainer);
       }
 
+      // Click handler - use navigateToDate for consistency and proper event loading
       el.addEventListener('click', () => {
-        selectedDate = new Date(year, month, dayNumber);
+        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        clickedDate.setHours(0, 0, 0, 0);
+        selectedDate = clickedDate;
         renderMiniCalendar();
-        customCalendar.gotoDate(selectedDate);
-        customCalendar.changeView('timeGridDay');
-        loadEvents();
+
+        // Use navigateToDate if available (same as secretary/faculty)
+        if (customCalendar && typeof customCalendar.navigateToDate === 'function') {
+          customCalendar.navigateToDate(clickedDate);
+        } else {
+          // Fallback
+          customCalendar.gotoDate(clickedDate);
+          customCalendar.changeView('timeGridDay');
+          if (typeof loadEvents === 'function') {
+            loadEvents(clickedDate);
+          }
+        }
       });
 
-      mini.appendChild(el);
-      iter.setDate(iter.getDate() + 1);
+      daysContainer.appendChild(el);
     }
+
+    mini.appendChild(daysContainer);
   }
 
   /**
@@ -890,8 +1167,16 @@
             let htmlContent = '<div style="margin-top: 0.75rem;">';
             htmlContent += '<div style="font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Attachments (Read-Only)</div>';
 
-            data.memo.attachments.forEach((attachment) => {
+            // Store attachments in a data attribute for safe access
+            const attachmentsId = 'attachments-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            if (!window.calendarAttachments) {
+              window.calendarAttachments = {};
+            }
+            window.calendarAttachments[attachmentsId] = data.memo.attachments;
+
+            data.memo.attachments.forEach((attachment, attIndex) => {
               const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+              const isPDF = attachment.mimetype === 'application/pdf';
               const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
 
               if (isImage) {
@@ -899,8 +1184,10 @@
                   <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
                     <img src="${attachmentUrl}" alt="${attachment.filename}"
                          style="max-width: 100%; max-height: 250px; border-radius: 6px; display: block; margin-bottom: 0.5rem; cursor: pointer;"
-                         onclick="window.open('${attachmentUrl}', '_blank')"
-                         title="Click to view full size" />
+                         data-attachments-id="${attachmentsId}"
+                         data-attachment-index="${attIndex}"
+                         class="calendar-attachment-view"
+                         title="Click to view in modal" />
                     <div style="font-size: 0.875rem; color: #6b7280; display: flex; align-items: center; gap: 0.5rem;">
                       <span>📷</span>
                       <span>${attachment.filename}</span>
@@ -910,9 +1197,9 @@
               } else {
                 htmlContent += `
                   <div style="margin-bottom: 0.75rem; padding: 0.75rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <a href="${attachmentUrl}" target="_blank"
-                       style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
-                      <span>📎</span>
+                    <a href="#" data-attachments-id="${attachmentsId}" data-attachment-index="${attIndex}" class="calendar-attachment-view"
+                       style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+                      <span>${isPDF ? '📄' : '📎'}</span>
                       <span style="font-weight: 500;">${attachment.filename}</span>
                     </a>
                   </div>
@@ -1101,8 +1388,16 @@
                 htmlContent += '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">';
                 htmlContent += '<strong style="display: block; margin-bottom: 0.5rem; color: #374151;">Attachments:</strong>';
 
-                memo.attachments.forEach((attachment) => {
+                // Store attachments in a data attribute for safe access
+                const attachmentsId = 'attachments-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                if (!window.calendarAttachments) {
+                  window.calendarAttachments = {};
+                }
+                window.calendarAttachments[attachmentsId] = memo.attachments;
+
+                memo.attachments.forEach((attachment, attIndex) => {
                   const attachmentUrl = attachment.url || `/uploads/${attachment.filename}`;
+                  const isPDF = attachment.mimetype === 'application/pdf';
                   const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
 
                   if (isImage) {
@@ -1111,8 +1406,10 @@
                       <div style="margin-bottom: 0.75rem;">
                         <img src="${attachmentUrl}" alt="${attachment.filename}"
                              style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;"
-                             onclick="window.open('${attachmentUrl}', '_blank')"
-                             title="Click to view full size" />
+                             data-attachments-id="${attachmentsId}"
+                             data-attachment-index="${attIndex}"
+                             class="calendar-attachment-view"
+                             title="Click to view in modal" />
                         <div style="margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280;">${attachment.filename}</div>
                       </div>
                     `;
@@ -1120,9 +1417,9 @@
                     // Display file link
                     htmlContent += `
                       <div style="margin-bottom: 0.5rem;">
-                        <a href="${attachmentUrl}" target="_blank"
-                           style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
-                          <span>📎</span>
+                        <a href="#" data-attachments-id="${attachmentsId}" data-attachment-index="${attIndex}" class="calendar-attachment-view"
+                           style="color: #2563eb; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                          <span>${isPDF ? '📄' : '📎'}</span>
                           <span>${attachment.filename}</span>
                         </a>
                       </div>
@@ -2282,5 +2579,22 @@
       });
     });
   }
+
+  // Add event delegation for calendar attachment clicks
+  document.addEventListener('click', function(e) {
+    const attachmentElement = e.target.closest('.calendar-attachment-view');
+    if (attachmentElement) {
+      e.preventDefault();
+      const attachmentsId = attachmentElement.getAttribute('data-attachments-id');
+      const attachmentIndex = parseInt(attachmentElement.getAttribute('data-attachment-index'), 10);
+
+      if (attachmentsId && window.calendarAttachments && window.calendarAttachments[attachmentsId]) {
+        const attachments = window.calendarAttachments[attachmentsId];
+        if (attachments && attachments.length > 0 && attachmentIndex >= 0 && attachmentIndex < attachments.length) {
+          openAttachmentModal(attachments, attachmentIndex);
+        }
+      }
+    }
+  });
 
 })();

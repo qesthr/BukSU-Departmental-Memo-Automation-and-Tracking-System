@@ -290,7 +290,12 @@ userSchema.pre('save', function (next) {
     if (this.role === 'admin' && this.department) {
         this.department = '';
     }
+    next();
+});
 
+// Update updatedAt field when using findByIdAndUpdate or findOneAndUpdate
+userSchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], function (next) {
+    this.set({ updatedAt: Date.now() });
     next();
 });
 

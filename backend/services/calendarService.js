@@ -271,16 +271,73 @@ async function listEvents(user, { timeMin, timeMax }) {
     }
 }
 
-async function addEvent(user, { title, description, startISO, endISO, category }) {
+async function addEvent(user, { title, description, startISO, endISO, category, allDay }) {
     const auth = await getAuthenticatedClient(user);
     const calendar = google.calendar({ version: 'v3', auth });
+
+    // Format dates for Google Calendar API
+    let start, end;
+    if (allDay) {
+        // For all-day events, use date only (no time)
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+        start = {
+            date: startDate.toISOString().split('T')[0]
+        };
+        // For all-day events, end date should be the day after (exclusive)
+        const dayAfter = new Date(endDate);
+        dayAfter.setDate(dayAfter.getDate() + 1);
+        end = {
+            date: dayAfter.toISOString().split('T')[0]
+        };
+    } else {
+        start = { dateTime: startISO };
+        end = { dateTime: endISO };
+    }
+
     const resp = await calendar.events.insert({
         calendarId: 'primary',
         requestBody: {
             summary: title,
-            description,
-            start: { dateTime: startISO },
-            end: { dateTime: endISO },
+            description: description || '',
+            start: start,
+            end: end,
+            extendedProperties: { private: { category: String(category || 'standard') } }
+        }
+    });
+    return resp.data;
+}
+
+async function updateEvent(user, googleEventId, { title, description, startISO, endISO, category, allDay }) {
+    const auth = await getAuthenticatedClient(user);
+    const calendar = google.calendar({ version: 'v3', auth });
+
+    // Format dates for Google Calendar API
+    let start, end;
+    if (allDay) {
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+        start = {
+            date: startDate.toISOString().split('T')[0]
+        };
+        const dayAfter = new Date(endDate);
+        dayAfter.setDate(dayAfter.getDate() + 1);
+        end = {
+            date: dayAfter.toISOString().split('T')[0]
+        };
+    } else {
+        start = { dateTime: startISO };
+        end = { dateTime: endISO };
+    }
+
+    const resp = await calendar.events.update({
+        calendarId: 'primary',
+        eventId: googleEventId,
+        requestBody: {
+            summary: title,
+            description: description || '',
+            start: start,
+            end: end,
             extendedProperties: { private: { category: String(category || 'standard') } }
         }
     });
@@ -294,6 +351,155 @@ async function deleteEvent(user, eventId) {
     return { ok: true };
 }
 
-module.exports = { createOAuthClient, getAuthenticatedClient, listEvents, addEvent, deleteEvent };
+/**
+ * Sync calendar event to participants' Google Calendars
+ * @param {Object} event - CalendarEvent document
+ * @param {Object} options - { isUpdate: boolean, oldParticipants: Object }
+ */
+async function syncEventToParticipantsGoogleCalendars(event, options = {}) {
+    const { isUpdate = false, oldParticipants = null } = options;
+
+    try {
+        if (!event || !event.participants) {
+            console.log('📅 No participants to sync to Google Calendar');
+            return;
+        }
+
+        const participants = event.participants;
+        const participantEmails = Array.isArray(participants.emails) ? participants.emails : [];
+        const participantDepartments = Array.isArray(participants.departments) ? participants.departments : [];
+
+        if (participantEmails.length === 0 && participantDepartments.length === 0) {
+            console.log('📅 No participant emails or departments to sync');
+            return;
+        }
+
+        // Get all users who are participants and have Google Calendar connected
+        const User = require('../models/User');
+        const participantUsers = await User.find({
+            $and: [
+                {
+                    $or: [
+                        { email: { $in: participantEmails.map(e => e.toLowerCase().trim()) } },
+                        { department: { $in: participantDepartments } }
+                    ]
+                },
+                {
+                    $or: [
+                        { calendarAccessToken: { $exists: true, $ne: null } },
+                        { calendarRefreshToken: { $exists: true, $ne: null } }
+                    ]
+                }
+            ]
+        }).lean();
+
+        if (participantUsers.length === 0) {
+            console.log('📅 No participants with Google Calendar connected');
+            return;
+        }
+
+        console.log(`📅 Syncing event "${event.title}" to ${participantUsers.length} participant(s) with Google Calendar`);
+
+        // Initialize googleCalendarEventIds if not exists
+        if (!event.googleCalendarEventIds || typeof event.googleCalendarEventIds !== 'object') {
+            event.googleCalendarEventIds = {};
+        }
+
+        const startISO = event.start.toISOString();
+        const endISO = event.end.toISOString();
+        const eventData = {
+            title: event.title,
+            description: event.description || '',
+            startISO: startISO,
+            endISO: endISO,
+            category: event.category || 'standard',
+            allDay: event.allDay || false
+        };
+
+        // Track which emails we've processed to avoid duplicates
+        const processedEmails = new Set();
+
+        // Sync to each participant's Google Calendar
+        for (const participantUser of participantUsers) {
+            const userEmail = (participantUser.email || '').toLowerCase().trim();
+            if (!userEmail || processedEmails.has(userEmail)) {
+                continue; // Skip if no email or already processed
+            }
+            processedEmails.add(userEmail);
+
+            try {
+                const existingGoogleEventId = event.googleCalendarEventIds[userEmail];
+
+                if (isUpdate && existingGoogleEventId) {
+                    // Update existing event in participant's Google Calendar
+                    console.log(`📅 Updating event in Google Calendar for ${userEmail}`);
+                    const updatedEvent = await updateEvent(participantUser, existingGoogleEventId, eventData);
+                    console.log(`✅ Updated event in Google Calendar for ${userEmail}: ${updatedEvent.id}`);
+                } else if (existingGoogleEventId) {
+                    // Event already exists, skip
+                    console.log(`📅 Event already synced to ${userEmail}, skipping`);
+                    continue;
+                } else {
+                    // Create new event in participant's Google Calendar
+                    console.log(`📅 Creating event in Google Calendar for ${userEmail}`);
+                    const googleEvent = await addEvent(participantUser, eventData);
+                    event.googleCalendarEventIds[userEmail] = googleEvent.id;
+                    console.log(`✅ Created event in Google Calendar for ${userEmail}: ${googleEvent.id}`);
+                }
+            } catch (error) {
+                console.error(`❌ Error syncing event to ${userEmail}'s Google Calendar:`, error.message);
+                // Continue with other participants even if one fails
+            }
+        }
+
+        // If updating, check for removed participants and delete their Google Calendar events
+        if (isUpdate && oldParticipants) {
+            const oldEmails = Array.isArray(oldParticipants.emails) ? oldParticipants.emails.map(e => e.toLowerCase().trim()) : [];
+            const oldDepartments = Array.isArray(oldParticipants.departments) ? oldParticipants.departments : [];
+
+            const currentEmails = participantEmails.map(e => e.toLowerCase().trim());
+            const removedEmails = oldEmails.filter(e => !currentEmails.includes(e));
+
+            for (const removedEmail of removedEmails) {
+                const googleEventId = event.googleCalendarEventIds[removedEmail];
+                if (googleEventId) {
+                    try {
+                        const removedUser = await User.findOne({ email: removedEmail }).lean();
+                        if (removedUser && (removedUser.calendarAccessToken || removedUser.calendarRefreshToken)) {
+                            console.log(`📅 Deleting event from Google Calendar for removed participant ${removedEmail}`);
+                            await deleteEvent(removedUser, googleEventId);
+                            delete event.googleCalendarEventIds[removedEmail];
+                            console.log(`✅ Deleted event from Google Calendar for ${removedEmail}`);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error deleting event from ${removedEmail}'s Google Calendar:`, error.message);
+                    }
+                }
+            }
+        }
+
+        // Save updated googleCalendarEventIds
+        // Use findByIdAndUpdate to ensure we're working with a fresh document
+        const CalendarEvent = require('../models/CalendarEvent');
+        await CalendarEvent.findByIdAndUpdate(event._id, {
+            googleCalendarEventIds: event.googleCalendarEventIds
+        });
+        console.log(`✅ Finished syncing event to participants' Google Calendars`);
+
+    } catch (error) {
+        console.error('❌ Error in syncEventToParticipantsGoogleCalendars:', error);
+        // Don't throw - allow event creation/update to succeed even if Google Calendar sync fails
+    }
+}
+
+module.exports = {
+    createOAuthClient,
+    getAuthenticatedClient,
+    listEvents,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    syncEventToParticipantsGoogleCalendars
+};
 
 

@@ -40,22 +40,20 @@
 								</div>
 							</div>
 							<div class="mini-calendar">
-								<div class="mini-cal-days">
-									<div v-for="day in dayHeaders" :key="day" class="mini-cal-day-header">{{ day }}</div>
+								<div class="mini-cal-header-row">
+									<span v-for="day in dayHeaders" :key="day" class="mini-cal-day-header">{{ day }}</span>
 								</div>
-								<div class="mini-cal-dates">
+								<div class="mini-cal-days">
 									<div
 										v-for="date in miniCalendarDates"
 										:key="date.date"
-										:class="[
-											'mini-cal-date',
-											{
-												'mini-cal-other-month': !date.isCurrentMonth,
-												'mini-cal-today': date.isToday,
-												'mini-cal-selected': date.isSelected,
-												'mini-cal-has-events': date.hasEvents
-											}
-										]"
+										class="mini-cal-day"
+										:class="{
+											'mini-cal-day-other': !date.isCurrentMonth,
+											'mini-cal-day-today': date.isToday,
+											'mini-cal-day-selected': date.isSelected,
+											'mini-cal-day-has-events': date.hasEvents
+										}"
 										@click="selectMiniDate(date)"
 									>
 										{{ date.day }}
@@ -75,16 +73,6 @@
 							<div><span class="category-dot cat-today"></span>Today</div>
 							<div><span class="category-dot cat-urgent"></span>Urgent</div>
 							<div><span class="category-dot cat-standard"></span>Standard</div>
-						</div>
-						<div class="sidebar-section">
-							<h3>Profile</h3>
-							<div class="profile-card">
-								<img :src="user.profilePicture || '/images/memofy-logo.png'" alt="Profile" />
-								<div>
-									<div style="font-weight:600">{{ userDisplayName }}</div>
-									<div style="font-size:.85rem; color:#64748b">{{ user.email || 'email@example.com' }}</div>
-								</div>
-							</div>
 						</div>
 					</aside>
 
@@ -132,6 +120,7 @@
 
 	<script src="/js/lucide.min.js"></script>
 	<!-- FullCalendar removed - using custom calendar -->
+	<script src="/js/image-error-handler.js"></script>
 	<script src="/js/custom-calendar.js"></script>
 	<script src="/js/calendar-custom.js"></script>
 	<script>
@@ -175,7 +164,10 @@
 					events: [],
 
 					// Day headers for mini calendar
-					dayHeaders: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+					dayHeaders: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+
+					// Refresh interval for real-time updates
+					refreshInterval: null
 				}
 			},
 			computed: {
@@ -232,6 +224,22 @@
 			mounted() {
 				this.initializeCalendar();
 				this.refreshLucideIcons();
+
+				// Set up real-time refresh for events (every 30 seconds)
+				this.refreshInterval = setInterval(() => {
+					this.fetchEvents();
+					// Also refresh main calendar if available
+					if (window.customCalendar && typeof window.customCalendar.loadEvents === 'function') {
+						window.customCalendar.loadEvents();
+					}
+				}, 30000); // Refresh every 30 seconds
+			},
+
+			beforeUnmount() {
+				// Clean up interval when component is destroyed
+				if (this.refreshInterval) {
+					clearInterval(this.refreshInterval);
+				}
 			},
 			methods: {
 				async initializeCalendar() {
@@ -249,9 +257,14 @@
 
 				async fetchEvents() {
 					try {
-						// Get current month range for events
-						const start = new Date(this.currentMiniDate.getFullYear(), this.currentMiniDate.getMonth(), 1);
-						const end = new Date(this.currentMiniDate.getFullYear(), this.currentMiniDate.getMonth() + 1, 0);
+						// Get wider date range to include adjacent months (for mini calendar display)
+						// Mini calendar shows dates from previous and next months, so we need to fetch those too
+						const year = this.currentMiniDate.getFullYear();
+						const month = this.currentMiniDate.getMonth();
+
+						// Start from first day of previous month, end at last day of next month
+						const start = new Date(year, month - 1, 1);
+						const end = new Date(year, month + 2, 0); // Last day of next month
 
 						const response = await fetch(`/api/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`, {
 							credentials: 'same-origin'
@@ -259,7 +272,9 @@
 
 						if (response.ok) {
 							const data = await response.json();
-							this.events = data.events || data || [];
+							// API returns array directly, not wrapped in events property
+							this.events = Array.isArray(data) ? data : (data.events || []);
+							console.log(`📅 Fetched ${this.events.length} events for mini calendar`);
 						} else {
 							console.warn('Failed to fetch events, using empty array');
 							this.events = [];
@@ -297,17 +312,27 @@
 				},
 
 				selectMiniDate(date) {
-					this.selectedDate = new Date(date.date);
+					// Parse date string as local date to avoid timezone issues
+					// date.date is in format "YYYY-MM-DD", parse it as local date
+					const dateParts = date.date.split('-');
+					const localDate = new Date(
+						parseInt(dateParts[0]),
+						parseInt(dateParts[1]) - 1, // Month is 0-indexed
+						parseInt(dateParts[2])
+					);
+					localDate.setHours(0, 0, 0, 0); // Set to midnight local time
+
+					this.selectedDate = localDate;
 
 					// If the selected date is from a different month, update the mini calendar
 					if (!date.isCurrentMonth) {
-						this.currentMiniDate = new Date(this.selectedDate);
+						this.currentMiniDate = new Date(localDate);
 						this.fetchEvents(); // Fetch events for the new month
 					}
 
-					// Trigger main calendar navigation
+					// Trigger main calendar navigation (same as secretary calendar)
 					if (window.customCalendar && typeof window.customCalendar.navigateToDate === 'function') {
-						window.customCalendar.navigateToDate(this.selectedDate);
+						window.customCalendar.navigateToDate(localDate);
 					}
 				},
 
@@ -317,8 +342,16 @@
 					const dateStr = date.toISOString().split('T')[0];
 					return this.events.some(event => {
 						if (!event.start) return false;
-						const eventDate = new Date(event.start).toISOString().split('T')[0];
-						return eventDate === dateStr;
+						const eventDate = new Date(event.start);
+						const eventDateStr = eventDate.toISOString().split('T')[0];
+
+						// Check if event is on this date or spans multiple days
+						const eventEnd = event.end ? new Date(event.end) : eventDate;
+						const eventEndStr = eventEnd.toISOString().split('T')[0];
+
+						// Event is on this date if it starts on this date, ends on this date, or spans this date
+						return eventDateStr === dateStr || eventEndStr === dateStr ||
+						       (eventDateStr <= dateStr && eventEndStr >= dateStr);
 					});
 				},
 

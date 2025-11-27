@@ -238,44 +238,58 @@
       miniMonthEl.textContent = miniCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
 
+    // Create header row for day names (matching secretary/faculty/admin calendar structure)
+    const headerRow = document.createElement('div');
+    headerRow.className = 'mini-cal-header-row';
     const dow = ['S','M','T','W','T','F','S'];
     dow.forEach(ch => {
-      const el = document.createElement('div');
-      el.className = 'mini-dow';
+      const el = document.createElement('span');
+      el.className = 'mini-cal-day-header';
       el.textContent = ch;
-      mini.appendChild(el);
+      headerRow.appendChild(el);
     });
+    mini.appendChild(headerRow);
 
-    const startDay = new Date(miniCursor);
-    startDay.setDate(1); // Start of month
+    // Create days container (matching secretary/faculty/admin calendar structure)
+    const daysContainer = document.createElement('div');
+    daysContainer.className = 'mini-cal-days';
+
+    const startDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth(), 1);
     const firstDow = startDay.getDay();
+    const lastDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth() + 1, 0);
 
-    for (let i = 0; i < firstDow; i += 1) {
-      const spacer = document.createElement('div');
-      spacer.className = 'mini-day';
-      mini.appendChild(spacer);
-    }
+    // First day of the calendar grid (may be from previous month)
+    const calendarStart = new Date(startDay);
+    calendarStart.setDate(startDay.getDate() - firstDow);
 
-    const month = miniCursor.getMonth();
-    const year = miniCursor.getFullYear();
-    const iter = new Date(year, month, 1);
+    // Generate 42 days (6 weeks) to match secretary/faculty/admin structure
+    for (let i = 0; i < 42; i++) {
+      const currentDate = new Date(calendarStart);
+      currentDate.setDate(calendarStart.getDate() + i);
 
-    while (iter.getMonth() === month) {
       const el = document.createElement('div');
-      el.className = 'mini-day';
-      const dayNumber = iter.getDate();
+      el.className = 'mini-cal-day';
+      const dayNumber = currentDate.getDate();
       el.textContent = String(dayNumber);
 
-      const todayInManila = getTodayInManila();
-      const iterDateStr = formatDateManila(iter);
-      const todayDateStr = formatDateManila(todayInManila);
-
-      if (iterDateStr === todayDateStr) {
-        el.classList.add('mini-today');
+      // Check if this date is from current month
+      const isCurrentMonth = currentDate.getMonth() === miniCursor.getMonth();
+      if (!isCurrentMonth) {
+        el.classList.add('mini-cal-day-other');
       }
 
-      const dayEvents = getEventsForDate(iter);
+      // Check if today
+      const todayInManila = getTodayInManila();
+      const iterDateStr = formatDateManila(currentDate);
+      const todayDateStr = formatDateManila(todayInManila);
+      if (iterDateStr === todayDateStr) {
+        el.classList.add('mini-cal-day-today');
+      }
+
+      // Check for events
+      const dayEvents = getEventsForDate(currentDate);
       if (dayEvents.length > 0) {
+        el.classList.add('mini-cal-day-has-events');
         const indicatorContainer = document.createElement('div');
         indicatorContainer.className = 'mini-event-indicators';
         const priorityCategory = getHighestPriorityCategory(dayEvents);
@@ -288,14 +302,17 @@
         el.appendChild(indicatorContainer);
       }
 
+      // Click handler - show date details modal
       el.addEventListener('click', () => {
-        // Show date details modal when date is clicked
-        showDateModal(new Date(year, month, dayNumber));
+        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        clickedDate.setHours(0, 0, 0, 0);
+        showDateModal(clickedDate);
       });
 
-      mini.appendChild(el);
-      iter.setDate(iter.getDate() + 1);
+      daysContainer.appendChild(el);
     }
+
+    mini.appendChild(daysContainer);
   }
 
   /**

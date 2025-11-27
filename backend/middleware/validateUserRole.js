@@ -61,8 +61,8 @@ async function validateUserRole(req, res, next) {
             // Redirect to appropriate dashboard
             const dashboardMap = {
                 admin: '/admin-dashboard',
-                secretary: '/dashboard',
-                faculty: '/dashboard'
+                secretary: '/secretary-dashboard',
+                faculty: '/faculty-dashboard'
             };
 
             const redirectUrl = dashboardMap[currentUser.role] || '/login';

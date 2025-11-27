@@ -1243,6 +1243,16 @@ exports.createMemo = async (req, res) => {
 
                 await calendarEvent.save();
 
+                // Sync event to participants' Google Calendars (async, don't wait)
+                try {
+                    const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
+                    syncEventToParticipantsGoogleCalendars(calendarEvent, { isUpdate: false })
+                        .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
+                } catch (syncError) {
+                    console.error('Error initiating Google Calendar sync for memo:', syncError);
+                    // Don't fail if sync fails
+                }
+
                 // Update memo with calendar event reference
                 await Memo.findByIdAndUpdate(createdMemos[0]._id, {
                     'metadata.calendarEventId': calendarEvent._id,

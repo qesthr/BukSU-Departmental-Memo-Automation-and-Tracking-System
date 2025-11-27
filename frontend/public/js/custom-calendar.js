@@ -889,7 +889,23 @@ class CustomCalendar {
 
   gotoDate(date) {
     this.selectedDate = new Date(date);
+    this.currentDate = new Date(date);
     this.render();
+  }
+
+  /**
+   * Navigate to a specific date and load events
+   * This is used by mini calendar to update the main view
+   */
+  navigateToDate(date) {
+    const targetDate = new Date(date);
+    this.gotoDate(targetDate);
+    this.changeView('timeGridDay');
+
+    // Trigger event loading with the target date so events are fetched for that date range
+    if (typeof window.loadEvents === 'function') {
+      window.loadEvents(targetDate);
+    }
   }
 }
 

@@ -1078,17 +1078,17 @@
                         htmlContent += `
                             <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 13px;">
                                 <i data-lucide="${isPDF ? 'file-text' : 'paperclip'}" style="width: 16px; height: 16px; color: #6b7280;"></i>
-                                <a href="${attachmentUrl}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
+                                <a href="${attachmentUrl}" download="${attachment.filename}" style="color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
                                 <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
                             </div>
                         `;
                     } else if (isImage) {
                         htmlContent += `
                             <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-                                <img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="window.open('${attachmentUrl}', '_blank')" />
+                                <img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer;" onclick="(function(){const a=document.createElement('a');a.href='${attachmentUrl}';a.download='${attachment.filename}';document.body.appendChild(a);a.click();document.body.removeChild(a);})()" />
                                 <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
                                     <i data-lucide="image" style="width: 16px; height: 16px; color: #6b7280;"></i>
-                                    <a href="${attachmentUrl}" target="_blank" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
+                                    <a href="${attachmentUrl}" download="${attachment.filename}" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 500;">${attachment.filename}</a>
                                     <span style="font-size: 12px; color: #6b7280;">(${formatFileSize(attachment.size || 0)})</span>
                                 </div>
                             </div>

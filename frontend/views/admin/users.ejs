@@ -447,18 +447,33 @@
                     }
                 };
 
+                // Add cache-busting to profile picture URLs to ensure fresh images
+                const getProfilePictureUrl = (profilePicture) => {
+                    if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
+                        return '/images/memofy-logo.png';
+                    }
+                    // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
+                    // Fallback to current time if updatedAt is not available
+                    const cacheBuster = props.user.updatedAt
+                        ? new Date(props.user.updatedAt).getTime()
+                        : Date.now();
+                    const separator = profilePicture.includes('?') ? '&' : '?';
+                    return `${profilePicture}${separator}t=${cacheBuster}`;
+                };
+
                 return {
                     formatName,
                     isSelf,
                     handleEdit,
                     handleArchive,
-                    handleUnarchive
+                    handleUnarchive,
+                    getProfilePictureUrl
                 };
             },
             template: `
                 <div class="table-row" :data-id="user._id">
                     <div class="name-cell">
-                        <img :src="user.profilePicture || '/images/memofy-logo.png'"
+                        <img :src="getProfilePictureUrl(user.profilePicture)"
                              class="user-avatar"
                              :alt="formatName()"
                              @error="$event.target.src='/images/memofy-logo.png'">

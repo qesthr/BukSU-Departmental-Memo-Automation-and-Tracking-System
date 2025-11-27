@@ -39,22 +39,46 @@ module.exports = function requireRole(...allowedRoles) {
 			// Redirect based on user's actual role (for HTML requests)
 			const dashboardMap = {
 				admin: '/admin-dashboard',
-				secretary: '/dashboard',
-				faculty: '/dashboard'
+				secretary: '/secretary-dashboard',
+				faculty: '/faculty-dashboard'
 			};
 			const redirectUrl = dashboardMap[role] || '/login';
 
-			// Only add error message if redirecting to a different page
-			// If user is already on their dashboard, don't add error (prevents showing error on legitimate dashboard access)
+			// NEVER add error parameters when redirecting to user's own dashboard
+			// This prevents error popups during normal login and navigation
 			const currentPath = req.path;
-			const isAlreadyOnDashboard = (role === 'secretary' || role === 'faculty') && currentPath === '/dashboard';
 
-			if (isAlreadyOnDashboard) {
-				// User is already on their dashboard, just redirect without error
+			// Check if redirecting to user's own dashboard
+			const redirectingToOwnDashboard =
+				(role === 'admin' && redirectUrl === '/admin-dashboard') ||
+				(role === 'secretary' && redirectUrl === '/secretary-dashboard') ||
+				(role === 'faculty' && redirectUrl === '/faculty-dashboard');
+
+			// If redirecting to user's own dashboard, NEVER add error parameters
+			// This prevents false positives during login and normal navigation
+			if (redirectingToOwnDashboard) {
 				return res.redirect(redirectUrl);
 			}
 
-			return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. You do not have permission to access this page.')}`);
+			// Check if user is trying to access a dashboard that's not for their role
+			const isSecretaryDashboard = currentPath === '/secretary-dashboard';
+			const isFacultyDashboard = currentPath === '/faculty-dashboard';
+			const isAdminRoute = currentPath === '/admin-dashboard' || currentPath.startsWith('/admin/');
+
+			// Add error only when trying to access a dashboard for a different role
+			if (isAdminRoute && (role === 'secretary' || role === 'faculty')) {
+				// Secretary/Faculty trying to access admin dashboard
+				return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+			} else if (isSecretaryDashboard && (role === 'admin' || role === 'faculty')) {
+				// Admin/Faculty trying to access secretary dashboard
+				return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Secretary access required.')}`);
+			} else if (isFacultyDashboard && (role === 'admin' || role === 'secretary')) {
+				// Admin/Secretary trying to access faculty dashboard
+				return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Faculty access required.')}`);
+			} else {
+				// Not a dashboard route or other authorization issue - redirect without error
+				return res.redirect(redirectUrl);
+			}
 		}
 
 		next();

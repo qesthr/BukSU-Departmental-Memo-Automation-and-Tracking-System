@@ -580,6 +580,54 @@
     <script src="/js/error-handler.js"></script>
 
     <script>
+        // Check for error messages from query parameters (unauthorized access)
+        // Only show errors that are relevant to the current user's role
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const message = urlParams.get('message');
+
+            if (error === 'unauthorized_access' && message) {
+                // Decode the message
+                const decodedMessage = decodeURIComponent(message);
+
+                // Get current user role from data attribute
+                let currentUserRole = '';
+                try {
+                    const userData = JSON.parse(document.body.getAttribute('data-current-user') || '{}');
+                    currentUserRole = userData.role || '';
+                } catch (e) {
+                    // If we can't get user role, clean up silently
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    return;
+                }
+
+                // If user is on their correct dashboard, NEVER show errors - just clean up URL silently
+                // This prevents annoying error popups during normal login
+                if (currentUserRole === 'admin' && window.location.pathname === '/admin-dashboard') {
+                    // Admin on their own dashboard - clean up URL silently, no error
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    return;
+                }
+
+                // If a secretary or faculty somehow ends up here, redirect them immediately
+                if (currentUserRole === 'secretary') {
+                    // Secretary on admin dashboard - redirect immediately
+                    window.location.href = '/secretary-dashboard';
+                    return;
+                }
+
+                if (currentUserRole === 'faculty') {
+                    // Faculty on admin dashboard - redirect immediately
+                    window.location.href = '/faculty-dashboard';
+                    return;
+                }
+
+                // If we get here, it's an edge case - clean up silently
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
+
         // Fix data initialization with JSON.stringify (for joenil work)
         window.initialDashboardData = {
             stats: [],

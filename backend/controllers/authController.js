@@ -526,7 +526,8 @@ module.exports.uploadMyProfilePicture = async (req, res) => {
         }
         const User = require('../models/User');
         const pictureUrl = `/uploads/${req.file.filename}`;
-        await User.findByIdAndUpdate(req.user._id, { profilePicture: pictureUrl });
+        // Use { new: true } to return updated document and ensure updatedAt is set
+        await User.findByIdAndUpdate(req.user._id, { profilePicture: pictureUrl }, { new: true });
         return res.json({ success: true, profilePicture: pictureUrl });
     } catch (e) {
         console.error('uploadMyProfilePicture error:', e);

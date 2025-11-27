@@ -697,8 +697,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Redirect based on role
                 const userRole = data.user?.role;
                 let redirectUrl = '/admin-dashboard';
-                if (userRole === 'secretary' || userRole === 'faculty') {
-                    redirectUrl = '/dashboard';
+                if (userRole === 'secretary') {
+                    redirectUrl = '/secretary-dashboard';
+                } else if (userRole === 'faculty') {
+                    redirectUrl = '/faculty-dashboard';
                 }
 
                 // eslint-disable-next-line no-console

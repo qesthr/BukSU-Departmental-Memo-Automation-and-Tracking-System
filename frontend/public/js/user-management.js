@@ -256,10 +256,24 @@ function normalizeDepartment(dept) {
                 `;
             }
 
+            // Add cache-busting to profile picture URLs
+            const getProfilePictureUrl = (profilePicture, user) => {
+                if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
+                    return '/images/memofy-logo.png';
+                }
+                // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
+                // Fallback to current time if updatedAt is not available
+                const cacheBuster = user && user.updatedAt
+                    ? new Date(user.updatedAt).getTime()
+                    : Date.now();
+                const separator = profilePicture.includes('?') ? '&' : '?';
+                return `${profilePicture}${separator}t=${cacheBuster}`;
+            };
+
             return `
             <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
                 <div class="name-cell">
-                    <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
+                    <img src="${getProfilePictureUrl(user.profilePicture, user)}" class="user-avatar"
                          alt="${user.firstName} ${user.lastName}"
                          onerror="this.src='/images/memofy-logo.png'">
                     <div class="user-info">

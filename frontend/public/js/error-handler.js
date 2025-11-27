@@ -164,17 +164,75 @@
     function handleError(error, message) {
         const decodedMessage = message ? decodeURIComponent(message) : null;
 
-        // Check if user is on their own dashboard - don't show "Admin access required" errors
-        // This prevents showing irrelevant errors when faculty/secretary users access their dashboard
+        // Check if user is on their own dashboard - don't show errors when on correct dashboard
+        // This prevents showing irrelevant errors when users access their own dashboard after login
         const currentPath = window.location.pathname;
-        const isDashboard = currentPath === '/dashboard' || currentPath === '/admin-dashboard';
 
-        // If error is about admin access and user is on their own dashboard, ignore it
-        // This happens when middleware redirects non-admin users from admin routes to their dashboard
-        if (error === 'unauthorized_access' && isDashboard && decodedMessage && decodedMessage.includes('Admin access required')) {
-            // Silently clean the URL - this is a redirect from an admin route, not a real error
-            cleanUrl();
-            return;
+        // Get user role from data attribute
+        let currentUserRole = '';
+        try {
+            const userDataAttr = document.body.getAttribute('data-current-user');
+            if (userDataAttr) {
+                const userData = JSON.parse(userDataAttr);
+                currentUserRole = userData.role || '';
+            }
+        } catch (e) {
+            // Can't parse user data, continue with error handling
+        }
+
+        // Check if user is on their correct dashboard
+        const isOnCorrectDashboard =
+            (currentUserRole === 'admin' && currentPath === '/admin-dashboard') ||
+            (currentUserRole === 'secretary' && currentPath === '/secretary-dashboard') ||
+            (currentUserRole === 'faculty' && currentPath === '/faculty-dashboard');
+
+        // If user is on their correct dashboard, be VERY strict - default to NOT showing errors
+        // Only show errors if we have CLEAR evidence they tried to access a different role's dashboard
+        if (isOnCorrectDashboard && error === 'unauthorized_access') {
+            const referrer = document.referrer || '';
+
+            // Check if referrer shows they came from trying to access a different role's dashboard
+            const referrerShowsDashboardAccess =
+                (currentUserRole === 'secretary' && (referrer.includes('/admin-dashboard') || referrer.includes('/faculty-dashboard'))) ||
+                (currentUserRole === 'faculty' && (referrer.includes('/admin-dashboard') || referrer.includes('/secretary-dashboard'))) ||
+                (currentUserRole === 'admin' && (referrer.includes('/secretary-dashboard') || referrer.includes('/faculty-dashboard')));
+
+            // Check if error message matches what would happen if they tried to access wrong dashboard
+            let errorMessageMatches = false;
+            if (decodedMessage) {
+                if (currentUserRole === 'secretary' && decodedMessage.includes('Admin access required')) {
+                    errorMessageMatches = true;
+                } else if (currentUserRole === 'secretary' && decodedMessage.includes('Faculty access required')) {
+                    errorMessageMatches = true;
+                } else if (currentUserRole === 'faculty' && decodedMessage.includes('Admin access required')) {
+                    errorMessageMatches = true;
+                } else if (currentUserRole === 'faculty' && decodedMessage.includes('Secretary access required')) {
+                    errorMessageMatches = true;
+                } else if (currentUserRole === 'admin' && decodedMessage.includes('Secretary access required')) {
+                    errorMessageMatches = true;
+                } else if (currentUserRole === 'admin' && decodedMessage.includes('Faculty access required')) {
+                    errorMessageMatches = true;
+                }
+            }
+
+            // Check if this is from a login redirect (suppress errors in this case)
+            const isFromLogin = referrer.includes('/login') ||
+                               referrer.includes('/auth/') ||
+                               referrer.includes('/auth-success');
+
+            // Show error if:
+            // 1. Error message matches unauthorized access to different role's dashboard, AND
+            // 2. Either referrer shows dashboard access OR referrer is empty (server redirect), AND
+            // 3. NOT from login redirect
+            // This ensures we show errors for actual unauthorized access attempts
+            if (errorMessageMatches && !isFromLogin && (referrerShowsDashboardAccess || referrer === '')) {
+                // They actually tried to access a different role's dashboard - show error
+                // Continue to showErrorModal below
+            } else {
+                // Normal login redirect or no clear evidence - clean URL silently
+                cleanUrl();
+                return;
+            }
         }
 
         switch(error) {
@@ -207,10 +265,23 @@
         const params = getQueryParams();
 
         if (params.error) {
-            // Wait a bit for page to load, then show error
-            setTimeout(() => {
+            // Wait for user data to be available before handling error
+            // This prevents showing errors when user is on their correct dashboard
+            function checkAndHandleError() {
+                // Check if user data is available
+                const userDataAttr = document.body.getAttribute('data-current-user');
+                if (!userDataAttr) {
+                    // User data not available yet, try again
+                    setTimeout(checkAndHandleError, 100);
+                    return;
+                }
+
+                // User data is available, now handle the error
                 handleError(params.error, params.message);
-            }, 500);
+            }
+
+            // Start checking after a short delay to ensure DOM is ready
+            setTimeout(checkAndHandleError, 100);
         }
     }
 

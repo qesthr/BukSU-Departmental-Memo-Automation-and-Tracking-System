@@ -46,22 +46,35 @@ const isAdmin = (req, res, next) => {
             const role = req.user?.role;
             const dashboardMap = {
                 admin: '/admin-dashboard',
-                secretary: '/dashboard',
-                faculty: '/dashboard'
+                secretary: '/secretary-dashboard',
+                faculty: '/faculty-dashboard'
             };
             const redirectUrl = dashboardMap[role] || '/login';
 
-            // Only add error message if redirecting to a different page
-            // If user is already on their dashboard, don't add error (prevents showing error on legitimate dashboard access)
+            // NEVER add error parameters when redirecting to user's own dashboard
+            // This prevents error popups during normal login and navigation
             const currentPath = req.path;
-            const isAlreadyOnDashboard = (role === 'secretary' || role === 'faculty') && currentPath === '/dashboard';
+            const isAdminDashboard = currentPath === '/admin-dashboard' || currentPath.startsWith('/admin/');
 
-            if (isAlreadyOnDashboard) {
-                // User is already on their dashboard, just redirect without error
+            // Check if redirecting to user's own dashboard
+            const redirectingToOwnDashboard =
+                (role === 'admin' && redirectUrl === '/admin-dashboard') ||
+                (role === 'secretary' && redirectUrl === '/secretary-dashboard') ||
+                (role === 'faculty' && redirectUrl === '/faculty-dashboard');
+
+            // If redirecting to user's own dashboard, NEVER add error parameters
+            // This prevents false positives during login and normal navigation
+            if (redirectingToOwnDashboard) {
                 return res.redirect(redirectUrl);
             }
 
-            return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+            // Only add error if they actually tried to access an admin route AND not redirecting to own dashboard
+            if (isAdminDashboard) {
+                return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+            } else {
+                // Not an admin route - redirect without error
+                return res.redirect(redirectUrl);
+            }
         }
 
     // User is authenticated and is an admin

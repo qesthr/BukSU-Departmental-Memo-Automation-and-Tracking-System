@@ -109,93 +109,97 @@
                         </div>
                     </section>
 
-                    <!-- Viewer Area -->
-                    <section
-                        class="memo-viewer-area"
-                        :style="{ display: viewerVisible ? 'block' : 'none', flex: viewerVisible ? '0 0 55%' : 'none' }"
-                    >
-                        <div v-if="!currentMemo" class="empty-state-view">
-                            <i data-lucide="archive"></i>
-                            <p>Select a memo to view</p>
-                        </div>
-
-                        <div v-else class="memo-viewer">
-                            <div class="viewer-header">
-                                <button @click="closeViewer" class="icon-btn">
-                                    <i data-lucide="arrow-left"></i>
-                                </button>
-                                <div class="nav-buttons">
-                                    <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0">
-                                        <i data-lucide="chevron-left"></i>
+                    <!-- Memo Viewer Modal -->
+                    <div id="memoViewerModal" class="modal memo-viewer-modal" :style="{ display: viewerVisible ? 'block' : 'none' }" @click.self="closeViewer">
+                        <div class="modal-content memo-viewer-modal-content">
+                            <div id="memoViewer" class="memo-viewer" v-if="currentMemo">
+                                <div class="viewer-header">
+                                    <button @click="closeViewer" class="icon-btn" title="Close">
+                                        <i data-lucide="x"></i>
                                     </button>
-                                    <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
-                                    <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1">
-                                        <i data-lucide="chevron-right"></i>
-                                    </button>
-                                </div>
-                                <div class="viewer-actions">
-                                    <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
-                                        <i data-lucide="bookmark"></i>
-                                    </button>
-                                    <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
-                                        <i data-lucide="archive-restore"></i>
-                                    </button>
-                                    <button @click="downloadMemo" class="icon-btn" title="Download Memo">
-                                        <i data-lucide="download"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="memo-content">
-                                <div class="memo-pdf-header">
-                                    <h1 class="memo-title">MEMO</h1>
-                                    <div class="memo-details">
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Subject:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.subject || '(No subject)' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">From:</span>
-                                            <span class="memo-detail-value">
-                                                {{ getSenderName(currentMemo.sender) }} ({{ currentMemo.sender?.email || '' }})
-                                            </span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">To:</span>
-                                            <span class="memo-detail-value">
-                                                {{ getRecipientName(currentMemo.recipient) }} ({{ currentMemo.recipient?.email || '' }})
-                                            </span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Department:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.department || 'N/A' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Priority:</span>
-                                            <span class="memo-detail-value">{{ currentMemo.priority || 'medium' }}</span>
-                                        </div>
-                                        <div class="memo-detail-row">
-                                            <span class="memo-detail-label">Date:</span>
-                                            <span class="memo-detail-value">{{ formatDateTime(currentMemo.createdAt) }}</span>
-                                        </div>
+                                    <div class="nav-buttons">
+                                        <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0" title="Previous Memo">
+                                            <i data-lucide="chevron-left"></i>
+                                        </button>
+                                        <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
+                                        <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1" title="Next Memo">
+                                            <i data-lucide="chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div class="viewer-actions">
+                                        <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
+                                            <i data-lucide="bookmark"></i>
+                                        </button>
+                                        <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
+                                            <i data-lucide="archive-restore"></i>
+                                        </button>
+                                        <button @click="downloadMemo" class="icon-btn" title="Download Memo">
+                                            <i data-lucide="download"></i>
+                                        </button>
                                     </div>
                                 </div>
-
-                                <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
-
-                                <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="attachments-section">
-                                    <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
-                                    <div v-for="attachment in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
-                                        <a :href="attachment.url || attachment.path" target="_blank"
-                                           style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
-                                            <span>{{ attachment.filename || 'Attachment' }}</span>
-                                        </a>
+                                <div class="memo-content">
+                                    <div class="memo-gmail-header">
+                                        <h2 class="memo-subject-title">{{ currentMemo.subject || '(No subject)' }}</h2>
+                                        <div class="memo-sender-header">
+                                            <img :src="getAvatar(currentMemo.sender)" :alt="getSenderName(currentMemo.sender)"
+                                                class="memo-sender-avatar-img" @error="handleAvatarError">
+                                            <div class="memo-sender-info-header">
+                                                <div class="memo-sender-name-header">{{ getSenderName(currentMemo.sender) }}</div>
+                                                <div class="memo-sender-email-header">{{ currentMemo.sender?.email || '' }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="memo-to-dropdown-header" style="cursor: pointer; padding: 8px 0; color: #6b7280; font-size: 13px;">
+                                            <span style="text-decoration: underline;">to me</span>
+                                            <i data-lucide="chevron-down" style="width: 16px; height: 16px; margin-left: 4px;"></i>
+                                        </div>
+                                    </div>
+                                    <div class="memo-body">
+                                        <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
+                                    </div>
+                                    <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="memo-attachments">
+                                        <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
+                                        <div v-for="(attachment, attIndex) in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
+                                            <a href="#"
+                                               @click.prevent="openAttachmentModal(currentMemo.attachments, attIndex)"
+                                               style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                                <span>{{ attachment.filename || 'Attachment' }}</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
+
+                    <!-- Attachment Viewer Modal -->
+                    <div id="attachmentViewerModal" class="modal" :style="{ display: attachmentModalVisible ? 'block' : 'none' }" @click.self="closeAttachmentModal" style="position: fixed; z-index: 100002; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;">
+                        <div style="position: relative; background-color: #fff; margin: 2% auto; padding: 0; width: 90%; max-width: 1200px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                                <div style="flex: 1;">
+                                    <h3 id="facultyArchiveFileName" style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #111827;"></h3>
+                                    <p id="facultyArchiveFileSize" style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;"></p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <button id="facultyArchivePrevBtn" @click="prevAttachment" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Previous">
+                                        <i data-lucide="chevron-left" style="width: 20px; height: 20px;"></i>
+                                    </button>
+                                    <button id="facultyArchiveNextBtn" @click="nextAttachment" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Next">
+                                        <i data-lucide="chevron-right" style="width: 20px; height: 20px;"></i>
+                                    </button>
+                                    <a id="facultyArchiveDownloadBtn" href="#" download style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.875rem;" title="Download">
+                                        <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+                                        <span>Download</span>
+                                    </a>
+                                    <button @click="closeAttachmentModal" style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; font-size: 1.5rem; line-height: 1; color: #6b7280;" title="Close">×</button>
+                                </div>
+                            </div>
+                            <div style="flex: 1; overflow: auto; padding: 1.5rem; display: flex; align-items: center; justify-content: center; min-height: 400px; background: #f9fafb;">
+                                <div id="facultyArchiveAttachmentContent" style="width: 100%; text-align: center;"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -211,6 +215,9 @@
                     currentMemo: null,
                     currentMemoIndex: -1,
                     viewerVisible: false,
+                    attachmentModalVisible: false,
+                    currentAttachments: [],
+                    currentAttachmentIndex: 0,
                     filters: {
                         priority: 'all',
                         sortBy: 'newest'
@@ -344,6 +351,7 @@
 
                     this.currentMemoIndex = this.filteredMemos.findIndex(m => m._id === memo._id);
                     this.viewerVisible = true;
+                    document.body.style.overflow = 'hidden';
                     this.$nextTick(() => this.refreshLucideIcons());
                 },
 
@@ -351,20 +359,49 @@
                     this.currentMemo = null;
                     this.currentMemoIndex = -1;
                     this.viewerVisible = false;
+                    document.body.style.overflow = '';
                 },
 
-                prevMemo() {
+                async prevMemo() {
                     if (this.currentMemoIndex > 0) {
                         this.currentMemoIndex--;
-                        this.currentMemo = this.filteredMemos[this.currentMemoIndex];
+                        const memo = this.filteredMemos[this.currentMemoIndex];
+
+                        try {
+                            const response = await fetch(`/api/log/memos/${memo._id}`);
+                            const data = await response.json();
+                            if (data && data.success && data.memo) {
+                                this.currentMemo = data.memo;
+                            } else {
+                                this.currentMemo = memo;
+                            }
+                        } catch (error) {
+                            console.error('Error fetching memo details:', error);
+                            this.currentMemo = memo;
+                        }
+
                         this.$nextTick(() => this.refreshLucideIcons());
                     }
                 },
 
-                nextMemo() {
+                async nextMemo() {
                     if (this.currentMemoIndex < this.filteredMemos.length - 1) {
                         this.currentMemoIndex++;
-                        this.currentMemo = this.filteredMemos[this.currentMemoIndex];
+                        const memo = this.filteredMemos[this.currentMemoIndex];
+
+                        try {
+                            const response = await fetch(`/api/log/memos/${memo._id}`);
+                            const data = await response.json();
+                            if (data && data.success && data.memo) {
+                                this.currentMemo = data.memo;
+                            } else {
+                                this.currentMemo = memo;
+                            }
+                        } catch (error) {
+                            console.error('Error fetching memo details:', error);
+                            this.currentMemo = memo;
+                        }
+
                         this.$nextTick(() => this.refreshLucideIcons());
                     }
                 },
@@ -400,6 +437,175 @@
 
                 downloadMemo() {
                     console.log('Download memo', this.currentMemo?._id);
+                },
+
+                openAttachmentModal(attachments, index) {
+                    this.currentAttachments = attachments;
+                    this.currentAttachmentIndex = index;
+                    this.attachmentModalVisible = true;
+                    document.body.style.overflow = 'hidden';
+                    this.$nextTick(() => {
+                        this.refreshLucideIcons();
+                        this.updateAttachmentViewer();
+                        // Ensure modal is on top
+                        const modal = document.getElementById('attachmentViewerModal');
+                        if (modal) {
+                            modal.style.zIndex = '100002';
+                        }
+                    });
+                },
+
+                closeAttachmentModal() {
+                    this.attachmentModalVisible = false;
+                    this.currentAttachments = [];
+                    this.currentAttachmentIndex = 0;
+                    document.body.style.overflow = '';
+
+                    // Clean up print event listeners
+                    const preventPrint = (e) => {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        e.stopPropagation();
+                        return false;
+                    };
+                    window.removeEventListener('beforeprint', preventPrint, true);
+                    window.removeEventListener('print', preventPrint, true);
+                    document.removeEventListener('beforeprint', preventPrint, true);
+                    document.removeEventListener('print', preventPrint, true);
+                },
+
+                updateAttachmentViewer() {
+                    if (this.currentAttachments.length === 0) return;
+
+                    const attachment = this.currentAttachments[this.currentAttachmentIndex];
+                    const url = attachment.url || attachment.path;
+                    const isPDF = attachment.mimetype === 'application/pdf';
+                    const isImage = attachment.mimetype && attachment.mimetype.startsWith('image/');
+
+                    // Update download button
+                    const downloadBtn = document.getElementById('facultyArchiveDownloadBtn');
+                    if (downloadBtn) {
+                        downloadBtn.href = url;
+                        downloadBtn.download = attachment.filename || 'attachment';
+                    }
+
+                    // Update viewer content
+                    const contentEl = document.getElementById('facultyArchiveAttachmentContent');
+                    if (contentEl) {
+                        if (isImage) {
+                            contentEl.innerHTML = `<img src="${url}" alt="${attachment.filename}" style="max-width: 100%; max-height: calc(90vh - 200px); height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />`;
+                        } else if (isPDF) {
+                            // Intercept print events immediately to prevent print dialog
+                            const preventPrint = (e) => {
+                                e.preventDefault();
+                                e.stopImmediatePropagation();
+                                e.stopPropagation();
+                                return false;
+                            };
+
+                            // Add event listeners immediately before any PDF loading
+                            window.addEventListener('beforeprint', preventPrint, true);
+                            window.addEventListener('print', preventPrint, true);
+                            document.addEventListener('beforeprint', preventPrint, true);
+                            document.addEventListener('print', preventPrint, true);
+
+                            // Use simple iframe to preview PDF - Edge blocks object/embed with sandbox
+                            // Show loading state first
+                            contentEl.innerHTML = `
+                                <div style="display: flex; align-items: center; justify-content: center; height: calc(90vh - 200px); background: #f9fafb;">
+                                    <div style="text-align: center;">
+                                        <div style="width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                                        <p style="color: #6b7280; margin: 0;">Loading PDF preview...</p>
+                                    </div>
+                                </div>
+                                <style>
+                                    @keyframes spin {
+                                        to { transform: rotate(360deg); }
+                                    }
+                                </style>
+                            `;
+
+                            // Load PDF after modal is fully visible
+                            // Use simple iframe without sandbox to avoid Edge blocking
+                            setTimeout(() => {
+                                const iframe = document.createElement('iframe');
+                                // Add parameters to PDF URL to prevent print dialog
+                                const pdfUrl = url.includes('#')
+                                    ? url + '&toolbar=1&navpanes=0'
+                                    : url + '#toolbar=1&navpanes=0';
+                                iframe.src = pdfUrl;
+                                iframe.style.cssText = 'width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px; display: block;';
+                                iframe.title = attachment.filename;
+                                iframe.setAttribute('allow', 'fullscreen');
+
+                                // Prevent print when iframe loads
+                                iframe.onload = function() {
+                                    try {
+                                        const iframeWindow = iframe.contentWindow;
+                                        if (iframeWindow) {
+                                            iframeWindow.addEventListener('beforeprint', preventPrint, true);
+                                            iframeWindow.addEventListener('print', preventPrint, true);
+                                        }
+                                    } catch (e) {
+                                        // Cross-origin restrictions - ignore
+                                    }
+                                };
+
+                                contentEl.innerHTML = '';
+                                contentEl.appendChild(iframe);
+
+                                this.$nextTick(() => this.refreshLucideIcons());
+                            }, 200);
+                        } else {
+                            contentEl.innerHTML = `
+                                <div style="padding: 3rem; text-align: center;">
+                                    <i data-lucide="file" style="width: 64px; height: 64px; color: #9ca3af; margin-bottom: 1rem;"></i>
+                                    <p style="color: #6b7280; margin: 0.5rem 0;">This file type cannot be previewed.</p>
+                                    <a href="${url}" download="${attachment.filename}" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">Download File</a>
+                                </div>
+                            `;
+                        }
+                    }
+
+                    // Update file info
+                    const fileNameEl = document.getElementById('facultyArchiveFileName');
+                    const fileSizeEl = document.getElementById('facultyArchiveFileSize');
+                    if (fileNameEl) {
+                        fileNameEl.textContent = attachment.filename || 'Attachment';
+                    }
+                    if (fileSizeEl) {
+                        const size = attachment.size || 0;
+                        const formatSize = size < 1024 ? size + ' B' :
+                                          size < 1024 * 1024 ? (size / 1024).toFixed(1) + ' KB' :
+                                          (size / (1024 * 1024)).toFixed(1) + ' MB';
+                        fileSizeEl.textContent = `${formatSize} • ${this.currentAttachmentIndex + 1} of ${this.currentAttachments.length}`;
+                    }
+
+                    // Show/hide navigation buttons
+                    const prevBtn = document.getElementById('facultyArchivePrevBtn');
+                    const nextBtn = document.getElementById('facultyArchiveNextBtn');
+                    if (prevBtn) {
+                        prevBtn.style.display = this.currentAttachments.length > 1 ? 'block' : 'none';
+                    }
+                    if (nextBtn) {
+                        nextBtn.style.display = this.currentAttachments.length > 1 ? 'block' : 'none';
+                    }
+
+                    this.$nextTick(() => this.refreshLucideIcons());
+                },
+
+                prevAttachment() {
+                    if (this.currentAttachmentIndex > 0) {
+                        this.currentAttachmentIndex--;
+                        this.updateAttachmentViewer();
+                    }
+                },
+
+                nextAttachment() {
+                    if (this.currentAttachmentIndex < this.currentAttachments.length - 1) {
+                        this.currentAttachmentIndex++;
+                        this.updateAttachmentViewer();
+                    }
                 }
             },
             watch: {
@@ -408,7 +614,35 @@
                 }
             }
         }).mount('#app');
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('memoViewerModal');
+                if (modal && modal.style.display === 'block') {
+                    const app = document.querySelector('#app').__vue_app__;
+                    if (app && app._instance) {
+                        // Try to access the closeViewer method from Vue instance
+                        const instance = app._instance;
+                        if (instance.exposed && instance.exposed.closeViewer) {
+                            instance.exposed.closeViewer();
+                        } else if (instance.setupState && instance.setupState.closeViewer) {
+                            instance.setupState.closeViewer();
+                        } else {
+                            // Fallback: directly hide modal
+                            modal.style.display = 'none';
+                            document.body.style.overflow = '';
+                        }
+                    } else {
+                        // Fallback: directly hide modal
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                    }
+                }
+            }
+        });
     </script>
+    <script src="/js/log-viewer.js"></script>
 </body>
 </html>
 

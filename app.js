@@ -219,7 +219,15 @@ app.use(express.static(path.join(__dirname, 'frontend/public')));
 app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploads with cache-control headers to prevent aggressive caching of profile pictures
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res, path) => {
+        // For profile pictures, use shorter cache time to ensure updates are visible
+        if (path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour cache
+        }
+    }
+}));
 
 // Routes
 app.get('/', (req, res) => {
@@ -338,71 +346,79 @@ app.get('/admin-dashboard', isAuthenticated, validateUserRole, isAdmin, async (r
     }
 });
 
-// Unified dashboard route for secretary and faculty ONLY (admin blocked)
-app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary', 'faculty'), async (req, res) => {
+// Secretary Dashboard route - SECRETARY ONLY
+app.get('/secretary-dashboard', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
+    try {
+        const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
+            .populate('recipient', 'firstName lastName email');
+        return res.render('secretary-dashboard', {
+            pageTitle: 'Secretary Dashboard | Memofy',
+            user: req.user,
+            path: '/secretary-dashboard',
+            memos
+        });
+    } catch (e) {
+        return res.render('secretary-dashboard', {
+            pageTitle: 'Secretary Dashboard | Memofy',
+            user: req.user,
+            path: '/secretary-dashboard',
+            memos: []
+        });
+    }
+});
+
+// Faculty Dashboard route - FACULTY ONLY
+app.get('/faculty-dashboard', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
+    try {
+        // Get memos received by faculty (only sent/approved status, not pending)
+        const receivedMemos = await Memo.find({
+            recipient: req.user._id,
+            status: { $in: ['sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .populate('sender', 'firstName lastName email profilePicture department')
+            .populate('recipient', 'firstName lastName email profilePicture department');
+
+        // Count total received memos
+        const totalReceived = await Memo.countDocuments({
+            recipient: req.user._id,
+            status: { $in: ['sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        });
+
+        return res.render('faculty-dashboard', {
+            pageTitle: 'Faculty Dashboard | Memofy',
+            user: req.user,
+            path: '/faculty-dashboard',
+            receivedMemos: receivedMemos || [],
+            totalReceived: totalReceived || 0
+        });
+    } catch (e) {
+        console.error('Error fetching faculty dashboard data:', e);
+        return res.render('faculty-dashboard', {
+            pageTitle: 'Faculty Dashboard | Memofy',
+            user: req.user,
+            path: '/faculty-dashboard',
+            receivedMemos: [],
+            totalReceived: 0
+        });
+    }
+});
+
+// Legacy /dashboard route - redirects to appropriate dashboard based on role
+app.get('/dashboard', isAuthenticated, validateUserRole, (req, res) => {
     const role = (req.user && req.user.role) || '';
-
-    if (role === 'secretary') {
-        try {
-            const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
-                .populate('recipient', 'firstName lastName email');
-            return res.render('secretary-dashboard', {
-                pageTitle: 'Secretary Dashboard | Memofy',
-                user: req.user,
-                path: '/dashboard',
-                memos
-            });
-        } catch (e) {
-            return res.render('secretary-dashboard', {
-                pageTitle: 'Secretary Dashboard | Memofy',
-                user: req.user,
-                path: '/dashboard',
-                memos: []
-            });
-        }
+    if (role === 'admin') {
+        return res.redirect('/admin-dashboard');
+    } else if (role === 'secretary') {
+        return res.redirect('/secretary-dashboard');
+    } else if (role === 'faculty') {
+        return res.redirect('/faculty-dashboard');
+    } else {
+        return res.redirect('/login');
     }
-
-    if (role === 'faculty') {
-        try {
-            // Get memos received by faculty (only sent/approved status, not pending)
-            const receivedMemos = await Memo.find({
-                recipient: req.user._id,
-                status: { $in: ['sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
-            })
-                .sort({ createdAt: -1 })
-                .limit(10)
-                .populate('sender', 'firstName lastName email profilePicture department')
-                .populate('recipient', 'firstName lastName email profilePicture department');
-
-            // Count total received memos
-            const totalReceived = await Memo.countDocuments({
-                recipient: req.user._id,
-                status: { $in: ['sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
-            });
-
-            return res.render('faculty-dashboard', {
-                pageTitle: 'Faculty Dashboard | Memofy',
-                user: req.user,
-                path: '/dashboard',
-                receivedMemos: receivedMemos || [],
-                totalReceived: totalReceived || 0
-            });
-        } catch (e) {
-            console.error('Error fetching faculty dashboard data:', e);
-            return res.render('faculty-dashboard', {
-                pageTitle: 'Faculty Dashboard | Memofy',
-                user: req.user,
-                path: '/dashboard',
-                receivedMemos: [],
-                totalReceived: 0
-            });
-        }
-    }
-
-    // This should never be reached due to requireRole middleware, but keep as safety
-    return res.redirect('/admin-dashboard?error=invalid_role');
 });
 
 // Secretary memos page - only for secretaries (admin blocked)
@@ -638,11 +654,8 @@ app.get('/log', (req, res) => {
     }
 });
 
-// Import and use admin routes
-const adminRoutes = require('./frontend/routes/adminRoutes');
-
-// Mount admin routes - all admin routes will be protected by isAdmin middleware
-app.use('/', adminRoutes);
+// Note: Admin routes are already mounted at /admin prefix (see line 189)
+// This prevents conflicts with faculty-dashboard and secretary-dashboard routes
 
 // Error handling middleware
 const errorHandler = require('./backend/middleware/errorHandler');

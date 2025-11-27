@@ -3313,7 +3313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.createElement('div');
         modal.id = 'attachmentViewerModal';
         modal.className = 'modal';
-        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 100002; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
         modal.innerHTML = `
             <div class="attachment-modal-content" style="position: relative; background-color: #fff; margin: 2% auto; padding: 0; width: 90%; max-width: 1200px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column;">
                 <div class="attachment-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;">
@@ -3328,8 +3328,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button id="attachmentNextBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Next">
                             <i data-lucide="chevron-right" style="width: 20px; height: 20px;"></i>
                         </button>
-                        <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;" title="Download">
-                            <i data-lucide="download" style="width: 20px; height: 20px; color: #374151;"></i>
+                        <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.875rem;" title="Download">
+                            <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+                            <span>Download</span>
                         </a>
                         <button id="attachmentCloseBtn" style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; font-size: 1.5rem; line-height: 1; color: #6b7280;" title="Close">×</button>
                     </div>
@@ -3389,6 +3390,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('attachmentViewerModal');
         if (modal) {
             modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            // Ensure modal is on top
+            modal.style.zIndex = '100002';
         }
     }
 
@@ -3396,9 +3400,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('attachmentViewerModal');
         if (modal) {
             modal.style.display = 'none';
+            document.body.style.overflow = '';
         }
         currentAttachments = [];
         currentAttachmentIndex = 0;
+
+        // Clean up print event listeners
+        const preventPrint = (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
+            return false;
+        };
+        window.removeEventListener('beforeprint', preventPrint, true);
+        window.removeEventListener('print', preventPrint, true);
+        document.removeEventListener('beforeprint', preventPrint, true);
+        document.removeEventListener('print', preventPrint, true);
     }
 
     function showAttachment(index) {
@@ -3442,7 +3459,68 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isImage) {
                 contentEl.innerHTML = `<img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: calc(90vh - 200px); height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />`;
             } else if (isPDF) {
-                contentEl.innerHTML = `<iframe src="${attachmentUrl}#toolbar=1" style="width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px;" title="${attachment.filename}"></iframe>`;
+                // Intercept print events immediately to prevent print dialog
+                const preventPrint = (e) => {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    e.stopPropagation();
+                    return false;
+                };
+
+                // Add event listeners immediately before any PDF loading
+                window.addEventListener('beforeprint', preventPrint, true);
+                window.addEventListener('print', preventPrint, true);
+                document.addEventListener('beforeprint', preventPrint, true);
+                document.addEventListener('print', preventPrint, true);
+
+                // Use simple iframe to preview PDF - Edge blocks object/embed with sandbox
+                // Show loading state first
+                contentEl.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: calc(90vh - 200px); background: #f9fafb;">
+                        <div style="text-align: center;">
+                            <div style="width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                            <p style="color: #6b7280; margin: 0;">Loading PDF preview...</p>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                    </style>
+                `;
+
+                // Load PDF in iframe after modal is fully visible
+                // Use simple iframe without sandbox to avoid Edge blocking
+                setTimeout(() => {
+                    const iframe = document.createElement('iframe');
+                    // Add parameters to PDF URL to prevent print dialog
+                    const pdfUrl = attachmentUrl.includes('#')
+                        ? attachmentUrl + '&toolbar=1&navpanes=0'
+                        : attachmentUrl + '#toolbar=1&navpanes=0';
+                    iframe.src = pdfUrl;
+                    iframe.style.cssText = 'width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px; display: block;';
+                    iframe.title = attachment.filename;
+                    iframe.setAttribute('allow', 'fullscreen');
+
+                    // Prevent print when iframe loads
+                    iframe.onload = function() {
+                        try {
+                            const iframeWindow = iframe.contentWindow;
+                            if (iframeWindow) {
+                                iframeWindow.addEventListener('beforeprint', preventPrint, true);
+                                iframeWindow.addEventListener('print', preventPrint, true);
+                            }
+                        } catch (e) {
+                            // Cross-origin restrictions - ignore
+                        }
+                    };
+
+                    contentEl.innerHTML = '';
+                    contentEl.appendChild(iframe);
+
+                    // Keep listeners active while modal is open
+                    // They will be cleaned up when modal closes
+                }, 200);
             } else {
                 contentEl.innerHTML = `
                     <div style="padding: 3rem; text-align: center;">

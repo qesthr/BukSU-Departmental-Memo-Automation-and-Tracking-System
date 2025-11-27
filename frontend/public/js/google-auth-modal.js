@@ -497,9 +497,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.user && data.user.role === 'admin') {
                 console.log('✅ User is admin, redirecting to admin dashboard...');
                 window.location.href = '/admin-dashboard';
-            } else if (data.user && (data.user.role === 'secretary' || data.user.role === 'faculty')) {
-                console.log('✅ User is ' + data.user.role + ', redirecting to user dashboard...');
-                window.location.href = '/dashboard';
+            } else if (data.user && data.user.role === 'secretary') {
+                console.log('✅ User is secretary, redirecting to secretary dashboard...');
+                window.location.href = '/secretary-dashboard';
+            } else if (data.user && data.user.role === 'faculty') {
+                console.log('✅ User is faculty, redirecting to faculty dashboard...');
+                window.location.href = '/faculty-dashboard';
             } else {
                 console.error('❌ Invalid role:', data.user?.role);
                 window.location.href = '/?error=invalid_role';
@@ -516,6 +519,22 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Error message:', event.message);
         console.log('Error source:', event.filename);
         console.log('Error line:', event.lineno);
+
+        // Handle "google is not defined" errors (script failed to load)
+        if (event.message && (event.message.includes('google is not defined') || event.message.includes('google is undefined'))) {
+            console.error('Google Identity Services script failed to load:', event);
+            console.log('Google Sign-In script not available. This may be due to network issues or blocked CDN.');
+            console.log('Falling back to traditional OAuth redirect...');
+            // Prevent further GSI attempts
+            window.gsiDisabled = true;
+            // Hide Google Sign-In button if it exists
+            const googleButton = document.getElementById('google-signin-button');
+            if (googleButton) {
+                googleButton.style.display = 'none';
+            }
+            // Don't try to initialize Google Sign-In
+            return;
+        }
 
         // Handle postMessage errors (null reference issues)
         if (event.message && event.message.includes('postMessage')) {
@@ -601,6 +620,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.gsiDisabled) {
             console.log('GSI disabled from previous session, using fallback...');
             initializeWithFallback();
+        } else if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+            // Google Identity Services script failed to load
+            console.warn('Google Identity Services not available. Script may have failed to load due to network issues.');
+            console.log('Using fallback OAuth method...');
+            window.gsiDisabled = true;
+            initializeWithFallback();
         } else {
             initializeGoogleSignIn();
         }
@@ -628,13 +653,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Override the renderButton to add click listener for timeout
-    const originalRenderButton = google.accounts.id.renderButton;
-    google.accounts.id.renderButton = function(container, options) {
-        // Start timeout when button is rendered
-        startModalTimeout();
+    // Only do this if Google Identity Services is loaded
+    if (typeof google !== 'undefined' && google.accounts && google.accounts.id && google.accounts.id.renderButton) {
+        const originalRenderButton = google.accounts.id.renderButton;
+        google.accounts.id.renderButton = function(container, options) {
+            // Start timeout when button is rendered
+            startModalTimeout();
 
-        return originalRenderButton.call(this, container, options);
-    };
+            return originalRenderButton.call(this, container, options);
+        };
+    } else {
+        console.warn('Google Identity Services not available. renderButton override skipped.');
+    }
 });
 
 // Add CSS for any loading states if needed
