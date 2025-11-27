@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Initialize
     // Only fetch memos if we're on a page with memo list (not dashboard)
+    const prefetchedMemos = window.prefetchedMemos || window.receivedMemos;
+    if (memoList && Array.isArray(prefetchedMemos) && prefetchedMemos.length > 0) {
+        memos = prefetchedMemos;
+        applyFilters();
+    }
+
     if (memoList || !window.isDashboardPage) {
         fetchMemos();
     }
@@ -343,15 +349,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function attachTemplateHandlers(modal){
-        const dropdownBtn = modal.querySelector('#templateDropdownBtn');
+    // Expose attachTemplateHandlers globally for admin view
+    window.attachTemplateHandlers = function(modal){
+        let dropdownBtn = modal.querySelector('#templateDropdownBtn');
         const dropdownMenu = modal.querySelector('#templateDropdownMenu');
         const container = modal.querySelector('#templateSignaturesContainer');
         const addBtn = modal.querySelector('#addSignatureBtn');
-        if (!dropdownBtn || !dropdownMenu || !container) {return;}
+
+        console.log('attachTemplateHandlers called', { dropdownBtn, dropdownMenu, container }); // Debug log
+
+        if (!dropdownBtn || !dropdownMenu || !container) {
+            console.warn('Template dropdown elements not found', { dropdownBtn: !!dropdownBtn, dropdownMenu: !!dropdownMenu, container: !!container });
+            return;
+        }
 
         const dropdown = dropdownBtn.closest('.custom-dropdown');
-        if (!dropdown) {return;}
+        if (!dropdown) {
+            console.warn('Template dropdown parent .custom-dropdown not found');
+            return;
+        }
+
+        console.log('Template dropdown found:', dropdown); // Debug log
 
         // Load signatures and populate dropdown
         async function populateTemplateDropdown(){
@@ -439,22 +457,106 @@ document.addEventListener('DOMContentLoaded', () => {
         populateTemplateDropdown();
 
         // Toggle dropdown
+        // Remove any existing event listeners to prevent duplicates
+        const newDropdownBtn = dropdownBtn.cloneNode(true);
+        dropdownBtn.parentNode.replaceChild(newDropdownBtn, dropdownBtn);
+        dropdownBtn = newDropdownBtn;
+
         dropdownBtn.addEventListener('click', (e)=>{
             e.preventDefault();
             e.stopPropagation();
+            console.log('Template dropdown button clicked'); // Debug log
             // Close department dropdown if open
             const deptBtn = modal.querySelector('#deptDropdownBtn');
-            const deptDropdown = deptBtn ? deptBtn.closest('.custom-dropdown') : null;
-            if (deptDropdown) { deptDropdown.classList.remove('open'); }
+            let deptDropdown = deptBtn ? deptBtn.closest('.custom-dropdown') : null;
+            // Also check secretary wrapper location
+            if (!deptDropdown) {
+                const secretaryWrapper = modal.querySelector('#secretaryDeptDropdownWrapper');
+                if (secretaryWrapper) {
+                    const secretaryDeptBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+                    deptDropdown = secretaryDeptBtn ? secretaryDeptBtn.closest('.custom-dropdown') : null;
+                }
+            }
+            if (deptDropdown && deptDropdown.classList.contains('open')) {
+                deptDropdown.classList.remove('open');
+                // Also hide the department menu explicitly
+                const deptMenu = deptDropdown.querySelector('#deptDropdownMenu');
+                if (deptMenu) {
+                    deptMenu.style.display = 'none';
+                    deptMenu.style.visibility = 'hidden';
+                    deptMenu.style.opacity = '0';
+                }
+            }
+            const isOpen = dropdown.classList.contains('open');
+            console.log('Dropdown open state before toggle:', isOpen); // Debug log
             dropdown.classList.toggle('open');
+            const isOpenAfter = dropdown.classList.contains('open');
+            console.log('Dropdown open state after toggle:', isOpenAfter); // Debug log
+            console.log('Dropdown element:', dropdown); // Debug log
+            console.log('Menu element:', dropdownMenu); // Debug log
+
+            // Force display if open class is added (fallback if CSS doesn't apply)
+            if (isOpenAfter) {
+                dropdownMenu.style.display = 'block';
+                dropdownMenu.style.visibility = 'visible';
+                dropdownMenu.style.opacity = '1';
+                dropdownMenu.style.zIndex = '100002';
+            } else {
+                dropdownMenu.style.display = 'none';
+            }
+
+            // Force display check after a brief delay to ensure CSS has applied
+            setTimeout(() => {
+                const computedStyle = window.getComputedStyle(dropdownMenu);
+                console.log('Menu computed style after toggle:', {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    zIndex: computedStyle.zIndex,
+                    hasOpenClass: dropdown.classList.contains('open'),
+                    parentHasOpenClass: dropdown.classList.contains('open')
+                }); // Debug log
+
+                // If still not visible, force it
+                if (dropdown.classList.contains('open') && computedStyle.display === 'none') {
+                    console.warn('Template dropdown menu not showing, forcing display');
+                    dropdownMenu.style.display = 'block';
+                    dropdownMenu.style.visibility = 'visible';
+                    dropdownMenu.style.opacity = '1';
+                    dropdownMenu.style.zIndex = '100002';
+                }
+            }, 10);
         });
 
-        // Close on outside click
-        document.addEventListener('click', (e)=>{
-            if (!dropdown.contains(e.target)){
-                dropdown.classList.remove('open');
+        // Close on outside click - use a named function so we can remove it if needed
+        const handleOutsideClick = (e)=>{
+            // Don't close if clicking on the dropdown button or inside the dropdown
+            // Also check if clicking on any element within the template dropdown structure
+            const isClickInside = dropdown.contains(e.target) ||
+                                 dropdownBtn.contains(e.target) ||
+                                 dropdownMenu.contains(e.target) ||
+                                 e.target.closest('#templateDropdownMenu') ||
+                                 e.target.closest('#templateDropdownBtn');
+
+            if (isClickInside){
+                return;
             }
-        });
+
+            // Only close if dropdown is actually open
+            if (dropdown.classList.contains('open')) {
+                dropdown.classList.remove('open');
+                // Also hide the menu explicitly
+                if (dropdownMenu) {
+                    dropdownMenu.style.display = 'none';
+                    dropdownMenu.style.visibility = 'hidden';
+                    dropdownMenu.style.opacity = '0';
+                }
+            }
+        };
+
+        // Remove any existing listener and add new one with capture phase to handle it first
+        document.removeEventListener('click', handleOutsideClick, true);
+        document.addEventListener('click', handleOutsideClick, true);
 
         // Handle checkbox changes (multiple selection)
         let selectedIds = [];
@@ -487,10 +589,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (placeholder){
                     const validIds = selectedIds.filter(id => id !== 'none');
                     if (validIds.length === 0){
-                        placeholder.textContent = 'Template: None';
+                        placeholder.textContent = 'Signature: None';
                     } else if (validIds.length === 1){
                         const sig = (window.allowedSignatures||[]).find(s => (s.id||s._id) === validIds[0]);
-                        placeholder.textContent = `Template: ${sig?.displayName || sig?.roleTitle || 'Selected'}`;
+                        placeholder.textContent = `Signature: ${sig?.displayName || sig?.roleTitle || 'Selected'}`;
                     } else {
                         placeholder.textContent = `${validIds.length} signatures selected`;
                     }
@@ -512,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Reset on modal open
         const placeholder = dropdownBtn.querySelector('.template-placeholder');
-        if (placeholder) {placeholder.textContent = 'Template: None';}
+        if (placeholder) {placeholder.textContent = 'Signature: None';}
         const noneCheckbox = dropdownMenu.querySelector('input[value="none"]');
         if (noneCheckbox) {noneCheckbox.checked = true;}
         dropdownMenu.querySelectorAll('.template-checkbox').forEach(cb => {
@@ -522,8 +624,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const previewBtn = modal.querySelector('#previewMemoBtn');
         if (previewBtn){
-            previewBtn.addEventListener('click', async ()=>{
+            // Remove any existing event listeners by cloning
+            const newPreviewBtn = previewBtn.cloneNode(true);
+            previewBtn.parentNode.replaceChild(newPreviewBtn, previewBtn);
+
+            newPreviewBtn.addEventListener('click', async (e)=>{
+                e.preventDefault();
+                e.stopPropagation();
                 try{
+                    console.log('Preview button clicked'); // Debug log
                     const payload = collectMemoPayload(modal, { preview: true });
                     // If there are image attachments selected but not yet uploaded, upload for preview
                     if (Array.isArray(selectedFiles) && selectedFiles.length > 0){
@@ -546,7 +655,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin', body: JSON.stringify(payload)
                     });
+
+                    if (!res.ok) {
+                        const errorText = await res.text().catch(() => 'Unknown error');
+                        console.error('Preview API error:', res.status, errorText);
+                        throw new Error(`Preview failed: ${res.status} ${errorText}`);
+                    }
+
                     const data = await res.json().catch(()=>({}));
+                    console.log('Preview response:', data); // Debug log
+
                     if (data?.previewUrl || data?.html){
                         const overlay = document.getElementById('previewOverlay');
                         const frame = document.getElementById('previewFrame');
@@ -582,10 +700,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }catch(err){
+                    console.error('Preview error:', err);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Preview failed'
+                        text: err.message || 'Preview failed. Please check the console for details.'
                     });
                 }
             });
@@ -1970,14 +2089,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!container || !dropdownBtn || !dropdownMenu) {
+                // For pages/roles that don't have a department dropdown (e.g., faculty dashboard),
+                // just exit quietly instead of logging an error.
                 // eslint-disable-next-line no-console
-                console.error('Department dropdown elements not found:', {
-                    container: !!container,
-                    dropdownBtn: !!dropdownBtn,
-                    dropdownMenu: !!dropdownMenu,
-                    userRole,
-                    canCrossSend
-                });
+                console.warn('loadDepartments: Department dropdown elements not found for role:', userRole, 'canCrossSend:', canCrossSend);
                 return;
             }
 
@@ -2017,11 +2132,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('loadDepartments: No departments available to display');
             } else {
                 availableDepartments.forEach(dept => {
+                    const displayName = (dept === 'Information Technology and Entertainment Multimedia Computing')
+                        ? 'IT/EMC'
+                        : dept;
                     const label = document.createElement('label');
                     label.className = 'dept-checkbox-label';
                     label.innerHTML = `
                         <input type="checkbox" class="dept-checkbox dept-option" value="${dept}">
-                        <span>${dept}</span>
+                        <span>${displayName}</span>
                     `;
                     container.appendChild(label);
                 });
@@ -2054,9 +2172,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!composeModal) {return;}
         }
 
-        const dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
-        const dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
-        const selectAll = composeModal.querySelector('#selectAllDepts');
+        // Check both admin location and secretary wrapper location
+        let dropdownBtn = composeModal.querySelector('#deptDropdownBtn');
+        let dropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+
+        // For secretaries with canCrossSend, check secretary wrapper first
+        if (!dropdownBtn || !dropdownMenu) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                dropdownBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+                dropdownMenu = secretaryWrapper.querySelector('#deptDropdownMenu');
+            }
+        }
+
+        // Check both locations for selectAll checkbox
+        let selectAll = composeModal.querySelector('#selectAllDepts');
+        if (!selectAll) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                selectAll = secretaryWrapper.querySelector('#selectAllDepts');
+            }
+        }
+
         let deptOptions = composeModal.querySelectorAll('.dept-option');
 
         if (!dropdownBtn || !dropdownMenu) {
@@ -2066,19 +2203,86 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove any existing click handlers to prevent duplicates
         const newBtn = dropdownBtn.cloneNode(true);
         dropdownBtn.parentNode.replaceChild(newBtn, dropdownBtn);
-        const freshBtn = composeModal.querySelector('#deptDropdownBtn');
+
+        // Get the fresh button - check both locations again after cloning
+        let freshBtn = composeModal.querySelector('#deptDropdownBtn');
+        if (!freshBtn) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                freshBtn = secretaryWrapper.querySelector('#deptDropdownBtn');
+            }
+        }
+
+        if (!freshBtn) {
+            console.error('initCustomDepartmentDropdown: Could not find deptDropdownBtn after cloning');
+            return;
+        }
+
+        // Get the fresh dropdown menu - check both locations again after cloning
+        let freshDropdownMenu = composeModal.querySelector('#deptDropdownMenu');
+        if (!freshDropdownMenu) {
+            const secretaryWrapper = composeModal.querySelector('#secretaryDeptDropdownWrapper');
+            if (secretaryWrapper) {
+                freshDropdownMenu = secretaryWrapper.querySelector('#deptDropdownMenu');
+            }
+        }
+
+        if (!freshDropdownMenu) {
+            console.error('initCustomDepartmentDropdown: Could not find deptDropdownMenu after cloning');
+            return;
+        }
+
         const deptDropdown = freshBtn.closest('.custom-dropdown');
 
         // Toggle dropdown on button click
         freshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            // Close template dropdown if open
+            const templateBtn = composeModal.querySelector('#templateDropdownBtn');
+            const templateDropdown = templateBtn ? templateBtn.closest('.custom-dropdown') : null;
+            if (templateDropdown && templateDropdown.classList.contains('open')) {
+                templateDropdown.classList.remove('open');
+                // Also hide the template menu explicitly
+                const templateMenu = templateDropdown.querySelector('#templateDropdownMenu');
+                if (templateMenu) {
+                    templateMenu.style.display = 'none';
+                    templateMenu.style.visibility = 'hidden';
+                    templateMenu.style.opacity = '0';
+                }
+            }
             // Close other open dropdowns inside compose modal (e.g., template)
             composeModal.querySelectorAll('.custom-dropdown.open').forEach(dd => {
-                if (dd !== deptDropdown) { dd.classList.remove('open'); }
+                if (dd !== deptDropdown) {
+                    dd.classList.remove('open');
+                    // Also hide their menus
+                    const menu = dd.querySelector('.dept-dropdown-menu');
+                    if (menu) {
+                        menu.style.display = 'none';
+                        menu.style.visibility = 'hidden';
+                        menu.style.opacity = '0';
+                    }
+                }
             });
             if (deptDropdown) {
+                const isOpen = deptDropdown.classList.contains('open');
                 deptDropdown.classList.toggle('open');
+                const isOpenAfter = deptDropdown.classList.contains('open');
+
+                // Force display if open class is added (fallback if CSS doesn't apply)
+                if (isOpenAfter && freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'block';
+                    freshDropdownMenu.style.visibility = 'visible';
+                    freshDropdownMenu.style.opacity = '1';
+                    freshDropdownMenu.style.zIndex = '100002';
+                    freshDropdownMenu.style.position = 'absolute';
+                    freshDropdownMenu.style.top = '100%';
+                    freshDropdownMenu.style.left = '0';
+                    freshDropdownMenu.style.right = '0';
+                    freshDropdownMenu.style.marginTop = '4px';
+                } else if (!isOpenAfter && freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'none';
+                }
             }
         });
 
@@ -2090,8 +2294,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Close this dropdown when clicking outside
         const handleOutsideClick = (e) => {
-            if (deptDropdown && !deptDropdown.contains(e.target)) {
+            // Don't close if clicking on template dropdown elements
+            const templateDropdown = composeModal.querySelector('#templateDropdownBtn')?.closest('.custom-dropdown');
+            const isClickOnTemplate = templateDropdown && (
+                templateDropdown.contains(e.target) ||
+                e.target.closest('#templateDropdownBtn') ||
+                e.target.closest('#templateDropdownMenu')
+            );
+
+            // Don't close if clicking on department dropdown button or menu
+            const isClickOnDept = deptDropdown && (
+                deptDropdown.contains(e.target) ||
+                freshBtn.contains(e.target) ||
+                freshDropdownMenu.contains(e.target) ||
+                e.target.closest('#deptDropdownBtn') ||
+                e.target.closest('#deptDropdownMenu')
+            );
+
+            // Only close if clicking outside BOTH dropdowns and dropdown is actually open
+            if (deptDropdown && deptDropdown.classList.contains('open') && !isClickOnDept && !isClickOnTemplate) {
                 deptDropdown.classList.remove('open');
+                // Also hide the menu explicitly
+                if (freshDropdownMenu) {
+                    freshDropdownMenu.style.display = 'none';
+                    freshDropdownMenu.style.visibility = 'hidden';
+                    freshDropdownMenu.style.opacity = '0';
+                }
             }
         };
         document.addEventListener('click', handleOutsideClick, true);
@@ -2128,6 +2356,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const total = deptOptions.length;
             const ph = freshBtn.querySelector('.dept-placeholder');
 
+            // Helper to map internal department value to display label
+            const formatDeptLabel = (dept) => {
+                if (dept === 'Information Technology and Entertainment Multimedia Computing') {
+                    return 'IT/EMC';
+                }
+                return dept;
+            };
+
             if (selected.length === 0) {
                 if (ph) { ph.textContent = 'Department'; } else { freshBtn.textContent = 'Department'; }
                 freshBtn.classList.add('empty');
@@ -2135,11 +2371,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 freshBtn.classList.remove('empty');
                 if (ph) {
                     if (selected.length === total && selectAll) { ph.textContent = 'All Departments'; }
-                    else if (selected.length === 1) { ph.textContent = selected[0]; }
+                    else if (selected.length === 1) { ph.textContent = formatDeptLabel(selected[0]); }
                     else { ph.textContent = `${selected.length} departments selected`; }
                 } else {
                     if (selected.length === total && selectAll) { freshBtn.textContent = 'All Departments'; }
-                    else if (selected.length === 1) { freshBtn.textContent = selected[0]; }
+                    else if (selected.length === 1) { freshBtn.textContent = formatDeptLabel(selected[0]); }
                     else { freshBtn.textContent = `${selected.length} departments selected`; }
                 }
             }
@@ -2147,7 +2383,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize secretary department checkbox handler
-    function initSecretaryDeptCheckbox(composeModal) {
+    // Expose initSecretaryDeptCheckbox globally for admin view
+    window.initSecretaryDeptCheckbox = function(composeModal) {
         const sendToAllDeptCheckbox = composeModal.querySelector('#sendToAllDeptCheckbox');
         const selectedDepartmentsInput = composeModal.querySelector('#selectedDepartments');
         const isSecretary = window.currentUser && window.currentUser.role === 'secretary';
@@ -2301,6 +2538,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayMemo(currentMemoIndex);
             }
         });
+    }
+
+    // "To me" dropdown toggle (Gmail-style - click to show details popup)
+    // Use event delegation on memo viewer modal
+    const memoViewerModal = document.getElementById('memoViewerModal');
+    if (memoViewerModal) {
+        memoViewerModal.addEventListener('click', (e) => {
+            if (e.target === memoViewerModal) {
+                showDefaultView();
+                return;
+            }
+            const toDropdownToggle = e.target.closest('#toDropdownToggle');
+            const detailsPopup = document.getElementById('memoDetailsPopup');
+
+            // Don't close if clicking inside the popup
+            if (detailsPopup && detailsPopup.contains(e.target)) {
+                return;
+            }
+
+            if (toDropdownToggle) {
+                // Toggle popup when clicking the dropdown
+                e.stopPropagation();
+                if (detailsPopup) {
+                    const isHidden = detailsPopup.style.display === 'none' || !detailsPopup.style.display;
+
+                    if (isHidden) {
+                        // Calculate position relative to the dropdown (fixed positioning uses viewport coordinates)
+                        const rect = toDropdownToggle.getBoundingClientRect();
+                        detailsPopup.style.display = 'block';
+                        detailsPopup.style.top = (rect.bottom + 8) + 'px';
+                        detailsPopup.style.left = rect.left + 'px';
+                    } else {
+                        detailsPopup.style.display = 'none';
+                    }
+
+                    // Update chevron icon
+                    const chevronIcon = toDropdownToggle.querySelector('[data-lucide="chevron-down"], [data-lucide="chevron-up"]');
+                    if (chevronIcon) {
+                        if (isHidden) {
+                            chevronIcon.setAttribute('data-lucide', 'chevron-up');
+                        } else {
+                            chevronIcon.setAttribute('data-lucide', 'chevron-down');
+                        }
+                        lucide.createIcons();
+                    }
+                }
+            } else if (detailsPopup && detailsPopup.style.display !== 'none') {
+                // Close popup when clicking outside
+                detailsPopup.style.display = 'none';
+                const chevronIcon = document.querySelector('#toDropdownToggle [data-lucide="chevron-up"]');
+                if (chevronIcon) {
+                    chevronIcon.setAttribute('data-lucide', 'chevron-down');
+                    lucide.createIcons();
+                }
+            }
+        });
+
+        // Reposition popup on scroll/resize to keep it aligned (floating, not scrollable)
+        let repositionTimeout;
+        function repositionPopup() {
+            const detailsPopup = document.getElementById('memoDetailsPopup');
+            const toDropdownToggle = document.getElementById('toDropdownToggle');
+
+            if (detailsPopup && detailsPopup.style.display !== 'none' && toDropdownToggle) {
+                clearTimeout(repositionTimeout);
+                repositionTimeout = setTimeout(() => {
+                    const rect = toDropdownToggle.getBoundingClientRect();
+                    detailsPopup.style.top = (rect.bottom + 8) + 'px';
+                    detailsPopup.style.left = rect.left + 'px';
+                }, 10);
+            }
+        }
+
+        // Reposition on memo content scroll
+        const memoContent = document.querySelector('.memo-content');
+        if (memoContent) {
+            memoContent.addEventListener('scroll', repositionPopup);
+        }
+
+        // Reposition on window scroll
+        window.addEventListener('scroll', repositionPopup, true);
+
+        // Reposition on window resize
+        window.addEventListener('resize', repositionPopup);
     }
 
     if (downloadBtn) {
@@ -2486,25 +2807,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
-                // Show SweetAlert toast notification
+                // Show SweetAlert modal notification
                 Swal.fire({
                     icon: 'success',
                     title: 'Memo Archived',
                     text: 'Memo has been archived successfully',
-                    timer: 3000,
-                    showConfirmButton: false,
-                    toast: true,
-                    position: 'top-end',
-                    showCancelButton: false
+                    timer: 2000,
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#1C89E3',
+                    allowOutsideClick: true,
+                    allowEscapeKey: true
                 });
 
                 // Remove from lists
                 memos = memos.filter(m => m._id !== currentMemoId);
                 filteredMemos = filteredMemos.filter(m => m._id !== currentMemoId);
 
-                // If archived memo was the current one, go to default view
+                // If archived memo was the current one, go to default view and close modal
                 if (currentMemoId === archivedMemoId) {
                     showDefaultView();
+                    // Close the memo viewer modal
+                    const memoViewerModal = document.getElementById('memoViewerModal');
+                    if (memoViewerModal) {
+                        memoViewerModal.style.display = 'none';
+                        document.body.style.overflow = ''; // Restore scrolling
+                    }
                 }
 
                 renderMemoList();
@@ -2828,6 +3156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Regular memo format (unchanged)
             // For sent folder: show recipient info and "Sent:" prefix
             // For inbox/other folders: show sender info (default)
+            // Special case: If current user is the sender, show "To:" (recipients) instead of "From:"
             // Special case: For admin approval/rejection actions, show "You:" instead of "From:"
             let displayUser, displayLabel, subjectPrefix;
 
@@ -2835,10 +3164,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const eventType = memo.metadata?.eventType;
             const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
             const currentUserId = window.currentUser?.id || window.currentUser?._id;
+            const currentUserEmail = window.currentUser?.email?.toLowerCase();
             const isCurrentUserAdmin = window.currentUser?.role === 'admin';
             const isRecipientCurrentUser = memo.recipient && (
                 (memo.recipient._id?.toString() === currentUserId?.toString()) ||
                 (memo.recipient.toString() === currentUserId?.toString())
+            );
+
+            // Check if current user is the sender of this memo
+            const isCurrentUserSender = memo.sender && (
+                (memo.sender._id?.toString() === currentUserId?.toString()) ||
+                (memo.sender.toString() === currentUserId?.toString()) ||
+                (memo.sender.email?.toLowerCase() === currentUserEmail)
             );
 
             if (isSentFolder) {
@@ -2846,13 +3183,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayUser = memo.recipient;
                 displayLabel = 'To';
                 subjectPrefix = 'Sent: ';
-            } else if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
-                // Admin approval/rejection action: show "You:" instead of "From:"
-                displayUser = window.currentUser;
-                displayLabel = 'You';
+            } else if (isCurrentUserSender) {
+                // Current user created this memo: show recipients (who we sent it to)
+                displayUser = memo.recipient;
+                displayLabel = 'To';
                 subjectPrefix = '';
             } else {
                 // Inbox/Received: show sender (who sent it to us)
+                // This includes admin-approved/rejected memos from secretary - show "From: [Secretary]"
                 displayUser = memo.sender;
                 displayLabel = 'From';
                 subjectPrefix = '';
@@ -2973,7 +3311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.createElement('div');
         modal.id = 'attachmentViewerModal';
         modal.className = 'modal';
-        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 100002; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;';
         modal.innerHTML = `
             <div class="attachment-modal-content" style="position: relative; background-color: #fff; margin: 2% auto; padding: 0; width: 90%; max-width: 1200px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 90vh; display: flex; flex-direction: column;">
                 <div class="attachment-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;">
@@ -2988,8 +3326,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button id="attachmentNextBtn" class="attachment-nav-btn" style="display: none; padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;" title="Next">
                             <i data-lucide="chevron-right" style="width: 20px; height: 20px;"></i>
                         </button>
-                        <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;" title="Download">
-                            <i data-lucide="download" style="width: 20px; height: 20px; color: #374151;"></i>
+                        <a id="attachmentDownloadBtn" href="#" download style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.875rem;" title="Download">
+                            <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+                            <span>Download</span>
                         </a>
                         <button id="attachmentCloseBtn" style="padding: 0.5rem; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer; font-size: 1.5rem; line-height: 1; color: #6b7280;" title="Close">×</button>
                     </div>
@@ -3049,6 +3388,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('attachmentViewerModal');
         if (modal) {
             modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            // Ensure modal is on top
+            modal.style.zIndex = '100002';
         }
     }
 
@@ -3056,9 +3398,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('attachmentViewerModal');
         if (modal) {
             modal.style.display = 'none';
+            document.body.style.overflow = '';
         }
         currentAttachments = [];
         currentAttachmentIndex = 0;
+
+        // Clean up print event listeners
+        const preventPrint = (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
+            return false;
+        };
+        window.removeEventListener('beforeprint', preventPrint, true);
+        window.removeEventListener('print', preventPrint, true);
+        document.removeEventListener('beforeprint', preventPrint, true);
+        document.removeEventListener('print', preventPrint, true);
     }
 
     function showAttachment(index) {
@@ -3102,7 +3457,68 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isImage) {
                 contentEl.innerHTML = `<img src="${attachmentUrl}" alt="${attachment.filename}" style="max-width: 100%; max-height: calc(90vh - 200px); height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />`;
             } else if (isPDF) {
-                contentEl.innerHTML = `<iframe src="${attachmentUrl}#toolbar=1" style="width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px;" title="${attachment.filename}"></iframe>`;
+                // Intercept print events immediately to prevent print dialog
+                const preventPrint = (e) => {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    e.stopPropagation();
+                    return false;
+                };
+
+                // Add event listeners immediately before any PDF loading
+                window.addEventListener('beforeprint', preventPrint, true);
+                window.addEventListener('print', preventPrint, true);
+                document.addEventListener('beforeprint', preventPrint, true);
+                document.addEventListener('print', preventPrint, true);
+
+                // Use simple iframe to preview PDF - Edge blocks object/embed with sandbox
+                // Show loading state first
+                contentEl.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: calc(90vh - 200px); background: #f9fafb;">
+                        <div style="text-align: center;">
+                            <div style="width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                            <p style="color: #6b7280; margin: 0;">Loading PDF preview...</p>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                    </style>
+                `;
+
+                // Load PDF in iframe after modal is fully visible
+                // Use simple iframe without sandbox to avoid Edge blocking
+                setTimeout(() => {
+                    const iframe = document.createElement('iframe');
+                    // Add parameters to PDF URL to prevent print dialog
+                    const pdfUrl = attachmentUrl.includes('#')
+                        ? attachmentUrl + '&toolbar=1&navpanes=0'
+                        : attachmentUrl + '#toolbar=1&navpanes=0';
+                    iframe.src = pdfUrl;
+                    iframe.style.cssText = 'width: 100%; height: calc(90vh - 200px); border: none; border-radius: 8px; display: block;';
+                    iframe.title = attachment.filename;
+                    iframe.setAttribute('allow', 'fullscreen');
+
+                    // Prevent print when iframe loads
+                    iframe.onload = function() {
+                        try {
+                            const iframeWindow = iframe.contentWindow;
+                            if (iframeWindow) {
+                                iframeWindow.addEventListener('beforeprint', preventPrint, true);
+                                iframeWindow.addEventListener('print', preventPrint, true);
+                            }
+                        } catch (e) {
+                            // Cross-origin restrictions - ignore
+                        }
+                    };
+
+                    contentEl.innerHTML = '';
+                    contentEl.appendChild(iframe);
+
+                    // Keep listeners active while modal is open
+                    // They will be cleaned up when modal closes
+                }, 200);
             } else {
                 contentEl.innerHTML = `
                     <div style="padding: 3rem; text-align: center;">
@@ -3247,100 +3663,137 @@ document.addEventListener('DOMContentLoaded', () => {
             memoPdfHeader.style.display = isCalendarEvent ? 'none' : 'block';
         }
 
-        // Update the memo viewer content (now that it's visible)
+        // Update the memo viewer content (Gmail-style format)
         const memoDetailSubject = document.getElementById('memoDetailSubject');
-        const memoDetailFrom = document.getElementById('memoDetailFrom');
-        const memoDetailTo = document.getElementById('memoDetailTo');
-        const memoDetailDepartment = document.getElementById('memoDetailDepartment');
-        const memoDetailPriority = document.getElementById('memoDetailPriority');
-        const memoDetailDate = document.getElementById('memoDetailDate');
+        const memoSenderAvatar = document.getElementById('memoSenderAvatar');
+        const memoDetailFromName = document.getElementById('memoDetailFromName');
+        const memoDetailFromEmail = document.getElementById('memoDetailFromEmail');
+        const memoDetailToPreview = document.getElementById('memoDetailToPreview');
         const memoBodyContent = document.getElementById('memoBodyContent');
         const attachmentsDiv = document.getElementById('attachments');
 
-        // Update memo details (PDF-style format)
+        // Popup elements
+        const memoDetailSubjectPopup = document.getElementById('memoDetailSubjectPopup');
+        const memoDetailFromPopup = document.getElementById('memoDetailFromPopup');
+        const memoDetailToPopup = document.getElementById('memoDetailToPopup');
+        const memoDetailDepartmentPopup = document.getElementById('memoDetailDepartmentPopup');
+        const memoDetailPriorityPopup = document.getElementById('memoDetailPriorityPopup');
+        const memoDetailDatePopup = document.getElementById('memoDetailDatePopup');
+
+        // Update subject title
         if (memoDetailSubject) {
             memoDetailSubject.textContent = memo.subject || '(No subject)';
         }
-
-        if (memoDetailFrom) {
-            // Check if this is an admin approval/rejection action memo
-            const eventType = memo.metadata?.eventType;
-            const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
-            const currentUserId = window.currentUser?.id || window.currentUser?._id;
-            const isCurrentUserAdmin = window.currentUser?.role === 'admin';
-            const isRecipientCurrentUser = memo.recipient && (
-                (memo.recipient._id?.toString() === currentUserId?.toString()) ||
-                (memo.recipient.toString() === currentUserId?.toString())
-            );
-
-            let displayName, displayEmail, displayLabel;
-            if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
-                // Admin approval/rejection action: show "You:" instead of "From:"
-                displayLabel = 'You';
-                displayName = window.currentUser?.firstName && window.currentUser?.lastName
-                    ? `${window.currentUser.firstName} ${window.currentUser.lastName}`.trim()
-                    : window.currentUser?.email || 'You';
-                displayEmail = window.currentUser?.email || '';
-            } else {
-                // Regular memo: show sender
-                displayLabel = 'From';
-                displayName = memo.sender
-                    ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
-                    : 'Unknown Sender';
-                displayEmail = memo.sender?.email || '';
-            }
-
-            // Update the label (find the label element that comes before memoDetailFrom)
-            const fromRow = memoDetailFrom.closest('.memo-detail-row');
-            if (fromRow) {
-                const labelElement = fromRow.querySelector('.memo-detail-label');
-                if (labelElement) {
-                    labelElement.textContent = displayLabel + ':';
-                }
-            }
-
-            memoDetailFrom.textContent = displayEmail ? `${displayName} (${displayEmail})` : displayName;
+        if (memoDetailSubjectPopup) {
+            memoDetailSubjectPopup.textContent = memo.subject || '(No subject)';
         }
 
-        if (memoDetailTo) {
-            // Get all recipients (from recipients array or single recipient)
-            const allRecipients = [];
-            if (memo.recipients && memo.recipients.length > 0) {
-                allRecipients.push(...memo.recipients);
-            } else if (memo.recipient) {
+        // Get sender info
+        const eventType = memo.metadata?.eventType;
+        const isAdminActionMemo = (eventType === 'memo_approved_by_admin' || eventType === 'memo_rejected_by_admin');
+        const currentUserId = window.currentUser?.id || window.currentUser?._id;
+        const isCurrentUserAdmin = window.currentUser?.role === 'admin';
+        const isRecipientCurrentUser = memo.recipient && (
+            (memo.recipient._id?.toString() === currentUserId?.toString()) ||
+            (memo.recipient.toString() === currentUserId?.toString())
+        );
+
+        let displayName, displayEmail, senderAvatar;
+        if (isAdminActionMemo && isCurrentUserAdmin && isRecipientCurrentUser) {
+            // Admin approval/rejection action: show current user
+            displayName = window.currentUser?.firstName && window.currentUser?.lastName
+                ? `${window.currentUser.firstName} ${window.currentUser.lastName}`.trim()
+                : window.currentUser?.email || 'You';
+            displayEmail = window.currentUser?.email || '';
+            senderAvatar = window.currentUser?.profilePicture || '/images/memofy-logo.png';
+        } else {
+            // Regular memo: show sender
+            displayName = memo.sender
+                ? `${memo.sender.firstName || ''} ${memo.sender.lastName || ''}`.trim()
+                : 'Unknown Sender';
+            displayEmail = memo.sender?.email || '';
+            senderAvatar = memo.sender?.profilePicture || '/images/memofy-logo.png';
+        }
+
+        // Update sender avatar
+        if (memoSenderAvatar) {
+            memoSenderAvatar.src = senderAvatar;
+            memoSenderAvatar.alt = displayName;
+            memoSenderAvatar.onerror = function() {
+                this.src = '/images/memofy-logo.png';
+            };
+        }
+
+        // Update sender name and email
+        if (memoDetailFromName) {
+            memoDetailFromName.textContent = displayName || 'Unknown';
+        }
+        if (memoDetailFromEmail) {
+            memoDetailFromEmail.textContent = displayEmail || '';
+        }
+        if (memoDetailFromPopup) {
+            memoDetailFromPopup.textContent = displayEmail ? `${displayName} (${displayEmail})` : displayName;
+        }
+
+        // Get all recipients (from recipients array or single recipient)
+        const allRecipients = [];
+        const currentUserIdForRecipients = window.currentUser?._id || window.currentUser?.id;
+
+        if (memo.recipients && memo.recipients.length > 0) {
+            memo.recipients.forEach(recipient => {
+                const recipientId = recipient._id?.toString() || recipient.toString();
+                if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
+                    allRecipients.push(recipient);
+                }
+            });
+        } else if (memo.recipient) {
+            const recipientId = memo.recipient._id?.toString() || memo.recipient.toString();
+            if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
                 allRecipients.push(memo.recipient);
             }
+        }
 
-            if (allRecipients.length > 0) {
-                // Format recipients list
-                const recipientList = allRecipients.map(recip => {
-                    // Handle both populated objects and ObjectIds
-                    if (typeof recip === 'string' || recip instanceof Object && !recip.firstName && !recip.email) {
-                        // It's an ObjectId, skip it (shouldn't happen if populated correctly)
-                        return null;
-                    }
-                    const name = `${recip.firstName || ''} ${recip.lastName || ''}`.trim();
-                    const email = recip.email || '';
-                    return email ? `${name} (${email})` : name || email || 'Unknown';
-                }).filter(Boolean).join(', ');
-                memoDetailTo.textContent = recipientList || 'Unknown Recipient';
+        // Format recipients list
+        const recipientList = allRecipients.map(recip => {
+            // Handle both populated objects and ObjectIds
+            if (typeof recip === 'string' || recip instanceof Object && !recip.firstName && !recip.email) {
+                // It's an ObjectId, skip it (shouldn't happen if populated correctly)
+                return null;
+            }
+            const name = `${recip.firstName || ''} ${recip.lastName || ''}`.trim();
+            const email = recip.email || '';
+            return email ? `${name} (${email})` : name || email || 'Unknown';
+        }).filter(Boolean);
+
+        // Set "to me" preview text
+        if (memoDetailToPreview) {
+            if (allRecipients.length === 0) {
+                memoDetailToPreview.textContent = 'Unknown Recipient';
+            } else if (allRecipients.length === 1) {
+                memoDetailToPreview.textContent = 'to me';
             } else {
-                memoDetailTo.textContent = 'Unknown Recipient';
+                memoDetailToPreview.textContent = `to me +${allRecipients.length - 1} more`;
             }
         }
 
-        if (memoDetailDepartment) {
-            memoDetailDepartment.textContent = memo.department || 'N/A';
+        // Set full recipient list in popup
+        if (memoDetailToPopup) {
+            memoDetailToPopup.textContent = recipientList.length > 0 ? recipientList.join(', ') : 'Unknown Recipient';
         }
 
-        if (memoDetailPriority) {
-            memoDetailPriority.textContent = memo.priority || 'medium';
+        // Update other popup fields
+        if (memoDetailDepartmentPopup) {
+            memoDetailDepartmentPopup.textContent = memo.department || 'N/A';
+        }
+        if (memoDetailPriorityPopup) {
+            memoDetailPriorityPopup.textContent = memo.priority || 'medium';
+        }
+        if (memoDetailDatePopup) {
+            memoDetailDatePopup.textContent = new Date(memo.createdAt).toLocaleString();
         }
 
-        if (memoDetailDate && memo.createdAt) {
-            const date = new Date(memo.createdAt);
-            memoDetailDate.textContent = date.toLocaleString();
-        }
+        // Initialize Lucide icons for the dropdown chevron
+        lucide.createIcons();
 
         // Display memo content with attachments (Gmail-style: inline, no separator)
         if (memoBodyContent) {
@@ -3370,14 +3823,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#039;');
                 htmlContent += `<div style="white-space: pre-wrap; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6; color: #111827;">${safeContent}</div>`;
-            } else {
-                // Show message if content is empty but still show attachments if any
-                htmlContent += `<div style="color: #9ca3af; font-style: italic; margin-bottom: ${memo.attachments && memo.attachments.length > 0 ? '1rem' : '0'}; line-height: 1.6;">No text content</div>`;
-            }
-
-            // Ensure content is always visible even if htmlContent is empty
-            if (!htmlContent && (!memo.attachments || memo.attachments.length === 0)) {
-                htmlContent = '<div style="color: #9ca3af; font-style: italic; line-height: 1.6;">This memo has no content.</div>';
             }
 
             // Add rejection reason display if memo was rejected
@@ -3538,16 +3983,187 @@ document.addEventListener('DOMContentLoaded', () => {
             attachmentsDiv.innerHTML = '';
             attachmentsDiv.style.display = 'none';
         }
+
+        // Show approve/reject buttons for admin when viewing pending secretary memos
+        const memoViewerModal = document.getElementById('memoViewerModal');
+        if (memoViewerModal) {
+            let footer = memoViewerModal.querySelector('.memo-viewer-footer');
+            if (!footer) {
+                // Create footer if it doesn't exist
+                footer = document.createElement('div');
+                footer.className = 'memo-viewer-footer';
+                footer.style.cssText = 'padding: 16px 24px; border-top: 1px solid #e5e7eb; display: none; justify-content: flex-end; gap: 12px; align-items: center;';
+                // Append footer to modal-content, not memo-content
+                const modalContent = memoViewerModal.querySelector('.modal-content');
+                if (modalContent) {
+                    modalContent.appendChild(footer);
+                } else {
+                    // Fallback: append to memoViewer
+                    const memoViewer = memoViewerModal.querySelector('#memoViewer');
+                    if (memoViewer) {
+                        memoViewer.appendChild(footer);
+                    }
+                }
+            }
+
+            // Clear existing buttons
+            footer.innerHTML = '';
+
+            // Check if this is a pending secretary memo that needs admin approval
+            const statusStr = (memo.status || '').toLowerCase();
+            const isPendingStatus = ['pending_admin', 'pending'].includes(statusStr);
+            const isAdminUser = (window.currentUser && (window.currentUser.role === 'admin'));
+            const isCalendarEvent = (memo.metadata && memo.metadata.eventType === 'calendar_event') ||
+                                   (memo.subject && memo.subject.includes('Calendar Event')) ||
+                                   (memo.activityType === 'system_notification' && memo.subject && memo.subject.includes('📅'));
+
+            // Show buttons if: pending status AND admin user AND not calendar event
+            if (!isCalendarEvent && isAdminUser && isPendingStatus) {
+                footer.style.display = 'flex';
+                footer.style.flexDirection = 'row';
+                footer.style.gap = '12px';
+                footer.style.justifyContent = 'flex-end';
+                footer.style.alignItems = 'center';
+
+                const rejectBtn = document.createElement('button');
+                rejectBtn.textContent = 'Reject';
+                rejectBtn.style.cssText = 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                rejectBtn.addEventListener('mouseenter', () => {
+                    rejectBtn.style.background = '#e5e7eb';
+                });
+                rejectBtn.addEventListener('mouseleave', () => {
+                    rejectBtn.style.background = '#f3f4f6';
+                });
+                rejectBtn.addEventListener('click', async () => {
+                    // Show prompt for rejection reason
+                    const { value: reason } = await Swal.fire({
+                        title: 'Reject Memo',
+                        input: 'textarea',
+                        inputLabel: 'Rejection Reason (optional)',
+                        inputPlaceholder: 'Enter reason for rejection...',
+                        inputAttributes: {
+                            'aria-label': 'Enter rejection reason'
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: 'Reject',
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonText: 'Cancel',
+                        inputValidator: (value) => {
+                            // Reason is optional, so no validation needed
+                            return null;
+                        }
+                    });
+
+                    if (reason !== undefined) {
+                        try {
+                            const response = await fetch(`/api/log/memos/${memo._id}/reject`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({ reason: reason || '' })
+                            });
+
+                            const data = await response.json();
+                            if (data.success) {
+                                await Swal.fire({
+                                    icon: 'success',
+                                    title: 'Memo Rejected',
+                                    text: data.message || 'Memo has been rejected.'
+                                });
+                                // Refresh memo list
+                                if (typeof fetchMemos === 'function') {
+                                    fetchMemos();
+                                }
+                                // Close modal
+                                if (memoViewerModal) {
+                                    memoViewerModal.style.display = 'none';
+                                }
+                            } else {
+                                throw new Error(data.message || 'Failed to reject memo');
+                            }
+                        } catch (error) {
+                            console.error('Error rejecting memo:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'Failed to reject memo'
+                            });
+                        }
+                    }
+                });
+
+                const approveBtn = document.createElement('button');
+                approveBtn.textContent = 'Approve';
+                approveBtn.style.cssText = 'background:#1C89E3;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:500;font-size:14px;transition:all 0.2s;min-width:100px;';
+                approveBtn.addEventListener('mouseenter', () => {
+                    approveBtn.style.background = '#1570cd';
+                });
+                approveBtn.addEventListener('mouseleave', () => {
+                    approveBtn.style.background = '#1C89E3';
+                });
+                approveBtn.addEventListener('click', async () => {
+                    try {
+                        const response = await fetch(`/api/log/memos/${memo._id}/approve`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+
+                        const data = await response.json();
+                        if (data.success) {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Memo Approved',
+                                text: data.message || 'Memo has been approved and sent to recipients.'
+                            });
+                            // Refresh memo list
+                            if (typeof fetchMemos === 'function') {
+                                fetchMemos();
+                            }
+                            // Close modal
+                            if (memoViewerModal) {
+                                memoViewerModal.style.display = 'none';
+                            }
+                        } else {
+                            throw new Error(data.message || 'Failed to approve memo');
+                        }
+                    } catch (error) {
+                        console.error('Error approving memo:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: error.message || 'Failed to approve memo'
+                        });
+                    }
+                });
+
+                footer.appendChild(rejectBtn);
+                footer.appendChild(approveBtn);
+            } else {
+                // Hide footer if buttons shouldn't be shown
+                footer.style.display = 'none';
+            }
+        }
     }
 
     // Show memo viewer
     function showMemoViewer() {
+        if (memoViewerModal) {
+            memoViewerModal.style.display = 'flex';
+            memoViewerModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
         if (emptyState) {emptyState.style.display = 'none';}
         if (memoViewer) {memoViewer.style.display = 'flex';}
     }
 
     // Show default empty view
     function showDefaultView() {
+        if (memoViewerModal) {
+            memoViewerModal.style.display = 'none';
+            memoViewerModal.classList.remove('open');
+        }
+        document.body.style.overflow = '';
         if (emptyState) {emptyState.style.display = 'flex';}
         if (memoViewer) {memoViewer.style.display = 'none';}
         currentMemoIndex = -1;
@@ -3825,20 +4441,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayMemoContent(data.memo);
                     }
 
-                    // Show success notification
-                    if (typeof showNotification === 'function') {
-                        showNotification('Memo acknowledged successfully', 'success');
-                    } else if (typeof Swal !== 'undefined') {
+                    // Show success notification via SweetAlert when available
+                    if (typeof Swal !== 'undefined') {
                         Swal.fire({
                             icon: 'success',
-                            title: 'Acknowledged',
-                            text: 'Memo acknowledged successfully',
-                            timer: 2000,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
+                            title: 'Memo has been acknowledged',
+                            timer: 1500,
+                            showConfirmButton: false
                         });
+                    } else if (typeof showNotification === 'function') {
+                        showNotification('Memo acknowledged successfully', 'success');
                     }
+
+                    // Close memo viewer modal after acknowledging
+                    hideMemoViewer();
                 } else {
                     throw new Error(data?.message || 'Failed to acknowledge memo');
                 }

@@ -10,7 +10,9 @@ const CalendarEventSchema = new mongoose.Schema({
     description: { type: String, default: '' },
     memoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Memo', required: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    status: { type: String, enum: ['scheduled', 'sent', 'cancelled'], default: 'scheduled' }
+    status: { type: String, enum: ['scheduled', 'sent', 'cancelled'], default: 'scheduled' },
+    // Store Google Calendar event IDs for each participant (email -> googleEventId)
+    googleCalendarEventIds: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, {
     timestamps: true
 });

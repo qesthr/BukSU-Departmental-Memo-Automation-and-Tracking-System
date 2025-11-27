@@ -363,7 +363,7 @@ exports.unarchiveUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt, canCrossSend, isActive } = req.body;
+        const { firstName, lastName, role, department, email, profilePicture, lastUpdatedAt, canCrossSend, canAddSignature, isActive } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -414,15 +414,19 @@ exports.updateUser = async (req, res) => {
         if (profilePicture !== undefined) {user.profilePicture = profilePicture;}
         if (isActive !== undefined) { user.isActive = !!isActive; user.status = isActive ? 'active' : 'disabled'; }
 
-        // Handle canCrossSend: only meaningful for secretaries
+        // Handle secretary-specific permissions
         const targetRole = role !== undefined ? role : user.role;
         if (targetRole === 'secretary') {
             if (canCrossSend !== undefined) {
                 user.canCrossSend = !!canCrossSend;
             }
+            if (canAddSignature !== undefined) {
+                user.canAddSignature = !!canAddSignature;
+            }
         } else {
-            // Non-secretaries shouldn't keep cross-send flag
+            // Non-secretaries shouldn't keep secretary-only flags
             user.canCrossSend = false;
+            user.canAddSignature = false;
         }
 
         // Enforce: Admins are not assigned to any department
@@ -481,14 +485,22 @@ exports.uploadProfilePicture = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const profilePictureUrl = `/images/uploads/${req.file.filename}`;
+        const mimeType = req.file.mimetype || 'image/png';
+        const base64Data = req.file.buffer?.toString('base64');
 
-        await User.findByIdAndUpdate(id, { profilePicture: profilePictureUrl });
+        if (!base64Data) {
+            return res.status(400).json({ message: 'Invalid image data' });
+        }
+
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+        await User.findByIdAndUpdate(id, { profilePicture: dataUrl });
+        console.log(`[ProfilePicture] Admin ${req.user?.email || req.user?._id || 'unknown'} updated ${id}'s profile picture (stored ${base64Data.length} bytes in DB).`);
 
         res.json({
             success: true,
             message: 'Profile picture updated successfully',
-            profilePicture: profilePictureUrl
+            profilePicture: dataUrl
         });
     } catch (error) {
         console.error('Error uploading profile picture:', error);
@@ -540,7 +552,16 @@ exports.getDepartments = async (req, res) => {
                 }
                 return d;
             });
-        const unique = Array.from(new Set(normalized)).sort((a, b) => a.localeCompare(b));
+
+        // Ensure core departments always appear even if no active user is currently assigned
+        const coreDepartments = [
+            'Food Technology',
+            'Electronics Technology',
+            'Automotive Technology',
+            'Information Technology and Entertainment Multimedia Computing'
+        ];
+
+        const unique = Array.from(new Set([...normalized, ...coreDepartments])).sort((a, b) => a.localeCompare(b));
         res.json({ success: true, departments: unique });
     } catch (error) {
         console.error('Error fetching departments:', error);

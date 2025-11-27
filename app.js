@@ -115,6 +115,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/signatures', signatureRoutes);
 app.use('/api/rollback', rollbackRoutes);
+app.use('/api/system', require('./backend/routes/systemRoutes'));
 app.use('/calendar', require('./backend/routes/calendarOAuthRoutes'));
 app.use('/api/analytics', require('./backend/routes/analyticsRoutes'));
 app.use('/analytics', require('./backend/routes/analyticsRoutes'));
@@ -190,13 +191,25 @@ app.use('/admin', require('./frontend/routes/adminRoutes'));
 app.get('/settings', isAuthenticated, validateUserRole, (req, res) => {
     const role = (req.user && req.user.role) || '';
     if (role === 'admin') {
-        return res.render('admin/settings', { user: req.user, path: '/settings' });
+        return res.render('admin/settings', {
+            pageTitle: 'Admin Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     if (role === 'secretary') {
-        return res.render('secretary-settings', { user: req.user, path: '/settings' });
+        return res.render('secretary-settings', {
+            pageTitle: 'Secretary Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     if (role === 'faculty') {
-        return res.render('faculty-settings', { user: req.user, path: '/settings' });
+        return res.render('faculty-settings', {
+            pageTitle: 'Faculty Settings | Memofy',
+            user: req.user,
+            path: '/settings'
+        });
     }
     return res.redirect('/login');
 });
@@ -206,11 +219,19 @@ app.use(express.static(path.join(__dirname, 'frontend/public')));
 app.use('/css', express.static(path.join(__dirname, 'frontend/public/css')));
 app.use('/images', express.static(path.join(__dirname, 'frontend/public/images')));
 app.use('/js', express.static(path.join(__dirname, 'frontend/public/js')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploads with cache-control headers to prevent aggressive caching of profile pictures
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res, path) => {
+        // For profile pictures, use shorter cache time to ensure updates are visible
+        if (path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour cache
+        }
+    }
+}));
 
 // Routes
 app.get('/', (req, res) => {
-    res.render('login'); // frontend/views/login.ejs
+    res.render('login', { pageTitle: 'Memofy Login Page' }); // frontend/views/login.ejs
 });
 
 // Unauthorized access page - plain white background with error modal
@@ -223,6 +244,7 @@ app.get('/login', (req, res) => {
     const { error, message } = req.query || {};
     if (error === 'account_not_found') {
         return res.render('login', {
+            pageTitle: 'Memofy Login Page',
             showMinimalMessageModal: true,
             modalTitle: 'Account Not Found',
             modalMessage: message || 'Your account has not been added by an administrator. Please contact your administrator to create your account.',
@@ -231,20 +253,25 @@ app.get('/login', (req, res) => {
     }
     if (error || message) {
         return res.render('login', {
+            pageTitle: 'Memofy Login Page',
             showMessageModal: true,
             modalTitle: error ? 'Login Error' : 'Message',
             modalMessage: message || 'Authentication failed. Please try again.',
             modalType: 'error'
         });
     }
-    return res.render('login');
+    return res.render('login', { pageTitle: 'Memofy Login Page' });
 });
 
 // Admin Calendar
 app.get('/calendar', isAuthenticated, (req, res) => {
     const role = req.user?.role;
     if (role === 'admin') {
-        return res.render('admin/calendar', { user: req.user, path: '/calendar' });
+        return res.render('admin/calendar', {
+            pageTitle: 'Admin Calendar | Memofy',
+            user: req.user,
+            path: '/calendar'
+        });
     }
     if (role === 'secretary') {
         return res.redirect('/secretary/calendar');
@@ -254,12 +281,20 @@ app.get('/calendar', isAuthenticated, (req, res) => {
 
 // Secretary Calendar - only for secretaries (admin blocked)
 app.get('/secretary/calendar', isAuthenticated, validateUserRole, requireRole('secretary'), (req, res) => {
-    return res.render('secretary-calendar', { user: req.user, path: '/calendar' });
+    return res.render('secretary-calendar', {
+        pageTitle: 'Secretary Calendar | Memofy',
+        user: req.user,
+        path: '/calendar'
+    });
 });
 
 // Faculty Calendar - view-only, only for faculty
 app.get('/faculty/calendar', isAuthenticated, validateUserRole, requireRole('faculty'), (req, res) => {
-    return res.render('faculty-calendar', { user: req.user, path: '/faculty/calendar' });
+    return res.render('faculty-calendar', {
+        pageTitle: 'Faculty Calendar | Memofy',
+        user: req.user,
+        path: '/faculty/calendar'
+    });
 });
 
 
@@ -296,68 +331,94 @@ app.get('/admin-dashboard', isAuthenticated, validateUserRole, isAdmin, async (r
             .populate('sender', 'firstName lastName email')
             .populate('recipient', 'firstName lastName email');
         res.render('admin-dashboard', {
+            pageTitle: 'Admin Dashboard | Memofy',
             user: req.user,
             path: '/admin-dashboard',
             allMemos
         });
     } catch (e) {
-        res.render('admin-dashboard', { user: req.user, path: '/admin-dashboard', allMemos: [] });
+        res.render('admin-dashboard', {
+            pageTitle: 'Admin Dashboard | Memofy',
+            user: req.user,
+            path: '/admin-dashboard',
+            allMemos: []
+        });
     }
 });
 
-// Unified dashboard route for secretary and faculty ONLY (admin blocked)
-app.get('/dashboard', isAuthenticated, validateUserRole, requireRole('secretary', 'faculty'), async (req, res) => {
+// Secretary Dashboard route - SECRETARY ONLY
+app.get('/secretary-dashboard', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
+    try {
+        const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
+            .populate('recipient', 'firstName lastName email');
+        return res.render('secretary-dashboard', {
+            pageTitle: 'Secretary Dashboard | Memofy',
+            user: req.user,
+            path: '/secretary-dashboard',
+            memos
+        });
+    } catch (e) {
+        return res.render('secretary-dashboard', {
+            pageTitle: 'Secretary Dashboard | Memofy',
+            user: req.user,
+            path: '/secretary-dashboard',
+            memos: []
+        });
+    }
+});
+
+// Faculty Dashboard route - FACULTY ONLY
+app.get('/faculty-dashboard', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
+    try {
+        // Get memos received by faculty (only sent/approved status, not pending)
+        const receivedMemos = await Memo.find({
+            recipient: req.user._id,
+            status: { $in: ['sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .populate('sender', 'firstName lastName email profilePicture department')
+            .populate('recipient', 'firstName lastName email profilePicture department');
+
+        // Count total received memos
+        const totalReceived = await Memo.countDocuments({
+            recipient: req.user._id,
+            status: { $in: ['sent', 'approved'] },
+            activityType: { $ne: 'system_notification' }
+        });
+
+        return res.render('faculty-dashboard', {
+            pageTitle: 'Faculty Dashboard | Memofy',
+            user: req.user,
+            path: '/faculty-dashboard',
+            receivedMemos: receivedMemos || [],
+            totalReceived: totalReceived || 0
+        });
+    } catch (e) {
+        console.error('Error fetching faculty dashboard data:', e);
+        return res.render('faculty-dashboard', {
+            pageTitle: 'Faculty Dashboard | Memofy',
+            user: req.user,
+            path: '/faculty-dashboard',
+            receivedMemos: [],
+            totalReceived: 0
+        });
+    }
+});
+
+// Legacy /dashboard route - redirects to appropriate dashboard based on role
+app.get('/dashboard', isAuthenticated, validateUserRole, (req, res) => {
     const role = (req.user && req.user.role) || '';
-
-    if (role === 'secretary') {
-        try {
-            const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
-                .populate('recipient', 'firstName lastName email');
-            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos });
-        } catch (e) {
-            return res.render('secretary-dashboard', { user: req.user, path: '/dashboard', memos: [] });
-        }
+    if (role === 'admin') {
+        return res.redirect('/admin-dashboard');
+    } else if (role === 'secretary') {
+        return res.redirect('/secretary-dashboard');
+    } else if (role === 'faculty') {
+        return res.redirect('/faculty-dashboard');
+    } else {
+        return res.redirect('/login');
     }
-
-    if (role === 'faculty') {
-        try {
-            // Get memos received by faculty (only sent/approved status, not pending)
-            const receivedMemos = await Memo.find({
-                recipient: req.user._id,
-                status: { $in: ['sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
-            })
-                .sort({ createdAt: -1 })
-                .limit(10)
-                .populate('sender', 'firstName lastName email profilePicture department')
-                .populate('recipient', 'firstName lastName email profilePicture department');
-
-            // Count total received memos
-            const totalReceived = await Memo.countDocuments({
-                recipient: req.user._id,
-                status: { $in: ['sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
-            });
-
-            return res.render('faculty-dashboard', {
-                user: req.user,
-                path: '/dashboard',
-                receivedMemos: receivedMemos || [],
-                totalReceived: totalReceived || 0
-            });
-        } catch (e) {
-            console.error('Error fetching faculty dashboard data:', e);
-            return res.render('faculty-dashboard', {
-                user: req.user,
-                path: '/dashboard',
-                receivedMemos: [],
-                totalReceived: 0
-            });
-        }
-    }
-
-    // This should never be reached due to requireRole middleware, but keep as safety
-    return res.redirect('/admin-dashboard?error=invalid_role');
 });
 
 // Secretary memos page - only for secretaries (admin blocked)
@@ -379,9 +440,21 @@ app.get('/secretary/memos', isAuthenticated, validateUserRole, requireRole('secr
         })
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email');
-        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos, received });
+        return res.render('secretary-memos', {
+            pageTitle: 'Secretary Memos | Memofy',
+            user: req.user,
+            path: '/secretary/memos',
+            memos,
+            received
+        });
     } catch (e) {
-        return res.render('secretary-memos', { user: req.user, path: '/secretary/memos', memos: [], received: [] });
+        return res.render('secretary-memos', {
+            pageTitle: 'Secretary Memos | Memofy',
+            user: req.user,
+            path: '/secretary/memos',
+            memos: [],
+            received: []
+        });
     }
 });
 
@@ -409,6 +482,7 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
             .populate('createdBy', 'firstName lastName email');
 
         return res.render('secretary-archive', {
+            pageTitle: 'Secretary Archive | Memofy',
             user: req.user,
             path: '/secretary/archive',
             archivedMemos: archivedMemos || [],
@@ -417,6 +491,7 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
     } catch (e) {
         console.error('Error fetching archived memos:', e);
         return res.render('secretary-archive', {
+            pageTitle: 'Secretary Archive | Memofy',
             user: req.user,
             path: '/secretary/archive',
             archivedMemos: [],
@@ -430,17 +505,37 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
     try {
         const Signature = require('./backend/models/Signature');
 
-        // Get archived memos OR sent/approved memos that can be archived
-        // Include memos where the admin is the sender but NOT the recipient
-        // Exclude the tracking memo where recipient equals sender
+        // System-generated activity types to exclude from archive
+        const systemActivityTypes = [
+            'user_activity',
+            'system_notification',
+            'user_deleted',
+            'password_reset',
+            'welcome_email',
+            'user_profile_edited'
+        ];
+
+        // Get archived memos (explicitly archived or approved)
+        // Note: 'sent' status memos should appear in inbox, not archive
+        // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
         const archivedMemos = await Memo.find({
-            sender: req.user._id,
-            recipient: { $ne: req.user._id }, // Exclude memos sent to the admin themselves
-            status: { $in: ['archived', 'sent', 'approved'] },
-            activityType: { $ne: 'system_notification' }
+            $and: [
+                {
+                    $or: [
+                        { sender: req.user._id }, // Admin-created memos
+                        { recipient: req.user._id } // Memos received by admin (including approved/rejected secretary memos)
+                    ]
+                },
+                {
+                    status: { $in: ['archived', 'approved'] },
+                    // Exclude system activity types (should only be in Activity Logs)
+                    activityType: { $nin: systemActivityTypes }
+                }
+            ]
         })
             .sort({ createdAt: -1 })
-            .populate('recipient', 'firstName lastName email profilePicture department');
+            .populate('sender', 'firstName lastName email profilePicture department role')
+            .populate('recipient', 'firstName lastName email profilePicture department role');
 
         // Get archived calendar events created by the admin
         const archivedEvents = await CalendarEvent.find({
@@ -458,6 +553,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             .populate('createdBy', 'firstName lastName email');
 
         return res.render('admin-archive', {
+            pageTitle: 'Admin Archive | Memofy',
             user: req.user,
             path: '/admin/archive',
             archivedMemos: archivedMemos || [],
@@ -467,6 +563,7 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
     } catch (e) {
         console.error('Error fetching archived items:', e);
         return res.render('admin-archive', {
+            pageTitle: 'Admin Archive | Memofy',
             user: req.user,
             path: '/admin/archive',
             archivedMemos: [],
@@ -494,9 +591,19 @@ app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('facult
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received });
+        return res.render('faculty-memos', {
+            pageTitle: 'Faculty Memos | Memofy',
+            user: req.user,
+            path: '/faculty/memos',
+            received
+        });
     } catch (e) {
-        return res.render('faculty-memos', { user: req.user, path: '/faculty/memos', received: [] });
+        return res.render('faculty-memos', {
+            pageTitle: 'Faculty Memos | Memofy',
+            user: req.user,
+            path: '/faculty/memos',
+            received: []
+        });
     }
 });
 
@@ -512,10 +619,20 @@ app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('facu
             .sort({ createdAt: -1 })
             .populate('sender', 'firstName lastName email profilePicture department')
             .populate('recipient', 'firstName lastName email profilePicture department');
-        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: archivedMemos || [] });
+        return res.render('faculty-archive', {
+            pageTitle: 'Faculty Archive | Memofy',
+            user: req.user,
+            path: '/faculty/archive',
+            archivedMemos: archivedMemos || []
+        });
     } catch (e) {
         console.error('Error fetching archived memos:', e);
-        return res.render('faculty-archive', { user: req.user, path: '/faculty/archive', archivedMemos: [] });
+        return res.render('faculty-archive', {
+            pageTitle: 'Faculty Archive | Memofy',
+            user: req.user,
+            path: '/faculty/archive',
+            archivedMemos: []
+        });
     }
 });
 
@@ -528,6 +645,7 @@ app.get('/log', (req, res) => {
         }
         // Admins and secretaries go to admin log
         res.render('admin/log', {
+            pageTitle: 'Activity Log | Memofy',
             user: req.user,
             path: '/log'
         });
@@ -536,11 +654,8 @@ app.get('/log', (req, res) => {
     }
 });
 
-// Import and use admin routes
-const adminRoutes = require('./frontend/routes/adminRoutes');
-
-// Mount admin routes - all admin routes will be protected by isAdmin middleware
-app.use('/', adminRoutes);
+// Note: Admin routes are already mounted at /admin prefix (see line 189)
+// This prevents conflicts with faculty-dashboard and secretary-dashboard routes
 
 // Error handling middleware
 const errorHandler = require('./backend/middleware/errorHandler');
@@ -551,12 +666,5 @@ app.use(errorHandler);
 // Listen on all network interfaces (0.0.0.0) to allow remote access
 // For localhost-only access, use: app.listen(port, 'localhost', ...)
 app.listen(port, '0.0.0.0', () => {
-    const localIP = require('os').networkInterfaces();
-    const ipv4 = Object.values(localIP)
-        .flat()
-        .find(i => i.family === 'IPv4' && !i.internal)?.address;
     console.info(`Server is running at http://localhost:${port}`);
-    if (ipv4) {
-        console.info(`Server also accessible at http://${ipv4}:${port}`);
-    }
 });

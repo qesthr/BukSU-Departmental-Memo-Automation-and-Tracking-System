@@ -14,7 +14,7 @@ router.get('/check-auth', authController.checkAuth);
 
 // Self profile endpoints
 router.put('/me', isAuthenticated, authController.updateMe);
-router.post('/me/profile-picture', isAuthenticated, upload.single('profilePicture'), authController.uploadMyProfilePicture);
+router.post('/me/profile-picture', isAuthenticated, upload.memory.single('profilePicture'), authController.uploadMyProfilePicture);
 
 // Forgot Password System Test Page
 router.get('/forgot-password-system-test', (req, res) => {

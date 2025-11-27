@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memofy Login Page</title>
+    <title><%= typeof pageTitle !== 'undefined' ? pageTitle : 'Memofy' %></title>
     <link rel="icon" type="image/png" href="/images/memofy-logo.png">
     <link rel="icon" type="image/png" href="/images/Screenshot_2025-09-28_142025.png">
     <link rel="stylesheet" href="/css/login.css">
@@ -46,7 +46,14 @@
 
 <body>
     <%- body %>
-        <script src="/js/admin_login.js"></script>
+        <% const isProduction = process.env.NODE_ENV === 'production'; %>
+        <script
+            src="<%= isProduction
+                ? 'https://unpkg.com/vue@3/dist/vue.global.prod.js'
+                : 'https://unpkg.com/vue@3/dist/vue.global.js' %>"
+            crossorigin="anonymous"
+            defer></script>
+        <script src="/js/vue-hybrid.js" defer></script>
 </body>
 
 </html>

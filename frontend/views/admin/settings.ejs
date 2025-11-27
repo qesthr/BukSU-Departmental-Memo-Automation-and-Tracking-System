@@ -9,13 +9,371 @@
     <link rel="stylesheet" href="/css/settings.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
     <script src="/js/lucide.min.js"></script>
 </head>
-<body>
-    <div class="dashboard-container">
+
+<body data-current-user='<%- JSON.stringify({
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    department: user.department || "",
+    preferences: user.preferences || {}
+}) %>'>
+
+    <!-- Vue Components -->
+    <script>
+        // Setting Toggle Component
+        const SettingToggle = {
+            props: {
+                title: String,
+                description: String,
+                modelValue: Boolean,
+                settingKey: String,
+                loading: Boolean
+            },
+            emits: ['update:modelValue'],
+            methods: {
+                handleToggle() {
+                    this.$emit('update:modelValue', !this.modelValue);
+                }
+            },
+            template: `
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <h4>{{ title }}</h4>
+                        <p>{{ description }}</p>
+                    </div>
+                    <label class="switch">
+                        <input
+                            type="checkbox"
+                            :checked="modelValue"
+                            @change="handleToggle"
+                            :disabled="loading">
+                        <span class="slider" :class="{ loading: loading }"></span>
+                    </label>
+                </div>
+            `
+        };
+
+        // Feedback Message Component
+        const FeedbackMessage = {
+            props: {
+                message: String,
+                type: String, // 'success', 'error', 'info'
+                show: Boolean
+            },
+            computed: {
+                messageClass() {
+                    return `settings-feedback ${this.type}`;
+                }
+            },
+            template: `
+                <div v-if="show" :class="messageClass" role="status">
+                    {{ message }}
+                </div>
+            `
+        };
+
+        // Password Strength Indicator Component
+        const PasswordStrength = {
+            props: {
+                password: String
+            },
+            computed: {
+                strength() {
+                    if (!this.password) return { level: 0, text: '' };
+
+                    let score = 0;
+                    const password = this.password;
+
+                    // Length check
+                    if (password.length >= 8) score += 1;
+                    if (password.length >= 12) score += 1;
+
+                    // Character variety
+                    if (/[a-z]/.test(password)) score += 1;
+                    if (/[A-Z]/.test(password)) score += 1;
+                    if (/[0-9]/.test(password)) score += 1;
+                    if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+
+                    const levels = [
+                        { level: 0, text: 'Very Weak', class: 'very-weak' },
+                        { level: 1, text: 'Weak', class: 'weak' },
+                        { level: 2, text: 'Fair', class: 'fair' },
+                        { level: 3, text: 'Good', class: 'good' },
+                        { level: 4, text: 'Strong', class: 'strong' },
+                        { level: 5, text: 'Very Strong', class: 'very-strong' }
+                    ];
+
+                    return levels[Math.min(score, 5)] || levels[0];
+                }
+            },
+            template: `
+                <div v-if="password" class="password-strength">
+                    <div class="strength-bar">
+                        <div
+                            :class="['strength-fill', strength.class]"
+                            :style="{ width: (strength.level / 5) * 100 + '%' }">
+                        </div>
+                    </div>
+                    <span class="strength-text">{{ strength.text }}</span>
+                </div>
+            `
+        };
+    </script>
+
+    <!-- Main Vue App -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const { createApp, ref, computed, watch, onMounted } = Vue;
+
+            const app = createApp({
+                components: {
+                    SettingToggle,
+                    FeedbackMessage,
+                    PasswordStrength
+                },
+                setup() {
+                    // Reactive state
+                    const currentUser = ref({});
+                    const loading = ref(false);
+                    const saving = ref({});
+
+                    // Password form
+                    const passwordForm = ref({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                    });
+                    const passwordFeedback = ref({
+                        show: false,
+                        message: '',
+                        type: ''
+                    });
+
+                    // Settings state
+                    const settings = ref({
+                        darkMode: false,
+                        twoFactorEnabled: false,
+                        sessionTimeout: 30,
+                        notifications: {
+                            memoEmails: true,
+                            profileUpdates: false
+                        }
+                    });
+
+                    // Initialize from data attributes
+                    try {
+                        const userData = document.body.getAttribute('data-current-user');
+                        if (userData) {
+                            currentUser.value = JSON.parse(userData);
+                            // Initialize settings from user preferences
+                            if (currentUser.value.preferences) {
+                                settings.value = { ...settings.value, ...currentUser.value.preferences };
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error parsing user data:', err);
+                    }
+
+                    // Computed properties
+                    const passwordsMatch = computed(() => {
+                        return passwordForm.value.newPassword === passwordForm.value.confirmPassword;
+                    });
+
+                    const isPasswordValid = computed(() => {
+                        return passwordForm.value.newPassword.length >= 8 && passwordsMatch.value;
+                    });
+
+                    // Methods
+                    const updatePassword = async () => {
+                        if (!isPasswordValid.value) {
+                            showFeedback('password', 'Please ensure passwords match and are at least 8 characters long.', 'error');
+                            return;
+                        }
+
+                        loading.value = true;
+                        try {
+                            const response = await fetch('/api/user/change-password', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    currentPassword: passwordForm.value.currentPassword,
+                                    newPassword: passwordForm.value.newPassword
+                                })
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                showFeedback('password', 'Password updated successfully!', 'success');
+                                // Clear form
+                                passwordForm.value = {
+                                    currentPassword: '',
+                                    newPassword: '',
+                                    confirmPassword: ''
+                                };
+                            } else {
+                                showFeedback('password', data.message || 'Failed to update password', 'error');
+                            }
+                        } catch (error) {
+                            console.error('Error updating password:', error);
+                            showFeedback('password', 'Failed to update password. Please try again.', 'error');
+                        } finally {
+                            loading.value = false;
+                        }
+                    };
+
+                    const updateSetting = async (key, value) => {
+                        saving.value[key] = true;
+
+                        try {
+                            const response = await fetch('/api/user/preferences', {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    [key]: value
+                                })
+                            });
+
+                            const data = await response.json();
+
+                            if (!data.success) {
+                                // Revert the change if failed
+                                settings.value[key] = !value;
+                                showFeedback('settings', `Failed to update ${key}`, 'error');
+                            } else {
+                                showFeedback('settings', 'Settings updated successfully!', 'success');
+                            }
+                        } catch (error) {
+                            console.error('Error updating setting:', error);
+                            settings.value[key] = !value; // Revert on error
+                            showFeedback('settings', 'Failed to update settings', 'error');
+                        } finally {
+                            saving.value[key] = false;
+                        }
+                    };
+
+                    const updateSessionTimeout = async () => {
+                        saving.value.sessionTimeout = true;
+
+                        try {
+                            const response = await fetch('/api/user/preferences', {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    sessionTimeout: settings.value.sessionTimeout
+                                })
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                showFeedback('session', 'Session timeout updated successfully!', 'success');
+                            } else {
+                                showFeedback('session', 'Failed to update session timeout', 'error');
+                            }
+                        } catch (error) {
+                            console.error('Error updating session timeout:', error);
+                            showFeedback('session', 'Failed to update session timeout', 'error');
+                        } finally {
+                            saving.value.sessionTimeout = false;
+                        }
+                    };
+
+                    const showFeedback = (type, message, feedbackType = 'info') => {
+                        const feedbackMap = {
+                            password: passwordFeedback,
+                            settings: () => showTempFeedback('settings', message, feedbackType),
+                            session: () => showTempFeedback('session', message, feedbackType)
+                        };
+
+                        if (type === 'password') {
+                            passwordFeedback.value = {
+                                show: true,
+                                message,
+                                type: feedbackType
+                            };
+
+                            // Auto-hide success messages
+                            if (feedbackType === 'success') {
+                                setTimeout(() => {
+                                    passwordFeedback.value.show = false;
+                                }, 3000);
+                            }
+                        } else {
+                            feedbackMap[type](message, feedbackType);
+                        }
+                    };
+
+                    const showTempFeedback = (elementId, message, type) => {
+                        const element = document.getElementById(elementId + 'Feedback');
+                        if (element) {
+                            element.textContent = message;
+                            element.className = `settings-feedback ${type}`;
+                            element.style.display = 'block';
+
+                            setTimeout(() => {
+                                element.style.display = 'none';
+                            }, 3000);
+                        }
+                    };
+
+                    // Watchers for automatic setting updates
+                    watch(() => settings.value.notifications.memoEmails, (newVal) => {
+                        updateSetting('notifications.memoEmails', newVal);
+                    });
+
+                    watch(() => settings.value.notifications.profileUpdates, (newVal) => {
+                        updateSetting('notifications.profileUpdates', newVal);
+                    });
+
+                    // Lifecycle
+                    onMounted(() => {
+                        lucide.createIcons();
+                    });
+
+                    return {
+                        // State
+                        currentUser,
+                        loading,
+                        saving,
+                        passwordForm,
+                        passwordFeedback,
+                        settings,
+                        // Computed
+                        passwordsMatch,
+                        isPasswordValid,
+                        // Methods
+                        updatePassword,
+                        updateSessionTimeout
+                    };
+                }
+            });
+
+            app.mount('#app');
+        });
+    </script>
+
+    <!-- Vue App Container -->
+    <div id="app" class="dashboard-container">
         <%- include('../../components/nav'); %>
 
         <main class="main-content">
@@ -28,63 +386,70 @@
                 </div>
 
                 <div class="settings-grid">
+                    <!-- Change Password Card -->
                     <div class="settings-card">
                         <h3>Change Password</h3>
                         <p>Update your password regularly to keep your account secure.</p>
-                        <form id="passwordForm" class="settings-form">
+                        <form @submit.prevent="updatePassword" class="settings-form">
                             <div>
                                 <label for="currentPassword">Current Password</label>
-                                <input type="password" id="currentPassword" name="currentPassword" autocomplete="current-password" required>
+                                <input
+                                    type="password"
+                                    id="currentPassword"
+                                    v-model="passwordForm.currentPassword"
+                                    autocomplete="current-password"
+                                    required>
                             </div>
                             <div>
                                 <label for="newPassword">New Password</label>
-                                <input type="password" id="newPassword" name="newPassword" autocomplete="new-password" required>
+                                <input
+                                    type="password"
+                                    id="newPassword"
+                                    v-model="passwordForm.newPassword"
+                                    autocomplete="new-password"
+                                    required>
+                                <password-strength :password="passwordForm.newPassword"></password-strength>
                             </div>
                             <div>
                                 <label for="confirmPassword">Confirm New Password</label>
-                                <input type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
+                                <input
+                                    type="password"
+                                    id="confirmPassword"
+                                    v-model="passwordForm.confirmPassword"
+                                    autocomplete="new-password"
+                                    required>
+                                <div v-if="passwordForm.confirmPassword && !passwordsMatch" class="password-mismatch">
+                                    Passwords do not match
+                                </div>
                             </div>
                             <div class="settings-actions">
-                                <button type="submit" class="settings-btn primary">Update Password</button>
+                                <button
+                                    type="submit"
+                                    class="settings-btn primary"
+                                    :disabled="loading || !isPasswordValid">
+                                    {{ loading ? 'Updating...' : 'Update Password' }}
+                                </button>
                             </div>
-                            <div id="passwordFeedback" class="settings-feedback" role="status"></div>
+                            <feedback-message
+                                :message="passwordFeedback.message"
+                                :type="passwordFeedback.type"
+                                :show="passwordFeedback.show">
+                            </feedback-message>
                         </form>
                     </div>
 
-                    <div class="settings-card">
-                        <h3>Security & Appearance</h3>
-                        <p>Control how Memofy looks and how you sign in.</p>
-                        <div class="preferences-grid">
-                            <div class="setting-row">
-                                <div class="setting-info">
-                                    <h4>Dark Mode</h4>
-                                    <p>Switch between light and dark themes.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="darkModeToggle" data-setting="darkMode">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="setting-row">
-                                <div class="setting-info">
-                                    <h4>Two-Factor Authentication</h4>
-                                    <p>Require an OTP sent to your email when signing in.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="twoFactorToggle" data-setting="twoFactorEnabled">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
+                    <!-- Session Timeout Card -->
                     <div class="settings-card">
                         <h3>Session Timeout</h3>
                         <p>Choose how long to keep sessions active while idle.</p>
                         <div class="settings-form">
                             <div>
                                 <label for="sessionTimeoutSelect">Auto logout after</label>
-                                <select id="sessionTimeoutSelect">
+                                <select
+                                    id="sessionTimeoutSelect"
+                                    v-model="settings.sessionTimeout"
+                                    @change="updateSessionTimeout"
+                                    :disabled="saving.sessionTimeout">
                                     <option value="1">1 minute</option>
                                     <option value="5">5 minutes</option>
                                     <option value="10">10 minutes</option>
@@ -98,30 +463,25 @@
                         </div>
                     </div>
 
+                    <!-- Notifications Card -->
                     <div class="settings-card">
                         <h3>Notifications</h3>
                         <p>Stay informed about activity that matters.</p>
                         <div class="preferences-grid">
-                            <div class="setting-row">
-                                <div class="setting-info">
-                                    <h4>New Memo Emails</h4>
-                                    <p>Email me whenever new memos are created.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" data-setting="notifications.memoEmails" id="memoEmailToggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="setting-row">
-                                <div class="setting-info">
-                                    <h4>Profile Updates</h4>
-                                    <p>Notify me when users update their details.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" data-setting="notifications.profileUpdates" id="profileUpdateToggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
+                            <setting-toggle
+                                title="New Memo Emails"
+                                description="Email me whenever new memos are created."
+                                v-model="settings.notifications.memoEmails"
+                                setting-key="notifications.memoEmails"
+                                :loading="saving['notifications.memoEmails']">
+                            </setting-toggle>
+                            <setting-toggle
+                                title="Profile Updates"
+                                description="Notify me when users update their details."
+                                v-model="settings.notifications.profileUpdates"
+                                setting-key="notifications.profileUpdates"
+                                :loading="saving['notifications.profileUpdates']">
+                            </setting-toggle>
                         </div>
                         <div class="settings-feedback" id="notificationFeedback" role="status"></div>
                     </div>
@@ -133,7 +493,70 @@
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
+
+        // Add CSS for password strength and loading states
+        const style = document.createElement('style');
+        style.textContent = `
+            .password-strength {
+                margin-top: 0.5rem;
+                font-size: 0.875rem;
+            }
+
+            .strength-bar {
+                width: 100%;
+                height: 4px;
+                background: #e5e7eb;
+                border-radius: 2px;
+                overflow: hidden;
+                margin-bottom: 0.25rem;
+            }
+
+            .strength-fill {
+                height: 100%;
+                transition: width 0.3s ease;
+            }
+
+            .strength-fill.very-weak { background: #ef4444; }
+            .strength-fill.weak { background: #f59e0b; }
+            .strength-fill.fair { background: #eab308; }
+            .strength-fill.good { background: #84cc16; }
+            .strength-fill.strong { background: #22c55e; }
+            .strength-fill.very-strong { background: #15803d; }
+
+            .strength-text {
+                color: #6b7280;
+                font-size: 0.75rem;
+            }
+
+            .password-mismatch {
+                color: #ef4444;
+                font-size: 0.875rem;
+                margin-top: 0.25rem;
+            }
+
+            .switch input:disabled + .slider.loading {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .settings-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .settings-feedback.success {
+                color: #059669;
+                background: #ecfdf5;
+                border: 1px solid #a7f3d0;
+            }
+
+            .settings-feedback.error {
+                color: #dc2626;
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
-    <script src="/js/settings.js"></script>
 </body>
 </html>

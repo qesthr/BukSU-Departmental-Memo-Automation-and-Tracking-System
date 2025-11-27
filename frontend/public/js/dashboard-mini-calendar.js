@@ -215,51 +215,81 @@
    * Render mini calendar
    */
   function renderMiniCalendar() {
-    if (!mini) return;
+    // Re-query elements in case they were rendered dynamically (e.g., by Vue)
+    const miniEl = document.getElementById('dashboardMiniCalendar');
+    const miniMonthElCurrent = document.getElementById('dashboardMiniCalMonth');
+    const miniPrevCurrent = document.getElementById('dashboardMiniPrev');
+    const miniNextCurrent = document.getElementById('dashboardMiniNext');
+
+    if (!miniEl) {
+      console.warn('Calendar container not found, skipping render');
+      return;
+    }
+
+    // Update references to current elements
+    const mini = miniEl;
+    const miniMonthEl = miniMonthElCurrent;
+    const miniPrev = miniPrevCurrent;
+    const miniNext = miniNextCurrent;
+
     mini.innerHTML = '';
 
     if (miniMonthEl) {
       miniMonthEl.textContent = miniCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
 
+    // Create header row for day names (matching secretary/faculty/admin calendar structure)
+    const headerRow = document.createElement('div');
+    headerRow.className = 'mini-cal-header-row';
     const dow = ['S','M','T','W','T','F','S'];
     dow.forEach(ch => {
-      const el = document.createElement('div');
-      el.className = 'mini-dow';
+      const el = document.createElement('span');
+      el.className = 'mini-cal-day-header';
       el.textContent = ch;
-      mini.appendChild(el);
+      headerRow.appendChild(el);
     });
+    mini.appendChild(headerRow);
 
-    const startDay = new Date(miniCursor);
-    startDay.setDate(1); // Start of month
+    // Create days container (matching secretary/faculty/admin calendar structure)
+    const daysContainer = document.createElement('div');
+    daysContainer.className = 'mini-cal-days';
+
+    const startDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth(), 1);
     const firstDow = startDay.getDay();
+    const lastDay = new Date(miniCursor.getFullYear(), miniCursor.getMonth() + 1, 0);
 
-    for (let i = 0; i < firstDow; i += 1) {
-      const spacer = document.createElement('div');
-      spacer.className = 'mini-day';
-      mini.appendChild(spacer);
-    }
+    // First day of the calendar grid (may be from previous month)
+    const calendarStart = new Date(startDay);
+    calendarStart.setDate(startDay.getDate() - firstDow);
 
-    const month = miniCursor.getMonth();
-    const year = miniCursor.getFullYear();
-    const iter = new Date(year, month, 1);
+    // Generate 42 days (6 weeks) to match secretary/faculty/admin structure
+    for (let i = 0; i < 42; i++) {
+      const currentDate = new Date(calendarStart);
+      currentDate.setDate(calendarStart.getDate() + i);
 
-    while (iter.getMonth() === month) {
       const el = document.createElement('div');
-      el.className = 'mini-day';
-      const dayNumber = iter.getDate();
+      el.className = 'mini-cal-day';
+      const dayNumber = currentDate.getDate();
       el.textContent = String(dayNumber);
 
-      const todayInManila = getTodayInManila();
-      const iterDateStr = formatDateManila(iter);
-      const todayDateStr = formatDateManila(todayInManila);
-
-      if (iterDateStr === todayDateStr) {
-        el.classList.add('mini-today');
+      // Check if this date is from current month
+      const isCurrentMonth = currentDate.getMonth() === miniCursor.getMonth();
+      if (!isCurrentMonth) {
+        el.classList.add('mini-cal-day-other');
       }
 
-      const dayEvents = getEventsForDate(iter);
+      // Check if today
+      const todayInManila = getTodayInManila();
+      const iterDateStr = formatDateManila(currentDate);
+      const todayDateStr = formatDateManila(todayInManila);
+      if (iterDateStr === todayDateStr) {
+        el.classList.add('mini-cal-day-today');
+      }
+
+      // Check for events
+      const dayEvents = getEventsForDate(currentDate);
       if (dayEvents.length > 0) {
+        el.classList.add('mini-cal-day-has-events');
         const indicatorContainer = document.createElement('div');
         indicatorContainer.className = 'mini-event-indicators';
         const priorityCategory = getHighestPriorityCategory(dayEvents);
@@ -272,14 +302,17 @@
         el.appendChild(indicatorContainer);
       }
 
+      // Click handler - show date details modal
       el.addEventListener('click', () => {
-        // Show date details modal when date is clicked
-        showDateModal(new Date(year, month, dayNumber));
+        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        clickedDate.setHours(0, 0, 0, 0);
+        showDateModal(clickedDate);
       });
 
-      mini.appendChild(el);
-      iter.setDate(iter.getDate() + 1);
+      daysContainer.appendChild(el);
     }
+
+    mini.appendChild(daysContainer);
   }
 
   /**
@@ -446,30 +479,63 @@
     document.addEventListener('keydown', handleEscape);
   }
 
-  // Navigation handlers
-  if (miniPrev) {
-    miniPrev.addEventListener('click', () => {
-      miniCursor.setMonth(miniCursor.getMonth() - 1);
-      renderMiniCalendar();
-    });
+  // Setup navigation handlers (can be called multiple times)
+  function setupNavigationHandlers() {
+    const miniPrevCurrent = document.getElementById('dashboardMiniPrev');
+    const miniNextCurrent = document.getElementById('dashboardMiniNext');
+
+    // Remove old listeners if they exist
+    if (window._miniPrevHandler) {
+      const oldPrev = document.getElementById('dashboardMiniPrev');
+      if (oldPrev) oldPrev.removeEventListener('click', window._miniPrevHandler);
+    }
+    if (window._miniNextHandler) {
+      const oldNext = document.getElementById('dashboardMiniNext');
+      if (oldNext) oldNext.removeEventListener('click', window._miniNextHandler);
+    }
+
+    // Add new listeners
+    if (miniPrevCurrent) {
+      window._miniPrevHandler = () => {
+        miniCursor.setMonth(miniCursor.getMonth() - 1);
+        renderMiniCalendar();
+      };
+      miniPrevCurrent.addEventListener('click', window._miniPrevHandler);
+    }
+
+    if (miniNextCurrent) {
+      window._miniNextHandler = () => {
+        miniCursor.setMonth(miniCursor.getMonth() + 1);
+        renderMiniCalendar();
+      };
+      miniNextCurrent.addEventListener('click', window._miniNextHandler);
+    }
   }
 
-  if (miniNext) {
-    miniNext.addEventListener('click', () => {
-      miniCursor.setMonth(miniCursor.getMonth() + 1);
-      renderMiniCalendar();
-    });
-  }
-
-  // Initialize calendar when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      renderMiniCalendar();
-      loadEventsForMiniCalendar();
-    });
-  } else {
+  // Expose initialization function for external calls (e.g., after Vue mounts)
+  window.initDashboardMiniCalendar = function() {
     renderMiniCalendar();
     loadEventsForMiniCalendar();
+    setupNavigationHandlers();
+  };
+
+  // Initialize calendar when DOM is ready
+  function initializeCalendar() {
+    const calendarEl = document.getElementById('dashboardMiniCalendar');
+    if (calendarEl) {
+      renderMiniCalendar();
+      loadEventsForMiniCalendar();
+      setupNavigationHandlers();
+    } else {
+      // Element not found yet, try again after a short delay
+      setTimeout(initializeCalendar, 100);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeCalendar);
+  } else {
+    initializeCalendar();
   }
 
 })();

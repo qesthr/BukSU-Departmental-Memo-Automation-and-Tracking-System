@@ -42,7 +42,15 @@ function requirePermission(permission, options = {}) {
 
             if (!hasPermission) {
                 if (options.redirect) {
-                    return res.redirect('/dashboard?error=access_denied');
+                    // Redirect to role-based dashboard
+                    const role = req.user?.role;
+                    const dashboardMap = {
+                        admin: '/admin-dashboard',
+                        secretary: '/secretary-dashboard',
+                        faculty: '/faculty-dashboard'
+                    };
+                    const redirectUrl = dashboardMap[role] || '/login';
+                    return res.redirect(`${redirectUrl}?error=access_denied`);
                 }
                 return res.status(403).json({
                     success: false,
@@ -54,7 +62,15 @@ function requirePermission(permission, options = {}) {
         } catch (error) {
             console.error('RBAC middleware error:', error);
             if (options.redirect) {
-                return res.redirect('/dashboard?error=server_error');
+                // Redirect to role-based dashboard
+                const role = req.user?.role;
+                const dashboardMap = {
+                    admin: '/admin-dashboard',
+                    secretary: '/secretary-dashboard',
+                    faculty: '/faculty-dashboard'
+                };
+                const redirectUrl = dashboardMap[role] || '/login';
+                return res.redirect(`${redirectUrl}?error=server_error`);
             }
             return res.status(500).json({
                 success: false,
@@ -100,7 +116,15 @@ function requireAnyPermission(permissions, options = {}) {
 
             if (!hasPermission) {
                 if (options.redirect) {
-                    return res.redirect('/dashboard?error=access_denied');
+                    // Redirect to role-based dashboard
+                    const role = req.user?.role;
+                    const dashboardMap = {
+                        admin: '/admin-dashboard',
+                        secretary: '/secretary-dashboard',
+                        faculty: '/faculty-dashboard'
+                    };
+                    const redirectUrl = dashboardMap[role] || '/login';
+                    return res.redirect(`${redirectUrl}?error=access_denied`);
                 }
                 return res.status(403).json({
                     success: false,
@@ -112,7 +136,15 @@ function requireAnyPermission(permissions, options = {}) {
         } catch (error) {
             console.error('RBAC middleware error:', error);
             if (options.redirect) {
-                return res.redirect('/dashboard?error=server_error');
+                // Redirect to role-based dashboard
+                const role = req.user?.role;
+                const dashboardMap = {
+                    admin: '/admin-dashboard',
+                    secretary: '/secretary-dashboard',
+                    faculty: '/faculty-dashboard'
+                };
+                const redirectUrl = dashboardMap[role] || '/login';
+                return res.redirect(`${redirectUrl}?error=server_error`);
             }
             return res.status(500).json({
                 success: false,
@@ -158,7 +190,15 @@ function requireAllPermissions(permissions, options = {}) {
 
             if (!hasPermission) {
                 if (options.redirect) {
-                    return res.redirect('/dashboard?error=access_denied');
+                    // Redirect to role-based dashboard
+                    const role = req.user?.role;
+                    const dashboardMap = {
+                        admin: '/admin-dashboard',
+                        secretary: '/secretary-dashboard',
+                        faculty: '/faculty-dashboard'
+                    };
+                    const redirectUrl = dashboardMap[role] || '/login';
+                    return res.redirect(`${redirectUrl}?error=access_denied`);
                 }
                 return res.status(403).json({
                     success: false,
@@ -170,7 +210,15 @@ function requireAllPermissions(permissions, options = {}) {
         } catch (error) {
             console.error('RBAC middleware error:', error);
             if (options.redirect) {
-                return res.redirect('/dashboard?error=server_error');
+                // Redirect to role-based dashboard
+                const role = req.user?.role;
+                const dashboardMap = {
+                    admin: '/admin-dashboard',
+                    secretary: '/secretary-dashboard',
+                    faculty: '/faculty-dashboard'
+                };
+                const redirectUrl = dashboardMap[role] || '/login';
+                return res.redirect(`${redirectUrl}?error=server_error`);
             }
             return res.status(500).json({
                 success: false,
@@ -208,8 +256,8 @@ function requireAdmin(options = {}) {
                 const role = req.user?.role;
                 const dashboardMap = {
                     admin: '/admin-dashboard',
-                    secretary: '/dashboard',
-                    faculty: '/dashboard'
+                    secretary: '/secretary-dashboard',
+                    faculty: '/faculty-dashboard'
                 };
                 const redirectUrl = dashboardMap[role] || '/login';
                 return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);

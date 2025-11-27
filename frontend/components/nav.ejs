@@ -1,6 +1,5 @@
 <!-- Sidebar -->
-<aside class="sidebar"
-    data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'
+<aside class="sidebar" data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'
     data-user-role="<%= user.role %>">
     <div class="sidebar-container">
         <!-- Logo -->
@@ -41,8 +40,8 @@
                 </li>
                 <li class="<%= path === '/admin/archive' ? 'active' : '' %>">
                     <a href="/admin/archive">
-                        <i data-lucide="archive"
-                            class="nav-archive-icon <%= path === '/admin/archive' ? 'active' : '' %>"></i>
+                        <img src="<%= path === '/admin/archive' ? '/images/archive.png' : '/images/archive-in.png' %>"
+                            alt="Archive" class="nav-icon">
                         <span>Archive</span>
                     </a>
                 </li>
@@ -60,14 +59,15 @@
                         <span>Report</span>
                     </a>
                 </li>
-                <% if (user.role === 'admin') { %>
-                <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">
-                    <a href="/admin/activity-logs">
-                        <i data-lucide="activity" class="nav-icon"></i>
-                        <span>Activity Logs</span>
-                    </a>
-                </li>
-                <% } %>
+                <% if (user.role==='admin' ) { %>
+                    <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">
+                        <a href="/admin/activity-logs">
+                            <img src="<%= path === '/admin/activity-logs' ? '/images/pulse.png' : '/images/pulse-in.png' %>"
+                                alt="Activity Logs" class="nav-icon">
+                            <span>Activity Logs</span>
+                        </a>
+                    </li>
+                    <% } %>
             </ul>
         </nav>
 
@@ -100,6 +100,7 @@
     </div>
 </aside>
 
+<% if (typeof skipScripts === 'undefined' || !skipScripts) { %>
 <script>
     (function () {
         const sidebar = document.querySelector('.sidebar');
@@ -117,12 +118,13 @@
         document.body && document.body.classList.toggle('dark-mode', enableDark);
     })();
 </script>
+<% } %>
 
 <!-- Profile Edit Modal -->
 <div id="profileEditModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Edit Profile</h2>
+            <h2 style="color: white;">Edit Profile</h2>
             <button class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
@@ -131,32 +133,35 @@
 
                 <!-- Profile Picture Upload -->
                 <div class="form-group">
-                    <label>Profile Picture</label>
-                    <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="text-align: center; margin-bottom: 1rem; margin-top: 1rem;">
                         <img id="profilePreviewImg" src="<%= user.profilePicture || '/images/memofy-logo.png' %>"
                             alt="Profile Preview"
                             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #e2e8f0;">
                     </div>
                     <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
                     <button type="button" id="changePicBtn"
-                        style="width: 100%; padding: 0.75rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+                        style="width: 100%; padding: 0.75rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; margin-bottom: 10px;">
                         Change Profile Picture
                     </button>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 10px;">
                     <label for="editProfileFirstName">First Name</label>
                     <input type="text" id="editProfileFirstName" value="<%= user.firstName || '' %>" required>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 10px;">
                     <label for="editProfileLastName">Last Name</label>
                     <input type="text" id="editProfileLastName" value="<%= user.lastName || '' %>" required>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 10px;">
                     <label for="editProfileEmail">Email</label>
-                    <input type="email" id="editProfileEmail" value="<%= user.email || '' %>" required>
+                    <input type="email"
+                           id="editProfileEmail"
+                           value="<%= user.email || '' %>"
+                           disabled
+                           aria-disabled="true">
                 </div>
 
                 <div class="form-group">
@@ -205,7 +210,9 @@
     </div>
 </div>
 
+<% if (typeof skipScripts === 'undefined' || !skipScripts) { %>
 <script src="/js/sidebar-hover.js"></script>
 <script src="/js/profile-modal.js"></script>
 <script src="/js/logout-modal.js"></script>
 <script src="/js/session-timeout.js"></script>
+<% } %>

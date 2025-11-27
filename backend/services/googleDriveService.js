@@ -222,10 +222,34 @@ async function uploadMemoToDrive(memo) {
         pdfDoc.moveDown(2);
 
         // Memo Details
+        // For secretary-created memos, recipient field is set to secretary for tracking
+        // But actual recipients are in the recipients array - show first recipient or all recipients
+        let recipientDisplay = '';
+        if (memo.recipients && Array.isArray(memo.recipients) && memo.recipients.length > 0) {
+            // If recipients array exists and has items, use the first recipient
+            // Note: recipients array contains IDs, so we need to populate them
+            // For now, show recipient field if it's not the same as sender (admin memos)
+            // Otherwise, show "Multiple recipients" or first recipient email if available
+            if (memo.recipient && memo.recipient.email &&
+                memo.sender && memo.sender.email &&
+                memo.recipient.email !== memo.sender.email) {
+                // Normal case: recipient is different from sender
+                recipientDisplay = `${memo.recipient?.firstName || ''} ${memo.recipient?.lastName || ''} (${memo.recipient?.email || ''})`;
+            } else {
+                // Secretary-created memo: recipient field is secretary, but actual recipients are in recipients array
+                recipientDisplay = `Multiple recipients (${memo.recipients.length} recipient${memo.recipients.length > 1 ? 's' : ''})`;
+            }
+        } else if (memo.recipient) {
+            // Fallback to recipient field if recipients array is empty
+            recipientDisplay = `${memo.recipient?.firstName || ''} ${memo.recipient?.lastName || ''} (${memo.recipient?.email || ''})`;
+        } else {
+            recipientDisplay = 'N/A';
+        }
+
         pdfDoc.fontSize(12)
             .text(`Subject: ${memo.subject || 'No subject'}`, { align: 'left' })
             .text(`From: ${memo.sender?.firstName || ''} ${memo.sender?.lastName || ''} (${memo.sender?.email || ''})`)
-            .text(`To: ${memo.recipient?.firstName || ''} ${memo.recipient?.lastName || ''} (${memo.recipient?.email || ''})`)
+            .text(`To: ${recipientDisplay}`)
             .text(`Department: ${memo.department || 'N/A'}`)
             .text(`Priority: ${memo.priority || 'medium'}`)
             .text(`Date: ${new Date(memo.createdAt || Date.now()).toLocaleString()}`)

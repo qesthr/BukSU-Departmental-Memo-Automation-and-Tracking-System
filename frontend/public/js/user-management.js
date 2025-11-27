@@ -256,10 +256,28 @@ function normalizeDepartment(dept) {
                 `;
             }
 
+            // Add cache-busting to profile picture URLs
+            const getProfilePictureUrl = (profilePicture, user) => {
+                if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
+                    return '/images/memofy-logo.png';
+                }
+                // Data/blob URIs must not have cache-busting appended
+                if (typeof profilePicture === 'string' && (profilePicture.startsWith('data:') || profilePicture.startsWith('blob:'))) {
+                    return profilePicture;
+                }
+                // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
+                // Fallback to current time if updatedAt is not available
+                const cacheBuster = user && user.updatedAt
+                    ? new Date(user.updatedAt).getTime()
+                    : Date.now();
+                const separator = profilePicture.includes('?') ? '&' : '?';
+                return `${profilePicture}${separator}t=${cacheBuster}`;
+            };
+
             return `
             <div class="table-row" data-id="${user._id}" data-index="${filteredUsers.indexOf(user)}">
                 <div class="name-cell">
-                    <img src="${user.profilePicture || '/images/memofy-logo.png'}" class="user-avatar"
+                    <img src="${getProfilePictureUrl(user.profilePicture, user)}" class="user-avatar"
                          alt="${user.firstName} ${user.lastName}"
                          onerror="this.src='/images/memofy-logo.png'">
                     <div class="user-info">
@@ -560,11 +578,15 @@ function normalizeDepartment(dept) {
         if (activeBox) {
             formData.isActive = !!activeBox.checked;
         }
-        // Include canCrossSend only when role is secretary
+        // Include secretary-specific permissions only when role is secretary
         const roleVal = formData.role;
         const canCrossEl = document.getElementById('editCanCrossSend');
         if (roleVal === 'secretary' && canCrossEl) {
             formData.canCrossSend = !!canCrossEl.checked;
+        }
+        const canAddSigEl = document.getElementById('editCanAddSignature');
+        if (roleVal === 'secretary' && canAddSigEl) {
+            formData.canAddSignature = !!canAddSigEl.checked;
         }
         const errEl = document.getElementById('editErrorMsg');
         if (errEl) { errEl.textContent = ''; }
@@ -993,15 +1015,21 @@ function normalizeDepartment(dept) {
         } else {
             depSel.disabled = false;
         }
-        // Toggle canCrossSend checkbox visibility for secretaries
+        // Toggle secretary-specific permissions visibility
         const ccGroup = document.getElementById('editCanCrossSendGroup');
         const ccBox = document.getElementById('editCanCrossSend');
+        const sigGroup = document.getElementById('editCanAddSignatureGroup');
+        const sigBox = document.getElementById('editCanAddSignature');
         if (user.role === 'secretary') {
             if (ccGroup) {ccGroup.style.display = 'flex';}
             if (ccBox) {ccBox.checked = !!user.canCrossSend;}
+            if (sigGroup) {sigGroup.style.display = 'flex';}
+            if (sigBox) {sigBox.checked = (user.canAddSignature !== false);}
         } else {
             if (ccGroup) {ccGroup.style.display = 'none';}
             if (ccBox) {ccBox.checked = false;}
+            if (sigGroup) {sigGroup.style.display = 'none';}
+            if (sigBox) {sigBox.checked = false;}
         }
         const isSelf = window.currentUserId && String(window.currentUserId) === String(user._id);
         const note = document.getElementById('selfEditNote');
@@ -1020,20 +1048,25 @@ function normalizeDepartment(dept) {
         openModal(editUserModal);
     }
 
-    // Update canCrossSend visibility on role change in the edit form
+    // Update secretary-specific permissions visibility on role change in the edit form
     (function wireRoleChange(){
         const roleSel = document.getElementById('editRole');
         if (!roleSel) {return;}
         roleSel.addEventListener('change', () => {
             const ccGroup = document.getElementById('editCanCrossSendGroup');
             const ccBox = document.getElementById('editCanCrossSend');
+            const sigGroup = document.getElementById('editCanAddSignatureGroup');
+            const sigBox = document.getElementById('editCanAddSignature');
             const depSel = document.getElementById('editDepartment');
             if (roleSel.value === 'secretary') {
                 if (ccGroup) {ccGroup.style.display = 'flex';}
+                if (sigGroup) {sigGroup.style.display = 'flex';}
                 if (depSel) {depSel.disabled = false;}
             } else {
                 if (ccGroup) {ccGroup.style.display = 'none';}
                 if (ccBox) {ccBox.checked = false;}
+                if (sigGroup) {sigGroup.style.display = 'none';}
+                if (sigBox) {sigBox.checked = false;}
                 if (roleSel.value === 'admin') {
                     if (depSel) { depSel.disabled = true; depSel.value = ''; }
                 } else {

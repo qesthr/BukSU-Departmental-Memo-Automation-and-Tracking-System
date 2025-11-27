@@ -19,7 +19,7 @@
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    margin-top: -35px;
+    margin-top: -10px;
     /* position: sticky;
     top: 0; */
     /* ensure stacking context */
@@ -38,8 +38,10 @@
     margin-right: 1rem;
     display: flex;
     align-items: center;
-    z-index: 1; /* keep below modals/dropdowns */
-    overflow: hidden; /* prevent visual overflow into dropdowns/modals */
+    z-index: 1;
+    /* keep below modals/dropdowns */
+    overflow: hidden;
+    /* prevent visual overflow into dropdowns/modals */
 }
 
 
@@ -71,7 +73,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 0; /* stay within container clipping */
+    z-index: 0;
+    /* stay within container clipping */
 }
 
 /* 🔹 Header Actions (Notifications + Profile) */

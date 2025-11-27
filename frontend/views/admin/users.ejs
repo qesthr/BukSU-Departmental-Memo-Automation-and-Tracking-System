@@ -14,10 +14,13 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: gaPropertyId }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../../components/sweetalert2'); %>
+        <!-- SweetAlert2 -->
+        <%- include('../../components/sweetalert2'); %>
 
-    <script src="/js/lucide.min.js"></script>
+            <!-- Vue 3 CDN -->
+            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+            <script src="/js/lucide.min.js"></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -29,25 +32,14 @@
     department: user.department,
     canCrossSend: !!user.canCrossSend
 }) %>'>
-    <script>
-        (function () {
-            const root = document.body;
-            if (!root) { return; }
-            try {
-                window.currentUser = JSON.parse(root.getAttribute('data-current-user') || '{}');
-            } catch (err) {
-                window.currentUser = {};
-            }
-        })();
-    </script>
-    <div class="dashboard-container">
+    <div id="app" class="dashboard-container">
         <%- include('../../components/nav'); %>
 
             <!-- Main Content -->
             <main class="main-content">
                 <%- include('../../components/admintopbar') %>
                     <!-- Users Management Content -->
-                    <div class="dashboard-content">
+                    <div class="dashboard-content" style="margin-top: 10px;">
                         <div class="content-wrapper">
                             <!-- Header -->
                             <div class="content-header">
@@ -66,31 +58,28 @@
 
                             <!-- Filters -->
                             <div class="filters-section">
-                                <div class="view-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
-                                    <button id="activeUsersTab" class="view-tab active" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                <div class="view-tabs">
+                                    <button @click="currentView = 'active'"
+                                        :class="['view-tab', { active: currentView === 'active' }]"
+                                        :style="getTabStyle('active')"
+                                        style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; transition: all 0.2s;">
                                         Active Users
                                     </button>
-                                    <button id="archivedUsersTab" class="view-tab" style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: #6b7280; transition: all 0.2s;">
+                                    <button @click="currentView = 'archived'"
+                                        :class="['view-tab', { active: currentView === 'archived' }]"
+                                        :style="getTabStyle('archived')"
+                                        style="padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; transition: all 0.2s;">
                                         Archived Users
-                                        <span class="count" id="archivedCount">0</span>
+                                        <span class="count">({{ stats.archived || 0 }})</span>
                                     </button>
                                 </div>
-                                <div class="role-filters" id="roleFilters">
-                                    <button class="filter-btn active" data-role="all">
-                                        All
-                                        <span class="count" id="totalCount">27</span>
-                                    </button>
-                                    <button class="filter-btn" data-role="admin">
-                                        Admin
-                                        <span class="count" id="adminCount">0</span>
-                                    </button>
-                                    <button class="filter-btn" data-role="secretary">
-                                        Secretary
-                                        <span class="count" id="secretaryCount">2</span>
-                                    </button>
-                                    <button class="filter-btn" data-role="faculty">
-                                        Faculty
-                                        <span class="count" id="facultyCount">25</span>
+                                <div class="role-filters">
+                                    <button v-for="roleFilter in roleFilters" :key="roleFilter.value"
+                                        @click="currentFilter = roleFilter.value"
+                                        :class="['filter-btn', { active: currentFilter === roleFilter.value }]"
+                                        :data-role="roleFilter.value">
+                                        {{ roleFilter.label }}
+                                        <span class="count">{{ getRoleCount(roleFilter.value) }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -105,8 +94,23 @@
                                         <div class="actions-cell">Actions</div>
                                     </div>
 
-                                    <div id="usersList" class="table-body">
-                                        <!-- User rows will be dynamically inserted here -->
+                                    <div class="table-body">
+                                        <!-- Vue renders here - user-management.js will be prevented from rendering -->
+                                        <div id="usersList" style="display: none;"></div>
+                                        <div v-if="loading" class="table-row"
+                                            style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
+                                            <div>Loading users...</div>
+                                        </div>
+                                        <div v-else-if="filteredUsers.length === 0" class="table-row"
+                                            style="padding: 2rem; text-align: center; color: #6b7280; grid-template-columns: 1fr;">
+                                            <div>No users found</div>
+                                        </div>
+                                        <user-row v-for="user in filteredUsers" :key="user._id" :user="user"
+                                            :current-user-id="currentUserId" :is-locked="isLockedByOther(user._id)"
+                                            :lock-info="userLocks[user._id]" :current-view="currentView"
+                                            @edit="handleEditUser" @archive="handleArchiveUser"
+                                            @unarchive="handleUnarchiveUser">
+                                        </user-row>
                                     </div>
                                 </div>
                             </div>
@@ -118,7 +122,8 @@
                                     <div class="modal-header">
                                         <div class="modal-title-group">
                                             <h2>Add New User</h2>
-                                            <p class="modal-subtitle">Invite a colleague using their BukSU email</p>
+                                            <p class="modal-subtitle" style="margin-bottom: 12px;">Invite a colleague
+                                                using their BukSU email</p>
                                         </div>
                                     </div>
                                     <div class="modal-body add-user-modal-body">
@@ -137,7 +142,8 @@
                                                     <input type="email" id="email" required
                                                         pattern="^[A-Za-z0-9._%+-]+@(student\.)?buksu\.edu\.ph$"
                                                         title="Use an institutional email: @buksu.edu.ph or @student.buksu.edu.ph">
-                                                    <div id="emailHint" class="input-hint error" style="display:none;">Use
+                                                    <div id="emailHint" class="input-hint error" style="display:none;">
+                                                        Use
                                                         an institutional email: @buksu.edu.ph or @student.buksu.edu.ph
                                                     </div>
                                                 </div>
@@ -166,8 +172,8 @@
                                                 </div>
                                             </div>
                                             <div class="form-actions add-user-actions">
-                                                <button type="button"
-                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="button" class="btn btn-secondary close-modal"
+                                                    style="font-size: 16px;">Cancel</button>
                                                 <button type="submit" class="btn btn-primary">Add User</button>
                                             </div>
                                         </form>
@@ -180,8 +186,10 @@
                                 <div class="modal-content edit-user-modal-content">
                                     <div class="modal-header">
                                         <div class="modal-title-group">
-                                            <h2>Edit User</h2>
-                                            <p class="modal-subtitle">Update profile details and permissions</p>
+                                            <h2 style="color: white;">Edit User</h2>
+                                            <p class="modal-subtitle" style="color: white; padding-bottom: 12px;">Update
+                                                profile details and
+                                                permissions</p>
                                         </div>
                                     </div>
                                     <div class="modal-body edit-user-modal-body">
@@ -234,6 +242,11 @@
                                                     <input type="checkbox" id="editCanCrossSend">
                                                     <label for="editCanCrossSend">Can send to all departments</label>
                                                 </div>
+                                                <div class="form-group checkbox-field" id="editCanAddSignatureGroup"
+                                                    style="display:none;">
+                                                    <input type="checkbox" id="editCanAddSignature">
+                                                    <label for="editCanAddSignature">Can add memo signatures</label>
+                                                </div>
                                             </div>
 
                                             <div id="selfEditNote" class="form-note" style="display:none;">
@@ -242,8 +255,8 @@
                                             </div>
 
                                             <div class="form-actions">
-                                                <button type="button"
-                                                    class="btn btn-secondary close-modal">Cancel</button>
+                                                <button type="button" class="btn btn-secondary close-modal"
+                                                    style="font-size: 16px;">Cancel</button>
                                                 <button type="submit" class="btn btn-primary">Save Changes</button>
                                             </div>
                                         </form>
@@ -318,7 +331,8 @@
                                     </div>
                                     <div class="modal-body">
                                         <div id="deleteState" style="margin-bottom:8px;"></div>
-                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users will be hidden from the active users list.</p>
+                                        <p id="deleteMessage">Are you sure you want to archive this user? Archived users
+                                            will be hidden from the active users list.</p>
                                         <div class="form-actions">
                                             <button type="button" id="cancelDelete"
                                                 class="btn btn-secondary close-modal">Cancel</button>
@@ -394,15 +408,936 @@
             </main>
     </div>
 
-    <!-- Include needed JS -->
+    <!-- Vue 3 App with Composition API -->
+    <script>
+        const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
+
+        // User Row Component
+        const UserRow = {
+            props: {
+                user: { type: Object, required: true },
+                currentUserId: { type: String, default: '' },
+                isLocked: { type: Boolean, default: false },
+                lockInfo: { type: Object, default: () => ({}) },
+                currentView: { type: String, default: 'active' }
+            },
+            emits: ['edit', 'archive', 'unarchive'],
+            setup(props, { emit }) {
+                const formatName = () => {
+                    return `${props.user.firstName || ''} ${props.user.lastName || ''}`.trim() || props.user.email || 'Unknown';
+                };
+
+                const isSelf = computed(() => {
+                    return props.currentUserId && String(props.currentUserId) === String(props.user._id);
+                });
+
+                const handleEdit = () => {
+                    if (!props.isLocked) {
+                        emit('edit', props.user);
+                    }
+                };
+
+                const handleArchive = () => {
+                    if (!props.isLocked && !isSelf.value) {
+                        emit('archive', props.user);
+                    }
+                };
+
+                const handleUnarchive = () => {
+                    if (!props.isLocked) {
+                        emit('unarchive', props.user);
+                    }
+                };
+
+                // Add cache-busting to profile picture URLs to ensure fresh images
+                const getProfilePictureUrl = (profilePicture) => {
+                    if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
+                        return '/images/memofy-logo.png';
+                    }
+                    // Do not cache-bust data/blob URIs (query params break them)
+                    if (typeof profilePicture === 'string' && (profilePicture.startsWith('data:') || profilePicture.startsWith('blob:'))) {
+                        return profilePicture;
+                    }
+                    // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
+                    // Fallback to current time if updatedAt is not available
+                    const cacheBuster = props.user.updatedAt
+                        ? new Date(props.user.updatedAt).getTime()
+                        : Date.now();
+                    const separator = profilePicture.includes('?') ? '&' : '?';
+                    return `${profilePicture}${separator}t=${cacheBuster}`;
+                };
+
+                return {
+                    formatName,
+                    isSelf,
+                    handleEdit,
+                    handleArchive,
+                    handleUnarchive,
+                    getProfilePictureUrl
+                };
+            },
+            template: `
+                <div class="table-row" :data-id="user._id">
+                    <div class="name-cell">
+                        <img :src="getProfilePictureUrl(user.profilePicture)"
+                             class="user-avatar"
+                             :alt="formatName()"
+                             @error="$event.target.src='/images/memofy-logo.png'">
+                        <div class="user-info">
+                            <div class="user-name">{{ formatName() }}</div>
+                            <div class="user-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="department-cell">{{ user.department || '-' }}</div>
+                    <div class="role-cell">
+                        <span :class="['role-badge', user.role]">{{ user.role }}</span>
+                    </div>
+                    <div class="actions-cell">
+                        <span v-if="isLocked" class="lock-badge" style="margin-right:8px;color:#ef4444;font-size:.8rem;display:inline-flex;align-items:center;">Editing…</span>
+                        <template v-if="currentView === 'archived'">
+                            <button
+                                class="action-btn action-btn-unarchive"
+                                @click="handleUnarchive"
+                                :disabled="isLocked"
+                                :title="isLocked ? 'Unavailable while editing' : 'Unarchive'"
+                                :style="isLocked ? 'opacity:.5;cursor:not-allowed' : ''">
+                                <i data-lucide="archive-restore"></i>
+                            </button>
+                        </template>
+                        <template v-else>
+                            <button
+                                class="action-btn action-btn-edit"
+                                @click="handleEdit"
+                                :disabled="isLocked"
+                                :title="isLocked ? 'Another admin is editing' : 'Edit'"
+                                :style="isLocked ? 'opacity:.5;cursor:not-allowed' : ''">
+                                <i data-lucide="pencil"></i>
+                            </button>
+                            <button
+                                v-if="!isSelf"
+                                class="action-btn action-btn-archive"
+                                @click="handleArchive"
+                                :disabled="isLocked"
+                                :title="isLocked ? 'Unavailable while editing' : 'Archive'"
+                                :style="isLocked ? 'opacity:.5;cursor:not-allowed' : ''">
+                                <i data-lucide="archive"></i>
+                            </button>
+                            <button
+                                v-else
+                                class="action-btn action-btn-archive"
+                                title="You cannot archive your own account"
+                                disabled
+                                style="opacity:.5;cursor:not-allowed">
+                                <i data-lucide="archive"></i>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            `,
+            mounted() {
+                lucide.createIcons();
+            },
+            updated() {
+                lucide.createIcons();
+            }
+        };
+
+        // Main Vue App
+        createApp({
+            components: {
+                UserRow
+            },
+            setup() {
+                // Reactive state
+                const currentUser = ref({});
+                const currentUserId = ref('<%= user && user._id ? user._id : "" %>');
+                const users = ref([]);
+                const archivedUsers = ref([]);
+                const userLocks = ref({});
+                const stats = ref({
+                    total: 0,
+                    admin: 0,
+                    secretary: 0,
+                    faculty: 0,
+                    archived: 0
+                });
+                const currentView = ref('active'); // 'active' or 'archived'
+                const currentFilter = ref('all');
+                const loading = ref(false);
+                const searchTerm = ref('');
+                const currentEditingUserId = ref(null);
+                const editInactivityTimer = ref(null);
+                const editCountdownTimer = ref(null);
+                const secondsRemaining = ref(30);
+
+                // Role filters
+                const roleFilters = [
+                    { label: 'All', value: 'all' },
+                    { label: 'Admin', value: 'admin' },
+                    { label: 'Secretary', value: 'secretary' },
+                    { label: 'Faculty', value: 'faculty' }
+                ];
+
+                // Initialize current user from data attribute
+                try {
+                    const userData = document.body.getAttribute('data-current-user');
+                    if (userData) {
+                        currentUser.value = JSON.parse(userData);
+                    }
+                } catch (err) {
+                    console.error('Error parsing current user:', err);
+                }
+
+                // Expose currentUserId globally for compatibility
+                window.currentUserId = currentUserId.value;
+
+                // Computed properties
+                const filteredUsers = computed(() => {
+                    const usersToFilter = currentView.value === 'archived' ? archivedUsers.value : users.value;
+
+                    return usersToFilter.filter(user => {
+                        const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+                        const email = user.email.toLowerCase();
+                        const department = (user.department || '').toLowerCase();
+                        const role = user.role.toLowerCase();
+
+                        const matchesSearch = !searchTerm.value ||
+                            fullName.includes(searchTerm.value.toLowerCase()) ||
+                            email.includes(searchTerm.value.toLowerCase()) ||
+                            department.includes(searchTerm.value.toLowerCase()) ||
+                            role.includes(searchTerm.value.toLowerCase());
+
+                        const matchesFilter = currentFilter.value === 'all' || user.role === currentFilter.value;
+
+                        return matchesSearch && matchesFilter;
+                    });
+                });
+
+                // Helper functions
+                const normalizeDepartment = (dept) => {
+                    if (!dept) return '';
+                    const d = String(dept).trim().toLowerCase();
+                    if (
+                        d === 'it' || d === 'emc' || d === 'it/emc' || d === 'it - emc' || d === 'it & emc' ||
+                        (d.includes('information tech') && d.includes('multimedia')) ||
+                        (d.includes('entertainment') && d.includes('comput'))
+                    ) {
+                        return 'Information Technology and Entertainment Multimedia Computing';
+                    }
+                    if (d === 'ft' || d === 'food tech' || d === 'food technology') return 'Food Technology';
+                    if (d === 'et' || d === 'electronics tech' || d === 'electronics technology') return 'Electronics Technology';
+                    if (d === 'at' || d === 'automotive tech' || d === 'automotive technology') return 'Automotive Technology';
+                    return dept;
+                };
+
+                const getRoleCount = (role) => {
+                    if (role === 'all') {
+                        return currentView.value === 'active' ? stats.value.total : stats.value.archived;
+                    }
+                    return stats.value[role] || 0;
+                };
+
+                const getTabStyle = (tab) => {
+                    const isActive = currentView.value === tab;
+                    return {
+                        borderBottomColor: isActive ? '#1C89E3' : 'transparent',
+                        color: isActive ? '#1C89E3' : '#6b7280'
+                    };
+                };
+
+                const isLockedByOther = (userId) => {
+                    const lock = userLocks.value[userId];
+                    if (!lock || !lock.locked) return false;
+                    const by = lock.lockedBy != null ? String(lock.lockedBy) : null;
+                    const me = currentUserId.value != null ? String(currentUserId.value) : null;
+                    return by && me && by !== me;
+                };
+
+                // API Functions - PRESERVED EXACTLY AS BEFORE
+                const loadLockStates = async (list) => {
+                    userLocks.value = {};
+                    try {
+                        await Promise.all((list || []).map(async (u) => {
+                            try {
+                                const r = await fetch(`/api/users/locks/${u._id}/state`, { credentials: 'same-origin' });
+                                const j = await r.json();
+                                userLocks.value[u._id] = j || { locked: false };
+                            } catch {
+                                userLocks.value[u._id] = { locked: false };
+                            }
+                        }));
+                    } catch {
+                        // ignore lock loading errors
+                    }
+                };
+
+                const fetchUsers = async (role = 'all') => {
+                    loading.value = true;
+                    try {
+                        const response = await fetch(`/api/users?role=${role}`, { credentials: 'same-origin' });
+                        const data = await response.json();
+                        users.value = data.users || [];
+                        await loadLockStates(users.value);
+                        if (data.stats) {
+                            stats.value = { ...stats.value, ...data.stats };
+                        }
+                    } catch (error) {
+                        console.error('Error fetching users:', error);
+                        showNotification('Error fetching users', 'error');
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const fetchArchivedUsers = async (role = 'all') => {
+                    try {
+                        const response = await fetch(`/api/users/archived/list?role=${role}`, { credentials: 'same-origin' });
+                        const data = await response.json();
+                        if (data.success) {
+                            archivedUsers.value = data.users || [];
+                            await loadLockStates(archivedUsers.value);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching archived users:', error);
+                        showNotification('Error fetching archived users', 'error');
+                    }
+                };
+
+                // Watch for filter/view changes
+                watch([currentView, currentFilter], () => {
+                    if (currentView.value === 'active') {
+                        fetchUsers(currentFilter.value);
+                    } else {
+                        fetchArchivedUsers(currentFilter.value);
+                    }
+                });
+
+                // Event handlers
+                const handleEditUser = async (user) => {
+                    if (isLockedByOther(user._id)) {
+                        showToast('Another admin is editing this user.');
+                        return;
+                    }
+                    const acquired = await acquireEditLock(user._id);
+                    if (!acquired) return;
+                    populateAndOpenEdit(user);
+                };
+
+                const handleArchiveUser = (user) => {
+                    if (isLockedByOther(user._id)) {
+                        showToast('Cannot archive while another admin is editing this user.');
+                        return;
+                    }
+                    showArchiveConfirmation(user._id);
+                };
+
+                const handleUnarchiveUser = (user) => {
+                    if (isLockedByOther(user._id)) {
+                        showToast('Cannot unarchive while another admin is editing this user.');
+                        return;
+                    }
+                    showUnarchiveConfirmation(user._id);
+                };
+
+                // Lock management functions - PRESERVED FROM ORIGINAL
+                const acquireEditLock = async (userId) => {
+                    try {
+                        const res = await fetch(`/api/users/lock-user/${userId}`, { method: 'POST', credentials: 'same-origin' });
+                        if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            showLockBusyModal((data && data.remaining) || 30, userId);
+                            return false;
+                        }
+                        currentEditingUserId.value = userId;
+                        startEditTimers(userId);
+                        return true;
+                    } catch {
+                        return true; // fail-open
+                    }
+                };
+
+                const releaseEditLock = async (userId) => {
+                    if (!userId) return;
+                    try {
+                        await fetch(`/api/users/unlock-user/${userId}`, { method: 'POST', credentials: 'same-origin' });
+                    } catch { }
+                };
+
+                const startEditTimers = (userId) => {
+                    secondsRemaining.value = 30;
+                    const badge = ensureEditCountdownBadge();
+                    badge.textContent = `Editing lock: ${secondsRemaining.value}s`;
+                    if (editCountdownTimer.value) clearInterval(editCountdownTimer.value);
+                    editCountdownTimer.value = setInterval(() => {
+                        secondsRemaining.value -= 1;
+                        if (secondsRemaining.value <= 0) {
+                            clearInterval(editCountdownTimer.value);
+                            if (window.__editArmed) {
+                                autoCloseEdit(userId, 'Session expired — no activity detected.');
+                            } else {
+                                secondsRemaining.value = 30;
+                            }
+                        } else {
+                            badge.textContent = `Editing lock: ${secondsRemaining.value}s`;
+                        }
+                    }, 1000);
+
+                    window.__editArmed = false;
+                    const editForm = document.getElementById('editUserForm');
+                    if (editForm) {
+                        const arm = () => {
+                            window.__editArmed = true;
+                            resetInactivity(userId);
+                        };
+                        ['input', 'keydown', 'click', 'mousemove'].forEach(evt => {
+                            editForm.addEventListener(evt, arm, { passive: true, once: true });
+                        });
+                        ['input', 'keydown', 'click', 'mousemove'].forEach(evt => {
+                            editForm.addEventListener(evt, () => {
+                                if (window.__editArmed) resetInactivity(userId);
+                            }, { passive: true });
+                        });
+                    }
+                };
+
+                const resetInactivity = (userId) => {
+                    if (editInactivityTimer.value) clearTimeout(editInactivityTimer.value);
+                    secondsRemaining.value = 30;
+                    const targetId = userId || currentEditingUserId.value;
+                    if (targetId) {
+                        fetch(`/api/users/lock-user/${targetId}/refresh`, { method: 'POST', credentials: 'same-origin' }).catch(() => { });
+                        editInactivityTimer.value = setTimeout(() => {
+                            autoCloseEdit(targetId, 'Session expired — no activity detected.');
+                        }, 30000);
+                    }
+                };
+
+                const ensureEditCountdownBadge = () => {
+                    let badge = document.getElementById('editLockCountdown');
+                    if (!badge) {
+                        const editModal = document.getElementById('editUserModal');
+                        const header = editModal?.querySelector('.modal-header');
+                        badge = document.createElement('div');
+                        badge.id = 'editLockCountdown';
+                        badge.style.marginLeft = 'auto';
+                        badge.style.fontSize = '.85rem';
+                        badge.style.color = '#fffff';
+                        if (header) header.appendChild(badge);
+                    }
+                    return badge;
+                };
+
+                const autoCloseEdit = async (userId, message) => {
+                    await releaseEditLock(userId);
+                    await closeEditModal({ release: false });
+                    showToast(message || 'Session ended');
+                };
+
+                const showLockBusyModal = (seconds, userId) => {
+                    // Implement lock busy modal directly
+                    // Check if conflict modal exists, if not create it
+                    let conflictOverlay = document.getElementById('conflictModalOverlay');
+                    if (!conflictOverlay) {
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            #conflictModalOverlay {
+                                position: fixed;
+                                inset: 0;
+                                background: rgba(15, 23, 42, 0.45);
+                                display: none;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 9999;
+                                opacity: 0;
+                                transition: opacity 0.2s ease;
+                            }
+                            #conflictModalOverlay.open {
+                                display: flex;
+                                opacity: 1;
+                            }
+                            #conflictModal {
+                                background: #fff;
+                                border-radius: 12px;
+                                box-shadow: 0 10px 30px rgba(2, 6, 23, 0.2);
+                                width: 100%;
+                                max-width: 420px;
+                                padding: 24px;
+                                text-align: center;
+                            }
+                        `;
+                        document.head.appendChild(style);
+
+                        conflictOverlay = document.createElement('div');
+                        conflictOverlay.id = 'conflictModalOverlay';
+                        conflictOverlay.innerHTML = `
+                            <div id="conflictModal">
+                                <h3>User is being edited</h3>
+                                <p>Another admin is currently editing this user.</p>
+                                <p>Available in <span id="conflictCountdown">${seconds}</span> seconds</p>
+                                <button id="retryConflict" style="margin-top: 16px; padding: 8px 16px; background: #1c89e3; color: white; border: none; border-radius: 6px; cursor: pointer;">Retry</button>
+                            </div>
+                        `;
+                        document.body.appendChild(conflictOverlay);
+
+                        const retryBtn = document.getElementById('retryConflict');
+                        if (retryBtn) {
+                            retryBtn.addEventListener('click', () => {
+                                conflictOverlay.classList.remove('open');
+                            });
+                        }
+                    }
+
+                    const cd = document.getElementById('conflictCountdown');
+                    const retry = document.getElementById('retryConflict');
+                    let remaining = Math.max(1, seconds || 30);
+                    if (retry) retry.disabled = true;
+                    if (cd) cd.textContent = String(remaining);
+
+                    // Poll lock state
+                    const poll = setInterval(async () => {
+                        try {
+                            const r = await fetch(`/api/users/locks/${userId}/state`, { credentials: 'same-origin' });
+                            const j = await r.json();
+                            if (j && j.locked) {
+                                remaining = j.remaining_seconds || j.remaining || remaining;
+                                if (cd) cd.textContent = String(Math.max(0, remaining));
+                            } else {
+                                clearInterval(poll);
+                                conflictOverlay.classList.remove('open');
+                                if (retry) retry.disabled = false;
+                            }
+                        } catch { }
+                    }, 2000);
+
+                    conflictOverlay.classList.add('open');
+                };
+
+                const populateAndOpenEdit = (user) => {
+                    // Implement modal opening logic directly to avoid timing issues
+                    const editModal = document.getElementById('editUserModal');
+                    if (!editModal) {
+                        console.error('Edit modal not found');
+                        return;
+                    }
+
+                    // Populate form fields
+                    const editUserId = document.getElementById('editUserId');
+                    const editFirstName = document.getElementById('editFirstName');
+                    const editLastName = document.getElementById('editLastName');
+                    const editDepartment = document.getElementById('editDepartment');
+                    const editRole = document.getElementById('editRole');
+                    const editIsActive = document.getElementById('editIsActive');
+                    const editActiveGroup = document.getElementById('editActiveGroup');
+                    const editCanCrossSend = document.getElementById('editCanCrossSend');
+                    const editCanCrossSendGroup = document.getElementById('editCanCrossSendGroup');
+                    const editCanAddSignature = document.getElementById('editCanAddSignature');
+                    const editCanAddSignatureGroup = document.getElementById('editCanAddSignatureGroup');
+                    const editLastUpdatedAt = document.getElementById('editLastUpdatedAt');
+                    const selfEditNote = document.getElementById('selfEditNote');
+
+                    if (editUserId) editUserId.value = user._id;
+                    if (editFirstName) editFirstName.value = user.firstName || '';
+                    if (editLastName) editLastName.value = user.lastName || '';
+                    if (editDepartment) {
+                        editDepartment.value = user.department || '';
+                    }
+                    if (editRole) {
+                        editRole.value = user.role || 'faculty';
+                    }
+                    if (editLastUpdatedAt) {
+                        editLastUpdatedAt.value = user.lastUpdatedAt || user.updatedAt || '';
+                    }
+
+                    // Active checkbox
+                    if (editActiveGroup) {
+                        editActiveGroup.style.display = 'flex';
+                    }
+                    if (editIsActive) {
+                        editIsActive.checked = (user.isActive !== false);
+                    }
+
+                    // Department handling for admins
+                    if (editDepartment) {
+                        if (user.role === 'admin') {
+                            editDepartment.disabled = true;
+                            editDepartment.value = '';
+                        } else {
+                            editDepartment.disabled = false;
+                        }
+                    }
+
+                    // Secretary-specific permission checkboxes
+                    if (user.role === 'secretary') {
+                        if (editCanCrossSendGroup) {
+                            editCanCrossSendGroup.style.display = 'flex';
+                        }
+                        if (editCanCrossSend) {
+                            editCanCrossSend.checked = !!user.canCrossSend;
+                        }
+                        if (editCanAddSignatureGroup) {
+                            editCanAddSignatureGroup.style.display = 'flex';
+                        }
+                        if (editCanAddSignature) {
+                            // Default to true when undefined to keep existing behavior
+                            editCanAddSignature.checked = (user.canAddSignature !== false);
+                        }
+                    } else {
+                        if (editCanCrossSendGroup) {
+                            editCanCrossSendGroup.style.display = 'none';
+                        }
+                        if (editCanCrossSend) {
+                            editCanCrossSend.checked = false;
+                        }
+                        if (editCanAddSignatureGroup) {
+                            editCanAddSignatureGroup.style.display = 'none';
+                        }
+                        if (editCanAddSignature) {
+                            editCanAddSignature.checked = false;
+                        }
+                    }
+
+                    // Self-edit restrictions
+                    const isSelf = currentUserId.value && String(currentUserId.value) === String(user._id);
+                    if (isSelf) {
+                        if (editRole) editRole.disabled = true;
+                        if (editIsActive) {
+                            editIsActive.checked = true;
+                            editIsActive.disabled = true;
+                        }
+                        if (selfEditNote) {
+                            selfEditNote.style.display = 'block';
+                        }
+                    } else {
+                        if (editRole) editRole.disabled = false;
+                        if (editIsActive) editIsActive.disabled = false;
+                        if (selfEditNote) {
+                            selfEditNote.style.display = 'none';
+                        }
+                    }
+
+                    // Open modal
+                    editModal.style.display = 'block';
+                    editModal.classList.add('open');
+
+                    // Ensure close handlers are set up (user-management.js handles this, but ensure it works)
+                    // The modal close handlers are already set up in user-management.js DOMContentLoaded
+                };
+
+                const closeEditModal = async ({ release = true } = {}) => {
+                    if (editCountdownTimer.value) {
+                        clearInterval(editCountdownTimer.value);
+                        editCountdownTimer.value = null;
+                    }
+                    if (editInactivityTimer.value) {
+                        clearTimeout(editInactivityTimer.value);
+                        editInactivityTimer.value = null;
+                    }
+                    secondsRemaining.value = 30;
+                    window.__editArmed = false;
+                    const id = currentEditingUserId.value || document.getElementById('editUserId')?.value;
+                    currentEditingUserId.value = null;
+                    if (release && id) {
+                        await releaseEditLock(id);
+                    }
+                    if (id) {
+                        userLocks.value[id] = { locked: false };
+                    }
+                    const editModal = document.getElementById('editUserModal');
+                    if (editModal) {
+                        editModal.classList.remove('open');
+                        setTimeout(() => {
+                            editModal.style.display = 'none';
+                        }, 200);
+                    }
+                };
+
+                // Archive/Unarchive confirmations - PRESERVED FROM ORIGINAL
+                const showArchiveConfirmation = (userId) => {
+                    const user = users.value.find(u => u._id === userId);
+                    const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
+
+                    Swal.fire({
+                        title: 'Archive User',
+                        html: `Are you sure you want to archive <strong>${userName}</strong>?<br><br>Archived users will be hidden from the active users list.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Archive',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#f59e0b',
+                        cancelButtonColor: '#6b7280',
+                        reverseButtons: true,
+                        focusConfirm: false,
+                        focusCancel: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: true,
+                        showLoaderOnConfirm: true,
+                        preConfirm: async () => {
+                            try {
+                                const response = await fetch(`/api/users/${userId}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'same-origin'
+                                });
+
+                                if (!response.ok) {
+                                    let errorMessage = 'Failed to archive user';
+                                    try {
+                                        const errorData = await response.json();
+                                        errorMessage = errorData.message || errorData.error || errorMessage;
+                                    } catch (err) {
+                                        errorMessage = response.statusText || errorMessage;
+                                    }
+                                    throw new Error(errorMessage);
+                                }
+
+                                const data = await response.json();
+                                if (!data.success) {
+                                    throw new Error(data.message || 'Failed to archive user');
+                                }
+
+                                return { success: true };
+                            } catch (error) {
+                                Swal.showValidationMessage(error.message || 'Failed to archive user. Please try again.');
+                                return { success: false };
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed && result.value?.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'User Archived',
+                                text: `${userName} has been archived successfully.`,
+                                timer: 2000,
+                                showConfirmButton: false,
+                                timerProgressBar: true
+                            });
+                            fetchUsers(currentFilter.value);
+                            fetchArchivedUsers(currentFilter.value);
+                        }
+                    });
+                };
+
+                const showUnarchiveConfirmation = (userId) => {
+                    const user = archivedUsers.value.find(u => u._id === userId);
+                    const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
+
+                    Swal.fire({
+                        title: 'Unarchive User',
+                        html: `Are you sure you want to unarchive <strong>${userName}</strong>?<br><br>This will restore the user to the active users list.`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Unarchive',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#10b981',
+                        cancelButtonColor: '#6b7280',
+                        reverseButtons: true,
+                        focusConfirm: false,
+                        focusCancel: true,
+                        allowOutsideClick: false,
+                        allowEscapeKey: true,
+                        showLoaderOnConfirm: true,
+                        preConfirm: async () => {
+                            try {
+                                const response = await fetch(`/api/users/${userId}/unarchive`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'same-origin'
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    throw new Error(data.message || 'Failed to unarchive user');
+                                }
+                                return { success: true };
+                            } catch (error) {
+                                Swal.showValidationMessage(error.message || 'Failed to unarchive user. Please try again.');
+                                return { success: false };
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed && result.value?.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'User Unarchived',
+                                text: `${userName} has been restored to active users.`,
+                                timer: 2000,
+                                showConfirmButton: false,
+                                timerProgressBar: true
+                            });
+                            fetchUsers(currentFilter.value);
+                            fetchArchivedUsers(currentFilter.value);
+                        }
+                    });
+                };
+
+                // Notification helpers
+                const showNotification = (message, type) => {
+                    console.log(`${type}: ${message}`);
+                };
+
+                const showToast = (msg) => {
+                    let el = document.getElementById('globalToast');
+                    if (!el) {
+                        el = document.createElement('div');
+                        el.id = 'globalToast';
+                        el.style.cssText = 'position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 10px 30px rgba(2,6,23,.2);z-index:10001;';
+                        document.body.appendChild(el);
+                    }
+                    el.textContent = msg;
+                    el.style.opacity = '1';
+                    setTimeout(() => {
+                        el.style.opacity = '0';
+                    }, 3000);
+                };
+
+                // Expose functions globally for modal compatibility
+                window.vueUsersApp = {
+                    fetchUsers,
+                    fetchArchivedUsers,
+                    closeEditModal,
+                    populateAndOpenEdit
+                };
+
+                // Initialize SSE for real-time updates
+                const initSSE = () => {
+                    try {
+                        const es = new EventSource('/events');
+                        es.addEventListener('edit_success', (ev) => {
+                            try {
+                                const d = JSON.parse(ev.data);
+                                showToast(`${d.editorName || 'An admin'} updated ${d.name || 'a user'}`);
+                                fetchUsers(currentFilter.value);
+                            } catch { }
+                        });
+                        es.addEventListener('lock_released', () => {
+                            fetchUsers(currentFilter.value);
+                        });
+                        es.addEventListener('lock_acquired', () => {
+                            fetchUsers(currentFilter.value);
+                        });
+                    } catch { }
+                };
+
+                // Lifecycle
+                onMounted(() => {
+                    fetchUsers('all');
+                    fetchArchivedUsers('all');
+                    initSSE();
+                    lucide.createIcons();
+
+                    // Prevent user-management.js from rendering the list (Vue handles it)
+                    // Override renderUsers BEFORE user-management.js loads to prevent conflicts
+                    window.renderUsers = () => {
+                        // Vue handles rendering, just refresh data
+                        fetchUsers(currentFilter.value);
+                        if (currentView.value === 'archived') {
+                            fetchArchivedUsers(currentFilter.value);
+                        }
+                    };
+
+                    // Also prevent it from finding usersList element
+                    const usersListEl = document.getElementById('usersList');
+                    if (usersListEl) {
+                        // Hide it so user-management.js doesn't try to render there
+                        usersListEl.style.display = 'none';
+                    }
+
+                    // Wire up form submissions to refresh Vue after successful operations
+                    // The actual form handling is done by user-management.js
+                    // We just need to refresh Vue data after operations
+                    const setupFormRefreshHooks = () => {
+                        const originalAddUser = window.addUser;
+                        if (originalAddUser && !originalAddUser.__vueWrapped) {
+                            window.addUser = async function (...args) {
+                                const result = await originalAddUser.apply(this, args);
+                                fetchUsers(currentFilter.value);
+                                return result;
+                            };
+                            window.addUser.__vueWrapped = true;
+                        }
+
+                        const originalUpdateUser = window.updateUser;
+                        if (originalUpdateUser && !originalUpdateUser.__vueWrapped) {
+                            window.updateUser = async function (...args) {
+                                const result = await originalUpdateUser.apply(this, args);
+                                fetchUsers(currentFilter.value);
+                                return result;
+                            };
+                            window.updateUser.__vueWrapped = true;
+                        }
+
+                        const originalUpdateUserDepartment = window.updateUserDepartment;
+                        if (originalUpdateUserDepartment && !originalUpdateUserDepartment.__vueWrapped) {
+                            window.updateUserDepartment = async function (...args) {
+                                const result = await originalUpdateUserDepartment.apply(this, args);
+                                fetchUsers(currentFilter.value);
+                                return result;
+                            };
+                            window.updateUserDepartment.__vueWrapped = true;
+                        }
+
+                        const originalUpdateUserRole = window.updateUserRole;
+                        if (originalUpdateUserRole && !originalUpdateUserRole.__vueWrapped) {
+                            window.updateUserRole = async function (...args) {
+                                const result = await originalUpdateUserRole.apply(this, args);
+                                fetchUsers(currentFilter.value);
+                                return result;
+                            };
+                            window.updateUserRole.__vueWrapped = true;
+                        }
+                    };
+
+                    // Wait for user-management.js to load, then set up hooks
+                    const checkAndSetup = () => {
+                        if (window.addUser || window.updateUser) {
+                            setupFormRefreshHooks();
+                        } else {
+                            setTimeout(checkAndSetup, 50);
+                        }
+                    };
+                    checkAndSetup();
+                });
+
+                onUnmounted(() => {
+                    if (editCountdownTimer.value) clearInterval(editCountdownTimer.value);
+                    if (editInactivityTimer.value) clearTimeout(editInactivityTimer.value);
+                });
+
+                return {
+                    // State
+                    currentUser,
+                    currentUserId,
+                    users,
+                    archivedUsers,
+                    userLocks,
+                    stats,
+                    currentView,
+                    currentFilter,
+                    loading,
+                    searchTerm,
+                    roleFilters,
+                    // Computed
+                    filteredUsers,
+                    // Methods
+                    getRoleCount,
+                    getTabStyle,
+                    isLockedByOther,
+                    handleEditUser,
+                    handleArchiveUser,
+                    handleUnarchiveUser
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <!-- Preserve existing modal handlers from user-management.js for compatibility -->
+    <!-- Note: We load user-management.js to preserve modal functions, invitation logic, and other utilities -->
     <script>
         window.currentUserId = '<%= user && user._id ? user._id : "" %>';
     </script>
-    <script src="/js/user-management.js"></script>
+    <script src="/js/user-management.js" defer></script>
 
     <!-- Initialize Lucide icons -->
     <script>
-        // Initialize Lucide icons
         lucide.createIcons();
     </script>
     <script src="/js/freezeZoom.js"></script>

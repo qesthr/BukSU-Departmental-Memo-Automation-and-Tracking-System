@@ -14,9 +14,9 @@
 
 		<nav class="main-nav">
 			<ul>
-				<li class="<%= path === '/dashboard' ? 'active' : '' %>">
-					<a href="/dashboard">
-						<img src="<%= path === '/dashboard' ? '/images/dashboards.png' : '/images/dashboards-in.png' %>" alt="Dashboard" class="nav-icon">
+			<li class="<%= path === '/faculty-dashboard' ? 'active' : '' %>">
+				<a href="/faculty-dashboard">
+					<img src="<%= path === '/faculty-dashboard' ? '/images/dashboards.png' : '/images/dashboards-in.png' %>" alt="Dashboard" class="nav-icon">
 						<span>Dashboard</span>
 					</a>
 				</li>
@@ -118,7 +118,11 @@
 
                 <div class="form-group">
                     <label for="editProfileEmail">Email</label>
-                    <input type="email" id="editProfileEmail" value="<%= user.email || '' %>" required>
+                    <input type="email"
+                           id="editProfileEmail"
+                           value="<%= user.email || '' %>"
+                           disabled
+                           aria-disabled="true">
                 </div>
 
                 <div class="form-group">

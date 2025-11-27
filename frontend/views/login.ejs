@@ -5,7 +5,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Notice</title>
+        <title>Login Page</title>
 
         <!-- Google Analytics Tracking -->
         <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
@@ -455,8 +455,10 @@
 
                         // Step 2: Determine which dashboard to load based on role
                         let dashboardUrl = '/admin-dashboard';
-                        if (user.user?.role === 'secretary' || user.user?.role === 'faculty') {
-                            dashboardUrl = '/dashboard';
+                        if (user.user?.role === 'secretary') {
+                            dashboardUrl = '/secretary-dashboard';
+                        } else if (user.user?.role === 'faculty') {
+                            dashboardUrl = '/faculty-dashboard';
                         }
 
                         // Close popup first, then wait briefly for it to close before redirecting
@@ -478,8 +480,14 @@
                             title: 'Error',
                             text: 'Failed to load dashboard. Redirecting as fallback...'
                         });
-                        // Fallback: redirect if dynamic loading fails
-                        window.location.href = '/admin-dashboard';
+                        // Fallback: redirect based on user role (don't assume admin)
+                        let fallbackUrl = '/admin-dashboard';
+                        if (user.user?.role === 'secretary') {
+                            fallbackUrl = '/secretary-dashboard';
+                        } else if (user.user?.role === 'faculty') {
+                            fallbackUrl = '/faculty-dashboard';
+                        }
+                        window.location.href = fallbackUrl;
                     }
                 }
             });
@@ -500,14 +508,17 @@
                                 throw new Error('User not authenticated');
                             }
                             let dashboardUrl = '/admin-dashboard';
-                            if (data.user?.role === 'secretary' || data.user?.role === 'faculty') {
-                                dashboardUrl = '/dashboard';
+                            if (data.user?.role === 'secretary') {
+                                dashboardUrl = '/secretary-dashboard';
+                            } else if (data.user?.role === 'faculty') {
+                                dashboardUrl = '/faculty-dashboard';
                             }
                             console.log('➡️ [storage] Redirecting parent to:', dashboardUrl);
                             window.location.href = dashboardUrl;
                         } catch (err2) {
-                            console.log('⚠️ [storage] Falling back to admin-dashboard due to error:', err2?.message);
-                            window.location.href = '/admin-dashboard';
+                            console.log('⚠️ [storage] Error getting user info, redirecting to login:', err2?.message);
+                            // If we can't get user info, redirect to login page
+                            window.location.href = '/?error=auth_failed';
                         }
                     }, 200);
                 }
@@ -525,8 +536,10 @@
                             const data = await res.json();
                             if (res.ok && data && data.success) {
                                 let dashboardUrl = '/admin-dashboard';
-                                if (data.user?.role === 'secretary' || data.user?.role === 'faculty') {
-                                    dashboardUrl = '/dashboard';
+                                if (data.user?.role === 'secretary') {
+                                    dashboardUrl = '/secretary-dashboard';
+                                } else if (data.user?.role === 'faculty') {
+                                    dashboardUrl = '/faculty-dashboard';
                                 }
                                 clearInterval(googleAuthPoller);
                                 googleAuthPoller = null;
@@ -671,3 +684,6 @@
                             };
                         };
                     </script>
+
+                    <!-- Login form handling (only on login page) -->
+                    <script src="/js/admin_login.js"></script>

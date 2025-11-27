@@ -6,7 +6,9 @@
         <input type="text" placeholder="Search anything in Memofy..." class="search-input"
             aria-label="Search anything in Memofy" id="globalSearchInput">
     </div>
+    <% if (typeof skipScripts === 'undefined' || !skipScripts) { %>
     <script src="/js/contextual-search.js"></script>
+    <% } %>
 
     <div class="header-actions">
         <!-- Notification Button -->
@@ -24,4 +26,6 @@
     </div>
 </header>
 
+<% if (typeof skipScripts === 'undefined' || !skipScripts) { %>
 <script src="/js/notifications.js" defer></script>
+<% } %>

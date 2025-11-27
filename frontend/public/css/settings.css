@@ -15,7 +15,9 @@ body.dark-mode {
 }
 
 .settings-section {
-    padding: 2rem;
+    padding: 2rem 2.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
 .settings-header {
@@ -38,16 +40,17 @@ body.dark-mode {
 
 .settings-grid {
     display: grid;
-    gap: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 3rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
+    align-items: flex-start;
 }
 
 .settings-card {
-    background: var(--settings-card-bg);
-    border: 1px solid var(--settings-card-border);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: var(--settings-card-shadow);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
 }
 
 .settings-card h3 {
@@ -57,7 +60,7 @@ body.dark-mode {
 }
 
 .settings-card p {
-    margin: 0 0 1rem 0;
+    margin: 0 0 1.25rem 0;
     color: var(--settings-subtext);
     font-size: 0.9rem;
 }
@@ -95,10 +98,9 @@ body.dark-mode {
 
 .settings-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--settings-card-border);
+    padding-top: 0.75rem;
 }
 
 .settings-btn {
@@ -130,7 +132,7 @@ body.dark-mode .settings-btn.secondary {
     justify-content: space-between;
     align-items: center;
     padding: 0.85rem 0;
-    border-bottom: 1px solid var(--settings-card-border);
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .setting-row:last-child {
@@ -223,3 +225,30 @@ input:checked + .slider:before {
     }
 }
 
+
+.settings-feedback.success {
+    color: #10b981;
+    background-color: #ecfdf5;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.settings-feedback.error {
+    color: #ef4444;
+    background-color: #fef2f2;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.settings-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.dark-mode {
+    /* Add your dark mode styles here */
+    background-color: #1f2937;
+    color: #f9fafb;
+}

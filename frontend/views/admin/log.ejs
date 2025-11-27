@@ -12,12 +12,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Analytics Tracking -->
-    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+    <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../../components/sweetalert2'); %>
+        <!-- SweetAlert2 -->
+        <%- include('../../components/sweetalert2'); %>
 
-    <script src="/js/lucide.min.js"></script>
+            <!-- Vue 3 CDN -->
+            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+            <script src="/js/lucide.min.js"></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -44,51 +47,56 @@
             <!-- Main Content -->
             <main class="main-content">
                 <%- include('../../components/admintopbar') %>
-
                     <div class="log-layout">
-
                         <!-- Memo List Area -->
                         <section class="memo-list-area">
                             <div class="memo-container">
                                 <div class="memo-list-header">
                                     <div class="header-controls">
-                                        <div class="checkbox-control" style="display: flex; align-items: center; gap: 8px;">
+                                        <div class="checkbox-control"
+                                            style="display: flex; align-items: center; gap: 8px;">
                                             <div class="select-dropdown-wrapper">
-                                                <button id="selectDropdownBtn" class="select-dropdown-btn" type="button">
+                                                <button id="selectDropdownBtn" class="select-dropdown-btn"
+                                                    type="button">
                                                     <i data-lucide="square" class="select-icon"></i>
                                                     <i data-lucide="chevron-down" class="dropdown-arrow"></i>
                                                 </button>
                                                 <div id="selectDropdownMenu" class="select-dropdown-menu">
-                                                    <button type="button" class="select-dropdown-item" data-action="all">All</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="none">None</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="read">Read</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="unread">Unread</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="starred">Starred</button>
-                                                    <button type="button" class="select-dropdown-item" data-action="unstarred">Unstarred</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="all">All</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="none">None</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="read">Read</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="unread">Unread</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="starred">Starred</button>
+                                                    <button type="button" class="select-dropdown-item"
+                                                        data-action="unstarred">Unstarred</button>
                                                 </div>
                                             </div>
-                                            <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected" style="display: none;">
+                                            <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected"
+                                                style="display: none;">
                                                 <i data-lucide="archive"></i>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="department-filters">
+                                    <div class="department-filters" id="filterControls">
                                         <div class="department-dropdown-wrapper">
-                                            <select id="deptFilterDropdown" class="dept-filter-dropdown">
+                                            <select id="deptFilterDropdown" class="dept-filter-dropdown"
+                                                v-model="filters.department" @change="onFilterChange">
                                                 <option value="all">All Departments</option>
-                                                <option value="Food Technology">Food Technology</option>
-                                                <option value="Electronics Technology">Electronics Technology</option>
-                                                <option value="Automotive Technology">Automotive Technology</option>
-                                                <option
-                                                    value="Information Technology and Entertainment Multimedia Computing">
-                                                    Information Technology and Entertainment Multimedia Computing
+                                                <option v-for="dept in departments" :key="dept" :value="dept">
+                                                    {{ dept }}
                                                 </option>
                                             </select>
                                         </div>
 
                                         <div class="priority-dropdown-wrapper">
-                                            <select id="priorityFilterDropdown" class="priority-filter-dropdown">
+                                            <select id="priorityFilterDropdown" class="priority-filter-dropdown"
+                                                v-model="filters.priority" @change="onFilterChange">
                                                 <option value="all">All Priorities</option>
                                                 <option value="urgent">🔴 Urgent</option>
                                                 <option value="high">🟠 High</option>
@@ -98,7 +106,8 @@
                                         </div>
 
                                         <div class="sort-dropdown-wrapper">
-                                            <select id="sortDropdown" class="sort-dropdown">
+                                            <select id="sortDropdown" class="sort-dropdown" v-model="filters.sort"
+                                                @change="onSortChange">
                                                 <option value="newest">Newest</option>
                                                 <option value="oldest">Oldest</option>
                                                 <option value="priority">Priority</option>
@@ -110,99 +119,133 @@
 
                                         <div class="date-filter-wrapper">
                                             <input type="date" id="dateFilterInput" class="date-filter-input"
-                                                title="Filter by date">
+                                                title="Filter by date" v-model="filters.date"
+                                                @change="onDateFilterChange">
                                             <button id="clearDateFilter" class="date-filter-clear"
-                                                title="Clear date filter" style="display: none;">
+                                                title="Clear date filter" v-show="filters.date"
+                                                @click="clearDateFilter">
                                                 <i data-lucide="x"></i>
                                             </button>
                                         </div>
 
-                                        <!-- Compose button moved here -->
+                                        <!-- Search input (if not already present) -->
+                                        <div class="search-filter-wrapper" style="display: none;" id="searchWrapper">
+                                            <input type="text" id="globalSearchInput" class="search-input"
+                                                placeholder="Search memos..." v-model="filters.search"
+                                                @input="onSearchChange">
+                                        </div>
+
+                                        <!-- Compose button - inside Vue, handled by Vue's event system -->
                                         <div class="compose-control">
-                                            <button class="compose-btn">
+                                            <button class="compose-btn" id="composeBtn" type="button"
+                                                @click="openComposeModal">
                                                 <i data-lucide="pen-tool"></i>
                                                 <span>Compose</span>
                                             </button>
                                         </div>
                                     </div>
+                                    <div id="memoList" class="memo-list">
+                                        <!-- Memos will be loaded here -->
+                                    </div>
                                 </div>
-
-                                <div id="memoList" class="memo-list">
-                                    <!-- Memos will be loaded here -->
-                                </div>
-                            </div>
-                        </section>
-
-                        <section id="memoViewerArea" class="memo-viewer-area">
-
-                            <div id="emptyState" class="empty-state-view">
-                                <i data-lucide="inbox"></i>
-                                <p>Select a memo to view</p>
                             </div>
 
 
+                    </div>
+                    </section>
+
+                    <!-- Memo Viewer Modal (converted from side view) -->
+                    <div id="memoViewerModal" class="modal memo-viewer-modal" style="display: none;">
+                        <div class="modal-content memo-viewer-modal-content">
                             <div id="memoViewer" class="memo-viewer">
                                 <div class="viewer-header">
-                                    <button id="backBtn" class="icon-btn">
-                                        <i data-lucide="arrow-left"></i>
+                                    <button id="backBtn" class="icon-btn" title="Close">
+                                        <i data-lucide="x"></i>
                                     </button>
                                     <div class="nav-buttons">
-                                        <button id="prevBtn" class="icon-btn">
+                                        <button id="prevBtn" class="icon-btn" title="Previous Memo">
                                             <i data-lucide="chevron-left"></i>
                                         </button>
                                         <span id="memoCounter" class="memo-counter">0 of 0</span>
-                                        <button id="nextBtn" class="icon-btn">
+                                        <button id="nextBtn" class="icon-btn" title="Next Memo">
                                             <i data-lucide="chevron-right"></i>
                                         </button>
                                     </div>
                                     <div class="viewer-actions">
-                                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i data-lucide="bookmark"></i></button>
-                                        <button id="downloadBtn" class="icon-btn" title="Download Memo"><i data-lucide="download"></i></button>
-                                        <button id="archiveBtn" class="icon-btn" title="Archive"><i data-lucide="archive"></i></button>
+                                        <button id="starBtn" class="icon-btn" title="Toggle Favorite"><i
+                                                data-lucide="bookmark"></i></button>
+                                        <button id="downloadBtn" class="icon-btn" title="Download Memo"><i
+                                                data-lucide="download"></i></button>
+                                        <button id="archiveBtn" class="icon-btn" title="Archive"><i
+                                                data-lucide="archive"></i></button>
                                     </div>
                                 </div>
 
                                 <div class="memo-content">
-                                    <!-- Memo Header (PDF-style format) -->
-                                    <div class="memo-pdf-header">
-                                        <h1 class="memo-title">MEMO</h1>
-                                        <div class="memo-details">
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Subject:</span>
-                                                <span id="memoDetailSubject" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">From:</span>
-                                                <span id="memoDetailFrom" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">To:</span>
-                                                <span id="memoDetailTo" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Department:</span>
-                                                <span id="memoDetailDepartment" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Priority:</span>
-                                                <span id="memoDetailPriority" class="memo-detail-value"></span>
-                                            </div>
-                                            <div class="memo-detail-row">
-                                                <span class="memo-detail-label">Date:</span>
-                                                <span id="memoDetailDate" class="memo-detail-value"></span>
+                                    <div class="memo-gmail-header">
+                                        <h2 id="memoDetailSubject" class="memo-subject-title"></h2>
+                                        <div class="memo-sender-header">
+                                            <img id="memoSenderAvatar" src="/images/memofy-logo.png" alt="Sender"
+                                                class="memo-sender-avatar-img">
+                                            <div class="memo-sender-info-header">
+                                                <div class="memo-sender-name-header" id="memoDetailFromName"></div>
+                                                <div class="memo-sender-email-header" id="memoDetailFromEmail"></div>
                                             </div>
                                         </div>
-                                        <div class="memo-separator"></div>
+                                        <div class="memo-to-dropdown-header" id="toDropdownToggle"
+                                            style="cursor: pointer; padding: 8px 0; color: #6b7280; font-size: 13px; position: relative;">
+                                            <span id="memoDetailToPreview" style="text-decoration: underline;">to me</span>
+                                            <i data-lucide="chevron-down" style="width: 16px; height: 16px; margin-left: 4px;"></i>
+                                            <div id="memoDetailsPopup" class="memo-details-popup" style="display: none;">
+                                                <div class="memo-details-popup-content">
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">Subject:</span>
+                                                        <span id="memoDetailSubjectPopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">From:</span>
+                                                        <span id="memoDetailFromPopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">To:</span>
+                                                        <span id="memoDetailToPopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">Department:</span>
+                                                        <span id="memoDetailDepartmentPopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">Priority:</span>
+                                                        <span id="memoDetailPriorityPopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                    <div class="memo-detail-popup-row">
+                                                        <span class="memo-detail-popup-label">Date:</span>
+                                                        <span id="memoDetailDatePopup" class="memo-detail-popup-value"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="memo-body">
-                                        <div id="memoBodyContent"></div>
+                                    <div id="memoBodyContent"></div>
+                                    </div>
+                                    <div id="acknowledgmentStatus" class="acknowledgment-status" style="display: none;">
+                                        <div class="acknowledgment-header-compact">
+                                            <span class="acknowledgment-label">Acknowledgment Status:</span>
+                                            <div id="acknowledgmentAvatars" class="acknowledgment-avatars"></div>
+                                            <button id="reminderBtnCompact" class="reminder-btn-compact" title="Send Reminder" style="display: none;">
+                                                <i data-lucide="bell"></i>
+                                                <span>Reminder</span>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div id="attachments" class="memo-attachments"></div>
                                 </div>
                             </div>
-                        </section>
+                        </div>
                     </div>
-            </main>
+    </div>
+    </main>
     </div>
 
     <!-- Compose Modal -->
@@ -226,12 +269,13 @@
                         </div>
                         <div class="compose-field-wrapper">
                             <label class="compose-field-label" style="display: none;">Subject</label>
-                            <input type="text" id="subject" class="compose-field" placeholder="Subject" required>
+                            <input type="text" id="subject" style="border-bottom: 1px solid black;"
+                                class="compose-field" placeholder="Subject" required>
                         </div>
                         <div class="compose-inline-fields">
                             <div class="custom-dropdown compose-field-dropdown compose-field-inline">
                                 <button id="templateDropdownBtn" type="button" class="dept-dropdown-btn compose-field">
-                                    <span class="template-placeholder">Template: None</span>
+                                    <span class="template-placeholder">Signature: None</span>
                                 </button>
                                 <div id="templateDropdownMenu" class="dept-dropdown-menu" style="max-height:300px;">
                                     <label class="dept-checkbox-label">
@@ -242,7 +286,8 @@
                                         <!-- Signatures loaded dynamically -->
                                     </div>
                                     <hr class="dept-dropdown-hr">
-                                    <button type="button" id="addSignatureBtn" class="add-signature-btn" style="width:100%; padding:8px; margin-top:4px; background:#f3f4f6; border:1px dashed #d1d5db; border-radius:6px; cursor:pointer; color:#2563eb; font-size:13px; font-weight:500;">
+                                    <button type="button" id="addSignatureBtn" class="add-signature-btn"
+                                        style="width:100%; padding:8px; margin-top:4px; background:#f3f4f6; border:1px dashed #d1d5db; border-radius:6px; cursor:pointer; color:#2563eb; font-size:13px; font-weight:500;">
                                         + Add Signature
                                     </button>
                                 </div>
@@ -305,7 +350,8 @@
                             <span id="calendarBtnText" style="margin-left: 6px; font-size: 13px;">Schedule</span>
                         </button>
                         <button type="button" class="btn btn-secondary close-modal">Cancel</button>
-                        <button type="button" class="btn btn-secondary" id="previewMemoBtn" title="Preview PDF">Preview</button>
+                        <button type="button" class="btn btn-secondary" id="previewMemoBtn"
+                            title="Preview PDF">Preview</button>
                         <button type="submit" class="btn btn-primary" id="sendMemoBtn">
                             <span class="btn-text">Send</span>
                             <span class="btn-loading" style="display: none;">
@@ -331,23 +377,25 @@
         <div class="modal-content signature-modal" style="max-width:520px;">
             <div class="modal-header">
                 <h2>Add Signature</h2>
-                <button class="close-modal" data-modal="addSignatureModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="addSignatureForm">
                     <div class="signature-form-content">
                         <div class="form-group">
                             <label for="signatureName">Name</label>
-                            <input type="text" id="signatureName" name="displayName" class="signature-input" placeholder="e.g., Dr. John Doe" required>
+                            <input type="text" id="signatureName" name="displayName" class="signature-input"
+                                placeholder="e.g., Dr. John Doe" required>
                         </div>
                         <div class="form-group">
                             <label for="signatureTitle">Title/Role</label>
-                            <input type="text" id="signatureTitle" name="roleTitle" class="signature-input" placeholder="e.g., University President" required>
+                            <input type="text" id="signatureTitle" name="roleTitle" class="signature-input"
+                                placeholder="e.g., University President" required>
                         </div>
                         <div class="form-group">
                             <label for="signatureImage">Signature Image</label>
                             <div class="file-upload-wrapper">
-                                <input type="file" id="signatureImage" name="image" accept="image/*" required class="file-input">
+                                <input type="file" id="signatureImage" name="image" accept="image/*" required
+                                    class="file-input">
                                 <label for="signatureImage" class="file-label">
                                     <span class="file-icon">📎</span>
                                     <span class="file-text">Choose File</span>
@@ -357,8 +405,9 @@
                             <small class="file-hint">PNG or JPG, transparent background recommended</small>
                         </div>
                     </div>
-                    <div class="form-actions signature-actions">
-                        <button type="button" class="btn btn-secondary close-modal" data-modal="addSignatureModal">Cancel</button>
+                    <div class="form-actions signature-actions" style="margin-bottom: 5px;">
+                        <button type="button" class="btn btn-secondary close-modal" data-modal="addSignatureModal"
+                            style="padding-top: 18px; padding-bottom: 18px;">Cancel</button>
                         <button type="submit" class="btn btn-primary">Add Signature</button>
                     </div>
                 </form>
@@ -371,7 +420,8 @@
         <div class="modal-content" style="max-width: 550px; width: 90%;">
             <div class="modal-header">
                 <h2>Schedule Memo</h2>
-                <button class="close-modal" onclick="document.getElementById('scheduleModal').style.display='none'">&times;</button>
+                <button class="close-modal"
+                    onclick="document.getElementById('scheduleModal').style.display='none'">&times;</button>
             </div>
             <div class="modal-body" style="padding: 24px;">
                 <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -380,14 +430,16 @@
                         <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0;">Start</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     📅 Start Date
                                 </label>
                                 <input type="date" id="scheduleStartDate"
                                     style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                             </div>
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     🕐 Start Time
                                 </label>
                                 <input type="time" id="scheduleStartTime"
@@ -401,14 +453,16 @@
                         <h3 style="font-size: 16px; font-weight: 600; color: #111827; margin: 0;">End</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     📅 End Date
                                 </label>
                                 <input type="date" id="scheduleEndDate"
                                     style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                             </div>
                             <div>
-                                <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                                <label
+                                    style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">
                                     🕐 End Time
                                 </label>
                                 <input type="time" id="scheduleEndTime"
@@ -421,31 +475,403 @@
                     <input type="date" id="scheduleDate" style="display: none;">
                     <input type="time" id="scheduleTime" style="display: none;">
 
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px;">
-                        <input type="checkbox" id="scheduleAllDay" style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;">
-                        <label for="scheduleAllDay" style="font-size: 14px; color: #374151; cursor: pointer; margin: 0; flex: 1;">
+                    <div
+                        style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                        <input type="checkbox" id="scheduleAllDay"
+                            style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;">
+                        <label for="scheduleAllDay"
+                            style="font-size: 14px; color: #374151; cursor: pointer; margin: 0; flex: 1;">
                             All Day Event
                         </label>
                     </div>
-                    <div style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #2563eb;">
-                        <strong>📌 Schedule Send:</strong> This memo will be sent at the scheduled start date and time, and will appear in your calendar and all recipients' calendars until the end date and time.
+                    <div
+                        style="font-size: 12px; color: #6b7280; padding: 8px 12px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #2563eb;">
+                        <strong>📌 Schedule Send:</strong> This memo will be sent at the scheduled start date and time,
+                        and will appear in your calendar and all recipients' calendars until the end date and time.
                     </div>
                 </div>
             </div>
-            <div class="form-actions" style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="button" class="btn btn-secondary" id="clearScheduleBtn" style="padding: 10px 20px; font-size: 14px;">
+            <div class="form-actions"
+                style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" id="clearScheduleBtn"
+                    style="padding: 10px 20px; font-size: 14px;">
                     Clear
                 </button>
-                <button type="button" class="btn btn-primary" id="saveScheduleBtn" style="padding: 10px 24px; font-size: 14px;">
+                <button type="button" class="btn btn-primary" id="saveScheduleBtn"
+                    style="padding: 10px 24px; font-size: 14px;">
                     Save
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Vue.js Modernization - Reactive Filters and Counter -->
+    <script>
+        const { createApp, ref } = Vue;
+
+        // Initialize Vue app for filters and reactive UI elements
+        // This enhances the UI with Vue.js reactivity while keeping all existing log.js functionality
+        const filterApp = createApp({
+            setup() {
+                // Reactive filter state - syncs with existing log.js variables
+                const filters = ref({
+                    department: 'all',
+                    priority: 'all',
+                    sort: 'newest',
+                    date: '',
+                    search: ''
+                });
+
+                // Departments list (can be loaded dynamically)
+                const departments = ref([
+                    'Food Technology',
+                    'Electronics Technology',
+                    'Automotive Technology',
+                    'Information Technology and Entertainment Multimedia Computing'
+                ]);
+
+                // Memo counter - reactive
+                const memoCounter = ref({
+                    current: 0,
+                    total: 0
+                });
+
+                // Sync Vue filters with DOM elements (from log.js)
+                function syncFiltersFromDOM() {
+                    const deptFilter = document.getElementById('deptFilterDropdown');
+                    const priorityFilter = document.getElementById('priorityFilterDropdown');
+                    const sortFilter = document.getElementById('sortDropdown');
+                    const dateFilter = document.getElementById('dateFilterInput');
+                    const searchInput = document.getElementById('globalSearchInput');
+
+                    if (deptFilter) filters.value.department = deptFilter.value;
+                    if (priorityFilter) filters.value.priority = priorityFilter.value;
+                    if (sortFilter) filters.value.sort = sortFilter.value;
+                    if (dateFilter) filters.value.date = dateFilter.value;
+                    if (searchInput) filters.value.search = searchInput.value;
+                }
+
+                // Reference to counter element
+                const counterEl = ref(null);
+
+                // Update memo counter from log.js state
+                function updateMemoCounter() {
+                    // Try to get values from log.js global variables if available
+                    if (typeof window !== 'undefined') {
+                        // Check if log.js has exposed these variables
+                        if (window.currentMemoIndex !== undefined && window.filteredMemos !== undefined) {
+                            const index = window.currentMemoIndex || -1;
+                            const total = Array.isArray(window.filteredMemos) ? window.filteredMemos.length : 0;
+                            memoCounter.value.current = index >= 0 ? index + 1 : 0;
+                            memoCounter.value.total = total;
+                            return;
+                        }
+                    }
+
+                    // Fallback: Parse from DOM text content (if log.js updated it directly)
+                    const el = document.getElementById('memoCounter');
+                    if (el) {
+                        // Get text from the element (might be Vue-rendered or log.js rendered)
+                        const text = el.textContent || el.innerText || '';
+                        const match = text.match(/(\d+)\s+of\s+(\d+)/);
+                        if (match) {
+                            memoCounter.value.current = parseInt(match[1]) || 0;
+                            memoCounter.value.total = parseInt(match[2]) || 0;
+                        }
+                    }
+                }
+
+                // Filter change handlers - trigger existing log.js event handlers
+                function onFilterChange() {
+                    // Update DOM element value to match Vue model
+                    const deptFilter = document.getElementById('deptFilterDropdown');
+                    const priorityFilter = document.getElementById('priorityFilterDropdown');
+                    if (deptFilter) deptFilter.value = filters.value.department;
+                    if (priorityFilter) priorityFilter.value = filters.value.priority;
+
+                    // Trigger existing log.js event handlers
+                    if (deptFilter) deptFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (priorityFilter) priorityFilter.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    setTimeout(updateMemoCounter, 100);
+                }
+
+                function onSortChange() {
+                    const sortFilter = document.getElementById('sortDropdown');
+                    if (sortFilter) {
+                        sortFilter.value = filters.value.sort;
+                        sortFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    setTimeout(updateMemoCounter, 100);
+                }
+
+                function onDateFilterChange() {
+                    const dateFilter = document.getElementById('dateFilterInput');
+                    if (dateFilter) {
+                        // Only update if value actually changed to prevent infinite loop
+                        if (dateFilter.value !== filters.value.date) {
+                            dateFilter.value = filters.value.date;
+                            // Don't dispatch event - Vue's v-model already handles the change
+                            // This prevents infinite recursion
+                        }
+                    }
+                    setTimeout(updateMemoCounter, 100);
+                }
+
+                function onSearchChange() {
+                    const searchInput = document.getElementById('globalSearchInput');
+                    if (searchInput) {
+                        searchInput.value = filters.value.search;
+                        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    setTimeout(updateMemoCounter, 100);
+                }
+
+                function clearDateFilter() {
+                    filters.value.date = '';
+                    const dateFilter = document.getElementById('dateFilterInput');
+                    if (dateFilter) {
+                        // Only update if value actually changed to prevent infinite loop
+                        if (dateFilter.value !== '') {
+                            dateFilter.value = '';
+                            // Don't dispatch event - Vue's v-model already handles the change
+                            // This prevents infinite recursion
+                        }
+                    }
+                    setTimeout(updateMemoCounter, 100);
+                }
+
+                // Handle compose button click using Vue's event system
+                // This works because Vue handles the event, then calls the existing log.js function
+                function openComposeModal() {
+                    const composeModal = document.getElementById('composeModal');
+                    if (composeModal) {
+                        // Use the same openModal function from log.js if available
+                        if (typeof window.openModal === 'function') {
+                            window.openModal(composeModal);
+                        } else {
+                            // Fallback: directly show the modal
+                            composeModal.style.display = 'block';
+                        }
+
+                        // Reinitialize Lucide icons (same as log.js does)
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+
+                        // Trigger any initialization that log.js would do
+                        // Check if log.js has attached handlers
+                        // Use a longer timeout to ensure log.js has loaded
+                        setTimeout(() => {
+                            // If log.js has a function to initialize compose modal, call it
+                            if (typeof window.attachTemplateHandlers === 'function') {
+                                console.log('Admin: Calling attachTemplateHandlers');
+                                window.attachTemplateHandlers(composeModal);
+                            } else {
+                                console.warn('Admin: attachTemplateHandlers not available yet, retrying...');
+                                // Retry after a longer delay if function not available
+                                setTimeout(() => {
+                                    if (typeof window.attachTemplateHandlers === 'function') {
+                                        console.log('Admin: Retry - Calling attachTemplateHandlers');
+                                        window.attachTemplateHandlers(composeModal);
+                                    }
+                                }, 200);
+                            }
+                            if (typeof window.initSecretaryDeptCheckbox === 'function') {
+                                window.initSecretaryDeptCheckbox(composeModal);
+                            }
+                        }, 200);
+                    }
+                }
+
+                // Initialize: Sync Vue state with DOM after log.js initializes
+                function initializeSync() {
+                    // Wait for log.js to initialize
+                    setTimeout(() => {
+                        syncFiltersFromDOM();
+                        updateMemoCounter();
+
+                        // Watch for counter changes from log.js
+                        const counterEl = document.getElementById('memoCounter');
+                        if (counterEl) {
+                            const observer = new MutationObserver(() => {
+                                updateMemoCounter();
+                            });
+                            observer.observe(counterEl, {
+                                childList: true,
+                                characterData: true,
+                                subtree: true
+                            });
+                        }
+                    }, 200);
+                }
+
+                // Expose update functions globally for log.js to call
+                window.updateVueMemoCounter = updateMemoCounter;
+                window.updateVueFilters = syncFiltersFromDOM;
+
+                // Hook into log.js applyFilters function if it exists
+                if (typeof window !== 'undefined') {
+                    const originalApplyFilters = window.applyFilters;
+                    if (typeof originalApplyFilters === 'function') {
+                        window.applyFilters = function (...args) {
+                            const result = originalApplyFilters.apply(this, args);
+                            setTimeout(updateMemoCounter, 50);
+                            return result;
+                        };
+                    }
+                }
+
+                // Initialize
+                initializeSync();
+
+                return {
+                    filters,
+                    departments,
+                    memoCounter,
+                    counterEl,
+                    onFilterChange,
+                    onSortChange,
+                    onDateFilterChange,
+                    onSearchChange,
+                    clearDateFilter,
+                    updateMemoCounter,
+                    openComposeModal
+                };
+            }
+        });
+
+        // Mount Vue app after DOM is ready
+        function mountVueApp() {
+            const filterContainer = document.getElementById('filterControls');
+            if (filterContainer && !filterContainer.__vue_app__) {
+                filterApp.mount('#filterControls');
+            }
+
+            // Ensure compose button event listener is attached (in case log.js hasn't run yet)
+            // This is a safeguard - log.js should handle this, but we ensure it works
+            setTimeout(() => {
+                const composeBtn = document.querySelector('.compose-btn');
+                const composeModal = document.getElementById('composeModal');
+                if (composeBtn && composeModal && !composeBtn.hasAttribute('data-vue-handled')) {
+                    // Check if log.js already attached the listener
+                    // If not, we'll let log.js handle it when it loads
+                    // Just mark it so we know Vue didn't interfere
+                    composeBtn.setAttribute('data-compose-ready', 'true');
+                }
+            }, 300);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(mountVueApp, 100);
+            });
+        } else {
+            setTimeout(mountVueApp, 200);
+        }
+    </script>
+
     <script src="/js/log.js"></script>
     <script>
         lucide.createIcons();
+
+        // Convert memo viewer from side view to modal
+        (function () {
+            const memoViewerModal = document.getElementById('memoViewerModal');
+            const memoViewer = document.getElementById('memoViewer');
+            const backBtn = document.getElementById('backBtn');
+
+            if (!memoViewerModal || !memoViewer) return;
+
+            // Function to open modal
+            function openMemoModal() {
+                memoViewerModal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                // Reinitialize Lucide icons
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100);
+            }
+
+            // Function to close modal
+            function closeMemoModal() {
+                memoViewerModal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+
+            // Monitor memoViewer display changes and convert to modal
+            const observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        const display = window.getComputedStyle(memoViewer).display;
+                        if (display === 'flex' && memoViewerModal.style.display !== 'block') {
+                            openMemoModal();
+                        } else if (display === 'none' && memoViewerModal.style.display === 'block') {
+                            // Don't close if it's just hiding the viewer content
+                            // Only close if explicitly called
+                        }
+                    }
+                });
+            });
+
+            // Observe memoViewer for style changes
+            observer.observe(memoViewer, {
+                attributes: true,
+                attributeFilter: ['style']
+            });
+
+            // Also check periodically (fallback)
+            let lastDisplay = '';
+            setInterval(function () {
+                const currentDisplay = memoViewer.style.display;
+                if (currentDisplay !== lastDisplay) {
+                    lastDisplay = currentDisplay;
+                    if (currentDisplay === 'flex' && memoViewerModal.style.display !== 'block') {
+                        openMemoModal();
+                    }
+                }
+            }, 100);
+
+            // Close modal when clicking back button
+            if (backBtn) {
+                backBtn.addEventListener('click', function () {
+                    closeMemoModal();
+                    // Also hide the viewer
+                    memoViewer.style.display = 'none';
+                });
+            }
+
+            // Close modal when clicking outside (on modal backdrop)
+            memoViewerModal.addEventListener('click', function (e) {
+                if (e.target === memoViewerModal) {
+                    closeMemoModal();
+                    memoViewer.style.display = 'none';
+                }
+            });
+
+            // Close modal with Escape key
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && memoViewerModal.style.display === 'block') {
+                    closeMemoModal();
+                    memoViewer.style.display = 'none';
+                }
+            });
+
+            // Patch the selectMemo function to open modal
+            // Wait for log.js to load
+            setTimeout(function () {
+                // Intercept memo item clicks
+                document.addEventListener('click', function (e) {
+                    const memoItem = e.target.closest('.memo-item');
+                    if (memoItem && memoItem.dataset.index !== undefined) {
+                        // Open modal when memo is clicked
+                        setTimeout(openMemoModal, 50);
+                    }
+                }, true);
+            }, 500);
+        })();
     </script>
     <script src="/js/log-viewer.js"></script>
 

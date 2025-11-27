@@ -407,6 +407,16 @@ exports.create = async (req, res, next) => {
             // Don't fail the request if notifications fail
         }
 
+        // Sync event to participants' Google Calendars (async, don't wait)
+        try {
+            const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
+            syncEventToParticipantsGoogleCalendars(event, { isUpdate: false })
+                .catch(err => console.error('Error syncing to Google Calendars:', err));
+        } catch (syncError) {
+            console.error('Error initiating Google Calendar sync:', syncError);
+            // Don't fail the request if sync fails
+        }
+
         // Populate the createdBy field for response
         const populatedEvent = await CalendarEvent.findById(event._id).populate('createdBy', 'firstName lastName email');
         res.status(201).json(populatedEvent);
@@ -466,6 +476,9 @@ exports.update = async (req, res, next) => {
             }
         }
 
+        // Store old participants for Google Calendar sync
+        const oldParticipants = originalEvent.participants ? JSON.parse(JSON.stringify(originalEvent.participants)) : null;
+
         const event = await CalendarEvent.findByIdAndUpdate(req.params.id, updates, { new: true });
         if (!event) {return res.status(404).json({ message: 'Event not found' });}
 
@@ -484,6 +497,16 @@ exports.update = async (req, res, next) => {
                 console.error('Error updating event notifications:', notifyError);
                 // Don't fail the request if notifications fail
             }
+        }
+
+        // Sync event updates to participants' Google Calendars (async, don't wait)
+        try {
+            const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
+            syncEventToParticipantsGoogleCalendars(event, { isUpdate: true, oldParticipants })
+                .catch(err => console.error('Error syncing to Google Calendars:', err));
+        } catch (syncError) {
+            console.error('Error initiating Google Calendar sync:', syncError);
+            // Don't fail the request if sync fails
         }
 
         res.json(event);
@@ -535,6 +558,36 @@ exports.remove = async (req, res, next) => {
 
         if (creatorId !== userId) {
             return res.status(403).json({ message: 'Only the event creator can delete this event' });
+        }
+
+        // Delete event from participants' Google Calendars (async, don't wait)
+        try {
+            const { deleteEvent } = require('../services/calendarService');
+            const User = require('../models/User');
+
+            if (event.googleCalendarEventIds && typeof event.googleCalendarEventIds === 'object') {
+                const googleEventIds = event.googleCalendarEventIds;
+                const participantEmails = Object.keys(googleEventIds);
+
+                for (const email of participantEmails) {
+                    const googleEventId = googleEventIds[email];
+                    if (googleEventId) {
+                        try {
+                            const participantUser = await User.findOne({ email: email.toLowerCase().trim() }).lean();
+                            if (participantUser && (participantUser.calendarAccessToken || participantUser.calendarRefreshToken)) {
+                                console.log(`📅 Deleting event from Google Calendar for ${email}`);
+                                await deleteEvent(participantUser, googleEventId);
+                                console.log(`✅ Deleted event from Google Calendar for ${email}`);
+                            }
+                        } catch (error) {
+                            console.error(`❌ Error deleting event from ${email}'s Google Calendar:`, error.message);
+                        }
+                    }
+                }
+            }
+        } catch (syncError) {
+            console.error('Error deleting from Google Calendars:', syncError);
+            // Don't fail the request if sync fails
         }
 
         await CalendarEvent.findByIdAndDelete(req.params.id);

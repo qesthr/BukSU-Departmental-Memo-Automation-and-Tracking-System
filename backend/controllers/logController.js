@@ -14,12 +14,14 @@ exports.getAllMemos = async (req, res) => {
         let user = null; // Declare user at function scope
 
         // System-generated activity types to exclude from memo inboxes
+        // These should only appear in Activity Logs, not in memo inbox
         const systemActivityTypes = [
             'user_activity',
             'system_notification',
             'user_deleted',
             'password_reset',
-            'welcome_email'
+            'welcome_email',
+            'user_profile_edited' // User profile updates - only in Activity Logs
         ];
 
         if (folder === 'inbox') {
@@ -31,14 +33,33 @@ exports.getAllMemos = async (req, res) => {
             if (user.role === 'admin') {
                 // Admin inbox: show both memos sent BY admin and received BY admin
                 // Also include memos that admin approved/rejected (check metadata.history)
+                // IMPORTANT: Admin-created memos should only appear to the admin who created them
+                // If an admin is a recipient of another admin's memo, don't show it (unless they're the sender)
                 // Convert userId to ObjectId for proper comparison
                 const userIdObj = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
                 query = {
                     $and: [
                         {
                             $or: [
+                                // Memos sent by this admin (admin-created memos - only visible to creator)
                                 { sender: userId },
-                                { recipient: userId },
+                                // Pending memos (need admin approval) - all admins can see these
+                                { status: 'pending' },
+                                // Memos received by this admin, BUT exclude if sender is also an admin
+                                // (This prevents admin-created memos from appearing in other admins' inboxes)
+                                {
+                                    $and: [
+                                        { recipient: userId },
+                                        {
+                                            $or: [
+                                                // Sender is not an admin (secretary/faculty memos)
+                                                { sender: { $exists: false } },
+                                                // Or check if sender role is not admin (requires population, handled in filter)
+                                                // We'll filter this in the post-query filter below
+                                            ]
+                                        }
+                                    ]
+                                },
                                 // Include memos approved/rejected by this admin
                                 // Check both ObjectId and string comparison for history
                                 {
@@ -76,21 +97,32 @@ exports.getAllMemos = async (req, res) => {
                 // Status filter already excludes pending, so secretaries won't see their own pending memos
                 // For secretaries, show approved/rejected memos but NOT approval/rejection notification memos
                 // (notification memos appear in notifications dropdown, not inbox)
-                if (user.role === 'secretary') {
-                    query = {
-                        recipient: userId,
-                        status: { $in: ['sent', 'approved', 'rejected'] },
-                        activityType: { $nin: systemActivityTypes },
-                        // Exclude acknowledgment notifications
-                        // Exclude admin memo copies (memos created for admin's inbox)
-                        // Exclude approval/rejection notification memos (they appear in notifications, not inbox)
-                        $nor: [
-                            { 'metadata.notificationType': 'acknowledgment' },
-                            { subject: /^Memo Acknowledged:/i },
-                            { 'metadata.eventType': 'memo_approved_by_admin' },
-                            { 'metadata.eventType': 'memo_review_decision' }
-                        ]
-                    };
+            if (user.role === 'secretary') {
+                query = {
+                    $and: [
+                        {
+                            $or: [
+                                {
+                                    recipient: userId,
+                                    status: { $in: ['sent', 'approved', 'rejected'] }
+                                },
+                                {
+                                    sender: userId,
+                                    status: { $nin: ['deleted'] }
+                                }
+                            ]
+                        },
+                        {
+                            activityType: { $nin: systemActivityTypes },
+                            $nor: [
+                                { 'metadata.notificationType': 'acknowledgment' },
+                                { subject: /^Memo Acknowledged:/i },
+                                { 'metadata.eventType': 'memo_approved_by_admin' },
+                                { 'metadata.eventType': 'memo_review_decision' }
+                            ]
+                        }
+                    ]
+                };
                 } else {
                     query = {
                         recipient: userId,
@@ -135,14 +167,41 @@ exports.getAllMemos = async (req, res) => {
                 activityType: { $ne: null } // Show all system activity logs
             };
         } else if (folder === 'archive') {
-            // For archive folder, show archived, sent, or approved memos sent by user
-            // Exclude memos where user is the recipient (tracking memos)
-            query = {
-                sender: userId,
-                recipient: { $ne: userId }, // Exclude memos sent to the user themselves
-                status: { $in: ['archived', 'sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
-            };
+            // For archive folder, show archived memos
+            // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
+            // For other users: show memos sent by user
+            if (!user) {
+                user = await User.findById(userId);
+            }
+
+            if (user && user.role === 'admin') {
+                // Admin archive: show memos sent by admin OR received by admin (that are explicitly archived)
+                // Note: 'sent' status memos should appear in inbox, not archive
+                query = {
+                    $and: [
+                        {
+                            $or: [
+                                { sender: userId }, // Admin-created memos
+                                { recipient: userId } // Memos received by admin (including approved/rejected secretary memos)
+                            ]
+                        },
+                        {
+                            status: { $in: ['archived', 'approved'] },
+                            // Exclude system activity types (should only be in Activity Logs)
+                            activityType: { $nin: systemActivityTypes }
+                        }
+                    ]
+                };
+            } else {
+                // Regular users: show archived memos sent by user
+                // Note: 'sent' status memos should appear in inbox, not archive
+                query = {
+                    sender: userId,
+                    recipient: { $ne: userId }, // Exclude memos sent to the user themselves
+                    status: { $in: ['archived', 'approved'] },
+                    activityType: { $ne: 'system_notification' }
+                };
+            }
         } else if (folder === 'deleted') {
             // For deleted folder, show only memos that were manually deleted from Inbox/Sent
             query = {
@@ -188,8 +247,39 @@ exports.getAllMemos = async (req, res) => {
             }
 
             // Exclude delivered copies for all users
-            if (isDeliveredCopy) {
+            if (isDeliveredCopy && user.role === 'admin') {
                 return false;
+            }
+
+            // For admins: Exclude memos where recipient is current admin but sender is also an admin
+            // This ensures admin-created memos only appear to the admin who created them
+            // NOTE: This filter only applies to inbox folder, not archive folder
+            if (user.role === 'admin' && folder === 'inbox') {
+                const senderId = memoObj.sender?._id?.toString() || memoObj.sender?.toString();
+                const recipientId = memoObj.recipient?._id?.toString() || memoObj.recipient?.toString();
+                const currentUserId = userId.toString();
+                const senderRole = memoObj.sender?.role;
+                const memoStatus = memoObj.status;
+
+                // If current user is recipient and sender is also an admin (and not the current user)
+                // Exclude it (admin-created memos should only show to creator)
+                if (recipientId === currentUserId &&
+                    senderId &&
+                    senderId !== currentUserId &&
+                    senderRole === 'admin') {
+                    return false;
+                }
+
+                // Exclude secretary/faculty memos from admin inbox
+                // EXCEPT: Keep pending memos (need admin approval) and approved/rejected memos (admin's actions)
+                if ((senderRole === 'secretary' || senderRole === 'faculty') &&
+                    memoStatus !== 'pending' &&
+                    memoStatus !== 'approved' &&
+                    memoStatus !== 'rejected') {
+                    // This is a regular secretary/faculty memo that doesn't need admin attention
+                    // Exclude it from admin inbox
+                    return false;
+                }
             }
 
             // Allow all other memos (including admin-created memos and notifications)
@@ -1050,7 +1140,9 @@ exports.createMemo = async (req, res) => {
         populatedMemo.attachments = createdMemos[0].attachments;
 
         // Create calendar event if date/time is provided
-        if (eventDate && createdMemos.length > 0) {
+        // IMPORTANT: For secretaries, skip calendar event creation here - it will be created after admin approval
+        // Only create calendar events immediately for admins (non-secretary users)
+        if (eventDate && createdMemos.length > 0 && !isSecretary) {
             try {
                 const CalendarEvent = require('../models/CalendarEvent');
 
@@ -1151,6 +1243,16 @@ exports.createMemo = async (req, res) => {
 
                 await calendarEvent.save();
 
+                // Sync event to participants' Google Calendars (async, don't wait)
+                try {
+                    const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
+                    syncEventToParticipantsGoogleCalendars(calendarEvent, { isUpdate: false })
+                        .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
+                } catch (syncError) {
+                    console.error('Error initiating Google Calendar sync for memo:', syncError);
+                    // Don't fail if sync fails
+                }
+
                 // Update memo with calendar event reference
                 await Memo.findByIdAndUpdate(createdMemos[0]._id, {
                     'metadata.calendarEventId': calendarEvent._id,
@@ -1183,8 +1285,10 @@ exports.createMemo = async (req, res) => {
         }
 
         // Trigger Google Drive backup asynchronously (non-blocking)
-        // Only for Admin and Secretary roles, and only if Drive is connected
-        if ((user.role === 'admin' || user.role === 'secretary')) {
+        // IMPORTANT: For secretaries, skip Google Drive backup here - it will be backed up after admin approval
+        // Only backup immediately for admins (non-secretary users)
+        // For secretaries, backup happens in memoWorkflowService.js after approval
+        if (user.role === 'admin' && !isSecretary) {
             // Run backup in background - don't wait for it
             googleDriveService.uploadMemoToDrive(populatedMemo)
                 .then((driveFileId) => {

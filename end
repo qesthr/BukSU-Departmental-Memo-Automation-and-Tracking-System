@@ -1,0 +1,685 @@
+[1mdiff --git a/frontend/components/nav.ejs b/frontend/components/nav.ejs[m
+[1mindex 4651091..ced29b7 100644[m
+[1m--- a/frontend/components/nav.ejs[m
+[1m+++ b/frontend/components/nav.ejs[m
+[36m@@ -1,6 +1,5 @@[m
+ <!-- Sidebar -->[m
+[31m-<aside class="sidebar"[m
+[31m-    data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'[m
+[32m+[m[32m<aside class="sidebar" data-user-settings='<%- JSON.stringify(user && user.settings ? user.settings : {}) %>'[m
+     data-user-role="<%= user.role %>">[m
+     <div class="sidebar-container">[m
+         <!-- Logo -->[m
+[36m@@ -41,8 +40,8 @@[m
+                 </li>[m
+                 <li class="<%= path === '/admin/archive' ? 'active' : '' %>">[m
+                     <a href="/admin/archive">[m
+[31m-                        <i data-lucide="archive"[m
+[31m-                            class="nav-archive-icon <%= path === '/admin/archive' ? 'active' : '' %>"></i>[m
+[32m+[m[32m                        <img src="<%= path === '/admin/archive' ? '/images/archive.png' : '/images/archive-in.png' %>"[m
+[32m+[m[32m                            alt="Archive" class="nav-icon">[m
+                         <span>Archive</span>[m
+                     </a>[m
+                 </li>[m
+[36m@@ -60,14 +59,15 @@[m
+                         <span>Report</span>[m
+                     </a>[m
+                 </li>[m
+[31m-                <% if (user.role === 'admin') { %>[m
+[31m-                <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">[m
+[31m-                    <a href="/admin/activity-logs">[m
+[31m-                        <i data-lucide="activity" class="nav-icon"></i>[m
+[31m-                        <span>Activity Logs</span>[m
+[31m-                    </a>[m
+[31m-                </li>[m
+[31m-                <% } %>[m
+[32m+[m[32m                <% if (user.role==='admin' ) { %>[m
+[32m+[m[32m                    <li class="<%= path === '/admin/activity-logs' ? 'active' : '' %>">[m
+[32m+[m[32m                        <a href="/admin/activity-logs">[m
+[32m+[m[32m                            <img src="<%= path === '/admin/activity-logs' ? '/images/pulse.png' : '/images/pulse-in.png' %>"[m
+[32m+[m[32m                                alt="Activity Logs" class="nav-icon">[m
+[32m+[m[32m                            <span>Activity Logs</span>[m
+[32m+[m[32m                        </a>[m
+[32m+[m[32m                    </li>[m
+[32m+[m[32m                    <% } %>[m
+             </ul>[m
+         </nav>[m
+ [m
+[1mdiff --git a/frontend/components/sweetalert2.ejs b/frontend/components/sweetalert2.ejs[m
+[1mindex 41c86fa..bb49f0c 100644[m
+[1m--- a/frontend/components/sweetalert2.ejs[m
+[1m+++ b/frontend/components/sweetalert2.ejs[m
+[36m@@ -1,4 +1,3 @@[m
+ <!-- SweetAlert2 CSS and JS -->[m
+ <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">[m
+ <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>[m
+[31m-[m
+[1mdiff --git a/frontend/public/css/admin-dash.css b/frontend/public/css/admin-dash.css[m
+[1mindex bbb984b..678beea 100644[m
+[1m--- a/frontend/public/css/admin-dash.css[m
+[1m+++ b/frontend/public/css/admin-dash.css[m
+[36m@@ -278,81 +278,81 @@[m [mbody {[m
+ [m
+ /* Stats Grid */[m
+ .stats-grid {[m
+[31m-  display: grid;[m
+[31m-  grid-template-columns: repeat(4, 1fr);[m
+[31m-  gap: 0.75rem;[m
+[31m-  width: 100%;[m
+[31m-  max-width: 100%;[m
+[31m-  overflow-x: hidden;[m
+[31m-  box-sizing: border-box;[m
+[32m+[m[32m    display: grid;[m
+[32m+[m[32m    grid-template-columns: repeat(4, 1fr);[m
+[32m+[m[32m    gap: 0.75rem;[m
+[32m+[m[32m    width: 100%;[m
+[32m+[m[32m    max-width: 100%;[m
+[32m+[m[32m    overflow-x: hidden;[m
+[32m+[m[32m    box-sizing: border-box;[m
+ }[m
+ [m
+ .stat-card {[m
+[31m-  background: #fff;[m
+[31m-  border-radius: 10px;[m
+[31m-  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);[m
+[31m-  padding: 0.875rem 1rem;[m
+[31m-  display: flex;[m
+[31m-  align-items: center;[m
+[31m-  transition: transform 0.2s ease, box-shadow 0.2s ease;[m
+[31m-  width: 100%;[m
+[31m-  max-width: 100%;[m
+[31m-  min-width: 0;[m
+[31m-  gap: 0.75rem;[m
+[31m-  box-sizing: border-box;[m
+[32m+[m[32m    background: #fff;[m
+[32m+[m[32m    border-radius: 10px;[m
+[32m+[m[32m    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);[m
+[32m+[m[32m    padding: 0.875rem 1rem;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    transition: transform 0.2s ease, box-shadow 0.2s ease;[m
+[32m+[m[32m    width: 100%;[m
+[32m+[m[32m    max-width: 100%;[m
+[32m+[m[32m    min-width: 0;[m
+[32m+[m[32m    gap: 0.75rem;[m
+[32m+[m[32m    box-sizing: border-box;[m
+ }[m
+ [m
+ .stat-icon {[m
+[31m-  flex-shrink: 0;[m
+[31m-  width: 36px;[m
+[31m-  height: 36px;[m
+[31m-  color: #4a6cf7;[m
+[31m-  overflow: hidden;[m
+[31m-  display: flex;[m
+[31m-  align-items: center;[m
+[31m-  justify-content: center;[m
+[32m+[m[32m    flex-shrink: 0;[m
+[32m+[m[32m    width: 36px;[m
+[32m+[m[32m    height: 36px;[m
+[32m+[m[32m    color: #4a6cf7;[m
+[32m+[m[32m    overflow: hidden;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    justify-content: center;[m
+ }[m
+ [m
+ .stat-icon svg {[m
+[31m-  width: 100%;[m
+[31m-  height: 100%;[m
+[31m-  display: block;[m
+[32m+[m[32m    width: 100%;[m
+[32m+[m[32m    height: 100%;[m
+[32m+[m[32m    display: block;[m
+ }[m
+ [m
+ .stat-info {[m
+[31m-  flex: 1;[m
+[31m-  min-width: 0;[m
+[32m+[m[32m    flex: 1;[m
+[32m+[m[32m    min-width: 0;[m
+ }[m
+ [m
+ .stat-info h3 {[m
+[31m-  font-size: 0.875rem;[m
+[31m-  color: #333;[m
+[31m-  margin-bottom: 4px;[m
+[31m-  font-weight: 500;[m
+[31m-  line-height: 1.2;[m
+[31m-  word-wrap: break-word;[m
+[31m-  overflow-wrap: break-word;[m
+[31m-  hyphens: auto;[m
+[32m+[m[32m    font-size: 0.875rem;[m
+[32m+[m[32m    color: #333;[m
+[32m+[m[32m    margin-bottom: 4px;[m
+[32m+[m[32m    font-weight: 500;[m
+[32m+[m[32m    line-height: 1.2;[m
+[32m+[m[32m    word-wrap: break-word;[m
+[32m+[m[32m    overflow-wrap: break-word;[m
+[32m+[m[32m    hyphens: auto;[m
+ }[m
+ [m
+ .stat-value {[m
+[31m-  font-size: 1.375rem;[m
+[31m-  font-weight: 700;[m
+[31m-  color: #222;[m
+[31m-  line-height: 1.2;[m
+[32m+[m[32m    font-size: 1.375rem;[m
+[32m+[m[32m    font-weight: 700;[m
+[32m+[m[32m    color: #222;[m
+[32m+[m[32m    line-height: 1.2;[m
+ }[m
+ [m
+ .stat-change {[m
+[31m-  font-size: 0.75rem;[m
+[31m-  color: #777;[m
+[31m-  margin-top: 2px;[m
+[31m-  line-height: 1.2;[m
+[32m+[m[32m    font-size: 0.75rem;[m
+[32m+[m[32m    color: #777;[m
+[32m+[m[32m    margin-top: 2px;[m
+[32m+[m[32m    line-height: 1.2;[m
+ }[m
+ [m
+ /* Hover effect for stat cards */[m
+ .stat-card:hover {[m
+[31m-  transform: translateY(-4px);[m
+[31m-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);[m
+[32m+[m[32m    transform: translateY(-4px);[m
+[32m+[m[32m    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);[m
+ }[m
+ [m
+ /* Main Grid Layout */[m
+[36m@@ -415,6 +415,7 @@[m [mbody {[m
+     border: 1px solid var(--border);[m
+     padding: 0.75rem;[m
+     background: #fff;[m
+[32m+[m[32m    margin-top: 10px;[m
+ }[m
+ [m
+ /* Scrollbar styling for memo container */[m
+[36m@@ -616,10 +617,13 @@[m [mbody {[m
+ }[m
+ [m
+ @keyframes pulse {[m
+[31m-    0%, 100% {[m
+[32m+[m
+[32m+[m[32m    0%,[m
+[32m+[m[32m    100% {[m
+         opacity: 1;[m
+         transform: scale(1);[m
+     }[m
+[32m+[m
+     50% {[m
+         opacity: 0.7;[m
+         transform: scale(1.1);[m
+[36m@@ -673,6 +677,7 @@[m [mbody {[m
+     from {[m
+         transform: rotate(0deg);[m
+     }[m
+[32m+[m
+     to {[m
+         transform: rotate(360deg);[m
+     }[m
+[36m@@ -711,6 +716,7 @@[m [mbody {[m
+         opacity: 0;[m
+         transform: translateY(-10px);[m
+     }[m
+[32m+[m
+     to {[m
+         opacity: 1;[m
+         transform: translateY(0);[m
+[36m@@ -934,12 +940,15 @@[m [mbody {[m
+     .main-grid {[m
+         grid-template-columns: 1fr 420px;[m
+     }[m
+[32m+[m
+     .side-grid {[m
+         max-width: 420px;[m
+     }[m
+[32m+[m
+     .hero-texts h1 {[m
+         font-size: 2rem;[m
+     }[m
+[32m+[m
+     .hero-texts p {[m
+         font-size: 1.125rem;[m
+     }[m
+[36m@@ -949,6 +958,7 @@[m [mbody {[m
+     .main-grid {[m
+         grid-template-columns: 1fr 340px;[m
+     }[m
+[32m+[m
+     .side-grid {[m
+         max-width: 340px;[m
+     }[m
+[36m@@ -959,6 +969,7 @@[m [mbody {[m
+         grid-template-columns: 1fr;[m
+         grid-template-rows: auto auto auto 1fr;[m
+     }[m
+[32m+[m
+     .side-grid {[m
+         grid-column: 1;[m
+         grid-row: 4;[m
+[36m@@ -967,15 +978,19 @@[m [mbody {[m
+         grid-template-columns: repeat(2, 1fr);[m
+         gap: 1rem;[m
+     }[m
+[32m+[m
+     .hero-header {[m
+         grid-row: 1;[m
+     }[m
+[32m+[m
+     .dashboard-content {[m
+         grid-row: 2;[m
+     }[m
+[32m+[m
+     .recent-memos-section {[m
+         grid-row: 3;[m
+     }[m
+[32m+[m
+     .memo-container {[m
+         max-height: 400px;[m
+     }[m
+[36m@@ -987,94 +1002,118 @@[m [mbody {[m
+         width: calc(100% - 70px);[m
+         padding: 1rem;[m
+     }[m
+[32m+[m
+     .main-grid {[m
+         gap: 1rem;[m
+         margin-top: 1rem;[m
+     }[m
+[32m+[m
+     .side-grid {[m
+         grid-template-columns: 1fr;[m
+     }[m
+[32m+[m
+     .hero-header {[m
+         min-height: 160px;[m
+     }[m
+[32m+[m
+     .hero-overlay {[m
+         min-height: 160px;[m
+         padding: 1rem;[m
+         grid-template-columns: 1fr;[m
+     }[m
+[32m+[m
+     .hero-img-container {[m
+         display: none;[m
+     }[m
+[32m+[m
+     .hero-texts {[m
+         text-align: center;[m
+         align-items: center;[m
+     }[m
+[32m+[m
+     .hero-texts h1 {[m
+         font-size: 1.5rem;[m
+     }[m
+[32m+[m
+     .hero-texts p {[m
+         font-size: 0.9rem;[m
+     }[m
+[32m+[m
+     .stats-grid {[m
+         grid-template-columns: repeat(2, 1fr);[m
+         gap: 0.75rem;[m
+     }[m
+[32m+[m
+     .stat-card {[m
+         padding: 1rem;[m
+     }[m
+[32m+[m
+     .recent-memos-section {[m
+         padding: 1rem;[m
+     }[m
+[32m+[m
+     .recent-memos-section h2 {[m
+         font-size: 1.25rem;[m
+         margin-bottom: 1rem;[m
+     }[m
+[32m+[m
+     .memo-container {[m
+         max-height: 350px;[m
+         padding: 0.5rem;[m
+     }[m
+[32m+[m
+     .calendar-section,[m
+     .backup-section {[m
+         padding: 1rem;[m
+     }[m
+[32m+[m
+     .sidebar {[m
+         width: 70px;[m
+         padding: 0.75rem;[m
+         z-index: 100;[m
+     }[m
+[32m+[m
+     .logo h2,[m
+     .main-nav span,[m
+     .bottom-nav span,[m
+     .profile-info {[m
+         display: none;[m
+     }[m
+[32m+[m
+     .profile-section {[m
+         padding: 0.5rem;[m
+     }[m
+[32m+[m
+     .stat-card {[m
+         padding: 0.75rem;[m
+         flex-direction: row;[m
+         align-items: center;[m
+         gap: 0.5rem;[m
+     }[m
+[32m+[m
+     .stat-icon {[m
+         width: 32px;[m
+         height: 32px;[m
+     }[m
+[32m+[m
+     .stat-info h3 {[m
+         font-size: 0.8125rem;[m
+     }[m
+[32m+[m
+     .stat-value {[m
+         font-size: 1.125rem;[m
+     }[m
+[32m+[m
+     .stat-change {[m
+         font-size: 0.6875rem;[m
+     }[m
+[32m+[m
+     .memo-item {[m
+         flex-wrap: wrap;[m
+         padding: 0.75rem;[m
+     }[m
+[31m-    .memo-item > div:last-child {[m
+[32m+[m
+[32m+[m[32m    .memo-item>div:last-child {[m
+         width: 100%;[m
+         justify-content: flex-end;[m
+         margin-top: 0.5rem;[m
+[1mdiff --git a/frontend/public/css/admintopbar.css b/frontend/public/css/admintopbar.css[m
+[1mindex 42df2b7..b1df403 100644[m
+[1m--- a/frontend/public/css/admintopbar.css[m
+[1m+++ b/frontend/public/css/admintopbar.css[m
+[36m@@ -19,7 +19,7 @@[m
+     padding: 0.75rem 1.5rem;[m
+     border-radius: 0.5rem;[m
+     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);[m
+[31m-    margin-top: -35px;[m
+[32m+[m[32m    margin-top: -10px;[m
+     /* position: sticky;[m
+     top: 0; */[m
+     /* ensure stacking context */[m
+[36m@@ -38,8 +38,10 @@[m
+     margin-right: 1rem;[m
+     display: flex;[m
+     align-items: center;[m
+[31m-    z-index: 1; /* keep below modals/dropdowns */[m
+[31m-    overflow: hidden; /* prevent visual overflow into dropdowns/modals */[m
+[32m+[m[32m    z-index: 1;[m
+[32m+[m[32m    /* keep below modals/dropdowns */[m
+[32m+[m[32m    overflow: hidden;[m
+[32m+[m[32m    /* prevent visual overflow into dropdowns/modals */[m
+ }[m
+ [m
+ [m
+[36m@@ -71,7 +73,8 @@[m
+     display: flex;[m
+     align-items: center;[m
+     justify-content: center;[m
+[31m-    z-index: 0; /* stay within container clipping */[m
+[32m+[m[32m    z-index: 0;[m
+[32m+[m[32m    /* stay within container clipping */[m
+ }[m
+ [m
+ /* 🔹 Header Actions (Notifications + Profile) */[m
+[1mdiff --git a/frontend/public/css/calendar.css b/frontend/public/css/calendar.css[m
+[1mindex 8f05476..4a55be5 100644[m
+[1m--- a/frontend/public/css/calendar.css[m
+[1m+++ b/frontend/public/css/calendar.css[m
+[36m@@ -1,5 +1,6 @@[m
+ .calendar-page {[m
+     display: grid;[m
+[32m+[m[32m    margin-top: 10px;[m
+     grid-template-columns: 200px 1fr;[m
+     gap: 0.5rem;[m
+     height: 35rem;[m
+[36m@@ -230,8 +231,10 @@[m
+     min-height: 32px;[m
+     position: relative;[m
+     padding: 4px 0;[m
+[31m-    overflow: visible; /* allow dropdown to overflow */[m
+[31m-    z-index: 2; /* sit above adjacent inputs */[m
+[32m+[m[32m    overflow: visible;[m
+[32m+[m[32m    /* allow dropdown to overflow */[m
+[32m+[m[32m    z-index: 2;[m
+[32m+[m[32m    /* sit above adjacent inputs */[m
+ }[m
+ [m
+ .participant-chips-wrapper {[m
+[36m@@ -289,6 +292,7 @@[m
+         opacity: 0;[m
+         transform: translateY(-5px);[m
+     }[m
+[32m+[m
+     to {[m
+         opacity: 1;[m
+         transform: translateY(0);[m
+[36m@@ -365,8 +369,13 @@[m
+ [m
+ /* Loading spinner animation */[m
+ @keyframes spin {[m
+[31m-    0% { transform: rotate(0deg); }[m
+[31m-    100% { transform: rotate(360deg); }[m
+[32m+[m[32m    0% {[m
+[32m+[m[32m        transform: rotate(0deg);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    100% {[m
+[32m+[m[32m        transform: rotate(360deg);[m
+[32m+[m[32m    }[m
+ }[m
+ [m
+ .participant-chip {[m
+[36m@@ -802,6 +811,7 @@[m
+         opacity: 0;[m
+         transform: translateY(-20px) scale(0.95);[m
+     }[m
+[32m+[m
+     to {[m
+         opacity: 1;[m
+         transform: translateY(0) scale(1);[m
+[1mdiff --git a/frontend/public/css/log.css b/frontend/public/css/log.css[m
+[1mindex 8ba02ac..5cd6c18 100644[m
+[1m--- a/frontend/public/css/log.css[m
+[1m+++ b/frontend/public/css/log.css[m
+[36m@@ -1,189 +1,189 @@[m
+ .log-layout {[m
+[31m-  display: flex;[m
+[31m-  width: 100%;[m
+[31m-  height: 550px;[m
+[31m-  max-width: 100%;[m
+[31m-  gap: 0;[m
+[31m-  box-sizing: border-box;[m
+[31m-  overflow: hidden;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    width: 100%;[m
+[32m+[m[32m    height: 550px;[m
+[32m+[m[32m    max-width: 100%;[m
+[32m+[m[32m    gap: 0;[m
+[32m+[m[32m    box-sizing: border-box;[m
+[32m+[m[32m    overflow: hidden;[m
+ }[m
+ [m
+ /* Sidebar */[m
+ .log-sidebar {[m
+[31m-  width: 200px;[m
+[31m-  background: #fff;[m
+[31m-  border-right: 1px solid #e5e7eb;[m
+[31m-  display: flex;[m
+[31m-  flex-direction: column;[m
+[31m-  gap: 8px;[m
+[31m-  padding-top: 1rem;[m
+[31m-  padding-bottom: 1rem;[m
+[31m-  padding-right: 1rem;[m
+[31m-  height: 100%;[m
+[32m+[m[32m    width: 200px;[m
+[32m+[m[32m    background: #fff;[m
+[32m+[m[32m    border-right: 1px solid #e5e7eb;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    flex-direction: column;[m
+[32m+[m[32m    gap: 8px;[m
+[32m+[m[32m    padding-top: 1rem;[m
+[32m+[m[32m    padding-bottom: 1rem;[m
+[32m+[m[32m    padding-right: 1rem;[m
+[32m+[m[32m    height: 100%;[m
+ }[m
+ [m
+ .compose-btn {[m
+[31m-  background: #2563eb;[m
+[31m-  color: white;[m
+[31m-  border: none;[m
+[31m-  padding: 12px 16px;[m
+[31m-  border-radius: 8px;[m
+[31m-  font-weight: 600;[m
+[31m-  cursor: pointer;[m
+[31m-  display: flex;[m
+[31m-  align-items: center;[m
+[31m-  gap: 8px;[m
+[31m-  transition: all 0.2s;[m
+[32m+[m[32m    background: #2563eb;[m
+[32m+[m[32m    color: white;[m
+[32m+[m[32m    border: none;[m
+[32m+[m[32m    padding: 12px 16px;[m
+[32m+[m[32m    border-radius: 8px;[m
+[32m+[m[32m    font-weight: 600;[m
+[32m+[m[32m    cursor: pointer;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 8px;[m
+[32m+[m[32m    transition: all 0.2s;[m
+ }[m
+ [m
+ .compose-btn:hover {[m
+[31m-  background: #1d4ed8;[m
+[32m+[m[32m    background: #1d4ed8;[m
+ }[m
+ [m
+ .compose-btn i {[m
+[31m-  width: 20px;[m
+[31m-  height: 20px;[m
+[32m+[m[32m    width: 20px;[m
+[32m+[m[32m    height: 20px;[m
+ }[m
+ [m
+ .folders {[m
+[31m-  display: flex;[m
+[31m-  flex-direction: column;[m
+[31m-  gap: 4px;[m
+[31m-  margin-top: 8px;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    flex-direction: column;[m
+[32m+[m[32m    gap: 4px;[m
+[32m+[m[32m    margin-top: 8px;[m
+ }[m
+ [m
+ .folder-item {[m
+[31m-  display: flex;[m
+[31m-  align-items: center;[m
+[31m-  gap: 12px;[m
+[31m-  padding: 12px;[m
+[31m-  border-radius: 8px;[m
+[31m-  text-decoration: none;[m
+[31m-  color: #6b7280;[m
+[31m-  transition: all 0.2s;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 12px;[m
+[32m+[m[32m    padding: 12px;[m
+[32m+[m[32m    border-radius: 8px;[m
+[32m+[m[32m    text-decoration: none;[m
+[32m+[m[32m    color: #6b7280;[m
+[32m+[m[32m    transition: all 0.2s;[m
+ }[m
+ [m
+ .folder-item:hover {[m
+[31m-  background: #f3f4f6;[m
+[31m-  color: #2563eb;[m
+[32m+[m[32m    background: #f3f4f6;[m
+[32m+[m[32m    color: #2563eb;[m
+ }[m
+ [m
+ .folder-item.active {[m
+[31m-  background: #dbeafe;[m
+[31m-  color: #2563eb;[m
+[31m-  font-weight: 600;[m
+[32m+[m[32m    background: #dbeafe;[m
+[32m+[m[32m    color: #2563eb;[m
+[32m+[m[32m    font-weight: 600;[m
+ }[m
+ [m
+ .folder-item i {[m
+[31m-  width: 20px;[m
+[31m-  height: 20px;[m
+[32m+[m[32m    width: 20px;[m
+[32m+[m[32m    height: 20px;[m
+ }[m
+ [m
+ /* Memo List Area */[m
+ .memo-list-area {[m
+[31m-  flex: 1;[m
+[31m-  width: 100%;[m
+[31m-  border-right: 1px solid #e5e7eb;[m
+[31m-  display: flex;[m
+[31m-  flex-direction: column;[m
+[31m-  height: 100%;[m
+[31m-  transition: all 0.4s ease;[m
+[31m-  overflow: visible;[m
+[32m+[m[32m    flex: 1;[m
+[32m+[m[32m    width: 100%;[m
+[32m+[m[32m    border-right: 1px solid #e5e7eb;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    flex-direction: column;[m
+[32m+[m[32m    height: 100%;[m
+[32m+[m[32m    transition: all 0.4s ease;[m
+[32m+[m[32m    overflow: visible;[m
+ }[m
+ [m
+ .memo-list-header {[m
+[31m-  padding: 16px;[m
+[31m-  border-bottom: 1px solid #e5e7eb;[m
+[31m-  position: relative;[m
+[31m-  overflow: visible;[m
+[31m-  z-index: 1;[m
+[31m-  background: #fff;[m
+[32m+[m[32m    padding: 16px;[m
+[32m+[m[32m    border-bottom: 1px solid #e5e7eb;[m
+[32m+[m[32m    position: relative;[m
+[32m+[m[32m    overflow: visible;[m
+[32m+[m[32m    z-index: 1;[m
+[32m+[m[32m    background: #fff;[m
+ }[m
+ [m
+ .header-controls {[m
+[31m-  margin-bottom: 12px;[m
+[32m+[m[32m    margin-bottom: 12px;[m
+ }[m
+ [m
+ .checkbox-control {[m
+[31m-  display: flex;[m
+[31m-  align-items: center;[m
+[31m-  gap: 12px;[m
+[31m-  position: relative;[m
+[31m-  z-index: 1;[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 12px;[m
+[32m+[m[32m    position: relative;[m
+[32m+[m[32m    z-index: 1;[m
+ }[m
+ [m
+ /* Ensure checkbox-control only appears in memo l

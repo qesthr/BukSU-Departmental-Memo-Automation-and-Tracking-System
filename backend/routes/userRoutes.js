@@ -4,6 +4,7 @@ const userController = require('../controllers/userController');
 const inviteController = require('../controllers/inviteController');
 const isAdmin = require('../middleware/isAdmin');
 const isAuthenticated = require('../middleware/isAuthenticated');
+const upload = require('../middleware/upload');
 
 // Protect all routes with authentication and admin middleware
 router.use(isAuthenticated);
@@ -32,8 +33,8 @@ router.post('/:id/unarchive', userController.unarchiveUser);
 // Get archived users
 router.get('/archived/list', userController.getArchivedUsers);
 
-// Upload profile picture
-router.post('/:id/profile-picture', userController.uploadProfilePicture);
+// Upload profile picture (use in-memory storage so we can persist to DB)
+router.post('/:id/profile-picture', upload.memory.single('profilePicture'), userController.uploadProfilePicture);
 
 // 2PL edit lock endpoints
 router.post('/lock-user/:id', userController.acquireUserLock);
