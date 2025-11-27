@@ -71,13 +71,13 @@
                         dashboardUrl = '/faculty-dashboard';
                     }
 
-                    console.log('➡️ Redirecting to:', dashboardUrl);
-                    window.location.href = dashboardUrl;
+                    console.log('➡️ Redirecting to dashboard:', dashboardUrl);
+                    window.location.replace(dashboardUrl);
 
                 } catch (error) {
                     console.error('❌ Error getting user info:', error);
                     // Fallback: redirect to login with error
-                    window.location.href = '/login?error=auth_failed';
+                    window.location.replace('/login?error=auth_failed');
                 }
             })();
         }

@@ -144,7 +144,7 @@
             <!-- LEFT SIDE -->
             <div class="left-panel">
                 <div class="logo">
-                    <img src="/images/BukSU-Logo.png" alt="BukSU Logo">
+                    <img src="/images/Buksu-Logo.png" alt="BukSU Logo">
                 </div>
                 <p class="tagline">Educate. Innovate. Lead.</p>
             </div>
@@ -461,17 +461,21 @@
                             dashboardUrl = '/faculty-dashboard';
                         }
 
-                        // Close popup first, then wait briefly for it to close before redirecting
+                        // Close popup first
                         closeAuthPopupRobust();
                         let waited = 0;
-                        while (window.authPopup && !window.authPopup.closed && waited < 1500) {
+                        while (window.authPopup && !window.authPopup.closed && waited < 1000) {
                             await new Promise(r => setTimeout(r, 100));
                             waited += 100;
                             try { if (window.authPopup) { window.authPopup.close(); } } catch (e) { }
                         }
 
-                        console.log('➡️ Redirecting parent to:', dashboardUrl);
-                        window.location.href = dashboardUrl;
+                        // Small delay to ensure popup is fully closed before redirect
+                        await new Promise(r => setTimeout(r, 200));
+
+                        console.log('➡️ Redirecting to dashboard:', dashboardUrl);
+                        // Use replace to avoid adding to history (cleaner navigation)
+                        window.location.replace(dashboardUrl);
 
                     } catch (error) {
                         console.error('❌ Error loading dashboard:', error);
@@ -487,7 +491,7 @@
                         } else if (user.user?.role === 'faculty') {
                             fallbackUrl = '/faculty-dashboard';
                         }
-                        window.location.href = fallbackUrl;
+                        window.location.replace(fallbackUrl);
                     }
                 }
             });
@@ -513,12 +517,12 @@
                             } else if (data.user?.role === 'faculty') {
                                 dashboardUrl = '/faculty-dashboard';
                             }
-                            console.log('➡️ [storage] Redirecting parent to:', dashboardUrl);
-                            window.location.href = dashboardUrl;
+                            console.log('➡️ [storage] Redirecting to dashboard:', dashboardUrl);
+                            window.location.replace(dashboardUrl);
                         } catch (err2) {
                             console.log('⚠️ [storage] Error getting user info, redirecting to login:', err2?.message);
                             // If we can't get user info, redirect to login page
-                            window.location.href = '/?error=auth_failed';
+                            window.location.replace('/?error=auth_failed');
                         }
                     }, 200);
                 }
