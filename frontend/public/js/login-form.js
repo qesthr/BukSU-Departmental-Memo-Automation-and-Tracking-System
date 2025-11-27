@@ -694,6 +694,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Complete progress bar
                 completeProgressBar();
 
+                // Close loading modal first
+                if (typeof Swal !== 'undefined') {
+                    Swal.close();
+                }
+
                 // Redirect based on role
                 const userRole = data.user?.role;
                 let redirectUrl = '/admin-dashboard';
@@ -706,26 +711,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 // eslint-disable-next-line no-console
                 console.log(' Info: Redirecting to:', redirectUrl, 'for role:', userRole);
 
-                // Show SweetAlert2 success modal
+                // Show SweetAlert2 success modal (briefly, then redirect)
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'success',
                         title: 'Login Successful!',
                         text: 'Redirecting to your dashboard...',
                         showConfirmButton: false,
-                        timer: 1500,
+                        timer: 1000,
                         timerProgressBar: true,
                         allowOutsideClick: false,
                         allowEscapeKey: false,
                         didClose: () => {
-                            window.location.href = redirectUrl;
+                            window.location.replace(redirectUrl);
                         }
                     }).then(() => {
-                        window.location.href = redirectUrl;
+                        window.location.replace(redirectUrl);
                     });
                 } else {
                     // Fallback if SweetAlert2 is not available
-                    setTimeout(() => { window.location.href = redirectUrl; }, 650);
+                    setTimeout(() => { window.location.replace(redirectUrl); }, 500);
                 }
             } else {
                 // Set loginSuccessful to false to prevent any redirects
