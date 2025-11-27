@@ -261,6 +261,10 @@ function normalizeDepartment(dept) {
                 if (!profilePicture || profilePicture === '/images/memofy-logo.png') {
                     return '/images/memofy-logo.png';
                 }
+                // Data/blob URIs must not have cache-busting appended
+                if (typeof profilePicture === 'string' && (profilePicture.startsWith('data:') || profilePicture.startsWith('blob:'))) {
+                    return profilePicture;
+                }
                 // Use user's updatedAt timestamp for cache-busting (changes when user is updated)
                 // Fallback to current time if updatedAt is not available
                 const cacheBuster = user && user.updatedAt

@@ -2,6 +2,12 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+function normalizeProfilePicturePath(value) {
+    if (!value || typeof value !== 'string') { return value; }
+    const forwardSlashPath = value.replace(/\\/g, '/');
+    return forwardSlashPath.replace('/images/uploads/', '/uploads/');
+}
+
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -139,7 +145,9 @@ const userSchema = new mongoose.Schema({
     },
     profilePicture: {
         type: String,
-        default: '/images/memofy-logo.png'
+        default: '/images/memofy-logo.png',
+        set: normalizeProfilePicturePath,
+        get: normalizeProfilePicturePath
     },
     isActive: {
         type: Boolean,
@@ -286,6 +294,10 @@ userSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
     this.lastUpdatedAt = new Date();
 
+    if (this.isModified('profilePicture') && this.profilePicture) {
+        this.profilePicture = normalizeProfilePicturePath(this.profilePicture);
+    }
+
     // Ensure admins never have a department
     if (this.role === 'admin' && this.department) {
         this.department = '';
@@ -296,6 +308,15 @@ userSchema.pre('save', function (next) {
 // Update updatedAt field when using findByIdAndUpdate or findOneAndUpdate
 userSchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], function (next) {
     this.set({ updatedAt: Date.now() });
+    const update = this.getUpdate();
+    if (update) {
+        if (update.profilePicture) {
+            update.profilePicture = normalizeProfilePicturePath(update.profilePicture);
+        } else if (update.$set && update.$set.profilePicture) {
+            update.$set.profilePicture = normalizeProfilePicturePath(update.$set.profilePicture);
+        }
+        this.setUpdate(update);
+    }
     next();
 });
 
@@ -328,6 +349,9 @@ userSchema.index({ role: 1 });
 userSchema.set('toJSON', {
     virtuals: true,
     transform: function (doc, ret) {
+        if (ret.profilePicture) {
+            ret.profilePicture = normalizeProfilePicturePath(ret.profilePicture);
+        }
         delete ret.password;
         delete ret.loginAttempts;
         delete ret.lockUntil;

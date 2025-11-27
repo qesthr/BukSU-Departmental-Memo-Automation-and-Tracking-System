@@ -524,11 +524,17 @@ module.exports.uploadMyProfilePicture = async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
+        const mimeType = req.file.mimetype || 'image/png';
+        const base64Data = req.file.buffer?.toString('base64');
+        if (!base64Data) {
+            return res.status(400).json({ success: false, message: 'Invalid image data' });
+        }
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
         const User = require('../models/User');
-        const pictureUrl = `/uploads/${req.file.filename}`;
         // Use { new: true } to return updated document and ensure updatedAt is set
-        await User.findByIdAndUpdate(req.user._id, { profilePicture: pictureUrl }, { new: true });
-        return res.json({ success: true, profilePicture: pictureUrl });
+        await User.findByIdAndUpdate(req.user._id, { profilePicture: dataUrl }, { new: true });
+        console.log(`[ProfilePicture] User ${req.user.email || req.user._id} updated their profile picture (stored ${base64Data.length} bytes in DB).`);
+        return res.json({ success: true, profilePicture: dataUrl });
     } catch (e) {
         console.error('uploadMyProfilePicture error:', e);
         return res.status(500).json({ success: false, message: 'Server error' });
