@@ -76,10 +76,16 @@ exports.createSignature = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Signature role already exists' });
         }
 
-        // Handle image upload
+        // Handle image upload - convert to base64 data URL (same as profile pictures)
         let imageUrl = '';
         if (req.file) {
-            imageUrl = `/uploads/${req.file.filename}`;
+            const mimeType = req.file.mimetype || 'image/png';
+            const base64Data = req.file.buffer?.toString('base64');
+            if (!base64Data) {
+                return res.status(400).json({ success: false, message: 'Invalid image data' });
+            }
+            imageUrl = `data:${mimeType};base64,${base64Data}`;
+            console.log(`[Signature] Admin ${req.user.email || req.user._id} created signature "${roleTitle}" (stored ${base64Data.length} bytes in DB as base64).`);
         } else {
             return res.status(400).json({ success: false, message: 'Signature image is required' });
         }
@@ -138,9 +144,15 @@ exports.updateSignature = async (req, res) => {
         if (typeof isActive === 'boolean') signature.isActive = isActive;
         if (typeof order === 'number') signature.order = order;
 
-        // Handle image update if new file uploaded
+        // Handle image update if new file uploaded - convert to base64 data URL (same as profile pictures)
         if (req.file) {
-            signature.imageUrl = `/uploads/${req.file.filename}`;
+            const mimeType = req.file.mimetype || 'image/png';
+            const base64Data = req.file.buffer?.toString('base64');
+            if (!base64Data) {
+                return res.status(400).json({ success: false, message: 'Invalid image data' });
+            }
+            signature.imageUrl = `data:${mimeType};base64,${base64Data}`;
+            console.log(`[Signature] Admin ${req.user.email || req.user._id} updated signature "${signature.roleTitle}" (stored ${base64Data.length} bytes in DB as base64).`);
         }
 
         await signature.save();
