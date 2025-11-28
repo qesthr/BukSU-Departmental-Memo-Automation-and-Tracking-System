@@ -132,10 +132,8 @@ router.get('/google', (req, res, next) => {
     console.log('🔐 Request protocol:', req.protocol);
     console.log('🔐 Request host:', req.get('host'));
     console.log('🔐 Full URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
-    passport.authenticate('google', { 
-        scope: ['profile', 'email'],
-        accessType: 'offline',
-        prompt: 'consent'
+    passport.authenticate('google', {
+        scope: ['profile', 'email']
     })(req, res, next);
 });
 

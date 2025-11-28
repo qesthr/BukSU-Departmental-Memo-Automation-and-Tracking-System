@@ -4,7 +4,12 @@ const User = require('../models/User');
 function createOAuthClient() {
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'http://localhost:5000/calendar/auth/callback';
+    // Use GOOGLE_CALENDAR_REDIRECT_URI if set, otherwise construct from BASE_URL
+    const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 
+                       `${process.env.BASE_URL || 'http://localhost:5000'}/calendar/auth/callback`;
+    console.log('📅 Google Calendar OAuth redirect URI:', redirectUri);
+    console.log('📅 BASE_URL:', process.env.BASE_URL || 'not set');
+    console.log('📅 GOOGLE_CALENDAR_REDIRECT_URI:', process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'not set');
     if (!clientId || !clientSecret) { throw new Error('Missing Google Calendar OAuth env'); }
     return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
