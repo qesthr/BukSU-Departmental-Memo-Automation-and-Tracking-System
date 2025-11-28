@@ -185,6 +185,7 @@
 
         window.archivedMemos = <%- JSON.stringify(archivedMemos || []) %>;
         window.archivedEvents = <%- JSON.stringify(archivedEvents || []) %>;
+        window.archivedSignatures = <%- JSON.stringify(archivedSignatures || []) %>;
     </script>
     <script src="/js/log.js"></script>
     <script src="/js/log-viewer.js"></script>
@@ -205,10 +206,11 @@
             const memoViewer = document.getElementById('memoViewer');
             const memoCounter = document.getElementById('memoCounter');
 
-            // Combine memos and calendar events
+            // Combine memos, calendar events, and signatures
             const allArchivedItems = [
                 ...(window.archivedMemos || []).map(m => ({ ...m, type: 'memo' })),
-                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' }))
+                ...(window.archivedEvents || []).map(e => ({ ...e, type: 'event' })),
+                ...(window.archivedSignatures || []).map(s => ({ ...s, type: 'signature' }))
             ];
 
             // Sort by newest first (most recently archived at top)
@@ -233,7 +235,7 @@
                             <i data-lucide="archive" class="memo-icon"></i>
                             <div class="memo-info">
                                 <h4>No archived items</h4>
-                                <p>Archived memos and calendar events will appear here</p>
+                                <p>Archived memos, calendar events, and signatures will appear here</p>
                             </div>
                         </div>`;
                     if (typeof lucide !== 'undefined') {
@@ -243,6 +245,24 @@
                 }
 
                 archiveList.innerHTML = filteredMemos.map((item, idx) => {
+                    // Handle signatures differently
+                    if (item.type === 'signature') {
+                        const signature = item;
+                        const imageUrl = signature.imageUrl || '/images/memofy-logo.png';
+                        const archivedDate = new Date(signature.updatedAt || signature.createdAt).toLocaleDateString();
+                        
+                        return '<div class="memo-item archived-item archived-signature" data-index="' + idx + '" data-id="' + signature._id + '" data-type="signature">' +
+                            '<img src="' + imageUrl + '" alt="' + (signature.displayName || signature.roleTitle) + '" class="memo-avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">' +
+                            '<div class="memo-sender-info">' +
+                            '<div class="memo-sender-name">✍️ Signature</div>' +
+                            '<div class="memo-sender-email">' + (signature.roleTitle || 'No Role') + '</div>' +
+                            '</div>' +
+                            '<div class="memo-item-actions"></div>' +
+                            '<div class="memo-subject">' + (signature.displayName || 'Untitled Signature') + '</div>' +
+                            '<div class="memo-date">Archived: ' + archivedDate + '</div>' +
+                            '</div>';
+                    }
+                    
                     // Handle calendar events differently
                     if (item.type === 'event') {
                         const event = item;
@@ -310,7 +330,12 @@
                         const idx = Number(el.getAttribute('data-index'));
                         const item = filteredMemos[idx];
 
-                        if (type === 'event') {
+                        if (type === 'signature') {
+                            // Handle signature - show signature details
+                            if (item) {
+                                showSignatureDetails(item);
+                            }
+                        } else if (type === 'event') {
                             // Handle calendar event
                             if (item) {
                                 openEvent(item);
@@ -406,6 +431,43 @@
                 openMemoModal();
             }
 
+            // Show signature details in viewer
+            function showSignatureDetails(signature) {
+                if (!signature) return;
+                currentMemoId = signature._id;
+                currentMemoIndex = filteredMemos.findIndex(s => s._id === signature._id && s.type === 'signature');
+
+                const subjectEl = document.getElementById('memoDetailSubject');
+                const fromEl = document.getElementById('memoDetailFrom');
+                const toEl = document.getElementById('memoDetailTo');
+                const deptEl = document.getElementById('memoDetailDepartment');
+                const prioEl = document.getElementById('memoDetailPriority');
+                const dateEl = document.getElementById('memoDetailDate');
+                const contentEl = document.getElementById('memoBodyContent');
+
+                if (subjectEl) subjectEl.textContent = signature.displayName || signature.roleTitle || 'Signature';
+                if (fromEl) fromEl.textContent = 'Role: ' + (signature.roleTitle || 'N/A');
+                if (toEl) toEl.textContent = 'Display Name: ' + (signature.displayName || 'N/A');
+                if (deptEl) deptEl.textContent = 'N/A';
+                if (prioEl) prioEl.textContent = 'Archived';
+                if (dateEl) dateEl.textContent = 'Archived: ' + new Date(signature.updatedAt || signature.createdAt).toLocaleString();
+                
+                if (contentEl) {
+                    const imageUrl = signature.imageUrl || '/images/memofy-logo.png';
+                    contentEl.innerHTML = '<div style="text-align: center; padding: 20px;">' +
+                        '<img src="' + imageUrl + '" alt="' + (signature.displayName || signature.roleTitle) + '" ' +
+                        'style="max-width: 100%; max-height: 400px; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">' +
+                        '</div>';
+                }
+
+                if (memoCounter) {
+                    memoCounter.textContent = `${currentMemoIndex + 1} of ${filteredMemos.length}`;
+                }
+
+                // Open modal and show signature
+                openMemoModal();
+            }
+
             // Open memo in viewer
             function openMemo(memo) {
                 if (!memo) return;
@@ -464,11 +526,29 @@
                 }
             }
 
-            // Unarchive memo or event
+            // Unarchive memo, event, or signature
             async function unarchiveItem(itemId, itemType) {
                 if (!itemId) return;
                 try {
-                    if (itemType === 'event') {
+                    if (itemType === 'signature') {
+                        // Unarchive signature
+                        const response = await fetch('/api/signatures/' + itemId + '/unarchive', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+                        const data = await response.json();
+                        if (data && data.success) {
+                            // Remove from list
+                            filteredMemos = filteredMemos.filter(s => !(s._id === itemId && s.type === 'signature'));
+                            window.archivedSignatures = (window.archivedSignatures || []).filter(s => s._id !== itemId);
+                            renderArchiveList();
+                            closeMemoModal();
+                            if (typeof showNotification === 'function') {
+                                showNotification('Signature unarchived successfully', 'success');
+                            }
+                        }
+                    } else if (itemType === 'event') {
                         // Unarchive calendar event (change category back to standard)
                         const response = await fetch('/api/calendar/events/' + itemId, {
                             method: 'PUT',
