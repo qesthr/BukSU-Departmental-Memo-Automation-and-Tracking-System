@@ -410,7 +410,7 @@ body {
 
 .memo-container {
     height: auto;
-    max-height: 500px;
+    height: 500px;
     width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -418,7 +418,6 @@ body {
     border: 1px solid var(--border);
     padding: 0.75rem;
     background: #fff;
-    margin-top: 10px;
 }
 
 /* Scrollbar styling for memo container */
