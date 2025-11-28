@@ -3,6 +3,51 @@
  * Implements TimeGrid (Day), WeekGrid (Week), and MonthGrid (Month) views
  */
 
+// Helper functions for safely rendering event details in modals
+const escapeHtml = (value) => {
+  if (value === null || value === undefined) {return '';}
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const formatMultilineHtml = (value) => {
+  const safe = escapeHtml(value);
+  return safe.replace(/\r?\n/g, '<br>');
+};
+
+const buildEventDetailsHtml = ({ title, category, start, end, description }) => {
+  const lines = [
+    { label: 'Category', value: category || 'standard' },
+    { label: 'Start', value: start || '—' },
+    { label: 'End', value: end || '—' }
+  ];
+
+  const detailsRows = lines.map((line) => `
+      <div style="display:flex; gap:12px; margin-bottom:6px;">
+        <span style="min-width:90px; font-weight:600; color:#374151;">${escapeHtml(line.label)}:</span>
+        <span style="color:#111827;">${escapeHtml(line.value)}</span>
+      </div>
+    `).join('');
+
+  const descriptionBlock = description
+    ? `<div style="margin-top:16px;"><span style="font-weight:600; color:#374151;">Description:</span>
+          <div style="margin-top:6px; color:#111827; line-height:1.6;">${formatMultilineHtml(description)}</div>
+        </div>`
+    : '';
+
+  return `
+      <div style="text-align:left;">
+        <div style="font-size:18px; font-weight:700; color:#111827; margin-bottom:16px;">${escapeHtml(title || 'Event')}</div>
+        ${detailsRows}
+        ${descriptionBlock}
+      </div>
+    `;
+};
+
 class CustomCalendar {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
@@ -777,18 +822,12 @@ class CustomCalendar {
     // View-only mode: show event details instead of edit modal
     if (this.viewOnly) {
       const title = event.title || 'Event';
-      const description = event.extendedProps?.description || 'No description';
+      const description = event.extendedProps?.description || '';
       const category = event.extendedProps?.category || 'standard';
       const start = event.start ? new Date(event.start).toLocaleString() : '';
       const end = event.end ? new Date(event.end).toLocaleString() : '';
 
-      let message = `<strong>${title}</strong><br/>`;
-      message += `Category: ${category}<br/>`;
-      message += `Start: ${start}<br/>`;
-      message += `End: ${end}<br/>`;
-      if (description) {
-        message += `<br/>${description}`;
-      }
+      const message = buildEventDetailsHtml({ title, category, start, end, description });
 
       if (window.showAlertModal) {
         window.showAlertModal(message, 'Event Details');
@@ -813,18 +852,12 @@ class CustomCalendar {
     } else {
       // For Google Calendar events or events without proper ID, show read-only info
       const title = event.title || 'Event';
-      const description = event.extendedProps?.description || 'No description';
+      const description = event.extendedProps?.description || '';
       const category = event.extendedProps?.category || 'standard';
       const start = event.start ? new Date(event.start).toLocaleString() : '';
       const end = event.end ? new Date(event.end).toLocaleString() : '';
 
-      let message = `<strong>${title}</strong><br/>`;
-      message += `Category: ${category}<br/>`;
-      message += `Start: ${start}<br/>`;
-      message += `End: ${end}<br/>`;
-      if (description) {
-        message += `<br/>${description}`;
-      }
+      const message = buildEventDetailsHtml({ title, category, start, end, description });
 
       if (window.showAlertModal) {
         window.showAlertModal(message, 'Event Details (Read Only)');

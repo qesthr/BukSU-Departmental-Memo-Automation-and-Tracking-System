@@ -177,15 +177,69 @@ router.get('/google/callback',
         })(req, res, next);
     },
     (req, res) => {
-        // STEP 2: Render the callback page
-        // The callback page will:
-        // - Detect if it's in a popup (via window.opener)
-        // - Send a message to the parent window if in popup
-        // - Close the popup automatically
-        // - Or redirect normally if not in popup
-        console.log('✅ Rendering google-callback page for popup');
+        // STEP 2: Return a minimal popup callback page that
+        // - Notifies the opener (login page) via postMessage
+        // - Closes the popup window
+        // - Falls back to redirecting to /login if no opener is available
+        console.log('✅ Google OAuth successful, sending message to opener and closing popup');
         console.log('User authenticated:', req.user ? req.user.email : 'No user');
-        res.render('google-callback');
+
+        const baseUrl = process.env.BASE_URL || '';
+        const safeOrigin = baseUrl || '';// if empty, we will use window.location.origin on client
+
+        res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Authentication Complete</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 40px; text-align: center; color: #111827; }
+    .spinner { border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="spinner"></div>
+    <p>Completing sign-in… You can close this window if it doesn't close automatically.</p>
+  </div>
+  <script>
+    (function () {
+      try {
+        var origin = ${safeOrigin ? JSON.stringify(safeOrigin) : 'window.location.origin'};
+        if (window.opener && !window.opener.closed) {
+          // Notify opener that Google auth succeeded; opener will fetch user + redirect
+          try {
+            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, origin);
+          } catch (e) {
+            console.error('postMessage to opener failed:', e);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Attempt to close this popup
+      try {
+        window.close();
+      } catch (e) {
+        // ignore – some browsers may block this
+      }
+
+      // Fallback: if still open after a moment, redirect to login so user is not stuck
+      setTimeout(function () {
+        try {
+          if (!window.opener || window.opener.closed) {
+            window.location.replace('/login');
+          }
+        } catch (e) {
+          window.location.replace('/login');
+        }
+      }, 1200);
+    })();
+  </script>
+</body>
+</html>`);
     }
 );
 
