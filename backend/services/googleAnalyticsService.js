@@ -12,6 +12,13 @@ async function createOAuthClient() {
     const redirectUri = process.env.GOOGLE_ANALYTICS_REDIRECT_URI ||
         `${process.env.BASE_URL || 'http://localhost:5000'}/analytics/auth/callback`;
 
+    // eslint-disable-next-line no-console
+    console.log('📊 Google Analytics OAuth redirect URI:', redirectUri);
+    // eslint-disable-next-line no-console
+    console.log('📊 BASE_URL:', process.env.BASE_URL || 'not set');
+    // eslint-disable-next-line no-console
+    console.log('📊 GOOGLE_ANALYTICS_REDIRECT_URI:', process.env.GOOGLE_ANALYTICS_REDIRECT_URI || 'not set');
+
     // If not in env, try SystemSetting
     if (!clientId || !clientSecret) {
         clientId = await SystemSetting.get('google_analytics_client_id') || clientId;

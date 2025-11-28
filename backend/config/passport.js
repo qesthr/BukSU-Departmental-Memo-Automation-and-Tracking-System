@@ -72,10 +72,15 @@ passport.use(new LocalStrategy({
 
 // Google OAuth Strategy (only initialize if credentials are provided)
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    passport.use(new GoogleStrategy({
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${process.env.BASE_URL || 'http://localhost:5000'}/auth/google/callback`;
+    console.log('🔐 Google OAuth callback URL configured:', callbackURL);
+    console.log('🔐 BASE_URL:', process.env.BASE_URL || 'not set');
+    console.log('🔐 GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL || 'not set');
+    
+    passport.use('google', new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BASE_URL || 'http://localhost:5000'}/auth/google/callback`,
+        callbackURL: callbackURL,
         userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
     },
         (async (accessToken, refreshToken, profile, cb) => {

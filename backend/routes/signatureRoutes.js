@@ -14,11 +14,11 @@ router.get('/archived', [isAuthenticated, isAdmin], signatureController.getArchi
 // Get active signatures (for compose modal)
 router.get('/active', [isAuthenticated], signatureController.getActiveSignatures);
 
-// Create signature (admin only)
-router.post('/', [isAuthenticated, isAdmin, upload.single('image')], signatureController.createSignature);
+// Create signature (admin only) - use memory storage for base64 conversion
+router.post('/', [isAuthenticated, isAdmin, upload.memory.single('image')], signatureController.createSignature);
 
-// Update signature (admin only)
-router.put('/:id', [isAuthenticated, isAdmin, upload.single('image')], signatureController.updateSignature);
+// Update signature (admin only) - use memory storage for base64 conversion
+router.put('/:id', [isAuthenticated, isAdmin, upload.memory.single('image')], signatureController.updateSignature);
 
 // Archive signature (admin only) - uses DELETE method but archives instead of deleting
 router.delete('/:id', [isAuthenticated, isAdmin], signatureController.deleteSignature);

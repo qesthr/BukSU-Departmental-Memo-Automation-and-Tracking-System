@@ -126,9 +126,16 @@ router.get('/google/callback-page', (req, res) => {
 
 // Route 1: Start Google OAuth flow
 // This redirects the user to Google's authorization page
-router.get('/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+router.get('/google', (req, res, next) => {
+    console.log('🔐 Google OAuth route hit - /auth/google');
+    console.log('🔐 Request URL:', req.url);
+    console.log('🔐 Request protocol:', req.protocol);
+    console.log('🔐 Request host:', req.get('host'));
+    console.log('🔐 Full URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    passport.authenticate('google', {
+        scope: ['profile', 'email']
+    })(req, res, next);
+});
 
 // Route 2: Handle Google OAuth callback
 // Google redirects here after user approves authentication

@@ -100,13 +100,22 @@ class EmailService {
 
     initializeTransporter() {
         try {
+            // Detect if we're on Render or production
+            const isProduction = process.env.NODE_ENV === 'production' ||
+                                process.env.BASE_URL?.includes('onrender.com') ||
+                                process.env.RENDER;
+
             // Highest priority: SendGrid HTTP API (best for Render free tier)
             if (process.env.SENDGRID_API_KEY && sgMail) {
                 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
                 this.sgClient = sgMail;
                 this.transporter = null; // Avoid SMTP entirely when SendGrid is configured
-                console.log('SendGrid email API configured – using HTTP instead of SMTP');
+                console.log('✅ SendGrid email API configured – using HTTP instead of SMTP');
                 return;
+            } else if (isProduction) {
+                // Warn if on production but SendGrid not configured
+                console.warn('⚠️  Production detected but SENDGRID_API_KEY not set.');
+                console.warn('⚠️  SMTP will not work on Render free tier. Please set SENDGRID_API_KEY for email functionality.');
             }
 
             // Next: Initialize Gmail API client if credentials provided
@@ -146,14 +155,24 @@ class EmailService {
             }
 
             // Verify transporter configuration when available (skip when using SendGrid)
+            // Skip verification on Render/production - SMTP is blocked on Render free tier
+            // SendGrid should be used instead via SENDGRID_API_KEY environment variable
             if (this.transporter) {
-                this.transporter.verify((error, success) => {
-                    if (error) {
-                        console.error('Email transporter verification failed:', error);
-                    } else {
-                        console.log('Email transporter ready to send emails');
-                    }
-                });
+                if (isProduction) {
+                    // Skip verification on production/Render - SMTP won't work anyway
+                    console.warn('⚠️  SMTP verification skipped (production/Render detected). SMTP is blocked on Render free tier.');
+                    console.warn('⚠️  For production, use SendGrid by setting SENDGRID_API_KEY environment variable.');
+                    console.log('📧 Email transporter initialized (SMTP will be attempted but may fail - use SendGrid for production)');
+                } else {
+                    // Only verify on localhost/development where SMTP works
+                    this.transporter.verify((error, success) => {
+                        if (error) {
+                            console.error('Email transporter verification failed:', error);
+                        } else {
+                            console.log('Email transporter ready to send emails');
+                        }
+                    });
+                }
             }
 
         } catch (error) {
@@ -195,6 +214,77 @@ class EmailService {
     }
 
     async sendPasswordResetCode(email, resetCode, user) {
+        // Prefer SendGrid HTTP API if configured (works on Render free tier)
+        if (this.sgClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : (process.env.SMTP_USER || undefined);
+                const msg = {
+                    to: email,
+                    from,
+                    subject: 'Password Reset Code - BukSU Departmental Memo System',
+                    html: this.generatePasswordResetEmailHTML(resetCode, user)
+                };
+                const [res] = await this.sgClient.send(msg);
+                // Create log entry for admin (non-blocking)
+                try {
+                    const logService = require('./logService');
+                    logService.logPasswordReset(user, resetCode).catch(err => {
+                        console.error('Failed to create log entry (non-critical):', err);
+                    });
+                } catch (logErr) {
+                    console.error('Could not load log service:', logErr.message);
+                }
+                return {
+                    success: true,
+                    message: 'Reset code sent to your email',
+                    messageId: res.headers['x-message-id'] || null,
+                    transport: 'sendgrid'
+                };
+            } catch (err) {
+                console.error('SendGrid password reset send failed, falling back to other transports:', err.message);
+                // fall through to other transports if available
+            }
+        }
+
+        // Next, prefer Gmail API if configured
+        if (this.gmailClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : `Memofy <${process.env.SMTP_USER}>`;
+                const raw = this.buildRawEmail({
+                    from,
+                    to: email,
+                    subject: 'Password Reset Code - BukSU Departmental Memo System',
+                    html: this.generatePasswordResetEmailHTML(resetCode, user)
+                });
+                const res = await this.gmailClient.users.messages.send({
+                    userId: 'me',
+                    requestBody: { raw }
+                });
+                // Create log entry for admin (non-blocking)
+                try {
+                    const logService = require('./logService');
+                    logService.logPasswordReset(user, resetCode).catch(err => {
+                        console.error('Failed to create log entry (non-critical):', err);
+                    });
+                } catch (logErr) {
+                    console.error('Could not load log service:', logErr.message);
+                }
+                return {
+                    success: true,
+                    message: 'Reset code sent to your email',
+                    messageId: res.data.id,
+                    transport: 'gmail_api'
+                };
+            } catch (err) {
+                console.error('Gmail API send failed, falling back to transporter:', err.message);
+                // fall through to transporter if available
+            }
+        }
+
         if (!this.transporter) {
             console.log(`Email service not available. Reset code for ${email}: ${resetCode}`);
             return {
@@ -408,6 +498,77 @@ class EmailService {
     }
 
     async sendWelcomeEmail(email, user) {
+        // Prefer SendGrid HTTP API if configured (works on Render free tier)
+        if (this.sgClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : (process.env.SMTP_USER || undefined);
+                const msg = {
+                    to: email,
+                    from,
+                    subject: 'Welcome to BukSU Departmental Memo System',
+                    html: this.generateWelcomeEmailHTML(user)
+                };
+                const [res] = await this.sgClient.send(msg);
+                // Create log entry for admin (non-blocking)
+                try {
+                    const logService = require('./logService');
+                    logService.logWelcomeEmail(user).catch(err => {
+                        console.error('Failed to create log entry (non-critical):', err);
+                    });
+                } catch (logErr) {
+                    console.error('Could not load log service:', logErr.message);
+                }
+                return {
+                    success: true,
+                    message: 'Welcome email sent',
+                    messageId: res.headers['x-message-id'] || null,
+                    transport: 'sendgrid'
+                };
+            } catch (err) {
+                console.error('SendGrid welcome email send failed, falling back to other transports:', err.message);
+                // fall through to other transports if available
+            }
+        }
+
+        // Next, prefer Gmail API if configured
+        if (this.gmailClient) {
+            try {
+                const from = (process.env.MAIL_FROM && typeof process.env.MAIL_FROM === 'string')
+                    ? process.env.MAIL_FROM
+                    : `Memofy <${process.env.SMTP_USER}>`;
+                const raw = this.buildRawEmail({
+                    from,
+                    to: email,
+                    subject: 'Welcome to BukSU Departmental Memo System',
+                    html: this.generateWelcomeEmailHTML(user)
+                });
+                const res = await this.gmailClient.users.messages.send({
+                    userId: 'me',
+                    requestBody: { raw }
+                });
+                // Create log entry for admin (non-blocking)
+                try {
+                    const logService = require('./logService');
+                    logService.logWelcomeEmail(user).catch(err => {
+                        console.error('Failed to create log entry (non-critical):', err);
+                    });
+                } catch (logErr) {
+                    console.error('Could not load log service:', logErr.message);
+                }
+                return {
+                    success: true,
+                    message: 'Welcome email sent',
+                    messageId: res.data.id,
+                    transport: 'gmail_api'
+                };
+            } catch (err) {
+                console.error('Gmail API send failed, falling back to transporter:', err.message);
+                // fall through to transporter if available
+            }
+        }
+
         if (!this.transporter) {
             console.log(`Email service not available. Welcome email for ${email} not sent.`);
             return { success: false, message: 'Email service not configured' };
