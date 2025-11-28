@@ -4,53 +4,76 @@ const Memo = require('../models/Memo');
 // Get dashboard stats for admin - SYSTEM-WIDE stats (not user-specific)
 exports.getDashboardStats = async (req, res) => {
     try {
-        // Get user stats (system-wide)
-        const totalUsers = await User.countDocuments();
-        const adminUsers = await User.countDocuments({ role: 'admin' });
-        const secretaryUsers = await User.countDocuments({ role: 'secretary' });
-        const facultyUsers = await User.countDocuments({ role: 'faculty' });
-        const activeUsers = await User.countDocuments({ lastLogin: { $exists: true } });
-
-        // Get ADMIN-LEVEL memo stats (ALL memos in the system)
-        // Total memos = ALL memos in the system (excluding deleted)
-        const totalMemosCount = await Memo.countDocuments({
-            status: { $ne: 'deleted' },
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Total memos sent (memos that have been sent, not drafts)
-        const totalMemosSent = await Memo.countDocuments({
-            status: { $in: ['sent', 'approved', 'read', 'pending'] },
-            activityType: { $ne: 'system_notification' }
-        });
+        // OPTIMIZED: Parallelize all database queries for MongoDB Atlas (reduces total time significantly)
+        const [
+            totalUsers,
+            adminUsers,
+            secretaryUsers,
+            facultyUsers,
+            activeUsers,
+            totalMemosCount,
+            totalMemosSent,
+            pendingMemos,
+            overdueMemos,
+            recentMemosRaw
+        ] = await Promise.all([
+            // User stats (parallelized)
+            User.countDocuments(),
+            User.countDocuments({ role: 'admin' }),
+            User.countDocuments({ role: 'secretary' }),
+            User.countDocuments({ role: 'faculty' }),
+            User.countDocuments({ lastLogin: { $exists: true } }),
+            
+            // Memo stats (parallelized)
+            Memo.countDocuments({
+                status: { $ne: 'deleted' },
+                activityType: { $ne: 'system_notification' }
+            }),
+            Memo.countDocuments({
+                status: { $in: ['sent', 'approved', 'read', 'pending'] },
+                activityType: { $ne: 'system_notification' }
+            }),
+            Memo.countDocuments({
+                status: 'pending',
+                activityType: { $ne: 'system_notification' }
+            }),
+            Memo.countDocuments({
+                dueDate: { $lt: new Date() },
+                status: { $ne: 'deleted' },
+                activityType: { $ne: 'system_notification' }
+            }),
+            
+            // Recent memos (optimized - no populate, fetch users separately)
+            Memo.find({
+                status: { $ne: 'deleted' },
+                activityType: { $ne: 'system_notification' }
+            })
+                .select('subject status priority createdAt department sender recipient')
+                .sort({ createdAt: -1 })
+                .limit(20)
+                .lean()
+        ]);
 
         // Total memos received (same as sent, since sent memos are received)
-        // For admin dashboard, this represents total memo transactions
         const totalMemosReceived = totalMemosSent;
 
-        // Pending memos (ALL memos pending admin approval)
-        const pendingMemos = await Memo.countDocuments({
-            status: 'pending',
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Overdue memos (ALL memos with past due date)
-        const overdueMemos = await Memo.countDocuments({
-            dueDate: { $lt: new Date() },
-            status: { $ne: 'deleted' },
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Get recent memos (ALL recent memos in the system)
-        const recentMemos = await Memo.find({
-            status: { $ne: 'deleted' },
-            activityType: { $ne: 'system_notification' }
-        })
-            .populate('sender', 'firstName lastName department profilePicture')
-            .populate('recipient', 'firstName lastName department')
-            .sort({ createdAt: -1 })
-            .limit(50)
-            .lean();
+        // OPTIMIZED: Batch fetch all users at once (1 query instead of 20+ queries) - Much faster for Atlas
+        const senderIds = [...new Set(recentMemosRaw.map(m => m.sender).filter(Boolean))];
+        const recipientIds = [...new Set(recentMemosRaw.map(m => m.recipient).filter(Boolean))];
+        const allUserIds = [...new Set([...senderIds, ...recipientIds])];
+        
+        const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
+            .select('firstName lastName department profilePicture')
+            .lean() : [];
+        
+        const userMap = new Map(users.map(u => [u._id.toString(), u]));
+        
+        // Map users to memos (in-memory, very fast)
+        const recentMemos = recentMemosRaw.map(memo => ({
+            ...memo,
+            sender: memo.sender ? userMap.get(memo.sender.toString()) : null,
+            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null
+        }));
 
         // Format recent memos - differentiate between sent and received
         const formattedRecentMemos = recentMemos.map(memo => {
@@ -119,37 +142,42 @@ exports.getSecretaryDashboardStats = async (req, res) => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Drafted Memos: memos with status 'draft' created by the secretary
-        const draftedMemos = await Memo.countDocuments({
-            createdBy: userId,
-            status: 'draft',
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Sent Memos: memos sent by secretary this month (status 'sent' or 'approved')
-        const sentMemosThisMonth = await Memo.countDocuments({
-            sender: userId,
-            status: { $in: ['sent', 'approved'] },
-            createdAt: { $gte: startOfMonth },
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Acknowledged: memos sent by secretary that have been read/acknowledged
-        const acknowledgedMemos = await Memo.countDocuments({
-            sender: userId,
-            $or: [
-                { status: 'read' },
-                { status: 'approved', isRead: true }
-            ],
-            activityType: { $ne: 'system_notification' }
-        });
-
-        // Pending: memos sent by secretary that are pending approval (status 'pending' means pending admin approval for secretary-created memos)
-        const pendingMemos = await Memo.countDocuments({
-            sender: userId,
-            status: 'pending',
-            activityType: { $ne: 'system_notification' }
-        });
+        // OPTIMIZED: Parallelize all queries for MongoDB Atlas
+        const [
+            draftedMemos,
+            sentMemosThisMonth,
+            acknowledgedMemos,
+            pendingMemos
+        ] = await Promise.all([
+            // Drafted Memos: memos with status 'draft' created by the secretary
+            Memo.countDocuments({
+                createdBy: userId,
+                status: 'draft',
+                activityType: { $ne: 'system_notification' }
+            }),
+            // Sent Memos: memos sent by secretary this month (status 'sent' or 'approved')
+            Memo.countDocuments({
+                sender: userId,
+                status: { $in: ['sent', 'approved'] },
+                createdAt: { $gte: startOfMonth },
+                activityType: { $ne: 'system_notification' }
+            }),
+            // Acknowledged: memos sent by secretary that have been read/acknowledged
+            Memo.countDocuments({
+                sender: userId,
+                $or: [
+                    { status: 'read' },
+                    { status: 'approved', isRead: true }
+                ],
+                activityType: { $ne: 'system_notification' }
+            }),
+            // Pending: memos sent by secretary that are pending approval
+            Memo.countDocuments({
+                sender: userId,
+                status: 'pending',
+                activityType: { $ne: 'system_notification' }
+            })
+        ]);
 
         res.json({
             success: true,

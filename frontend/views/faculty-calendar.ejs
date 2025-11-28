@@ -354,7 +354,7 @@
 					// day.date is in format "YYYY-MM-DD", parse it as local date
 					const dateParts = day.date.split('-');
 					// Create date with explicit year, month, day, and set to midnight
-					// This ensures no timezone shifting occurs
+					// This ensures no timezone shifting occurs (same as admin calendar)
 					const localDate = new Date(
 						parseInt(dateParts[0]),
 						parseInt(dateParts[1]) - 1, // Month is 0-indexed
@@ -382,9 +382,16 @@
 					}
 
 					// Update main calendar view if custom calendar is available
-					// Pass the date directly - gotoDate will handle it correctly
+					// Use navigateToDate for consistency and proper event loading (same as admin calendar)
 					if (window.customCalendar && typeof window.customCalendar.navigateToDate === 'function') {
 						window.customCalendar.navigateToDate(localDate);
+					} else if (window.customCalendar) {
+						// Fallback handling (same as admin calendar)
+						window.customCalendar.gotoDate(localDate);
+						window.customCalendar.changeView('timeGridDay');
+						if (typeof window.loadEvents === 'function') {
+							window.loadEvents(localDate);
+						}
 					}
 				},
 

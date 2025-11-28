@@ -17,10 +17,10 @@
         <!-- SweetAlert2 -->
         <%- include('../../components/sweetalert2'); %>
 
-            <!-- Vue 3 CDN -->
-            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+            <!-- Vue 3 - Using local file to avoid tracking prevention issues and improve performance -->
+            <script src="/js/vue.global.prod.js" defer></script>
 
-            <script src="/js/lucide.min.js"></script>
+            <script src="/js/lucide.min.js" defer></script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -410,7 +410,23 @@
 
     <!-- Vue 3 App with Composition API -->
     <script>
-        const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
+        // Wait for Vue to load (with timeout to prevent infinite waiting)
+        let vueLoadAttempts = 0;
+        const MAX_VUE_ATTEMPTS = 100; // 5 seconds max wait (50ms * 100)
+        
+        function initVueApp() {
+            if (typeof Vue === 'undefined') {
+                vueLoadAttempts++;
+                if (vueLoadAttempts < MAX_VUE_ATTEMPTS) {
+                    // Vue not loaded yet, wait a bit and try again
+                    setTimeout(initVueApp, 50);
+                } else {
+                    console.error('Vue.js failed to load after 5 seconds');
+                }
+                return;
+            }
+            
+            const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
 
         // User Row Component
         const UserRow = {
@@ -535,10 +551,14 @@
                 </div>
             `,
             mounted() {
-                lucide.createIcons();
+                if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
             },
             updated() {
-                lucide.createIcons();
+                if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
             }
         };
 
@@ -653,21 +673,28 @@
                     return by && me && by !== me;
                 };
 
-                // API Functions - PRESERVED EXACTLY AS BEFORE
+                // OPTIMIZED: Batch load lock states for all users at once (reduces N+1 queries)
                 const loadLockStates = async (list) => {
-                    userLocks.value = {};
+                    if (!list || list.length === 0) {
+                        userLocks.value = {};
+                        return;
+                    }
                     try {
-                        await Promise.all((list || []).map(async (u) => {
-                            try {
-                                const r = await fetch(`/api/users/locks/${u._id}/state`, { credentials: 'same-origin' });
-                                const j = await r.json();
-                                userLocks.value[u._id] = j || { locked: false };
-                            } catch {
-                                userLocks.value[u._id] = { locked: false };
-                            }
-                        }));
+                        const userIds = list.map(u => u._id);
+                        const response = await fetch('/api/users/locks/batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ userIds })
+                        });
+                        const lockStates = await response.json();
+                        userLocks.value = lockStates || {};
                     } catch {
-                        // ignore lock loading errors
+                        // On error, set all to unlocked
+                        userLocks.value = {};
+                        (list || []).forEach(u => {
+                            userLocks.value[u._id] = { locked: false };
+                        });
                     }
                 };
 
@@ -1219,10 +1246,25 @@
 
                 // Lifecycle
                 onMounted(() => {
-                    fetchUsers('all');
-                    fetchArchivedUsers('all');
-                    initSSE();
-                    lucide.createIcons();
+                    // OPTIMIZED: Defer heavy operations to not block initial render
+                    // Use requestIdleCallback or setTimeout to avoid blocking DOMContentLoaded
+                    const initHeavyOperations = () => {
+                        // Only load active users initially, load archived lazily when needed
+                        fetchUsers('all');
+                        // Don't load archived users until user switches to archived view
+                        initSSE();
+                        // Initialize Lucide icons when available
+                        if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                            lucide.createIcons();
+                        }
+                    };
+                    
+                    // Use requestIdleCallback if available, otherwise setTimeout
+                    if (window.requestIdleCallback) {
+                        requestIdleCallback(initHeavyOperations, { timeout: 2000 });
+                    } else {
+                        setTimeout(initHeavyOperations, 0);
+                    }
 
                     // Prevent user-management.js from rendering the list (Vue handles it)
                     // Override renderUsers BEFORE user-management.js loads to prevent conflicts
@@ -1327,6 +1369,14 @@
                 };
             }
         }).mount('#app');
+        }
+        
+        // Start initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initVueApp);
+        } else {
+            initVueApp();
+        }
     </script>
 
     <!-- Preserve existing modal handlers from user-management.js for compatibility -->
@@ -1336,9 +1386,22 @@
     </script>
     <script src="/js/user-management.js" defer></script>
 
-    <!-- Initialize Lucide icons -->
+    <!-- Initialize Lucide icons - Wait for lucide to load -->
     <script>
-        lucide.createIcons();
+        function initLucideIcons() {
+            if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            } else {
+                // Wait for lucide to load (it's deferred)
+                setTimeout(initLucideIcons, 50);
+            }
+        }
+        // Start initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLucideIcons);
+        } else {
+            initLucideIcons();
+        }
     </script>
     <script src="/js/freezeZoom.js"></script>
 </body>

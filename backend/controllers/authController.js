@@ -175,13 +175,15 @@ const login = async (req, res, next) => {
                 });
             }
             try {
+                // OPTIMIZED: Add timeout to prevent hanging (reCAPTCHA tokens expire after ~2 minutes)
                 const response = await axios({
                     method: 'POST',
                     url: 'https://www.google.com/recaptcha/api/siteverify',
                     params: {
                         secret: process.env.RECAPTCHA_SECRET,
                         response: token
-                    }
+                    },
+                    timeout: 5000 // 5 second timeout to prevent hanging
                 });
 
                 if (!response.data.success) {
@@ -191,6 +193,13 @@ const login = async (req, res, next) => {
                     });
                 }
             } catch (error) {
+                // Handle timeout or network errors
+                if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                    return res.status(408).json({
+                        success: false,
+                        message: 'reCAPTCHA verification timed out. Please check the checkbox again and try again.'
+                    });
+                }
                 return res.status(500).json({
                     success: false,
                     message: 'Error verifying reCAPTCHA. Please try again.'
@@ -198,13 +207,13 @@ const login = async (req, res, next) => {
             }
         }
 
-        // First check if user exists at all (regardless of active status)
-        const userExists = await User.findOne({
+        // OPTIMIZED: Single query to check user existence and active status
+        const user = await User.findOne({
             email: email.toLowerCase().trim()
         });
 
         // If user doesn't exist, they haven't been invited/added by admin
-        if (!userExists) {
+        if (!user) {
             return res.status(401).json({
                 success: false,
                 message: 'This account has not been added by an administrator. Please contact the administrator to create your account.',
@@ -212,14 +221,8 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Now check if user is active
-        const user = await User.findOne({
-            email: email.toLowerCase().trim(),
-            isActive: true
-        });
-
         // If user exists but is inactive
-        if (!user && userExists) {
+        if (!user.isActive) {
             return res.status(401).json({
                 success: false,
                 message: 'Your account has been deactivated. Please contact the administrator.',
@@ -304,35 +307,34 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Reset login attempts on successful login
+        // OPTIMIZED: Update last login and reset attempts in a single query
+        const updateData = {
+            $set: { lastLogin: new Date() }
+        };
+        
+        // Reset login attempts if needed
         if (user.loginAttempts > 0 || user.lockUntil) {
-            await user.updateOne({
-                $unset: { loginAttempts: 1, lockUntil: 1 }
-            });
+            updateData.$unset = { loginAttempts: 1, lockUntil: 1 };
         }
 
-        // Update last login
-        await User.findByIdAndUpdate(user._id, {
-            lastLogin: new Date()
-        });
-
-        // Refresh user data to ensure we have the latest profilePicture and other fields
-        const refreshedUser = await User.findById(user._id);
-        if (!refreshedUser) {
-            return res.status(500).json({
-                success: false,
-                message: 'Error retrieving user data'
-            });
+        // Update user in database (single query instead of multiple)
+        await User.findByIdAndUpdate(user._id, updateData);
+        
+        // Update user object for session (Passport will serialize this)
+        user.lastLogin = updateData.$set.lastLogin;
+        if (user.loginAttempts > 0 || user.lockUntil) {
+            user.loginAttempts = undefined;
+            user.lockUntil = undefined;
         }
 
-        // Log user in with Passport (use refreshed user for session)
-        req.login(refreshedUser, (err) => {
+        // Log user in with Passport (user object is already up-to-date)
+        req.login(user, (err) => {
             if (err) {
                 return next(err);
             }
 
             // Audit login success (non-blocking)
-            audit(refreshedUser, 'login_success', 'User Login', `User ${refreshedUser.email} logged in`, {
+            audit(user, 'login_success', 'User Login', `User ${user.email} logged in`, {
                 method: 'local',
                 timestamp: new Date()
             });
@@ -341,15 +343,15 @@ const login = async (req, res, next) => {
                 success: true,
                 message: 'Login successful',
                 user: {
-                    id: refreshedUser._id,
-                    email: refreshedUser.email,
-                    firstName: refreshedUser.firstName,
-                    lastName: refreshedUser.lastName,
-                    fullName: refreshedUser.fullName,
-                    role: refreshedUser.role,
-                    department: refreshedUser.department,
-                    employeeId: refreshedUser.employeeId,
-                    profilePicture: refreshedUser.profilePicture || '/images/memofy-logo.png'
+                    id: user._id,
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    fullName: user.fullName,
+                    role: user.role,
+                    department: user.department,
+                    employeeId: user.employeeId,
+                    profilePicture: user.profilePicture || '/images/memofy-logo.png'
                 }
             });
         });

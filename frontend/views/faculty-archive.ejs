@@ -9,14 +9,17 @@
     <link rel="stylesheet" href="/css/log.css">
     <link rel="stylesheet" href="/css/fal-topbar.css">
     <link rel="stylesheet" href="/css/fal-nav.css">
+    <!-- Preconnect to Google Fonts for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <script src="/js/lucide.min.js"></script>
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Vue 3 CDN - defer to not block rendering -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js" defer></script>
+    <script src="/js/lucide.min.js" defer></script>
 </head>
 
 <body

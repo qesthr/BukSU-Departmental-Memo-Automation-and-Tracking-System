@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+// OPTIMIZED: Use requestIdleCallback or setTimeout to avoid blocking DOMContentLoaded
+function initUserManagement() {
     // DOM Elements
     const usersList = document.getElementById('usersList');
     const addUserModal = document.getElementById('addUserModal');
@@ -1206,6 +1207,27 @@ function normalizeDepartment(dept) {
         console.log(`${type}: ${message}`);
     }
 
-    // Initial load
-    fetchUsers();
-});
+    // NOTE: fetchUsers() is now handled by Vue.js, so we don't call it here
+    // This prevents duplicate API calls and improves performance
+}
+
+// OPTIMIZED: Initialize without blocking DOMContentLoaded
+if (document.readyState === 'loading') {
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if (window.requestIdleCallback) {
+        document.addEventListener('DOMContentLoaded', () => {
+            requestIdleCallback(initUserManagement, { timeout: 1000 });
+        });
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initUserManagement, 0);
+        });
+    }
+} else {
+    // DOM already loaded, initialize immediately but non-blocking
+    if (window.requestIdleCallback) {
+        requestIdleCallback(initUserManagement, { timeout: 1000 });
+    } else {
+        setTimeout(initUserManagement, 0);
+    }
+}

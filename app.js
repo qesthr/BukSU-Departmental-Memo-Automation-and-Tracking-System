@@ -344,46 +344,29 @@ app.get('/auth-success', (req, res) => {
 // });
 
 // Admin Dashboard route - ADMIN ONLY
+// OPTIMIZED: Render page immediately, load memos via API (non-blocking)
 app.get('/admin-dashboard', isAuthenticated, validateUserRole, isAdmin, async (req, res) => {
-    try {
-        const allMemos = await Memo.find({}).sort({ createdAt: -1 }).limit(50)
-            .populate('sender', 'firstName lastName email')
-            .populate('recipient', 'firstName lastName email');
-        res.render('admin-dashboard', {
-            pageTitle: 'Admin Dashboard | Memofy',
-            user: req.user,
-            path: '/admin-dashboard',
-            allMemos
-        });
-    } catch (e) {
-        res.render('admin-dashboard', {
-            pageTitle: 'Admin Dashboard | Memofy',
-            user: req.user,
-            path: '/admin-dashboard',
-            allMemos: []
-        });
-    }
+    // Render page immediately without blocking queries
+    // Memos and stats will be loaded via API call after page loads (see admin-dashboard.ejs)
+    return res.render('admin-dashboard', {
+        pageTitle: 'Admin Dashboard | Memofy',
+        user: req.user,
+        path: '/admin-dashboard',
+        allMemos: [] // Empty array - will be loaded via API
+    });
 });
 
 // Secretary Dashboard route - SECRETARY ONLY
+// OPTIMIZED: Render page immediately, load memos via API (non-blocking)
 app.get('/secretary-dashboard', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
-    try {
-        const memos = await Memo.find({ createdBy: req.user._id }).sort({ createdAt: -1 })
-            .populate('recipient', 'firstName lastName email');
-        return res.render('secretary-dashboard', {
-            pageTitle: 'Secretary Dashboard | Memofy',
-            user: req.user,
-            path: '/secretary-dashboard',
-            memos
-        });
-    } catch (e) {
-        return res.render('secretary-dashboard', {
-            pageTitle: 'Secretary Dashboard | Memofy',
-            user: req.user,
-            path: '/secretary-dashboard',
-            memos: []
-        });
-    }
+    // Render page immediately without blocking queries
+    // Memos will be loaded via API call after page loads (see secretary-dashboard.ejs)
+    return res.render('secretary-dashboard', {
+        pageTitle: 'Secretary Dashboard | Memofy',
+        user: req.user,
+        path: '/secretary-dashboard',
+        memos: [] // Empty array - will be loaded via API
+    });
 });
 
 // Faculty Dashboard route - FACULTY ONLY
@@ -480,25 +463,51 @@ app.get('/secretary/memos', isAuthenticated, validateUserRole, requireRole('secr
 // Secretary archive page - only for secretaries (admin blocked)
 app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
     try {
-        // Get archived memos OR sent/approved memos that can be archived
-        // Include memos where the secretary is the sender but NOT the recipient
-        // Exclude the tracking memo where recipient equals sender
-        const archivedMemos = await Memo.find({
-            sender: req.user._id,
-            recipient: { $ne: req.user._id }, // Exclude memos sent to the secretary themselves
-            status: { $in: ['archived', 'sent', 'approved'] },
-            activityType: { $ne: 'system_notification' }
-        })
-            .sort({ createdAt: -1 })
-            .populate('recipient', 'firstName lastName email profilePicture department');
+        // OPTIMIZED: Parallelize queries and use batch fetch instead of populate
+        const [archivedMemosRaw, archivedEventsRaw] = await Promise.all([
+            // Get archived memos (limit to 100 for performance, add pagination later if needed)
+            Memo.find({
+                sender: req.user._id,
+                recipient: { $ne: req.user._id },
+                status: { $in: ['archived', 'sent', 'approved'] },
+                activityType: { $ne: 'system_notification' }
+            })
+                .select('subject status priority createdAt department recipient')
+                .sort({ createdAt: -1 })
+                .limit(100)
+                .lean(),
+            // Get archived calendar events
+            CalendarEvent.find({
+                createdBy: req.user._id,
+                category: 'archived'
+            })
+                .select('title description startDate endDate createdBy')
+                .sort({ createdAt: -1 })
+                .limit(50)
+                .lean()
+        ]);
 
-        // Get archived calendar events created by the secretary
-        const archivedEvents = await CalendarEvent.find({
-            createdBy: req.user._id,
-            category: 'archived'
-        })
-            .sort({ createdAt: -1 })
-            .populate('createdBy', 'firstName lastName email');
+        // Batch fetch users (much faster than populate)
+        const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
+        const eventCreatorIds = [...new Set(archivedEventsRaw.map(e => e.createdBy).filter(Boolean))];
+        const allUserIds = [...new Set([...recipientIds, ...eventCreatorIds])];
+        
+        const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
+            .select('firstName lastName email profilePicture department')
+            .lean() : [];
+        
+        const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+        // Map users to memos and events
+        const archivedMemos = archivedMemosRaw.map(memo => ({
+            ...memo,
+            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null
+        }));
+
+        const archivedEvents = archivedEventsRaw.map(event => ({
+            ...event,
+            createdBy: event.createdBy ? userMap.get(event.createdBy.toString()) : null
+        }));
 
         return res.render('secretary-archive', {
             pageTitle: 'Secretary Archive | Memofy',
@@ -523,6 +532,7 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
 app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req, res) => {
     try {
         const Signature = require('./backend/models/Signature');
+        const User = require('./backend/models/User');
 
         // System-generated activity types to exclude from archive
         const systemActivityTypes = [
@@ -534,42 +544,75 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
             'user_profile_edited'
         ];
 
-        // Get archived memos (explicitly archived or approved)
-        // Note: 'sent' status memos should appear in inbox, not archive
-        // For admins: show both memos sent by admin AND memos received by admin (including approved/rejected secretary memos)
-        const archivedMemos = await Memo.find({
-            $and: [
-                {
-                    $or: [
-                        { sender: req.user._id }, // Admin-created memos
-                        { recipient: req.user._id } // Memos received by admin (including approved/rejected secretary memos)
-                    ]
-                },
-                {
-                    status: { $in: ['archived', 'approved'] },
-                    // Exclude system activity types (should only be in Activity Logs)
-                    activityType: { $nin: systemActivityTypes }
-                }
-            ]
-        })
-            .sort({ createdAt: -1 })
-            .populate('sender', 'firstName lastName email profilePicture department role')
-            .populate('recipient', 'firstName lastName email profilePicture department role');
+        // OPTIMIZED: Parallelize all queries and use batch fetch instead of populate
+        const [archivedMemosRaw, archivedEventsRaw, archivedSignaturesRaw] = await Promise.all([
+            // Get archived memos (limit to 100 for performance)
+            Memo.find({
+                $and: [
+                    {
+                        $or: [
+                            { sender: req.user._id },
+                            { recipient: req.user._id }
+                        ]
+                    },
+                    {
+                        status: { $in: ['archived', 'approved'] },
+                        activityType: { $nin: systemActivityTypes }
+                    }
+                ]
+            })
+                .select('subject status priority createdAt department sender recipient')
+                .sort({ createdAt: -1 })
+                .limit(100)
+                .lean(),
+            // Get archived calendar events
+            CalendarEvent.find({
+                createdBy: req.user._id,
+                category: 'archived'
+            })
+                .select('title description startDate endDate createdBy')
+                .sort({ createdAt: -1 })
+                .limit(50)
+                .lean(),
+            // Get archived signatures
+            Signature.find({
+                isActive: false
+            })
+                .select('name imageUrl order createdBy updatedAt createdAt')
+                .sort({ updatedAt: -1, createdAt: -1 })
+                .limit(50)
+                .lean()
+        ]);
 
-        // Get archived calendar events created by the admin
-        const archivedEvents = await CalendarEvent.find({
-            createdBy: req.user._id,
-            category: 'archived'
-        })
-            .sort({ createdAt: -1 })
-            .populate('createdBy', 'firstName lastName email');
+        // Batch fetch all users at once
+        const senderIds = [...new Set(archivedMemosRaw.map(m => m.sender).filter(Boolean))];
+        const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
+        const eventCreatorIds = [...new Set(archivedEventsRaw.map(e => e.createdBy).filter(Boolean))];
+        const signatureCreatorIds = [...new Set(archivedSignaturesRaw.map(s => s.createdBy).filter(Boolean))];
+        const allUserIds = [...new Set([...senderIds, ...recipientIds, ...eventCreatorIds, ...signatureCreatorIds])];
+        
+        const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
+            .select('firstName lastName email profilePicture department role')
+            .lean() : [];
+        
+        const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-        // Get archived signatures
-        const archivedSignatures = await Signature.find({
-            isActive: false
-        })
-            .sort({ updatedAt: -1, createdAt: -1 })
-            .populate('createdBy', 'firstName lastName email');
+        // Map users to memos, events, and signatures
+        const archivedMemos = archivedMemosRaw.map(memo => ({
+            ...memo,
+            sender: memo.sender ? userMap.get(memo.sender.toString()) : null,
+            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null
+        }));
+
+        const archivedEvents = archivedEventsRaw.map(event => ({
+            ...event,
+            createdBy: event.createdBy ? userMap.get(event.createdBy.toString()) : null
+        }));
+
+        const archivedSignatures = archivedSignaturesRaw.map(signature => ({
+            ...signature,
+            createdBy: signature.createdBy ? userMap.get(signature.createdBy.toString()) : null
+        }));
 
         return res.render('admin-archive', {
             pageTitle: 'Admin Archive | Memofy',
@@ -629,15 +672,37 @@ app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('facult
 // Faculty archive page - only for faculty
 app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
     try {
-        // Get archived memos received by faculty
-        const archivedMemos = await Memo.find({
+        const User = require('./backend/models/User');
+        
+        // OPTIMIZED: Fetch memos without populate, then batch fetch users
+        const archivedMemosRaw = await Memo.find({
             recipient: req.user._id,
             status: 'archived',
             activityType: { $ne: 'system_notification' }
         })
+            .select('subject status priority createdAt department sender recipient')
             .sort({ createdAt: -1 })
-            .populate('sender', 'firstName lastName email profilePicture department')
-            .populate('recipient', 'firstName lastName email profilePicture department');
+            .limit(100)
+            .lean();
+
+        // Batch fetch users (much faster than populate)
+        const senderIds = [...new Set(archivedMemosRaw.map(m => m.sender).filter(Boolean))];
+        const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
+        const allUserIds = [...new Set([...senderIds, ...recipientIds])];
+        
+        const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
+            .select('firstName lastName email profilePicture department')
+            .lean() : [];
+        
+        const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+        // Map users to memos
+        const archivedMemos = archivedMemosRaw.map(memo => ({
+            ...memo,
+            sender: memo.sender ? userMap.get(memo.sender.toString()) : null,
+            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null
+        }));
+
         return res.render('faculty-archive', {
             pageTitle: 'Faculty Archive | Memofy',
             user: req.user,

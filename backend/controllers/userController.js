@@ -100,6 +100,48 @@ exports.lockStatus = async (req, res) => {
     }
 };
 
+// OPTIMIZED: Batch endpoint to get lock states for multiple users at once
+exports.getBatchLockStates = async (req, res) => {
+    try {
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.json({});
+        }
+
+        // Fetch all locks for the provided user IDs in a single query
+        const now = Date.now();
+        const locks = await UserLock.find({
+            userId: { $in: userIds },
+            expiresAt: { $gt: new Date(now) }
+        }).populate('lockedBy', 'firstName lastName email').lean();
+
+        // Build result object
+        const lockStates = {};
+        locks.forEach(lock => {
+            const remaining = Math.ceil((lock.expiresAt.getTime() - now) / 1000);
+            const name = lock.lockedBy ? (lock.lockedBy.firstName + ' ' + lock.lockedBy.lastName) : undefined;
+            lockStates[lock.userId.toString()] = {
+                locked: true,
+                lockedBy: lock.lockedBy?._id,
+                locked_by_name: name,
+                remaining
+            };
+        });
+
+        // Set locked: false for users without active locks
+        userIds.forEach(userId => {
+            if (!lockStates[userId.toString()]) {
+                lockStates[userId.toString()] = { locked: false };
+            }
+        });
+
+        return res.json(lockStates);
+    } catch (e) {
+        console.error('Error fetching batch lock states:', e);
+        return res.status(500).json({ message: 'Failed to get lock states' });
+    }
+};
+
 // Get all users with optional filtering
 exports.getAllUsers = async (req, res) => {
     try {
@@ -115,19 +157,30 @@ exports.getAllUsers = async (req, res) => {
             query.role = role;
         }
 
-        const users = await User.find(query).select('-password -googleId').sort({ createdAt: -1 });
-
-        // Calculate stats for active users only
+        // OPTIMIZED: Parallelize user fetch and stats calculation
         const activeQuery = { isActive: { $ne: false } };
-        const userStats = {
-            total: await User.countDocuments(activeQuery),
-            admin: await User.countDocuments({ ...activeQuery, role: 'admin' }),
-            secretary: await User.countDocuments({ ...activeQuery, role: 'secretary' }),
-            faculty: await User.countDocuments({ ...activeQuery, role: 'faculty' }),
-            archived: await User.countDocuments({ isActive: false })
-        };
+        const [users, userStats] = await Promise.all([
+            User.find(query).select('-password -googleId').sort({ createdAt: -1 }).lean(),
+            // Parallelize all count queries
+            Promise.all([
+                User.countDocuments(activeQuery),
+                User.countDocuments({ ...activeQuery, role: 'admin' }),
+                User.countDocuments({ ...activeQuery, role: 'secretary' }),
+                User.countDocuments({ ...activeQuery, role: 'faculty' }),
+                User.countDocuments({ isActive: false })
+            ])
+        ]);
 
-        res.json({ users, stats: userStats });
+        res.json({
+            users,
+            stats: {
+                total: userStats[0],
+                admin: userStats[1],
+                secretary: userStats[2],
+                faculty: userStats[3],
+                archived: userStats[4]
+            }
+        });
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ message: 'Error fetching users' });
@@ -144,7 +197,8 @@ exports.getArchivedUsers = async (req, res) => {
             query.role = role;
         }
 
-        const users = await User.find(query).select('-password -googleId').sort({ updatedAt: -1 });
+        // OPTIMIZED: Use lean() for faster queries (no Mongoose document overhead)
+        const users = await User.find(query).select('-password -googleId').sort({ updatedAt: -1 }).lean();
 
         res.json({ success: true, users });
     } catch (error) {
