@@ -2255,9 +2255,19 @@ exports.sendReminder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Memo not found' });
         }
 
-        // Check if user is the sender
-        if (memo.sender?._id?.toString() !== userId.toString()) {
-            return res.status(403).json({ success: false, message: 'Only the sender can send reminders' });
+        // Check if user is allowed to send reminders
+        // Allowed roles:
+        //  - The actual sender of the memo (memo.sender)
+        //  - The original creator (memo.createdBy), e.g. secretary whose memo was approved and sent by admin
+        const senderId = memo.sender?._id?.toString() || memo.sender?.toString();
+        const createdById = memo.createdBy?._id?.toString() || memo.createdBy?.toString();
+        const currentUserIdStr = userId.toString();
+
+        const isSender = senderId && senderId === currentUserIdStr;
+        const isCreator = createdById && createdById === currentUserIdStr;
+
+        if (!isSender && !isCreator) {
+            return res.status(403).json({ success: false, message: 'Only the sender or original creator can send reminders' });
         }
 
         // Get all recipients (if memo has multiple recipients via recipients array)

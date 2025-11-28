@@ -3736,22 +3736,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Get all recipients (from recipients array or single recipient)
+        // NOTE: Unlike earlier implementation, we INCLUDE the current user here.
+        // We handle "to me" vs other recipients in the display logic below.
         const allRecipients = [];
         const currentUserIdForRecipients = window.currentUser?._id || window.currentUser?.id;
 
         if (memo.recipients && memo.recipients.length > 0) {
             memo.recipients.forEach(recipient => {
-                const recipientId = recipient._id?.toString() || recipient.toString();
-                if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
-                    allRecipients.push(recipient);
-                }
+                allRecipients.push(recipient);
             });
         } else if (memo.recipient) {
-            const recipientId = memo.recipient._id?.toString() || memo.recipient.toString();
-            if (recipientId !== (currentUserIdForRecipients?.toString() || currentUserIdForRecipients)) {
-                allRecipients.push(memo.recipient);
-            }
+            allRecipients.push(memo.recipient);
         }
+
+        const isCurrentUserRecipient = (recip) => {
+            if (!recip || !currentUserIdForRecipients) return false;
+            const recipId = recip._id?.toString() || recip.toString();
+            return recipId === (currentUserIdForRecipients.toString ? currentUserIdForRecipients.toString() : currentUserIdForRecipients);
+        };
 
         // Format recipients list
         const recipientList = allRecipients.map(recip => {
@@ -3765,14 +3767,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return email ? `${name} (${email})` : name || email || 'Unknown';
         }).filter(Boolean);
 
-        // Set "to me" preview text
+        // Set "to" preview text (Gmail-style)
         if (memoDetailToPreview) {
             if (allRecipients.length === 0) {
+                // No recipients at all
                 memoDetailToPreview.textContent = 'Unknown Recipient';
-            } else if (allRecipients.length === 1) {
+            } else if (allRecipients.length === 1 && isCurrentUserRecipient(allRecipients[0])) {
+                // Only current user is a recipient
                 memoDetailToPreview.textContent = 'to me';
+            } else if (allRecipients.length > 1 && allRecipients.some(isCurrentUserRecipient)) {
+                // Current user + others
+                const othersCount = allRecipients.length - 1;
+                memoDetailToPreview.textContent = othersCount > 0
+                    ? `to me +${othersCount} more`
+                    : 'to me';
             } else {
-                memoDetailToPreview.textContent = `to me +${allRecipients.length - 1} more`;
+                // Current user is not a recipient (e.g. admin viewing sent memo) - show first recipient's name
+                const first = allRecipients[0];
+                const name = `${first.firstName || ''} ${first.lastName || ''}`.trim() || first.email || 'Recipient';
+                memoDetailToPreview.textContent = `to ${name}`;
             }
         }
 
