@@ -4493,6 +4493,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Handle reminder button click (both header and compact versions)
+    const showReminderAlert = (type, message) => {
+        if (typeof Swal !== 'undefined') {
+            const targetZIndex = (() => {
+                if (memoViewerModal) {
+                    const computed = window.getComputedStyle(memoViewerModal);
+                    const currentZ = parseInt(computed.zIndex || '1500', 10);
+                    return Number.isNaN(currentZ) ? 20000 : currentZ + 20;
+                }
+                return 20000;
+            })();
+
+            Swal.fire({
+                icon: type === 'error' ? 'error' : 'success',
+                title: type === 'error' ? 'Reminder Failed' : 'Reminder Sent',
+                text: message || (type === 'error' ? 'Failed to send reminder.' : 'Reminder sent successfully.'),
+                confirmButtonText: 'OK',
+                allowOutsideClick: true,
+                heightAuto: false,
+                toast: false,
+                backdrop: true,
+                didOpen: () => {
+                    const container = Swal.getContainer();
+                    if (container) {
+                        container.style.zIndex = String(targetZIndex);
+                    }
+                }
+            });
+        } else if (typeof showNotification === 'function') {
+            showNotification(message, type === 'error' ? 'error' : 'success');
+        } else {
+            alert(message);
+        }
+    };
+
     const handleReminderClick = async () => {
             if (!currentMemoId) return;
 
@@ -4508,20 +4542,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
                 if (data && data.success) {
-                    // Show success notification
-                    if (typeof showNotification === 'function') {
-                        showNotification(data.message || `Reminder sent to ${data.remindersSent || 0} recipient(s)`, 'success');
-                    } else if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Reminder Sent',
-                            text: data.message || `Reminder sent to ${data.remindersSent || 0} recipient(s)`,
-                            timer: 3000,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
-                        });
-                    }
+                    const successMessage = data.message || `Reminder sent to ${data.remindersSent || 0} recipient(s)`;
+                    showReminderAlert('success', successMessage);
 
                     // Refresh memo to update acknowledgment status
                     if (currentMemoId) {
@@ -4544,19 +4566,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Error sending reminder:', error);
-                if (typeof showNotification === 'function') {
-                    showNotification(error.message || 'Failed to send reminder', 'error');
-                } else if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: error.message || 'Failed to send reminder',
-                        timer: 3000,
-                        showConfirmButton: false,
-                        toast: true,
-                        position: 'top-end'
-                    });
-                }
+                showReminderAlert('error', error.message || 'Failed to send reminder');
             } finally {
                 if (reminderBtn) reminderBtn.disabled = false;
                 const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');

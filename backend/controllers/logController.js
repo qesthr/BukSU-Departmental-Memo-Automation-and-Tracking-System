@@ -2191,7 +2191,6 @@ exports.acknowledgeMemo = async (req, res) => {
 
         // Create notification for sender
         try {
-            const Memo = require('../models/Memo');
             const recipientName = `${memo.recipient?.firstName || ''} ${memo.recipient?.lastName || ''}`.trim() || memo.recipient?.email || 'Recipient';
             const notificationMemo = new Memo({
                 sender: userId,
@@ -2354,7 +2353,6 @@ exports.sendReminder = async (req, res) => {
         }
 
         // Create notification memos for unacknowledged recipients
-        const Memo = require('../models/Memo');
         const senderName = `${memo.sender?.firstName || ''} ${memo.sender?.lastName || ''}`.trim() || memo.sender?.email || 'Sender';
         const reminderMemos = [];
 

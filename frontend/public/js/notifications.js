@@ -31,6 +31,29 @@
         let notifications = [];
         let unreadCount = 0;
 
+        // Determine the correct API base URL (works for local + production)
+        const apiBaseUrl = window.__MEMOFY_API_BASE_URL__ ||
+            (window.location && window.location.origin ? window.location.origin : '');
+
+        const buildApiUrl = (path) => {
+            if (!path) {
+                return apiBaseUrl || path;
+            }
+            if (path.startsWith('http://') || path.startsWith('https://')) {
+                return path;
+            }
+            const base = apiBaseUrl ? apiBaseUrl.replace(/\/$/, '') : '';
+            if (!base) {
+                return path;
+            }
+            return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+        };
+
+        const apiFetch = (path, options = {}) => {
+            const url = buildApiUrl(path);
+            return fetch(url, options);
+        };
+
         // Check if notification button exists
         if (!notificationBtn) {
             // eslint-disable-next-line no-console
@@ -257,7 +280,7 @@
     // Fetch notifications
     async function fetchNotifications() {
         try {
-            const response = await fetch('/api/log/notifications', {
+            const response = await apiFetch('/api/log/notifications', {
                 credentials: 'same-origin',
                 redirect: 'manual' // Don't follow redirects automatically
             });
@@ -513,7 +536,7 @@
     // Mark notification as read
     async function markAsRead(id) {
         try {
-            await fetch(`/api/log/notifications/${id}/read`, { method: 'PUT', credentials: 'same-origin' });
+            await apiFetch(`/api/log/notifications/${id}/read`, { method: 'PUT', credentials: 'same-origin' });
             // Decrement badge only for items that are counted (exclude audit logs)
             const notif = notifications.find(n => String(n.id) === String(id));
             if (notif && notif.type !== 'user_log') {
@@ -566,7 +589,7 @@
             // Fetch memo data
             // eslint-disable-next-line no-console
             console.log('Fetching memo from API:', `/api/log/memos/${memoId}`);
-            const response = await fetch(`/api/log/memos/${memoId}`, { credentials: 'same-origin' });
+            const response = await apiFetch(`/api/log/memos/${memoId}`, { credentials: 'same-origin' });
             const data = await response.json();
 
             // eslint-disable-next-line no-console
@@ -622,7 +645,7 @@
                     try {
                         // eslint-disable-next-line no-console
                         console.log('Fetching original pending memo:', originalMemoId);
-                        const originalResponse = await fetch(`/api/log/memos/${originalMemoId}`, { credentials: 'same-origin' });
+                        const originalResponse = await apiFetch(`/api/log/memos/${originalMemoId}`, { credentials: 'same-origin' });
                         const originalData = await originalResponse.json();
 
                         if (originalResponse.ok && originalData.success && originalData.memo) {
@@ -1456,7 +1479,7 @@
                                     }
                                 }
                             }
-                            const res = await fetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }), credentials: 'same-origin' });
+                            const res = await apiFetch(`/api/log/memos/${targetMemoId}/reject`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason || '' }), credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
                             if (!res.ok) {throw new Error(data.message || 'Failed to reject');}
                             showOverlaySuccess('Rejected');
@@ -1493,7 +1516,7 @@
                                     }
                                 }
                             }
-                            const res = await fetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials: 'same-origin' });
+                            const res = await apiFetch(`/api/log/memos/${targetMemoId}/approve`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials: 'same-origin' });
                             const data = await res.json().catch(()=>({}));
                             if (!res.ok) {throw new Error(data.message || 'Failed to approve');}
                             showOverlaySuccess('Approved');
@@ -1541,7 +1564,7 @@
                             acknowledgeBtn.disabled = true;
                             showActionOverlay('Acknowledging...');
 
-                            const res = await fetch(`/api/log/memos/${memo._id}/acknowledge`, {
+                            const res = await apiFetch(`/api/log/memos/${memo._id}/acknowledge`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 credentials: 'same-origin'
