@@ -338,10 +338,15 @@
     return new Promise((resolve) => {
       const modal = document.getElementById('alertModal');
       if (!modal) {
+        // Fallback to SweetAlert2 with professional styling
         Swal.fire({
+          icon: 'info',
           title: title,
-          text: message,
-          icon: 'info'
+          html: message,
+          width: 520,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#1C89E3',
+          focusConfirm: true
         }).then(() => {
           resolve();
         });

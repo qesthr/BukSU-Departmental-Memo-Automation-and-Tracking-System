@@ -140,6 +140,9 @@
 
     </html>
     <% } else { %>
+        <!-- Global top loading bar for transitions (e.g., after Google auth before redirect) -->
+        <div id="globalLoadingBar" style="position:fixed;top:0;left:0;width:0;height:3px;background:#3b82f6;z-index:9999;transition:width 0.4s ease,opacity 0.4s ease;opacity:0;"></div>
+
         <div class="container">
             <!-- LEFT SIDE -->
             <div class="left-panel">
@@ -387,6 +390,27 @@
             window.googleAuthCompleted = false;
             let googleAuthPoller = null;
 
+            // Simple global loading bar controller
+            function showGlobalLoadingBar() {
+                try {
+                    var bar = document.getElementById('globalLoadingBar');
+                    if (!bar) return;
+                    bar.style.opacity = '1';
+                    // Start animation: grow partway while we wait before redirect
+                    bar.style.width = '60%';
+                } catch (e) { /* ignore */ }
+            }
+            function completeGlobalLoadingBar() {
+                try {
+                    var bar = document.getElementById('globalLoadingBar');
+                    if (!bar) return;
+                    bar.style.width = '100%';
+                    setTimeout(function () {
+                        bar.style.opacity = '0';
+                    }, 400);
+                } catch (e) { /* ignore */ }
+            }
+
             // Robust popup closer used by both message and storage flows
             function closeAuthPopupRobust() {
                 try {
@@ -461,6 +485,9 @@
                             dashboardUrl = '/faculty-dashboard';
                         }
 
+                        // Show loading bar before closing popup & redirecting
+                        showGlobalLoadingBar();
+
                         // Close popup first
                         closeAuthPopupRobust();
                         let waited = 0;
@@ -474,8 +501,12 @@
                         await new Promise(r => setTimeout(r, 200));
 
                         console.log('➡️ Redirecting to dashboard:', dashboardUrl);
-                        // Use replace to avoid adding to history (cleaner navigation)
-                        window.location.replace(dashboardUrl);
+                        // Hold for at least ~2 seconds to show progress bar before redirect
+                        setTimeout(function () {
+                            completeGlobalLoadingBar();
+                            // Use replace to avoid adding to history (cleaner navigation)
+                            window.location.replace(dashboardUrl);
+                        }, 1800);
 
                     } catch (error) {
                         console.error('❌ Error loading dashboard:', error);
@@ -518,7 +549,11 @@
                                 dashboardUrl = '/faculty-dashboard';
                             }
                             console.log('➡️ [storage] Redirecting to dashboard:', dashboardUrl);
-                            window.location.replace(dashboardUrl);
+                            showGlobalLoadingBar();
+                            setTimeout(function () {
+                                completeGlobalLoadingBar();
+                                window.location.replace(dashboardUrl);
+                            }, 1800);
                         } catch (err2) {
                             console.log('⚠️ [storage] Error getting user info, redirecting to login:', err2?.message);
                             // If we can't get user info, redirect to login page
@@ -548,7 +583,11 @@
                                 clearInterval(googleAuthPoller);
                                 googleAuthPoller = null;
                                 try { closeAuthPopupRobust(); } catch (e) { }
-                                window.location.href = dashboardUrl;
+                                showGlobalLoadingBar();
+                                setTimeout(function () {
+                                    completeGlobalLoadingBar();
+                                    window.location.href = dashboardUrl;
+                                }, 1800);
                             }
                         }
                     } catch (e) {

@@ -83,22 +83,6 @@
 			</main>
 		</div>
 
-		<!-- Custom Alert Modal (for view-only messages) -->
-		<div v-if="showAlertModal" class="custom-modal">
-			<div class="custom-modal-overlay"></div>
-			<div class="custom-modal-content">
-				<div class="custom-modal-header">
-					<h3>{{ alertModalTitle }}</h3>
-					<button class="custom-modal-close" @click="closeAlertModal">&times;</button>
-				</div>
-				<div class="custom-modal-body">
-					<p>{{ alertModalMessage }}</p>
-				</div>
-				<div class="custom-modal-footer">
-					<button class="custom-modal-btn custom-modal-btn-primary" @click="closeAlertModal">OK</button>
-				</div>
-			</div>
-		</div>
 	</div>
 
 	<script>
@@ -154,11 +138,6 @@
 						mine: true,
 						department: true
 					},
-
-					// Alert modal
-					showAlertModal: false,
-					alertModalTitle: 'Notice',
-					alertModalMessage: '',
 
 					// Events data (you can populate this from your API)
 					events: [],
@@ -363,13 +342,17 @@
 				},
 
 				showAlert(title, message) {
-					this.alertModalTitle = title;
-					this.alertModalMessage = message;
-					this.showAlertModal = true;
-				},
-
-				closeAlertModal() {
-					this.showAlertModal = false;
+					if (window.showAlertModal) {
+						window.showAlertModal(message, title);
+					} else if (window.Swal) {
+						Swal.fire({
+							icon: 'info',
+							title: title || 'Notice',
+							text: message || ''
+						});
+					} else {
+						alert((title ? title + ': ' : '') + (message || ''));
+					}
 				},
 
 				// Method to add events (for view-only mode, this might just show an alert)

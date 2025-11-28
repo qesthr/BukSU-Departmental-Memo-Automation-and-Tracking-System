@@ -21,12 +21,16 @@
         console.log('Callback page loaded');
         console.log('Window opener:', !!window.opener);
 
-        // Check if this is a popup or full-page redirect
-        if (window.opener) {
-            // POPUP MODE: Send message to parent and close popup
-            console.log('✅ Popup detected - sending message to parent');
-            try { 
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin); 
+        // Determine if we're running inside the dedicated Google auth popup
+        const isPopupWindow = !!window.opener || window.name === 'google-auth';
+
+        if (isPopupWindow) {
+            // POPUP MODE: Notify parent (if available) and close this window
+            console.log('✅ Popup detected - notifying parent and closing popup');
+            try {
+                if (window.opener) {
+                    window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, window.location.origin);
+                }
             } catch (e) {
                 console.error('Error sending message to parent:', e);
             }
@@ -34,13 +38,14 @@
             // Storage fallback so parent can detect success even if opener is missing
             try { localStorage.setItem('GOOGLE_AUTH_SUCCESS', '1'); } catch (e) {}
 
-            // Try closing popup if possible
-            setTimeout(() => { 
-                try { 
-                    window.close(); 
+            // Try closing popup; if blocked, at least navigate away from dashboard content
+            setTimeout(() => {
+                try {
+                    window.close();
                 } catch (e) {
-                    console.log('Could not close popup:', e);
-                } 
+                    console.log('Could not close popup directly, navigating to about:blank', e);
+                    try { window.location.replace('about:blank'); } catch (err) { /* ignore */ }
+                }
             }, 200);
         } else {
             // FULL-PAGE REDIRECT MODE: Fetch user info and redirect to dashboard
