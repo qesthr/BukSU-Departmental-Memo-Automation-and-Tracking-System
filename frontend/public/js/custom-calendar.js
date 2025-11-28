@@ -921,8 +921,14 @@ class CustomCalendar {
   }
 
   gotoDate(date) {
-    this.selectedDate = new Date(date);
-    this.currentDate = new Date(date);
+    // Normalize date to ensure no timezone shifting
+    // Extract year, month, day components and create new date with explicit midnight
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const day = d.getDate();
+    this.selectedDate = new Date(year, month, day, 0, 0, 0, 0);
+    this.currentDate = new Date(year, month, day, 0, 0, 0, 0);
     this.render();
   }
 

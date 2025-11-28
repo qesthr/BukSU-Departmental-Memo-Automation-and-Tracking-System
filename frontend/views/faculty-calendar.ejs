@@ -21,6 +21,11 @@
 
 	<!-- Vue 3 CDN -->
 	<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+	<style>
+		[v-cloak] {
+			display: none !important;
+		}
+	</style>
 </head>
 <body>
 	<div id="app">
@@ -31,35 +36,38 @@
 
 				<div class="calendar-page">
 					<aside class="calendar-sidebar">
-						<div class="sidebar-section">
-							<div class="mini-cal-header">
-								<h3>{{ miniCalendarTitle }}</h3>
-								<div class="mini-cal-nav">
-									<button @click="prevMiniMonth" class="btn-icon" aria-label="Prev">&#8249;</button>
-									<button @click="nextMiniMonth" class="btn-icon" aria-label="Next">&#8250;</button>
-								</div>
+					<div class="sidebar-section" v-cloak>
+						<div class="mini-cal-header">
+							<h3>{{ miniCalendarTitle }}</h3>
+							<div class="mini-cal-nav">
+								<button @click="prevMiniMonth" class="btn-icon" aria-label="Prev">&#8249;</button>
+								<button @click="nextMiniMonth" class="btn-icon" aria-label="Next">&#8250;</button>
 							</div>
-							<div class="mini-calendar">
+						</div>
+						<div class="mini-calendar" v-if="miniCalendarDays.length > 0">
 								<div class="mini-cal-header-row">
 									<span v-for="day in dayHeaders" :key="day" class="mini-cal-day-header">{{ day }}</span>
 								</div>
 								<div class="mini-cal-days">
 									<div
-										v-for="date in miniCalendarDates"
-										:key="date.date"
+										v-for="day in miniCalendarDays"
+										:key="day.date"
 										class="mini-cal-day"
 										:class="{
-											'mini-cal-day-other': !date.isCurrentMonth,
-											'mini-cal-day-today': date.isToday,
-											'mini-cal-day-selected': date.isSelected,
-											'mini-cal-day-has-events': date.hasEvents
+											'mini-cal-day-other': !day.isCurrentMonth,
+											'mini-cal-day-today': day.isToday,
+											'mini-cal-day-selected': day.isSelected,
+											'mini-cal-day-has-events': day.hasEvents
 										}"
-										@click="selectMiniDate(date)"
+										@click="selectMiniCalendarDay(day)"
 									>
-										{{ date.day }}
-										<div v-if="date.hasEvents" class="mini-cal-event-dot"></div>
+										{{ day.day }}
+										<div v-if="day.hasEvents" class="mini-cal-event-dot"></div>
 									</div>
 								</div>
+							</div>
+							<div v-else class="mini-calendar" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+								<div style="color: #9ca3af;">Loading calendar...</div>
 							</div>
 						</div>
 						<div class="sidebar-section">
@@ -130,7 +138,36 @@
 
 					// Mini calendar
 					currentMiniDate: new Date(),
-					selectedDate: new Date(),
+					miniCalendarDays: (function() {
+						// Generate initial calendar synchronously to prevent template flash
+						const currentDate = new Date();
+						const year = currentDate.getFullYear();
+						const month = currentDate.getMonth();
+						const today = new Date();
+						today.setHours(0, 0, 0, 0);
+						
+						const firstDay = new Date(year, month, 1);
+						const startDay = new Date(firstDay);
+						startDay.setDate(startDay.getDate() - firstDay.getDay());
+						
+						const days = [];
+						for (let i = 0; i < 42; i++) {
+							const currentDate = new Date(startDay);
+							currentDate.setDate(startDay.getDate() + i);
+							const dateStr = currentDate.toISOString().split('T')[0];
+							const todayStr = today.toISOString().split('T')[0];
+							
+							days.push({
+								date: dateStr,
+								day: currentDate.getDate(),
+								isCurrentMonth: currentDate.getMonth() === month,
+								isToday: dateStr === todayStr,
+								isSelected: dateStr === todayStr, // Select today initially
+								hasEvents: false // Will be updated after events are fetched
+							});
+						}
+						return days;
+					})(),
 
 					// Calendar filters
 					calendarFilters: {
@@ -159,48 +196,15 @@
 
 				miniCalendarTitle() {
 					return this.currentMiniDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-				},
-
-				miniCalendarDates() {
-					const year = this.currentMiniDate.getFullYear();
-					const month = this.currentMiniDate.getMonth();
-
-					// First day of the month
-					const firstDay = new Date(year, month, 1);
-					// Last day of the month
-					const lastDay = new Date(year, month + 1, 0);
-					// First day of the calendar grid (may be from previous month)
-					const startDay = new Date(firstDay);
-					startDay.setDate(startDay.getDate() - firstDay.getDay());
-
-					const dates = [];
-					const today = new Date();
-					today.setHours(0, 0, 0, 0);
-
-					const selectedDate = new Date(this.selectedDate);
-					selectedDate.setHours(0, 0, 0, 0);
-
-					// Generate 42 days (6 weeks)
-					for (let i = 0; i < 42; i++) {
-						const currentDate = new Date(startDay);
-						currentDate.setDate(startDay.getDate() + i);
-
-						const dateObj = {
-							date: currentDate.toISOString().split('T')[0],
-							day: currentDate.getDate(),
-							isCurrentMonth: currentDate.getMonth() === month,
-							isToday: currentDate.toDateString() === today.toDateString(),
-							isSelected: currentDate.toDateString() === selectedDate.toDateString(),
-							hasEvents: this.hasEventsOnDate(currentDate)
-						};
-
-						dates.push(dateObj);
-					}
-
-					return dates;
 				}
 			},
+			created() {
+				// Calendar is already initialized in data(), but regenerate to ensure consistency
+				// and update hasEvents after events are loaded
+				this.generateMiniCalendar();
+			},
 			mounted() {
+				// Initialize async operations after DOM is ready
 				this.initializeCalendar();
 				this.refreshLucideIcons();
 
@@ -262,11 +266,60 @@
 						console.error('Error fetching calendar events:', error);
 						this.events = [];
 					}
+					// Regenerate mini calendar to update hasEvents indicators
+					this.generateMiniCalendar();
 				},
 
 				refreshLucideIcons() {
 					if (typeof lucide !== 'undefined') {
 						lucide.createIcons();
+					}
+				},
+
+				generateMiniCalendar() {
+					const year = this.currentMiniDate.getFullYear();
+					const month = this.currentMiniDate.getMonth();
+					const today = new Date();
+					today.setHours(0, 0, 0, 0);
+
+					// Preserve the currently selected date before regenerating
+					const previouslySelected = this.miniCalendarDays.find(d => d.isSelected);
+					const selectedDateStr = previouslySelected ? previouslySelected.date : null;
+
+					// First day of the month
+					const firstDay = new Date(year, month, 1);
+					// Last day of the month
+					const lastDay = new Date(year, month + 1, 0);
+					// First day of the calendar grid (might be from previous month)
+					const startDay = new Date(firstDay);
+					startDay.setDate(startDay.getDate() - firstDay.getDay());
+
+					this.miniCalendarDays = [];
+
+					// Generate 42 days (6 weeks)
+					for (let i = 0; i < 42; i++) {
+						const currentDate = new Date(startDay);
+						currentDate.setDate(startDay.getDate() + i);
+
+						const dateStr = currentDate.toISOString().split('T')[0];
+						const todayStr = today.toISOString().split('T')[0];
+
+						this.miniCalendarDays.push({
+							date: dateStr,
+							day: currentDate.getDate(),
+							isCurrentMonth: currentDate.getMonth() === month,
+							isToday: dateStr === todayStr,
+							isSelected: dateStr === selectedDateStr, // Preserve selection if date is still visible
+							hasEvents: this.hasEventsOnDate(currentDate)
+						});
+					}
+
+					// Only select today if no date was previously selected and today is in the current view
+					if (!selectedDateStr) {
+						const todayDay = this.miniCalendarDays.find(d => d.isToday);
+						if (todayDay) {
+							todayDay.isSelected = true;
+						}
 					}
 				},
 
@@ -276,6 +329,7 @@
 						this.currentMiniDate.getMonth() - 1,
 						1
 					);
+					this.generateMiniCalendar();
 					// Refetch events for the new month
 					await this.fetchEvents();
 				},
@@ -286,30 +340,49 @@
 						this.currentMiniDate.getMonth() + 1,
 						1
 					);
+					this.generateMiniCalendar();
 					// Refetch events for the new month
 					await this.fetchEvents();
 				},
 
-				selectMiniDate(date) {
+				selectMiniCalendarDay(day) {
+					// Reset all selections
+					this.miniCalendarDays.forEach(d => d.isSelected = false);
+					day.isSelected = true;
+
 					// Parse date string as local date to avoid timezone issues
-					// date.date is in format "YYYY-MM-DD", parse it as local date
-					const dateParts = date.date.split('-');
+					// day.date is in format "YYYY-MM-DD", parse it as local date
+					const dateParts = day.date.split('-');
+					// Create date with explicit year, month, day, and set to midnight
+					// This ensures no timezone shifting occurs
 					const localDate = new Date(
 						parseInt(dateParts[0]),
 						parseInt(dateParts[1]) - 1, // Month is 0-indexed
-						parseInt(dateParts[2])
+						parseInt(dateParts[2]),
+						0, // hours
+						0, // minutes
+						0, // seconds
+						0  // milliseconds
 					);
-					localDate.setHours(0, 0, 0, 0); // Set to midnight local time
-
-					this.selectedDate = localDate;
 
 					// If the selected date is from a different month, update the mini calendar
-					if (!date.isCurrentMonth) {
-						this.currentMiniDate = new Date(localDate);
+					if (!day.isCurrentMonth) {
+						this.currentMiniDate = new Date(
+							localDate.getFullYear(),
+							localDate.getMonth(),
+							1
+						);
+						this.generateMiniCalendar();
+						// Restore selection after regenerating
+						const selectedDay = this.miniCalendarDays.find(d => d.date === day.date);
+						if (selectedDay) {
+							selectedDay.isSelected = true;
+						}
 						this.fetchEvents(); // Fetch events for the new month
 					}
 
-					// Trigger main calendar navigation (same as secretary calendar)
+					// Update main calendar view if custom calendar is available
+					// Pass the date directly - gotoDate will handle it correctly
 					if (window.customCalendar && typeof window.customCalendar.navigateToDate === 'function') {
 						window.customCalendar.navigateToDate(localDate);
 					}
