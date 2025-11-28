@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const { google } = require('googleapis');
 const isAuthenticated = require('../middleware/isAuthenticated');
 const User = require('../models/User');
 const calendarService = require('../services/calendarService');
@@ -8,15 +7,37 @@ const calendarService = require('../services/calendarService');
 // Start OAuth flow for Calendar
 router.get('/auth', isAuthenticated, (req, res) => {
     try {
+        // eslint-disable-next-line no-console
+        console.log('📅 Calendar OAuth route hit - /calendar/auth');
+        // eslint-disable-next-line no-console
+        console.log('📅 Request protocol:', req.protocol);
+        // eslint-disable-next-line no-console
+        console.log('📅 Request host:', req.get('host'));
+        // eslint-disable-next-line no-console
+        console.log('📅 BASE_URL:', process.env.BASE_URL || 'not set');
+        // eslint-disable-next-line no-console
+        console.log('📅 GOOGLE_CALENDAR_REDIRECT_URI:', process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'not set');
+
         const oauth2 = calendarService.createOAuthClient();
         const scopes = [
             'https://www.googleapis.com/auth/calendar',
             'https://www.googleapis.com/auth/calendar.events'
         ];
         const url = oauth2.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: scopes });
+
+        // Extract redirect_uri from the generated URL to verify it
+        const urlObj = new URL(url);
+        const redirectUriParam = urlObj.searchParams.get('redirect_uri');
+        // eslint-disable-next-line no-console
+        console.log('📅 Redirect URI in OAuth request:', redirectUriParam);
+        // eslint-disable-next-line no-console
+        console.log('📅 Generated OAuth URL (first 200 chars):', url.substring(0, 200));
+
         return res.redirect(url);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Error in /calendar/auth:', error);
+        // eslint-disable-next-line no-console
         console.error('Error stack:', error.stack);
         return res.status(500).send('Calendar authorization setup failed. Please check server configuration.');
     }
@@ -52,7 +73,9 @@ router.get('/auth/callback', isAuthenticated, async (req, res) => {
         const redirectPath = req.user.role === 'secretary' ? '/secretary/calendar' : '/calendar';
         return res.redirect(redirectPath);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Error in /calendar/auth/callback:', error);
+        // eslint-disable-next-line no-console
         console.error('Error stack:', error.stack);
         return res.status(500).send('Calendar authorization failed');
     }
@@ -65,6 +88,7 @@ router.get('/events', isAuthenticated, async (req, res) => {
 
         // Validate required parameters
         if (!timeMin || !timeMax) {
+            // eslint-disable-next-line no-console
             console.warn('⚠️ Missing timeMin or timeMax in /calendar/events request');
             return res.json([]); // Return empty array instead of error
         }
@@ -75,7 +99,9 @@ router.get('/events', isAuthenticated, async (req, res) => {
         // It also includes public holidays now
         return res.json(items || []);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Error in /calendar/events:', error);
+        // eslint-disable-next-line no-console
         console.error('Error stack:', error.stack);
         // Return empty array instead of 500 error - Google Calendar is optional
         // This prevents the calendar from breaking if Google Calendar API fails
@@ -89,7 +115,9 @@ router.post('/events', isAuthenticated, async (req, res) => {
         const data = await calendarService.addEvent(req.user, { title, description, startISO, endISO, category });
         return res.json(data);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Error in POST /calendar/events:', error);
+        // eslint-disable-next-line no-console
         console.error('Error stack:', error.stack);
         return res.status(500).json({
             message: 'Failed to add calendar event',
@@ -104,7 +132,9 @@ router.delete('/events/:id', isAuthenticated, async (req, res) => {
         const data = await calendarService.deleteEvent(req.user, id);
         return res.json(data);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Error in DELETE /calendar/events/:id:', error);
+        // eslint-disable-next-line no-console
         console.error('Error stack:', error.stack);
         return res.status(500).json({
             message: 'Failed to delete calendar event',
@@ -125,6 +155,8 @@ router.delete('/disconnect', isAuthenticated, async (req, res) => {
         });
         return res.json({ success: true, message: 'Google Calendar disconnected' });
     } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('❌ Error disconnecting calendar:', error);
         return res.status(500).json({ message: 'Failed to disconnect calendar' });
     }
 });
