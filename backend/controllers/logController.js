@@ -2273,15 +2273,44 @@ exports.sendReminder = async (req, res) => {
         // Get all recipients (if memo has multiple recipients via recipients array)
         const allRecipients = [];
         if (memo.recipients && memo.recipients.length > 0) {
-            const recipients = await User.find({ _id: { $in: memo.recipients } })
-                .select('firstName lastName email profilePicture');
-            allRecipients.push(...recipients);
+            const recipientIdValues = [];
+            const recipientEmailValues = [];
+
+            memo.recipients.forEach((value) => {
+                if (!value) {
+                    return;
+                }
+                if (typeof value === 'object' && value._id) {
+                    recipientIdValues.push(value._id);
+                } else if (mongoose.Types.ObjectId.isValid(value)) {
+                    recipientIdValues.push(value);
+                } else if (typeof value === 'string' && value.includes('@')) {
+                    recipientEmailValues.push(value.toLowerCase());
+                }
+            });
+
+            if (recipientIdValues.length > 0) {
+                const recipientsById = await User.find({ _id: { $in: recipientIdValues } })
+                    .select('firstName lastName email profilePicture');
+                allRecipients.push(...recipientsById);
+            }
+            if (recipientEmailValues.length > 0) {
+                const recipientsByEmail = await User.find({ email: { $in: recipientEmailValues } })
+                    .select('firstName lastName email profilePicture');
+                allRecipients.push(...recipientsByEmail);
+            }
         } else if (memo.recipient) {
             // If recipient is already populated, use it; otherwise fetch it
             if (memo.recipient.firstName || memo.recipient.email) {
                 allRecipients.push(memo.recipient);
-            } else {
+            } else if (mongoose.Types.ObjectId.isValid(memo.recipient)) {
                 const recipient = await User.findById(memo.recipient)
+                    .select('firstName lastName email profilePicture');
+                if (recipient) {
+                    allRecipients.push(recipient);
+                }
+            } else if (typeof memo.recipient === 'string' && memo.recipient.includes('@')) {
+                const recipient = await User.findOne({ email: memo.recipient.toLowerCase() })
                     .select('firstName lastName email profilePicture');
                 if (recipient) {
                     allRecipients.push(recipient);
@@ -2289,7 +2318,20 @@ exports.sendReminder = async (req, res) => {
             }
         }
 
-        if (allRecipients.length === 0) {
+        // Deduplicate recipients (some memos may list the same recipient by multiple identifiers)
+        const recipientMap = new Map();
+        allRecipients.forEach(recipient => {
+            if (!recipient) {
+                return;
+            }
+            const recipientId = recipient._id?.toString();
+            if (recipientId && !recipientMap.has(recipientId)) {
+                recipientMap.set(recipientId, recipient);
+            }
+        });
+        const uniqueRecipients = Array.from(recipientMap.values());
+
+        if (uniqueRecipients.length === 0) {
             return res.status(400).json({ success: false, message: 'No recipients found for this memo' });
         }
 
@@ -2299,7 +2341,7 @@ exports.sendReminder = async (req, res) => {
             .filter(Boolean);
 
         // Find unacknowledged recipients
-        const unacknowledgedRecipients = allRecipients.filter(
+        const unacknowledgedRecipients = uniqueRecipients.filter(
             recipient => !acknowledgedUserIds.includes(recipient._id.toString())
         );
 
