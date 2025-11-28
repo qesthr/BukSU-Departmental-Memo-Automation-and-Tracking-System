@@ -83,6 +83,19 @@ app.use(express.urlencoded({ extended: true }));
 // Trust reverse proxy (needed for secure cookies behind proxies/load balancers)
 app.set('trust proxy', 1);
 
+// Force HTTPS in production (Render uses HTTPS)
+if (process.env.NODE_ENV === 'production' || 
+    (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://'))) {
+    app.use((req, res, next) => {
+        // Check if request is HTTP (not HTTPS)
+        if (req.header('x-forwarded-proto') !== 'https' && req.protocol !== 'https') {
+            // Redirect to HTTPS version
+            return res.redirect(301, `https://${req.header('host')}${req.url}`);
+        }
+        next();
+    });
+}
+
 // Session configuration
 // Determine if we're in production (HTTPS) - check both NODE_ENV and BASE_URL
 const isProduction = process.env.NODE_ENV === 'production' || 
