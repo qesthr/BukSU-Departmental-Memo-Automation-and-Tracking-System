@@ -365,6 +365,16 @@ exports.exportActivityLogs = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
         }
 
+        // Helper to convert internal actionType (e.g. "google_calendar_connected")
+        // into a more readable label (e.g. "Google Calendar Connected")
+        const formatActionLabel = (actionType) => {
+            if (!actionType || typeof actionType !== 'string') return '';
+            return actionType
+                .split('_')
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(' ');
+        };
+
         // Build filter (same as getActivityLogs)
         const filter = {};
         if (req.query.actorRole && ['admin', 'secretary', 'faculty'].includes(req.query.actorRole)) {
@@ -392,18 +402,30 @@ exports.exportActivityLogs = async (req, res) => {
             .populate('actorUserId', 'firstName lastName email')
             .lean();
 
-        // Generate CSV
+        // Generate CSV (human–readable headers + friendly action label)
         const csvRows = [];
-        csvRows.push(['Timestamp', 'Actor Name', 'Actor Email', 'Actor Role', 'Action Type', 'Description', 'Target Resource', 'Target Name', 'IP Address'].join(','));
+        // Column order is optimized for readability in Excel:
+        // Actor Name, Actor Email, Actor Role, Action Type, Action Label, Description, Target Resource, Target Name, IP Address
+        csvRows.push([
+            'Actor Name',
+            'Actor Email',
+            'Actor Role',
+            'Action Type',
+            'Action Label',
+            'Description',
+            'Target Resource',
+            'Target Name',
+            'IP Address'
+        ].join(','));
 
         logs.forEach(log => {
             const actorName = log.actorName || (log.actorUserId ? `${log.actorUserId.firstName || ''} ${log.actorUserId.lastName || ''}`.trim() : '');
             const row = [
-                new Date(log.timestamp).toISOString(),
                 `"${actorName.replace(/"/g, '""')}"`,
                 `"${log.actorEmail.replace(/"/g, '""')}"`,
                 log.actorRole,
                 log.actionType,
+                `"${formatActionLabel(log.actionType).replace(/"/g, '""')}"`,
                 `"${log.description.replace(/"/g, '""')}"`,
                 log.targetResource || '',
                 `"${(log.targetName || '').replace(/"/g, '""')}"`,
