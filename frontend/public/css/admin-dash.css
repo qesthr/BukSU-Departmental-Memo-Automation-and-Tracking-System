@@ -409,7 +409,6 @@ body {
 }
 
 .memo-container {
-    height: auto;
     height: 500px;
     width: 100%;
     overflow-y: auto;
