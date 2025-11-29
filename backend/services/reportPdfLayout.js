@@ -50,27 +50,18 @@ function createReportLayout(doc, { digitalSignature, startDate, endDate }) {
             doc.fontSize(8)
                 .font('Helvetica')
                 .fillColor('#666666')
-                .text(
-                    `Document Tracking # ${digitalSignature}`,
-                    50,
-                    footerY,
-                    {
-                        width: (doc.page.width - 100) / 2,
-                        align: 'left'
-                    }
-                );
+                .text(`Document Tracking # ${digitalSignature}`, 50, footerY, {
+                    width: (doc.page.width - 100) / 2,
+                    align: 'left'
+                });
 
             // Right: page X/Y (always show X/Y format)
             const pageText = `Page ${pageCount}/${totalPagesEstimate}`;
-            doc.text(
-                pageText,
-                doc.page.width / 2,
-                footerY,
-                {
+            doc.fillColor('#666666')
+                .text(pageText, doc.page.width / 2, footerY, {
                     width: (doc.page.width - 100) / 2,
                     align: 'right'
-                }
-            )
+                })
                 .fillColor('black');
 
             doc.x = savedX;
@@ -99,14 +90,17 @@ function createReportLayout(doc, { digitalSignature, startDate, endDate }) {
 
         const ensureSpaceForRow = () => {
             if (doc.y + rowHeight > doc.page.height - footerAreaHeight) {
+                // Add footer to current page before adding new page
                 addPageFooter();
                 doc.addPage();
+                // Update total pages estimate after adding page
                 try {
                     const range = doc.bufferedPageRange();
                     totalPagesEstimate = range.count;
                 } catch {
                     totalPagesEstimate++;
                 }
+                // Reset Y position for new page (top margin)
                 doc.y = 80;
             }
         };

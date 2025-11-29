@@ -35,10 +35,8 @@ async function generateReportPDF(startDate, endDate) {
                     endDate
                 });
 
-                // Auto footer on every new page
-                doc.on('pageAdded', () => {
-                    addPageFooter();
-                });
+                // Note: Footer is added manually in ensureSpaceForRow() before adding new pages
+                // and at the end, so we don't need the pageAdded event handler
 
                 // Collect PDF data
                 doc.on('data', chunk => chunks.push(chunk));
