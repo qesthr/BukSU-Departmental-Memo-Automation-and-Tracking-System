@@ -10,6 +10,12 @@
     <link rel="stylesheet" href="/css/user-management.css">
     <link rel="stylesheet" href="/css/admintopbar.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Hide Vue interpolation ({{ }}) until app is mounted */
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
 
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: gaPropertyId }); %>
@@ -32,7 +38,7 @@
     department: user.department,
     canCrossSend: !!user.canCrossSend
 }) %>'>
-    <div id="app" class="dashboard-container">
+    <div id="app" class="dashboard-container" v-cloak>
         <%- include('../../components/nav'); %>
 
             <!-- Main Content -->
@@ -702,6 +708,11 @@
                     loading.value = true;
                     try {
                         const response = await fetch(`/api/users?role=${role}`, { credentials: 'same-origin' });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
                         const data = await response.json();
                         users.value = data.users || [];
                         await loadLockStates(users.value);
@@ -710,7 +721,9 @@
                         }
                     } catch (error) {
                         console.error('Error fetching users:', error);
-                        showNotification('Error fetching users', 'error');
+                        showNotification('Error fetching users: ' + error.message, 'error');
+                        // Set empty array on error so UI shows "No users found" instead of stuck on loading
+                        users.value = [];
                     } finally {
                         loading.value = false;
                     }
@@ -1246,11 +1259,12 @@
 
                 // Lifecycle
                 onMounted(() => {
-                    // OPTIMIZED: Defer heavy operations to not block initial render
-                    // Use requestIdleCallback or setTimeout to avoid blocking DOMContentLoaded
-                    const initHeavyOperations = () => {
-                        // Only load active users initially, load archived lazily when needed
-                        fetchUsers('all');
+                    // Start fetching users immediately (Vue is ready at this point)
+                    // Only load active users initially, load archived lazily when needed
+                    fetchUsers('all');
+                    
+                    // Defer non-critical operations
+                    const initNonCriticalOperations = () => {
                         // Don't load archived users until user switches to archived view
                         initSSE();
                         // Initialize Lucide icons when available
@@ -1259,11 +1273,11 @@
                         }
                     };
                     
-                    // Use requestIdleCallback if available, otherwise setTimeout
+                    // Use requestIdleCallback for non-critical operations only
                     if (window.requestIdleCallback) {
-                        requestIdleCallback(initHeavyOperations, { timeout: 2000 });
+                        requestIdleCallback(initNonCriticalOperations, { timeout: 1000 });
                     } else {
-                        setTimeout(initHeavyOperations, 0);
+                        setTimeout(initNonCriticalOperations, 100);
                     }
 
                     // Prevent user-management.js from rendering the list (Vue handles it)

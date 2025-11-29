@@ -21,7 +21,8 @@ exports.getAllMemos = async (req, res) => {
             'user_deleted',
             'password_reset',
             'welcome_email',
-            'user_profile_edited' // User profile updates - only in Activity Logs
+            'user_profile_edited', // User profile updates - only in Activity Logs
+            'calendar_connected'   // Google Calendar connection confirmation - activity log only
         ];
 
         if (folder === 'inbox') {

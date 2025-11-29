@@ -1,6 +1,7 @@
 // Lightweight notification helpers using Memo model (non-breaking)
 
 const Memo = require('../models/Memo');
+const activityLogger = require('./activityLogger');
 
 async function notifyAdmin({ memo, actor }) {
   // Send a system notification to all admins that a memo is pending review
@@ -160,24 +161,36 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
   }
 }
 
-async function notifyCalendarConnected({ user }) {
-  // Notify the user that they successfully connected their Google Calendar
+async function notifyCalendarConnected({ user, req }) {
+  // Log Google Calendar connection as an activity log ONLY (no memo/inbox entry)
   try {
-    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+    if (!user || !user._id) {
+      return;
+    }
 
-    await new Memo({
-      sender: user._id,
-      recipient: user._id,
-      subject: 'Google Calendar Connected',
-      content: `You have successfully connected your Google Calendar account (${user.email || 'N/A'}) to Memofy. Your calendar events will now sync automatically.`,
-      activityType: 'calendar_connected',
-      priority: 'medium',
-      status: 'sent',
-      metadata: {
-        eventType: 'calendar_connected',
-        userEmail: user.email || ''
+    const userName =
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+      user.email ||
+      'User';
+
+    // Extract request info if available (for IP / User-Agent)
+    const requestInfo = req
+      ? activityLogger.extractRequestInfo(req)
+      : {};
+
+    await activityLogger.log(
+      user,
+      'google_calendar_connected',
+      `${userName} connected Google Calendar`,
+      {
+        targetResource: 'system',
+        metadata: {
+          userEmail: user.email || '',
+          source: 'google_calendar_oauth'
+        },
+        ...requestInfo
       }
-    }).save();
+    );
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('notifyCalendarConnected error:', e?.message || e);

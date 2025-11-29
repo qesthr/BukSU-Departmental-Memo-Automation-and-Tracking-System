@@ -506,11 +506,38 @@ module.exports.updateMe = async (req, res) => {
         if (!req.isAuthenticated()) {
             return res.status(401).json({ success: false, message: 'Not authenticated' });
         }
+
         const updates = {};
         const allowed = ['firstName', 'lastName', 'email'];
         allowed.forEach(k => { if (req.body[k] !== undefined) {updates[k] = req.body[k];} });
+
         const User = require('../models/User');
         const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+
+        // Audit log: self profile update (non-blocking)
+        try {
+            await audit(req.user, 'user_profile_updated', 'Profile Updated', 'User updated their own profile', {
+                targetUserId: req.user._id,
+                fields: Object.keys(updates)
+            });
+        } catch (e) {
+            // Do not break main flow
+            console.error('audit user_profile_updated error:', e);
+        }
+
+        // Activity log: self profile update (visible in Admin Activity Logs)
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logUserAction(req.user, 'user_profile_updated', user, {
+                description: 'Updated own profile',
+                metadata: { fields: Object.keys(updates) },
+                ...requestInfo
+            });
+        } catch (e) {
+            console.error('activityLogger user_profile_updated error:', e);
+        }
+
         return res.json({ success: true, message: 'Profile updated successfully', user });
     } catch (e) {
         console.error('updateMe error:', e);
