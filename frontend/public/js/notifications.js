@@ -1158,7 +1158,7 @@
                 htmlContent += '</div></div>';
             }
 
-            bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+            bodyContentEl.innerHTML = htmlContent || '';
 
             // Footer actions for admin approval workflow and recipient acknowledgment
             const footer = modal.querySelector('#notificationMemoFooter');

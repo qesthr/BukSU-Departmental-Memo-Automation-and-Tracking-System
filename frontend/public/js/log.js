@@ -1785,15 +1785,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Validate subject and content
-            const subject = document.getElementById('subject').value.trim();
+            // Validate subject (always required) and content (optional with confirmation if empty)
+            const subjectInput = document.getElementById('subject');
+            const subject = subjectInput ? subjectInput.value.trim() : '';
+
             if (!subject) {
-                showNotification('Subject is required', 'error');
+                // Let browser required attribute show tooltip, but also show our own message
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Subject required',
+                        text: 'Please enter a clear subject for this memo before sending.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#2563EB'
+                    });
+                } else {
+                    showNotification('Subject is required.', 'error');
+                }
+                if (subjectInput) {
+                    subjectInput.focus();
+                }
                 return;
             }
 
             // Get content from textarea (optional)
             const content = contentTextarea ? contentTextarea.value.trim() : '';
+
+            // If content is empty, ask for confirmation
+            if (!content) {
+                if (typeof Swal !== 'undefined') {
+                    const { isConfirmed } = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Send without content?',
+                        html: 'You are about to send this memo <strong>without any body content</strong>.<br><br><span style="font-size:13px;color:#6b7280;">The subject and attachments will still be sent. Click <strong>Cancel</strong> to go back and add details, or <strong>Send Memo</strong> to continue.</span>',
+                        confirmButtonText: 'Send Memo',
+                        cancelButtonText: 'Cancel',
+                        showCancelButton: true,
+                        focusCancel: true,
+                        confirmButtonColor: '#2563EB',
+                        cancelButtonColor: '#6b7280'
+                    });
+
+                    if (!isConfirmed) {
+                        return;
+                    }
+                } else {
+                    const proceed = window.confirm('Send this memo without body content?');
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            }
 
             // Create FormData
             const formData = new FormData();
@@ -3950,8 +3992,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 htmlContent += '</div></div>';
             }
 
-            // Always set innerHTML, even if empty, to ensure display
-            memoBodyContent.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+            // Only show placeholder when attachments/signatures are truly missing
+            memoBodyContent.innerHTML = htmlContent || '';
 
             // Reinitialize icons for attachment links
             if (typeof lucide !== 'undefined') {

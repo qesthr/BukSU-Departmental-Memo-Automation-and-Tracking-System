@@ -5,14 +5,14 @@ const Memo = require('../models/Memo');
 exports.getDashboardStats = async (req, res) => {
     try {
         // OPTIMIZED: Parallelize all database queries for MongoDB Atlas (reduces total time significantly)
+        const reportService = require('../services/reportService');
         const [
             totalUsers,
             adminUsers,
             secretaryUsers,
             facultyUsers,
             activeUsers,
-            totalMemosCount,
-            totalMemosSent,
+            overallStats,
             pendingMemos,
             overdueMemos,
             recentMemosRaw
@@ -24,15 +24,10 @@ exports.getDashboardStats = async (req, res) => {
             User.countDocuments({ role: 'faculty' }),
             User.countDocuments({ lastLogin: { $exists: true } }),
 
+            // Overall stats (reuse same memo filter as reports for consistency)
+            reportService.getOverallStats(),
+
             // Memo stats (parallelized)
-            Memo.countDocuments({
-                status: { $ne: 'deleted' },
-                activityType: { $ne: 'system_notification' }
-            }),
-            Memo.countDocuments({
-                status: { $in: ['sent', 'approved', 'read', 'pending'] },
-                activityType: { $ne: 'system_notification' }
-            }),
             Memo.countDocuments({
                 status: 'pending',
                 activityType: { $ne: 'system_notification' }
@@ -53,9 +48,6 @@ exports.getDashboardStats = async (req, res) => {
                 .limit(20)
                 .lean()
         ]);
-
-        // Total memos received (same as sent, since sent memos are received)
-        const totalMemosReceived = totalMemosSent;
 
         // OPTIMIZED: Batch fetch all users at once (1 query instead of 20+ queries) - Much faster for Atlas
         const senderIds = [...new Set(recentMemosRaw.map(m => m.sender).filter(Boolean))];
@@ -115,9 +107,8 @@ exports.getDashboardStats = async (req, res) => {
                     active: activeUsers
                 },
                 memos: {
-                    total: totalMemosCount, // Total memos in the system
-                    totalSent: totalMemosSent, // Total memos sent (all memos)
-                    totalReceived: totalMemosReceived, // Total memos received (all memos)
+                    // Use same total as Reports (only admin/secretary memos, filtered by reportService)
+                    total: overallStats.totalMemos,
                     pending: pendingMemos, // Memos pending admin approval
                     overdue: overdueMemos // Memos with past due dates
                 },

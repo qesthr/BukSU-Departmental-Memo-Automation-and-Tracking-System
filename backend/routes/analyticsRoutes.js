@@ -343,6 +343,31 @@ router.get('/db/memos-over-time', [isAuthenticated, isAdmin], async (req, res) =
 });
 
 /**
+ * Get calendar events over time
+ * Admin only
+ */
+router.get('/db/events-over-time', [isAuthenticated, isAdmin], async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const data = await reportService.getEventsOverTime(startDate, endDate);
+        return res.json(data);
+    } catch (error) {
+        console.error('Error fetching events over time:', error);
+        return res.status(500).json({
+            error: 'Failed to fetch events over time',
+            message: error.message
+        });
+    }
+});
+
+/**
  * Get memo statistics by department
  * Admin only
  */

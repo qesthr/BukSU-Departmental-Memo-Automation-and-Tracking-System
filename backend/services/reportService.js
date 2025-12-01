@@ -7,25 +7,34 @@ const CalendarEvent = require('../models/CalendarEvent');
  * @returns {Object} MongoDB query filter
  */
 async function getMemoFilter(baseFilter = {}) {
-    // Get admin and secretary user IDs
+    // Get admin and secretary user IDs (only memos they create are counted)
     const adminSecretaryUsers = await User.find({
         role: { $in: ['admin', 'secretary'] }
     }).select('_id').lean();
 
     const adminSecretaryIds = adminSecretaryUsers.map(u => u._id);
 
-    // System-generated activity types to exclude
+    // System / non-memo activity types to exclude completely from analytics
+    // We only want "real" memos created by admins/secretaries
     const systemActivityTypes = [
         'user_activity',
         'system_notification',
         'user_deleted',
         'password_reset',
-        'welcome_email'
+        'welcome_email',
+        'user_profile_edited',
+        'memo_received',
+        'calendar_connected'
     ];
 
     return {
+        // Base filters (e.g., date range)
         ...baseFilter,
+        // Only memos created by admins or secretaries
         sender: { $in: adminSecretaryIds },
+        // Exclude archived / deleted from totals and analytics by default
+        status: { $nin: ['archived', 'deleted'] },
+        // Exclude system / derived activity types
         activityType: { $nin: systemActivityTypes }
     };
 }
@@ -194,6 +203,39 @@ async function getMemosOverTime(startDate, endDate) {
         return stats;
     } catch (error) {
         console.error('Error fetching memos over time:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get calendar events over time (daily)
+ */
+async function getEventsOverTime(startDate, endDate) {
+    try {
+        const dateFilter = {
+            createdAt: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            },
+            status: { $ne: 'cancelled' }
+        };
+
+        const stats = await CalendarEvent.aggregate([
+            { $match: dateFilter },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        return stats;
+    } catch (error) {
+        console.error('Error fetching events over time:', error);
         throw error;
     }
 }
@@ -495,6 +537,7 @@ module.exports = {
     getMemoStatsByPriority,
     getMemoStatsByDepartment,
     getMemosOverTime,
+    getEventsOverTime,
     getUserStats,
     getRecentActivity,
     getMemoStatsForDateRange,

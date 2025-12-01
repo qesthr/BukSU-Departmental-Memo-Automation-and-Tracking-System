@@ -23,20 +23,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function updateStatCards(stats) {
-    // Update Total Memos (user-specific: sent + received)
+    // Update Total Memos (use same total as Admin Reports / reportService)
     const totalMemosElement = document.querySelector('.stat-card:nth-child(1) .stat-value');
     if (totalMemosElement) {
-        // Use total if available, otherwise calculate from sent + received
-        const totalMemos = stats.memos.total ||
-            ((stats.memos.totalSent || 0) + (stats.memos.totalReceived || 0));
+        const totalMemos = stats.memos.total || 0;
         totalMemosElement.textContent = totalMemos.toLocaleString();
-        // Add percentage change if available
         const changeElement = totalMemosElement.parentElement.querySelector('.stat-change');
         if (changeElement) {
-            // Show breakdown: sent + received
-            const sentCount = stats.memos.totalSent || 0;
-            const receivedCount = stats.memos.totalReceived || 0;
-            changeElement.textContent = `${sentCount} sent, ${receivedCount} received`;
+            // Remove sent/received breakdown
+            changeElement.textContent = '';
         }
     }
 

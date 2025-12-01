@@ -250,7 +250,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 
 // Routes
 app.get('/', (req, res) => {
-    res.render('login', { pageTitle: 'Memofy Login Page' }); // frontend/views/login.ejs
+    res.render('login', { pageTitle: 'Login Page | Memofy' }); // frontend/views/login.ejs
 });
 
 // Unauthorized access page - plain white background with error modal
@@ -263,7 +263,7 @@ app.get('/login', (req, res) => {
     const { error, message } = req.query || {};
     if (error === 'account_not_found') {
         return res.render('login', {
-            pageTitle: 'Memofy Login Page',
+            pageTitle: 'Login Page | Memofy',
             showMinimalMessageModal: true,
             modalTitle: 'Account Not Found',
             modalMessage: message || 'Your account has not been added by an administrator. Please contact your administrator to create your account.',
@@ -272,14 +272,14 @@ app.get('/login', (req, res) => {
     }
     if (error || message) {
         return res.render('login', {
-            pageTitle: 'Memofy Login Page',
+            pageTitle: 'Login Page | Memofy',
             showMessageModal: true,
             modalTitle: error ? 'Login Error' : 'Message',
             modalMessage: message || 'Authentication failed. Please try again.',
             modalType: 'error'
         });
     }
-    return res.render('login', { pageTitle: 'Memofy Login Page' });
+    return res.render('login', { pageTitle: 'Login Page | Memofy' });
 });
 
 // Admin Calendar

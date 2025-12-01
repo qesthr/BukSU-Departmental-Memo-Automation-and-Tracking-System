@@ -174,15 +174,11 @@
                         }
                     });
 
-                    // Initialize from data attributes
+                    // Initialize from data attributes (basic info; settings come from /api/settings)
                     try {
                         const userData = document.body.getAttribute('data-current-user');
                         if (userData) {
                             currentUser.value = JSON.parse(userData);
-                            // Initialize settings from user preferences
-                            if (currentUser.value.preferences) {
-                                settings.value = { ...settings.value, ...currentUser.value.preferences };
-                            }
                         }
                     } catch (err) {
                         console.error('Error parsing user data:', err);
@@ -245,30 +241,58 @@
                     const updateSetting = async (key, value) => {
                         saving.value[key] = true;
 
+                        // Build payload expected by /api/settings
+                        let payload = {};
+                        if (key === 'darkMode' || key === 'twoFactorEnabled') {
+                            payload[key] = value;
+                        } else if (key === 'notifications.memoEmails' || key === 'notifications.profileUpdates') {
+                            const notifKey = key.split('.')[1]; // 'memoEmails' or 'profileUpdates'
+                            payload.notifications = { [notifKey]: value };
+                        }
+
                         try {
-                            const response = await fetch('/api/user/preferences', {
+                            const response = await fetch('/api/settings', {
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
                                 credentials: 'same-origin',
-                                body: JSON.stringify({
-                                    [key]: value
-                                })
+                                body: JSON.stringify(payload)
                             });
 
                             const data = await response.json();
 
                             if (!data.success) {
                                 // Revert the change if failed
-                                settings.value[key] = !value;
-                                showFeedback('settings', `Failed to update ${key}`, 'error');
+                                if (key === 'darkMode' || key === 'twoFactorEnabled') {
+                                    settings.value[key] = !value;
+                                } else if (key.startsWith('notifications.')) {
+                                    const notifKey = key.split('.')[1];
+                                    settings.value.notifications[notifKey] = !value;
+                                }
+                                showFeedback('settings', data.message || `Failed to update ${key}`, 'error');
                             } else {
+                                // Sync local settings with server-normalized values if provided
+                                if (data.settings) {
+                                    settings.value.darkMode = !!data.settings.darkMode;
+                                    settings.value.twoFactorEnabled = !!data.settings.twoFactorEnabled;
+                                    if (data.settings.notifications) {
+                                        settings.value.notifications = {
+                                            memoEmails: !!data.settings.notifications.memoEmails,
+                                            profileUpdates: !!data.settings.notifications.profileUpdates
+                                        };
+                                    }
+                                }
                                 showFeedback('settings', 'Settings updated successfully!', 'success');
                             }
                         } catch (error) {
                             console.error('Error updating setting:', error);
-                            settings.value[key] = !value; // Revert on error
+                            if (key === 'darkMode' || key === 'twoFactorEnabled') {
+                                settings.value[key] = !value;
+                            } else if (key.startsWith('notifications.')) {
+                                const notifKey = key.split('.')[1];
+                                settings.value.notifications[notifKey] = !value;
+                            }
                             showFeedback('settings', 'Failed to update settings', 'error');
                         } finally {
                             saving.value[key] = false;
@@ -279,14 +303,14 @@
                         saving.value.sessionTimeout = true;
 
                         try {
-                            const response = await fetch('/api/user/preferences', {
+                            const response = await fetch('/api/settings', {
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
                                 credentials: 'same-origin',
                                 body: JSON.stringify({
-                                    sessionTimeout: settings.value.sessionTimeout
+                                    sessionTimeoutMinutes: settings.value.sessionTimeout
                                 })
                             });
 
@@ -295,7 +319,7 @@
                             if (data.success) {
                                 showFeedback('session', 'Session timeout updated successfully!', 'success');
                             } else {
-                                showFeedback('session', 'Failed to update session timeout', 'error');
+                                showFeedback('session', data.message || 'Failed to update session timeout', 'error');
                             }
                         } catch (error) {
                             console.error('Error updating session timeout:', error);
@@ -307,32 +331,34 @@
 
                     const showFeedback = (type, message, feedbackType = 'info') => {
                         const feedbackMap = {
-                            settings: () => showTempFeedback('settings', message, feedbackType),
-                            session: () => showTempFeedback('session', message, feedbackType)
+                            settings: () => showTempFeedback('settings', message, feedbackType)
                         };
 
-                        if (type === 'password') {
+                        if (type === 'password' || type === 'session') {
+                            const isPassword = type === 'password';
                             const icon = feedbackType === 'success' ? 'success' : (feedbackType === 'error' ? 'error' : 'info');
                             if (typeof Swal !== 'undefined') {
                                 Swal.fire({
                                     icon,
-                                    title: feedbackType === 'success' ? 'Password Updated' : 'Password Update',
+                                    title: feedbackType === 'success'
+                                        ? (isPassword ? 'Password Updated' : 'Session Timeout Updated')
+                                        : (isPassword ? 'Password Update' : 'Session Timeout'),
                                     text: message,
-                                    confirmButtonText: feedbackType === 'success' ? 'Re‑login' : 'OK',
+                                    confirmButtonText: isPassword && feedbackType === 'success' ? 'Re‑login' : 'OK',
                                     confirmButtonColor: feedbackType === 'success' ? '#2563EB' : undefined
                                 }).then((result) => {
-                                    if (feedbackType === 'success' && result.isConfirmed) {
+                                    if (isPassword && feedbackType === 'success' && result.isConfirmed) {
                                         // For security, force re-login after password change
                                         window.location.href = '/auth/logout';
                                     }
                                 });
                             } else {
                                 alert(message);
-                                if (feedbackType === 'success') {
+                                if (isPassword && feedbackType === 'success') {
                                     window.location.href = '/auth/logout';
                                 }
                             }
-                        } else {
+                        } else if (feedbackMap[type]) {
                             feedbackMap[type](message, feedbackType);
                         }
                     };
@@ -360,8 +386,29 @@
                     });
 
                     // Lifecycle
-                    onMounted(() => {
+                    onMounted(async () => {
                         lucide.createIcons();
+                        // Hydrate settings (darkMode, notifications, session timeout) from backend
+                        try {
+                            const res = await fetch('/api/settings', { credentials: 'same-origin' });
+                            const data = await res.json();
+                            if (res.ok && data.success && data.settings) {
+                                settings.value.darkMode = !!data.settings.darkMode;
+                                settings.value.twoFactorEnabled = !!data.settings.twoFactorEnabled;
+                                if (data.settings.sessionTimeoutMinutes) {
+                                    settings.value.sessionTimeout = data.settings.sessionTimeoutMinutes;
+                                }
+                                if (data.settings.notifications) {
+                                    settings.value.notifications = {
+                                        memoEmails: !!data.settings.notifications.memoEmails,
+                                        profileUpdates: !!data.settings.notifications.profileUpdates
+                                    };
+                                }
+                            }
+                        } catch (e) {
+                            // Non-critical: keep defaults if settings can't be loaded
+                            console.error('Error hydrating settings:', e);
+                        }
                     });
 
                     return {

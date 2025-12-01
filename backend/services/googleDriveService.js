@@ -313,8 +313,7 @@ async function uploadMemoToDrive(memo) {
             ensureSpace(100);
             pdfDoc.fontSize(11).text(plainContent, { align: 'left', lineGap: 4 });
         } else {
-            ensureSpace(50);
-            pdfDoc.fontSize(11).text('(No content)', { align: 'left', italic: true });
+            // If there is no content at all, just leave the body area blank in the PDF
         }
 
         // Embed inline images from content
