@@ -730,7 +730,7 @@ app.get('/log', (req, res) => {
         }
         // Admins and secretaries go to admin log
         res.render('admin/log', {
-            pageTitle: 'Activity Log | Memofy',
+            pageTitle: 'Admin Memos | Memofy',
             user: req.user,
             path: '/log'
         });
