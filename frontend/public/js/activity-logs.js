@@ -50,6 +50,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilters();
             }
         });
+
+        // Autocomplete functionality
+        setupAutocomplete();
+    }
+
+    // Debounce function for autocomplete
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Setup autocomplete for search input
+    function setupAutocomplete() {
+        const searchInput = document.getElementById('searchInput');
+        const datalist = document.getElementById('searchSuggestions');
+
+        if (!searchInput) {return;}
+
+        // Ensure datalist exists (create if missing)
+        let datalistElement = datalist;
+        if (!datalistElement) {
+            datalistElement = document.createElement('datalist');
+            datalistElement.id = 'searchSuggestions';
+            searchInput.setAttribute('list', 'searchSuggestions');
+            searchInput.parentElement.appendChild(datalistElement);
+        }
+
+        // Fetch suggestions with debouncing
+        const fetchSuggestions = debounce(async (query) => {
+            if (!query || query.length < 2) {
+                datalist.innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/activity-logs/suggestions?q=${encodeURIComponent(query)}&limit=10`, {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {return;}
+
+                const data = await response.json();
+
+                if (data.success && data.suggestions && data.suggestions.length > 0) {
+                    // Clear existing options
+                    datalistElement.innerHTML = '';
+
+                    // Add new suggestions
+                    data.suggestions.forEach(suggestion => {
+                        const option = document.createElement('option');
+                        option.value = suggestion;
+                        datalistElement.appendChild(option);
+                    });
+                } else {
+                    datalistElement.innerHTML = '';
+                }
+            } catch (error) {
+                // Silently fail - autocomplete is optional
+                datalistElement.innerHTML = '';
+            }
+        }, 300);
+
+        // Listen for input changes
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            fetchSuggestions(query);
+        });
+
+        // Clear suggestions when input is cleared
+        searchInput.addEventListener('blur', () => {
+            // Delay clearing to allow option selection
+            setTimeout(() => {
+                if (searchInput.value.trim().length < 2) {
+                    datalistElement.innerHTML = '';
+                }
+            }, 200);
+        });
     }
 
     function applyFilters() {
@@ -162,13 +246,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Determine badge class based on action type
             let badgeClass = '';
-            if (log.actionType?.startsWith('memo_')) {
+            if (log.actionType === 'user_logout') {
+                badgeClass = 'logout';
+            } else if (log.actionType?.startsWith('memo_')) {
                 badgeClass = 'memo';
             } else if (log.actionType?.startsWith('calendar_')) {
                 badgeClass = 'calendar';
             } else if (log.actionType?.startsWith('user_')) {
                 badgeClass = 'user';
-            } else if (log.actionType?.includes('login') || log.actionType?.includes('logout') || log.actionType?.includes('password')) {
+            } else if (log.actionType?.includes('login') || log.actionType?.includes('password')) {
                 badgeClass = 'auth';
             }
 

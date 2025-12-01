@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { audit } = require('../middleware/auditLogger');
+const activityLogger = require('../services/activityLogger');
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
 
@@ -105,11 +106,11 @@ const googleTokenLogin = async (req, res, next) => {
                 return next(err);
             }
 
-            // Audit login success (non-blocking)
-            audit(user, 'login_success', 'User Login', `User ${user.email} logged in via Google`, {
-                method: 'google',
-                timestamp: new Date()
-            });
+            // Log to ActivityLog (non-blocking)
+            activityLogger.logAuthAction(user, 'user_login', `User ${user.email} logged in via Google`, {
+                ...activityLogger.extractRequestInfo(req),
+                metadata: { method: 'google' }
+            }).catch(() => {}); // Ignore errors - logging should never break login
 
             console.log(`✅ Google Account ${verifiedEmail} successfully authenticated and logged in`);
             res.json({
@@ -333,11 +334,11 @@ const login = async (req, res, next) => {
                 return next(err);
             }
 
-            // Audit login success (non-blocking)
-            audit(user, 'login_success', 'User Login', `User ${user.email} logged in`, {
-                method: 'local',
-                timestamp: new Date()
-            });
+            // Log to ActivityLog (non-blocking)
+            activityLogger.logAuthAction(user, 'user_login', `User ${user.email} logged in`, {
+                ...activityLogger.extractRequestInfo(req),
+                metadata: { method: 'local' }
+            }).catch(() => {}); // Ignore errors - logging should never break login
 
             res.json({
                 success: true,
@@ -366,8 +367,13 @@ const login = async (req, res, next) => {
 const logout = (req, res) => {
     // Capture user before logout clears req.user
     const userBeforeLogout = req.user ? { _id: req.user._id, email: req.user.email, department: req.user.department } : null;
+    const isGetRequest = req.method === 'GET';
+    
     req.logout((err) => {
         if (err) {
+            if (isGetRequest) {
+                return res.redirect('/');
+            }
             return res.status(500).json({
                 success: false,
                 message: 'Error during logout'
@@ -376,6 +382,9 @@ const logout = (req, res) => {
 
         req.session.destroy((err) => {
             if (err) {
+                if (isGetRequest) {
+                    return res.redirect('/');
+                }
                 return res.status(500).json({
                     success: false,
                     message: 'Error destroying session'
@@ -383,16 +392,29 @@ const logout = (req, res) => {
             }
 
             res.clearCookie('connect.sid');
-            // Audit logout using captured user (best-effort)
+            // Log logout to ActivityLog (non-blocking) - fetch full user object for proper logging
             try {
                 if (userBeforeLogout && userBeforeLogout._id) {
-                    audit(userBeforeLogout, 'logout', 'User Logout', `User ${userBeforeLogout.email} logged out`, { timestamp: new Date() });
+                    User.findById(userBeforeLogout._id).lean().then(fullUser => {
+                        if (fullUser) {
+                            activityLogger.logAuthAction(fullUser, 'user_logout', `User ${fullUser.email} logged out`, {
+                                ...activityLogger.extractRequestInfo(req),
+                                metadata: { timestamp: new Date() }
+                            }).catch(() => {}); // Ignore errors - logging should never break logout
+                        }
+                    }).catch(() => {}); // Ignore errors if user fetch fails
                 }
             } catch (_) { }
-            res.json({
-                success: true,
-                message: 'Logout successful'
-            });
+            
+            // Handle response based on request type
+            if (isGetRequest) {
+                res.redirect('/');
+            } else {
+                res.json({
+                    success: true,
+                    message: 'Logout successful'
+                });
+            }
         });
     });
 };

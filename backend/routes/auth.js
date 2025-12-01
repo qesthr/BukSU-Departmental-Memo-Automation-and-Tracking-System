@@ -254,14 +254,10 @@ router.get('/google/error', (req, res) => {
     }
 });
 
-// Legacy logout route (for compatibility)
-router.get('/logout', (req, res, next) => {
-    req.logout((err) => {
-        if (err) {
-            return next(err);
-        }
-        res.redirect('/');
-    });
+// Legacy logout route (for compatibility) - redirects to POST logout for proper logging
+router.get('/logout', (req, res) => {
+    // Use the same logout controller to ensure proper logging
+    authController.logout(req, res);
 });
 
 module.exports = router;

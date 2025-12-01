@@ -511,3 +511,118 @@ exports.getActivityLogStats = async (req, res) => {
     }
 };
 
+/**
+ * Get autocomplete suggestions for search
+ * Returns unique values from descriptions, actor names, and target names
+ * Admin only
+ */
+exports.getSearchSuggestions = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
+        }
+
+        const query = req.query.q || '';
+        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit || '10', 10)));
+
+        if (!query || query.length < 2) {
+            return res.json({ success: true, suggestions: [] });
+        }
+
+        const searchRegex = { $regex: query, $options: 'i' };
+
+        // Get suggestions from ActivityLog
+        const [activityLogs, auditLogs] = await Promise.all([
+            ActivityLog.find({
+                $or: [
+                    { description: searchRegex },
+                    { actorName: searchRegex },
+                    { targetName: searchRegex }
+                ]
+            })
+                .select('description actorName targetName')
+                .limit(100)
+                .lean(),
+            AuditLog.find({
+                $or: [
+                    { action: searchRegex },
+                    { details: searchRegex }
+                ]
+            })
+                .select('action details')
+                .limit(100)
+                .lean()
+        ]);
+
+        // Extract unique suggestions
+        const suggestionsSet = new Set();
+
+        // From ActivityLog
+        activityLogs.forEach(log => {
+            if (log.description && log.description.toLowerCase().includes(query.toLowerCase())) {
+                // Extract relevant phrases from description
+                const words = log.description.split(/\s+/);
+                words.forEach((word, index) => {
+                    if (word.toLowerCase().includes(query.toLowerCase()) && word.length >= 3) {
+                        // Include the word and surrounding context
+                        const start = Math.max(0, index - 1);
+                        const end = Math.min(words.length, index + 2);
+                        const phrase = words.slice(start, end).join(' ');
+                        if (phrase.length <= 60) {
+                            suggestionsSet.add(phrase);
+                        }
+                    }
+                });
+            }
+            if (log.actorName && log.actorName.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.actorName);
+            }
+            if (log.targetName && log.targetName.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.targetName);
+            }
+        });
+
+        // From AuditLog
+        auditLogs.forEach(log => {
+            if (log.action && log.action.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.action);
+            }
+            if (log.details && typeof log.details === 'string' && log.details.toLowerCase().includes(query.toLowerCase())) {
+                const words = log.details.split(/\s+/);
+                words.forEach((word, index) => {
+                    if (word.toLowerCase().includes(query.toLowerCase()) && word.length >= 3) {
+                        const start = Math.max(0, index - 1);
+                        const end = Math.min(words.length, index + 2);
+                        const phrase = words.slice(start, end).join(' ');
+                        if (phrase.length <= 60) {
+                            suggestionsSet.add(phrase);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Convert to array, sort by relevance (exact matches first, then by length)
+        const suggestions = Array.from(suggestionsSet)
+            .filter(s => s && s.trim().length > 0)
+            .sort((a, b) => {
+                const aLower = a.toLowerCase();
+                const bLower = b.toLowerCase();
+                const queryLower = query.toLowerCase();
+
+                // Exact match at start gets priority
+                if (aLower.startsWith(queryLower) && !bLower.startsWith(queryLower)) {return -1;}
+                if (!aLower.startsWith(queryLower) && bLower.startsWith(queryLower)) {return 1;}
+
+                // Then by length (shorter is better)
+                return a.length - b.length;
+            })
+            .slice(0, limit);
+
+        res.json({ success: true, suggestions });
+    } catch (error) {
+        console.error('Error fetching search suggestions:', error);
+        res.status(500).json({ success: false, message: 'Error fetching search suggestions' });
+    }
+};
+

@@ -211,8 +211,13 @@
                 }
 
                 .action-badge.auth {
-                    background: #fce7f3;
-                    color: #9f1239;
+                    background: #d1fae5;
+                    color: #065f46;
+                }
+
+                .action-badge.logout {
+                    background: #fee2e2;
+                    color: #991b1b;
                 }
 
                 .pagination {
@@ -333,7 +338,8 @@
                                 <div class="filter-group">
                                     <label class="filter-label">Search</label>
                                     <input type="text" class="filter-input" id="searchInput"
-                                        placeholder="Search activities...">
+                                        placeholder="Search activities..." autocomplete="off" list="searchSuggestions">
+                                    <datalist id="searchSuggestions"></datalist>
                                 </div>
                                 <div class="filter-group">
                                     <label class="filter-label">Actor Role</label>
