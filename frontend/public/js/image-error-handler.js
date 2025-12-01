@@ -78,9 +78,9 @@
             return;
         }
 
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                mutation.addedNodes.forEach(function(node) {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === 1) { // Element node
                         // Check if the added node is an image
                         if (node.tagName === 'IMG') {
@@ -121,7 +121,7 @@
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', () => {
             attachErrorHandlers();
             observeDynamicImages();
         });

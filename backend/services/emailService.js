@@ -5,7 +5,7 @@ let sgMail = null;
 try {
     // Optional dependency – only used when SENDGRID_API_KEY is configured
     // This avoids hard failures if the package is not installed yet.
-    // eslint-disable-next-line global-require
+
     sgMail = require('@sendgrid/mail');
 } catch (e) {
     sgMail = null;

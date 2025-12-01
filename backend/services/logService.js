@@ -59,7 +59,7 @@ async function logMemoSent(memo) {
         // Find all admin users
         const adminUsers = await User.find({ role: 'admin' }).select('_id');
 
-        if (adminUsers.length === 0) return;
+        if (adminUsers.length === 0) {return;}
 
         // Create log entries for admins
         const logPromises = adminUsers.map(admin => {
@@ -140,7 +140,7 @@ async function logWelcomeEmail(user) {
     try {
         const adminUsers = await User.find({ role: 'admin' }).select('_id');
 
-        if (adminUsers.length === 0) return;
+        if (adminUsers.length === 0) {return;}
 
         const logPromises = adminUsers.map(admin => {
             return Memo.create({
@@ -175,7 +175,7 @@ async function logUserActivity(user, activity, details = {}) {
     try {
         const adminUsers = await User.find({ role: 'admin' }).select('_id');
 
-        if (adminUsers.length === 0) return;
+        if (adminUsers.length === 0) {return;}
 
         const logPromises = adminUsers.map(admin => {
             return Memo.create({

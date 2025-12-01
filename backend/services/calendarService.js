@@ -5,7 +5,7 @@ function createOAuthClient() {
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
     // Use GOOGLE_CALENDAR_REDIRECT_URI if set, otherwise construct from BASE_URL
-    const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 
+    const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
                        `${process.env.BASE_URL || 'http://localhost:5000'}/calendar/auth/callback`;
     console.log('📅 Google Calendar OAuth redirect URI:', redirectUri);
     console.log('📅 BASE_URL:', process.env.BASE_URL || 'not set');
@@ -60,7 +60,7 @@ async function fetchPublicHolidays({ timeMin, timeMax }) {
     try {
         // Convert date strings to proper RFC3339 format for Google Calendar API
         const formatForAPI = (dateStr) => {
-            if (!dateStr) return null;
+            if (!dateStr) {return null;}
 
             let date;
             // If it's already a Date object, use it
@@ -181,7 +181,7 @@ async function listEvents(user, { timeMin, timeMax }) {
 
         // Check if dates already have timezone info (ends with +HH:MM, -HH:MM, or Z)
         const hasTimezone = (dateStr) => {
-            if (!dateStr) return false;
+            if (!dateStr) {return false;}
             return /[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z');
         };
 

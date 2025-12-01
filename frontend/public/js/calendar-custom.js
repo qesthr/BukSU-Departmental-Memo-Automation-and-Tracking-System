@@ -287,7 +287,7 @@
   let participantsData = { departments: [], emails: [] };
 
   // Filter state
-  let calendarFilters = {
+  const calendarFilters = {
     mine: false,
     department: false
   };
@@ -597,8 +597,8 @@
         // Exclude archived events
         // If targetDate is provided (navigation), show all events in the range
         // Otherwise (initial load), filter out past events
-        if (category === 'archived') return false;
-        if (targetDate) return true; // Show all events when navigating to a specific date
+        if (category === 'archived') {return false;}
+        if (targetDate) {return true;} // Show all events when navigating to a specific date
         return eventEnd >= now; // Filter past events only on initial load
       });
 
@@ -2586,7 +2586,7 @@
   }
 
   // Add event delegation for calendar attachment clicks
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', (e) => {
     const attachmentElement = e.target.closest('.calendar-attachment-view');
     if (attachmentElement) {
       e.preventDefault();

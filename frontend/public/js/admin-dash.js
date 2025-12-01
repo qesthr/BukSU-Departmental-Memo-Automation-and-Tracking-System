@@ -124,7 +124,7 @@ let systemStatusRefreshInterval = null;
 
 function initSystemStatusWidget() {
     const widget = document.getElementById('systemStatusWidget');
-    if (!widget) return;
+    if (!widget) {return;}
 
     const refreshBtn = document.getElementById('systemStatusRefresh');
     const toggleBtn = document.getElementById('systemStatusToggle');
@@ -174,7 +174,7 @@ async function fetchSystemStatus(manualRefresh = false) {
     const refreshBtn = document.getElementById('systemStatusRefresh');
     const servicesContainer = document.getElementById('systemStatusServices');
 
-    if (!statusText) return;
+    if (!statusText) {return;}
 
     try {
         // Show loading state
@@ -253,7 +253,7 @@ function updateSystemStatusUI(health) {
             indicatorClass = 'checking';
     }
 
-    if (statusText) statusText.textContent = statusMessage;
+    if (statusText) {statusText.textContent = statusMessage;}
     if (statusIcon) {
         statusIcon.setAttribute('data-lucide', iconName);
         statusIcon.style.color = iconColor;

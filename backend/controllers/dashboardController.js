@@ -23,7 +23,7 @@ exports.getDashboardStats = async (req, res) => {
             User.countDocuments({ role: 'secretary' }),
             User.countDocuments({ role: 'faculty' }),
             User.countDocuments({ lastLogin: { $exists: true } }),
-            
+
             // Memo stats (parallelized)
             Memo.countDocuments({
                 status: { $ne: 'deleted' },
@@ -42,7 +42,7 @@ exports.getDashboardStats = async (req, res) => {
                 status: { $ne: 'deleted' },
                 activityType: { $ne: 'system_notification' }
             }),
-            
+
             // Recent memos (optimized - no populate, fetch users separately)
             Memo.find({
                 status: { $ne: 'deleted' },
@@ -61,13 +61,13 @@ exports.getDashboardStats = async (req, res) => {
         const senderIds = [...new Set(recentMemosRaw.map(m => m.sender).filter(Boolean))];
         const recipientIds = [...new Set(recentMemosRaw.map(m => m.recipient).filter(Boolean))];
         const allUserIds = [...new Set([...senderIds, ...recipientIds])];
-        
+
         const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
             .select('firstName lastName department profilePicture')
             .lean() : [];
-        
+
         const userMap = new Map(users.map(u => [u._id.toString(), u]));
-        
+
         // Map users to memos (in-memory, very fast)
         const recentMemos = recentMemosRaw.map(memo => ({
             ...memo,

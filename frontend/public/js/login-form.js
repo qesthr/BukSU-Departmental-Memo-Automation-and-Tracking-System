@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const interval = setInterval(() => {
             if (progress < 90) {
                 progress += Math.random() * 15;
-                if (progress > 90) progress = 90;
+                if (progress > 90) {progress = 90;}
                 progressFill.style.width = progress + '%';
             }
         }, 200);
@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => {
                         if (progressBar) {
                             const intervalId = progressBar.dataset.intervalId;
-                            if (intervalId) clearInterval(intervalId);
+                            if (intervalId) {clearInterval(intervalId);}
                             progressBar.remove();
                         }
                     }, 300);
@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressBar = document.getElementById('loginProgressBar');
         if (progressBar) {
             const intervalId = progressBar.dataset.intervalId;
-            if (intervalId) clearInterval(intervalId);
+            if (intervalId) {clearInterval(intervalId);}
             progressBar.style.opacity = '0';
             progressBar.style.transition = 'opacity 0.3s ease';
             setTimeout(() => {

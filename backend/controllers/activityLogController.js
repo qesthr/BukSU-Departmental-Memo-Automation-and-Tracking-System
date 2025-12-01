@@ -77,7 +77,7 @@ exports.getActivityLogs = async (req, res) => {
 
         // 2. Query AuditLog collection (existing audit logs)
         // If filtering by actorRole, filter by user IDs at database level
-        let auditLogFilter = {};
+        const auditLogFilter = {};
         if (userIdsWithRole !== null) {
             if (userIdsWithRole.length > 0) {
                 auditLogFilter.user = { $in: userIdsWithRole };
@@ -112,7 +112,7 @@ exports.getActivityLogs = async (req, res) => {
         ];
 
         // If filtering by actorRole, filter memos by sender IDs at database level
-        let memoLogFilter = {
+        const memoLogFilter = {
             activityType: { $in: systemActivityTypes }
         };
         if (userIdsWithRole !== null) {
@@ -201,7 +201,7 @@ exports.getActivityLogs = async (req, res) => {
             .map(memo => {
                 const mappedActionType = mapMemoActivityTypeToActivityType(memo.activityType);
                 // Skip system_notification memos (they're notifications, not activity logs)
-                if (mappedActionType === null) return null;
+                if (mappedActionType === null) {return null;}
 
                 return {
                     id: memo._id,
@@ -266,8 +266,8 @@ exports.getActivityLogs = async (req, res) => {
             const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
             allLogs = allLogs.filter(log => {
                 const logDate = new Date(log.timestamp);
-                if (startDate && logDate < startDate) return false;
-                if (endDate && logDate > endDate) return false;
+                if (startDate && logDate < startDate) {return false;}
+                if (endDate && logDate > endDate) {return false;}
                 return true;
             });
         }
@@ -368,7 +368,7 @@ exports.exportActivityLogs = async (req, res) => {
         // Helper to convert internal actionType (e.g. "google_calendar_connected")
         // into a more readable label (e.g. "Google Calendar Connected")
         const formatActionLabel = (actionType) => {
-            if (!actionType || typeof actionType !== 'string') return '';
+            if (!actionType || typeof actionType !== 'string') {return '';}
             return actionType
                 .split('_')
                 .map(part => part.charAt(0).toUpperCase() + part.slice(1))

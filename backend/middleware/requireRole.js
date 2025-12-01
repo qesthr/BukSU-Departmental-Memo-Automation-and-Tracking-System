@@ -43,22 +43,7 @@ module.exports = function requireRole(...allowedRoles) {
 				faculty: '/faculty-dashboard'
 			};
 			const redirectUrl = dashboardMap[role] || '/login';
-
-			// NEVER add error parameters when redirecting to user's own dashboard
-			// This prevents error popups during normal login and navigation
 			const currentPath = req.path;
-
-			// Check if redirecting to user's own dashboard
-			const redirectingToOwnDashboard =
-				(role === 'admin' && redirectUrl === '/admin-dashboard') ||
-				(role === 'secretary' && redirectUrl === '/secretary-dashboard') ||
-				(role === 'faculty' && redirectUrl === '/faculty-dashboard');
-
-			// If redirecting to user's own dashboard, NEVER add error parameters
-			// This prevents false positives during login and normal navigation
-			if (redirectingToOwnDashboard) {
-				return res.redirect(redirectUrl);
-			}
 
 			// Check if user is trying to access a dashboard that's not for their role
 			const isSecretaryDashboard = currentPath === '/secretary-dashboard';

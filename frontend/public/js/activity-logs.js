@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadActivityLogs() {
         const tbody = document.getElementById('logsTableBody');
-        if (!tbody) return;
+        if (!tbody) {return;}
 
         // Show loading state
         tbody.innerHTML = `
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLogs(logs) {
         const tbody = document.getElementById('logsTableBody');
-        if (!tbody) return;
+        if (!tbody) {return;}
 
         tbody.innerHTML = logs.map(log => {
             const timestamp = new Date(log.timestamp);
@@ -214,11 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextBtn = document.getElementById('nextPageBtn');
 
         if (!pagination || pagination.total === 0) {
-            if (paginationEl) paginationEl.style.display = 'none';
+            if (paginationEl) {paginationEl.style.display = 'none';}
             return;
         }
 
-        if (paginationEl) paginationEl.style.display = 'flex';
+        if (paginationEl) {paginationEl.style.display = 'flex';}
         if (infoEl) {
             infoEl.textContent = `Page ${pagination.page} of ${pagination.pages} (${pagination.total} total)`;
         }
@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatActionType(actionType) {
-        if (!actionType) return '';
+        if (!actionType) {return '';}
         return actionType
             .split('_')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))

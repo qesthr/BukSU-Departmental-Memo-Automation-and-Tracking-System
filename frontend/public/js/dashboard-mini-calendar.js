@@ -7,7 +7,7 @@
   'use strict';
 
   let miniCalendarEvents = [];
-  let miniCursor = new Date();
+  const miniCursor = new Date();
 
   // DOM elements
   const mini = document.getElementById('dashboardMiniCalendar');
@@ -174,9 +174,9 @@
       if (window.calendarConnected) {
         try {
           const formatForGoogleAPI = (dateStr) => {
-            if (!dateStr) return dateStr;
-            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) return dateStr;
-            if (dateStr.includes('T')) return `${dateStr}+08:00`;
+            if (!dateStr) {return dateStr;}
+            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {return dateStr;}
+            if (dateStr.includes('T')) {return `${dateStr}+08:00`;}
             return `${dateStr}T00:00:00+08:00`;
           };
 
@@ -326,7 +326,7 @@
     const modalCancel = document.getElementById('dashboardDateModalCancel');
     const modalViewCalendar = document.getElementById('dashboardDateModalViewCalendar');
 
-    if (!modal || !modalContent) return;
+    if (!modal || !modalContent) {return;}
 
     // Format date for display
     const dateStr = date.toLocaleDateString('en-US', {
@@ -487,11 +487,11 @@
     // Remove old listeners if they exist
     if (window._miniPrevHandler) {
       const oldPrev = document.getElementById('dashboardMiniPrev');
-      if (oldPrev) oldPrev.removeEventListener('click', window._miniPrevHandler);
+      if (oldPrev) {oldPrev.removeEventListener('click', window._miniPrevHandler);}
     }
     if (window._miniNextHandler) {
       const oldNext = document.getElementById('dashboardMiniNext');
-      if (oldNext) oldNext.removeEventListener('click', window._miniNextHandler);
+      if (oldNext) {oldNext.removeEventListener('click', window._miniNextHandler);}
     }
 
     // Add new listeners

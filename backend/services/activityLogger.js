@@ -1,5 +1,9 @@
+/* eslint-disable no-console */
 const ActivityLog = require('../models/ActivityLog');
+const Memo = require('../models/Memo');
+const CalendarEvent = require('../models/CalendarEvent');
 const User = require('../models/User');
+const Signature = require('../models/Signature');
 
 /**
  * Activity Logger Service
@@ -48,7 +52,7 @@ class ActivityLogger {
             if (options.targetId && !targetName && options.targetResource) {
                 try {
                     targetName = await this._getTargetName(options.targetResource, options.targetId);
-                } catch (e) {
+                } catch {
                     // Ignore errors - targetName will remain empty
                 }
             }
@@ -90,37 +94,33 @@ class ActivityLogger {
     async _getTargetName(resourceType, resourceId) {
         try {
             switch (resourceType) {
-                case 'memo':
-                    const Memo = require('../models/Memo');
+                case 'memo': {
                     const memo = await Memo.findById(resourceId).select('subject').lean();
                     return memo?.subject || '';
-
-                case 'calendar_event':
-                    const CalendarEvent = require('../models/CalendarEvent');
+                }
+                case 'calendar_event': {
                     const event = await CalendarEvent.findById(resourceId).select('title').lean();
                     return event?.title || '';
-
-                case 'user':
-                    const User = require('../models/User');
+                }
+                case 'user': {
                     const user = await User.findById(resourceId).select('firstName lastName email').lean();
                     if (user) {
                         const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
                         return name || user.email || '';
                     }
                     return '';
-
-                case 'signature':
-                    const Signature = require('../models/Signature');
+                }
+                case 'signature': {
                     const signature = await Signature.findById(resourceId).select('displayName roleTitle').lean();
                     if (signature) {
                         return signature.displayName || signature.roleTitle || '';
                     }
                     return '';
-
+                }
                 default:
                     return '';
             }
-        } catch (e) {
+        } catch {
             return '';
         }
     }

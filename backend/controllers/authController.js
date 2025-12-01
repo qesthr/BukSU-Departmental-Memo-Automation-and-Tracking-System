@@ -311,7 +311,7 @@ const login = async (req, res, next) => {
         const updateData = {
             $set: { lastLogin: new Date() }
         };
-        
+
         // Reset login attempts if needed
         if (user.loginAttempts > 0 || user.lockUntil) {
             updateData.$unset = { loginAttempts: 1, lockUntil: 1 };
@@ -319,7 +319,7 @@ const login = async (req, res, next) => {
 
         // Update user in database (single query instead of multiple)
         await User.findByIdAndUpdate(user._id, updateData);
-        
+
         // Update user object for session (Passport will serialize this)
         user.lastLogin = updateData.$set.lastLogin;
         if (user.loginAttempts > 0 || user.lockUntil) {

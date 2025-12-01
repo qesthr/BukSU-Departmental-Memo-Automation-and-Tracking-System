@@ -2,7 +2,7 @@
 /* global Swal */
 
 // Reset Code Page JavaScript
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('Reset code page loaded');
 
     const resetCodeForm = document.getElementById('resetCodeForm');
@@ -85,11 +85,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function hideLoadingOverlay() {
         const overlay = document.getElementById('fpLoadingOverlay');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) {overlay.style.display = 'none';}
     }
 
     // Auto-format reset code input (digits only, 6 characters)
-    resetCodeInput.addEventListener('input', function(e) {
+    resetCodeInput.addEventListener('input', (e) => {
         let value = e.target.value.replace(/[^0-9]/g, '');
         if (value.length > 6) {
             value = value.substring(0, 6);
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission
-    resetCodeForm.addEventListener('submit', async function(e) {
+    resetCodeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const resetCode = resetCodeInput.value.trim();

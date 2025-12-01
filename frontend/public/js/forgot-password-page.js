@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideLoadingOverlay() {
         const overlay = document.getElementById('fpLoadingOverlay');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) {overlay.style.display = 'none';}
     }
 
     // Handle form submission

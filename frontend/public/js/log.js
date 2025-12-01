@@ -3750,7 +3750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const isCurrentUserRecipient = (recip) => {
-            if (!recip || !currentUserIdForRecipients) return false;
+            if (!recip || !currentUserIdForRecipients) {return false;}
             const recipId = recip._id?.toString() || recip.toString();
             return recipId === (currentUserIdForRecipients.toString ? currentUserIdForRecipients.toString() : currentUserIdForRecipients);
         };
@@ -4239,7 +4239,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update acknowledgment UI based on memo and current user
     function updateAcknowledgmentUI(memo) {
-        if (!memo || !window.currentUser) return;
+        if (!memo || !window.currentUser) {return;}
 
         const currentUserId = window.currentUser._id || window.currentUser.id;
         const isRecipient = memo.recipient && (memo.recipient._id?.toString() === currentUserId.toString() || memo.recipient.toString() === currentUserId.toString());
@@ -4283,7 +4283,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display recipient avatars with acknowledged status inline in the "To:" field
     function displayRecipientAvatarsInline(memo, allRecipients) {
         const avatarsDiv = document.getElementById('recipientAvatarsInline');
-        if (!avatarsDiv) return;
+        if (!avatarsDiv) {return;}
 
         const acknowledgments = memo.acknowledgments || [];
         const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
@@ -4329,7 +4329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avatarsDiv = document.getElementById('acknowledgmentAvatars');
         const reminderBtnCompact = document.getElementById('reminderBtnCompact');
 
-        if (!statusDiv || !avatarsDiv) return;
+        if (!statusDiv || !avatarsDiv) {return;}
 
         const acknowledgments = memo.acknowledgments || [];
         const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
@@ -4433,7 +4433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle acknowledge button click
     if (acknowledgeBtn) {
         acknowledgeBtn.addEventListener('click', async () => {
-            if (!currentMemoId) return;
+            if (!currentMemoId) {return;}
 
             try {
                 acknowledgeBtn.disabled = true;
@@ -4528,12 +4528,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleReminderClick = async () => {
-            if (!currentMemoId) return;
+            if (!currentMemoId) {return;}
 
             const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
             try {
-                if (reminderBtn) reminderBtn.disabled = true;
-                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = true;
+                if (reminderBtn) {reminderBtn.disabled = true;}
+                if (reminderBtnCompactEl) {reminderBtnCompactEl.disabled = true;}
                 const response = await fetch(`/api/log/memos/${currentMemoId}/reminder`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4568,9 +4568,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error sending reminder:', error);
                 showReminderAlert('error', error.message || 'Failed to send reminder');
             } finally {
-                if (reminderBtn) reminderBtn.disabled = false;
+                if (reminderBtn) {reminderBtn.disabled = false;}
                 const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
-                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = false;
+                if (reminderBtnCompactEl) {reminderBtnCompactEl.disabled = false;}
             }
         };
 

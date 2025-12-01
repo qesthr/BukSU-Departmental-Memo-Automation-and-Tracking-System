@@ -84,7 +84,7 @@ app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
 // Force HTTPS in production (Render uses HTTPS)
-if (process.env.NODE_ENV === 'production' || 
+if (process.env.NODE_ENV === 'production' ||
     (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://'))) {
     app.use((req, res, next) => {
         // Check if request is HTTP (not HTTPS)
@@ -98,7 +98,7 @@ if (process.env.NODE_ENV === 'production' ||
 
 // Session configuration
 // Determine if we're in production (HTTPS) - check both NODE_ENV and BASE_URL
-const isProduction = process.env.NODE_ENV === 'production' || 
+const isProduction = process.env.NODE_ENV === 'production' ||
                      (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://'));
 
 app.use(session({
@@ -463,6 +463,7 @@ app.get('/secretary/memos', isAuthenticated, validateUserRole, requireRole('secr
 // Secretary archive page - only for secretaries (admin blocked)
 app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('secretary'), async (req, res) => {
     try {
+        const User = require('./backend/models/User');
         // OPTIMIZED: Parallelize queries and use batch fetch instead of populate
         const [archivedMemosRaw, archivedEventsRaw] = await Promise.all([
             // Get archived memos (limit to 100 for performance, add pagination later if needed)
@@ -491,11 +492,11 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
         const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
         const eventCreatorIds = [...new Set(archivedEventsRaw.map(e => e.createdBy).filter(Boolean))];
         const allUserIds = [...new Set([...recipientIds, ...eventCreatorIds])];
-        
+
         const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
             .select('firstName lastName email profilePicture department')
             .lean() : [];
-        
+
         const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
         // Map users to memos and events
@@ -590,11 +591,11 @@ app.get('/admin/archive', isAuthenticated, validateUserRole, isAdmin, async (req
         const eventCreatorIds = [...new Set(archivedEventsRaw.map(e => e.createdBy).filter(Boolean))];
         const signatureCreatorIds = [...new Set(archivedSignaturesRaw.map(s => s.createdBy).filter(Boolean))];
         const allUserIds = [...new Set([...senderIds, ...recipientIds, ...eventCreatorIds, ...signatureCreatorIds])];
-        
+
         const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
             .select('firstName lastName email profilePicture department role')
             .lean() : [];
-        
+
         const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
         // Map users to memos, events, and signatures
@@ -673,7 +674,7 @@ app.get('/faculty/memos', isAuthenticated, validateUserRole, requireRole('facult
 app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('faculty'), async (req, res) => {
     try {
         const User = require('./backend/models/User');
-        
+
         // OPTIMIZED: Fetch memos without populate, then batch fetch users
         const archivedMemosRaw = await Memo.find({
             recipient: req.user._id,
@@ -689,11 +690,11 @@ app.get('/faculty/archive', isAuthenticated, validateUserRole, requireRole('facu
         const senderIds = [...new Set(archivedMemosRaw.map(m => m.sender).filter(Boolean))];
         const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
         const allUserIds = [...new Set([...senderIds, ...recipientIds])];
-        
+
         const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
             .select('firstName lastName email profilePicture department')
             .lean() : [];
-        
+
         const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
         // Map users to memos
