@@ -15,6 +15,9 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
+    <!-- SweetAlert2 -->
+    <%- include('../../components/sweetalert2'); %>
+
     <script src="/js/lucide.min.js"></script>
 </head>
 
@@ -30,6 +33,7 @@
 
     <!-- Vue Components -->
     <script>
+        /* global Swal */
         // Setting Toggle Component
         const SettingToggle = {
             props: {
@@ -202,7 +206,7 @@
 
                         loading.value = true;
                         try {
-                            const response = await fetch('/api/user/change-password', {
+                            const response = await fetch('/api/password/change', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json'
@@ -210,20 +214,23 @@
                                 credentials: 'same-origin',
                                 body: JSON.stringify({
                                     currentPassword: passwordForm.value.currentPassword,
-                                    newPassword: passwordForm.value.newPassword
+                                    newPassword: passwordForm.value.newPassword,
+                                    confirmPassword: passwordForm.value.confirmPassword
                                 })
                             });
 
                             const data = await response.json();
 
                             if (data.success) {
-                                showFeedback('password', 'Password updated successfully!', 'success');
-                                // Clear form
+                                // Clear form first
                                 passwordForm.value = {
                                     currentPassword: '',
                                     newPassword: '',
                                     confirmPassword: ''
                                 };
+                                // Show SweetAlert with re-login info and then force logout on confirm
+                                const msg = data.message || 'Your password has been updated successfully.';
+                                showFeedback('password', `${msg} Please log in again with your new password.`, 'success');
                             } else {
                                 showFeedback('password', data.message || 'Failed to update password', 'error');
                             }
@@ -300,23 +307,30 @@
 
                     const showFeedback = (type, message, feedbackType = 'info') => {
                         const feedbackMap = {
-                            password: passwordFeedback,
                             settings: () => showTempFeedback('settings', message, feedbackType),
                             session: () => showTempFeedback('session', message, feedbackType)
                         };
 
                         if (type === 'password') {
-                            passwordFeedback.value = {
-                                show: true,
-                                message,
-                                type: feedbackType
-                            };
-
-                            // Auto-hide success messages
-                            if (feedbackType === 'success') {
-                                setTimeout(() => {
-                                    passwordFeedback.value.show = false;
-                                }, 3000);
+                            const icon = feedbackType === 'success' ? 'success' : (feedbackType === 'error' ? 'error' : 'info');
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon,
+                                    title: feedbackType === 'success' ? 'Password Updated' : 'Password Update',
+                                    text: message,
+                                    confirmButtonText: feedbackType === 'success' ? 'Re‑login' : 'OK',
+                                    confirmButtonColor: feedbackType === 'success' ? '#2563EB' : undefined
+                                }).then((result) => {
+                                    if (feedbackType === 'success' && result.isConfirmed) {
+                                        // For security, force re-login after password change
+                                        window.location.href = '/auth/logout';
+                                    }
+                                });
+                            } else {
+                                alert(message);
+                                if (feedbackType === 'success') {
+                                    window.location.href = '/auth/logout';
+                                }
                             }
                         } else {
                             feedbackMap[type](message, feedbackType);
@@ -427,14 +441,9 @@
                                     type="submit"
                                     class="settings-btn primary"
                                     :disabled="loading || !isPasswordValid">
-                                    {{ loading ? 'Updating...' : 'Update Password' }}
+                                    Update Password
                                 </button>
                             </div>
-                            <feedback-message
-                                :message="passwordFeedback.message"
-                                :type="passwordFeedback.type"
-                                :show="passwordFeedback.show">
-                            </feedback-message>
                         </form>
                     </div>
 
