@@ -32,7 +32,7 @@
 
                             <!-- Archive Memo List Area -->
                     <section class="memo-list-area" style="flex:1 1 auto;">
-                        <div class="memo-container" style="height: 500px;">
+                        <div class="memo-container" style="height: 620px">
                             <div class="memo-list-header">
                                         <div
                                             style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
@@ -262,7 +262,7 @@
                             '</div>' +
                             '<div class="memo-item-actions"></div>' +
                             '<div class="memo-subject">' + (signature.displayName || 'Untitled Signature') + '</div>' +
-                            '<div class="memo-date">Archived: ' + archivedDate + '</div>' +
+                            '<div class="memo-date">' + archivedDate + '</div>' +
                             '</div>';
                     }
                     
@@ -290,7 +290,7 @@
                             '</div>' +
                             '<div class="memo-item-actions">' + badge + '</div>' +
                             '<div class="memo-subject">' + (event.title || 'Untitled Event') + '</div>' +
-                            '<div class="memo-date">Archived: ' + new Date(event.updatedAt || event.createdAt).toLocaleDateString() + '</div>' +
+                            '<div class="memo-date">' + new Date(event.updatedAt || event.createdAt).toLocaleDateString() + '</div>' +
                             '</div>';
                     }
 
