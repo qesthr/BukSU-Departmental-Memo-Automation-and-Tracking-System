@@ -415,9 +415,9 @@
 .priority-badge {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    justify-content: left;
     padding: 4px 10px;
-    width: 90px; /* makes MEDIUM / URGENT / LOW equal width */
+    width: 100px; /* makes MEDIUM / URGENT / LOW equal width */
     border-radius: 6px;
     font-size: 11px;
     font-weight: 600;
@@ -427,28 +427,22 @@
 }
 
 .priority-urgent {
-    background: #fee2e2;
     color: #991b1b;
-    border: 1px solid #fca5a5;
 }
 
 .priority-high {
-    background: #fed7aa;
     color: #9a3412;
-    border: 1px solid #fdba74;
 }
 
 .priority-medium {
-    background: #fef3c7;
     color: #854d0e;
-    border: 1px solid #fcd34d;
 }
 
 .priority-low {
-    background: #dbeafe;
     color: #1e40af;
-    border: 1px solid #93c5fd;
 }
+
+
 
 .memo-avatar {
     width: 40px;
