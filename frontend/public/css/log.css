@@ -408,7 +408,7 @@
     align-items: center;
     gap: 8px;
     margin-left: auto;
-    min-width: 120px; /* align rows */
+    min-width: 3px; /* align rows */
 }
 
 /* Priority Badges */
@@ -425,6 +425,8 @@
     letter-spacing: 0.5px;
     white-space: nowrap;
 }
+
+
 
 .priority-urgent {
     color: #991b1b;
