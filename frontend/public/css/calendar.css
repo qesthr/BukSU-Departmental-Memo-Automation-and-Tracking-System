@@ -168,6 +168,9 @@
     top: 0;
     background: #fff;
     z-index: 1;
+    border-radius: 10px;
+    height: 31px;
+    overflow: hidden;
 }
 
 .modal-body {
