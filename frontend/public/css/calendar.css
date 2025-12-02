@@ -33,23 +33,16 @@
     flex-direction: column;
     max-height: 100%;
     height: 100%;
-    min-height: 0;
+    min-height: 360px; /* make sure it has visible height */
     position: relative;
     z-index: 1;
 }
 
-.calendar-main #calendar {
-    height: 100%;
+#calendar {
     width: 100%;
-    background: #fff;
-    display: block;
-    visibility: visible;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    /* Container doesn't scroll, but inner scroller does */
-    max-height: 100%;
-    /* Ensure it doesn't exceed container */
+    min-height: 360px; /* make sure it has visible height */
+    box-sizing: border-box;
+    position: relative;
 }
 
 /* FullCalendar styles removed - using custom calendar instead */
@@ -167,11 +160,7 @@
     border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
-<<<<<<< HEAD
-    background: inherit;
-=======
     background: #5917ff;
->>>>>>> 05181fe36694c07050f5240a11bc315bbf10e2f2
     z-index: 1;
 
 }

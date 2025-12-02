@@ -1,271 +1,532 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendar | Memofy</title>
-    <link rel="icon" type="image/png" href="/images/memofy-logo.png">
-    <link rel="stylesheet" href="/css/admin-dash.css">
-    <link rel="stylesheet" href="/css/admintopbar.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FullCalendar removed - using custom calendar -->
-    <link rel="stylesheet" href="/css/calendar.css">
-    <link rel="stylesheet" href="/css/custom-calendar.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Calendar | Memofy</title>
+	<link rel="icon" type="image/png" href="/images/memofy-logo.png">
+	<link rel="stylesheet" href="/css/secretary-dashboard.css">
+	<link rel="stylesheet" href="/css/fal-topbar.css">
+	<link rel="stylesheet" href="/css/fal-nav.css">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<!-- FullCalendar removed - using custom calendar -->
+	<link rel="stylesheet" href="/css/calendar.css">
+	<link rel="stylesheet" href="/css/custom-calendar.css">
 
-    <!-- Google Analytics Tracking -->
-    <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
+	<!-- Google Analytics Tracking -->
+	<%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
-    <!-- SweetAlert2 -->
-    <%- include('../../components/sweetalert2'); %>
+	<!-- SweetAlert2 -->
+	<%- include('../components/sweetalert2'); %>
 
-    <!-- Google OAuth handled server-side; no client secret exposed -->
+	<!-- Vue 3 CDN -->
+	<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+	<style>
+		[v-cloak] {
+			display: none !important;
+		}
+	</style>
 </head>
-
 <body>
-    <div class="dashboard-container">
-        <%- include('../../components/nav'); %>
-            <main class="main-content">
-                <%- include('../../components/admintopbar') %>
+	<div id="app">
+		<div class="dashboard-container">
+			<%- include('../components/fal-nav'); %>
+			<main class="main-content">
+				<%- include('../components/fal-topbar') %>
 
-                    <div class="calendar-page">
-                        <aside class="calendar-sidebar">
-                            <div class="sidebar-section">
-                                <div class="mini-cal-header">
-                                    <h3 id="miniCalMonth">Mini Calendar</h3>
-                                    <div class="mini-cal-nav">
-                                        <button id="miniPrev" class="btn-icon" aria-label="Prev">&#8249;</button>
-                                        <button id="miniNext" class="btn-icon" aria-label="Next">&#8250;</button>
-                                    </div>
-                                </div>
-                                <div id="miniCalendar" class="mini-calendar"></div>
-                            </div>
-                            <div class="sidebar-section">
-                                <h3>My Calendars</h3>
-                                <label><input type="checkbox" id="filterMine"> My Events</label><br />
-                                <label><input type="checkbox" id="filterDepartment"> Department</label>
-                            </div>
-                            <div class="sidebar-section">
-                                <h3>Categories</h3>
-                                <div><span class="category-dot cat-today"></span>Today</div>
-                                <div><span class="category-dot cat-urgent"></span>Urgent</div>
-                            </div>
+				<div class="calendar-page">
+					<aside class="calendar-sidebar">
+					<div class="sidebar-section" v-cloak>
+						<div class="mini-cal-header">
+							<h3>{{ miniCalendarTitle }}</h3>
+							<div class="mini-cal-nav">
+								<button @click="prevMiniMonth" class="btn-icon" aria-label="Prev">&#8249;</button>
+								<button @click="nextMiniMonth" class="btn-icon" aria-label="Next">&#8250;</button>
+							</div>
+						</div>
+						<div class="mini-calendar" v-if="miniCalendarDays.length > 0">
+								<div class="mini-cal-header-row">
+									<span v-for="day in dayHeaders" :key="day" class="mini-cal-day-header">{{ day }}</span>
+								</div>
+								<div class="mini-cal-days">
+									<div
+										v-for="day in miniCalendarDays"
+										:key="day.date"
+										class="mini-cal-day"
+										:class="{
+											'mini-cal-day-other': !day.isCurrentMonth,
+											'mini-cal-day-today': day.isToday,
+											'mini-cal-day-selected': day.isSelected,
+											'mini-cal-day-has-events': day.hasEvents
+										}"
+										@click="selectMiniCalendarDay(day)"
+									>
+										{{ day.day }}
+										<div v-if="day.hasEvents" class="mini-cal-event-dot"></div>
+									</div>
+								</div>
+							</div>
+							<div v-else class="mini-calendar" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+								<div style="color: #9ca3af;">Loading calendar...</div>
+							</div>
+						</div>
+						<div class="sidebar-section">
+							<h3>My Calendars</h3>
+							<label><input type="checkbox" v-model="calendarFilters.mine" @change="updateCalendarFilters"> My Events</label><br />
+							<label><input type="checkbox" v-model="calendarFilters.department" @change="updateCalendarFilters"> Department</label>
+						</div>
+						<div class="sidebar-section">
+							<h3>Categories</h3>
+							<div><span class="category-dot cat-today"></span>Today</div>
+							<div><span class="category-dot cat-urgent"></span>Urgent</div>
+						</div>
+					</aside>
 
-                        </aside>
+					<section class="calendar-main">
+						<div id="calendar"></div>
+					</section>
+				</div>
+			</main>
+		</div>
 
-                        <section class="calendar-main">
-                            <div id="calendar"></div>
-                        </section>
-                        <script>
-                            window.calendarConnected = <%= (user.calendarAccessToken || user.calendarRefreshToken) ? 'true' : 'false' %>;
-                            window.currentUser = {
-                                id: '<%= user._id %>',
-                                email: '<%= user.email %>',
-                                firstName: '<%= user.firstName || "" %>',
-                                lastName: '<%= user.lastName || "" %>',
-                                role: '<%= user.role %>',
-                                department: '<%= user.department || "" %>'
-                            };
-                        </script>
-                    </div>
-            </main>
-    </div>
+	</div>
 
-    <!-- Add/Edit Memo Modal -->
-    <div id="memoModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="memoModalTitle">Add Memo</h2>
-                <button class="close-modal" id="closeMemoModal"
-                    style="border:none; background:none; font-size:1.5rem; cursor:pointer">&times;</button>
-            </div>
-            <div class="modal-body">
-                <!-- Read-Only View (for Recipients) -->
-                <div id="readOnlyEventView" style="display:none;">
-                    <div class="form-group">
-                        <strong id="readOnlyTitle"></strong>
-                    </div>
-                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
-                        <div>
-                            <label>Category</label>
-                            <div id="readOnlyCategory"></div>
-                        </div>
-                        <div>
-                            <label>Date</label>
-                            <div id="readOnlyDate"></div>
-                        </div>
-                    </div>
-                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
-                        <div>
-                            <label>Start Time</label>
-                            <div id="readOnlyStart"></div>
-                        </div>
-                        <div>
-                            <label>End Time</label>
-                            <div id="readOnlyEnd"></div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Participants / Recipients</label>
-                        <div id="readOnlyParticipants"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Description / Notes</label>
-                        <div id="readOnlyDescription" style="white-space: pre-wrap; padding: 0.5rem; background: #f3f4f6; border-radius: 4px; min-height: 60px;"></div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="readOnlyViewMemoBtn" style="display:none;">View Full Memo</button>
-                        <button type="button" class="btn-primary" id="readOnlyOkBtn" style="margin-left:auto">OK</button>
-                    </div>
-                </div>
+	<script>
+		// Pass server-side data to Vue and calendar scripts
+		<% const hasCalendarToken = !!(user.calendarAccessToken || user.calendarRefreshToken); %>
+		window.calendarConnected = <%- JSON.stringify(hasCalendarToken) %>;
+		window.currentUser = <%- JSON.stringify({
+			id: user._id,
+			email: user.email || '',
+			firstName: user.firstName || '',
+			lastName: user.lastName || '',
+			role: user.role || 'faculty',
+			department: user.department || '',
+			profilePicture: user.profilePicture || ''
+		}) %>;
+		// Mark as view-only for faculty
+		window.calendarViewOnly = true;
+	</script>
 
-                <!-- Editable Form (for Creators) -->
-                <form id="memoForm">
-                    <input type="hidden" id="memoEditingSource" value="" />
-                    <input type="hidden" id="memoEditingId" value="" />
-                    <div class="form-group">
-                        <label for="memoTitle">Title of Memo</label>
-                        <input type="text" id="memoTitle" required />
-                    </div>
-                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
-                        <div>
-                            <label for="memoDate">Start Date</label>
-                            <input type="date" id="memoDate" required />
-                        </div>
-                        <div>
-                            <label for="memoEndDate">End Date</label>
-                            <input type="date" id="memoEndDate" />
-                        </div>
-                    </div>
-                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:.5rem;">
-                        <div>
-                            <label for="memoStart">Start Time</label>
-                            <input type="time" id="memoStart" required />
-                        </div>
-                        <div>
-                            <label for="memoEnd">End Time</label>
-                            <input type="time" id="memoEnd" required />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="participant-input-container">
-                            <label class="participant-label">Participants / Recipients:</label>
-                            <div class="participant-input-wrapper">
-                                <div id="participantsChips" class="participant-chips-wrapper"></div>
-                                <input type="text" id="participantEmailInput" class="participant-input" placeholder="Type name or email to search recipients..."
-                                    autocomplete="off" />
-                                <ul id="emailSuggestions" class="email-suggestions"></ul>
-                            </div>
-                            <button type="button" class="btn-department-inline"
-                                id="selectDepartmentBtn">Department</button>
-                        </div>
-                        <input type="hidden" id="memoParticipants" value="" />
-                    </div>
-                    <div class="form-group">
-                        <label for="memoDesc">Description / Notes</label>
-                        <textarea id="memoDesc" rows="4"></textarea>
-                        <!-- Attachments container (read-only, appears when event has memoId) -->
-                        <div id="eventAttachmentsContainer" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"></div>
-                    </div>
-                    <!-- Department Dropdown -->
-                    <div id="departmentDropdown" class="department-dropdown" style="display: none;">
-                        <div class="department-dropdown-header">
-                            <span>Select Departments</span>
-                            <button type="button" class="close-dropdown" id="closeDepartmentDropdown">&times;</button>
-                        </div>
-                        <div class="department-dropdown-list" id="departmentList"></div>
-                    </div>
+	<script src="/js/lucide.min.js"></script>
+	<!-- FullCalendar removed - using custom calendar -->
+	<script src="/js/image-error-handler.js"></script>
+	<script src="/js/custom-calendar.js"></script>
+	<script src="/js/calendar-custom.js"></script>
+	<script>
+		const { createApp } = Vue;
 
-                    <div class="form-actions" style="display:flex; align-items:center; justify-content:space-between; gap:.75rem;">
-                        <div style="display:flex; align-items:center; gap:.5rem;">
-                            <label for="memoCategory" style="font-size:0.9rem; color:#4b5563;">Category</label>
-                            <select id="memoCategory" style="min-width: 180px;">
-                                <option value="standard">🟢 Standard</option>
-                                <option value="urgent">🔴 Urgent</option>
-                                <option value="high">🟠 High Priority</option>
-                                <option value="meeting">🟣 Meeting</option>
-                                <option value="deadline">⏰ Deadline</option>
-                                <option value="reminder">🔔 Reminder</option>
-                                <option value="low">🔵 Low Priority</option>
-                            </select>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:.5rem;">
-                            <button type="button" class="btn btn-secondary" id="cancelMemo">Cancel</button>
-                            <!-- Archive button - shown only in edit mode -->
-                            <button type="button" class="btn btn-secondary" id="archiveMemo" style="display:none;">Archive</button>
-                            <!-- Delete button - shown only in edit mode -->
-                            <button type="button" class="btn btn-secondary" id="deleteMemo" style="display:none;">Delete</button>
-                            <!-- Submit button - text changes between "Add" and "Update" based on mode -->
-                            <button type="submit" class="btn btn-primary" id="saveMemoBtn">
-                                <span class="btn-text">Add</span>
-                                <span class="btn-loading" style="display: none;">
-                                    <span class="spinner"></span> Updating...
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+		createApp({
+			data() {
+				return {
+					// User data - initialized from window.currentUser
+					user: window.currentUser ? {
+						profilePicture: window.currentUser.profilePicture || '',
+						firstName: window.currentUser.firstName || '',
+						lastName: window.currentUser.lastName || '',
+						email: window.currentUser.email || '',
+						name: (window.currentUser.firstName || '') + ' ' + (window.currentUser.lastName || '')
+					} : {
+						profilePicture: '',
+						firstName: '',
+						lastName: '',
+						email: '',
+						name: ''
+					},
 
-    <!-- Success Modal with Loading/Check Animation -->
-    <div id="eventSuccessModal" class="event-success-modal" style="display: none;">
-        <div class="event-success-modal-content">
-            <div class="success-loader" id="successLoader">
-                <div class="spinner"></div>
-            </div>
-            <div class="success-check" id="successCheck" style="display: none;">
-                <svg viewBox="0 0 52 52">
-                    <circle cx="26" cy="26" r="25" fill="none" class="check-circle" />
-                    <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" class="check-path" />
-                </svg>
-            </div>
-            <p class="success-message" id="successMessage">Saving event...</p>
-        </div>
-    </div>
+					// Mini calendar
+					currentMiniDate: new Date(),
+					miniCalendarDays: (function() {
+						// Generate initial calendar synchronously to prevent template flash
+						const currentDate = new Date();
+						const year = currentDate.getFullYear();
+						const month = currentDate.getMonth();
+						const today = new Date();
+						today.setHours(0, 0, 0, 0);
+						
+						const firstDay = new Date(year, month, 1);
+						const startDay = new Date(firstDay);
+						startDay.setDate(startDay.getDate() - firstDay.getDay());
+						
+						const days = [];
+						for (let i = 0; i < 42; i++) {
+							const currentDate = new Date(startDay);
+							currentDate.setDate(startDay.getDate() + i);
+							const dateStr = currentDate.toISOString().split('T')[0];
+							const todayStr = today.toISOString().split('T')[0];
+							
+							days.push({
+								date: dateStr,
+								day: currentDate.getDate(),
+								isCurrentMonth: currentDate.getMonth() === month,
+								isToday: dateStr === todayStr,
+								isSelected: dateStr === todayStr, // Select today initially
+								hasEvents: false // Will be updated after events are fetched
+							});
+						}
+						return days;
+					})(),
 
-    <!-- Custom Confirmation Modal -->
-    <div id="confirmModal" class="custom-modal" style="display: none;">
-        <div class="custom-modal-overlay"></div>
-        <div class="custom-modal-content">
-            <div class="custom-modal-header">
-                <h3 id="confirmModalTitle">Confirm</h3>
-                <button class="custom-modal-close" id="confirmModalClose">&times;</button>
-            </div>
-            <div class="custom-modal-body">
-                <p id="confirmModalMessage"></p>
-            </div>
-            <div class="custom-modal-footer">
-                <button class="custom-modal-btn custom-modal-btn-secondary" id="confirmModalCancel">Cancel</button>
-                <button class="custom-modal-btn custom-modal-btn-primary" id="confirmModalOk">OK</button>
-            </div>
-        </div>
-    </div>
+					// Calendar filters
+					calendarFilters: {
+						mine: true,
+						department: true
+					},
 
-    <!-- Custom Alert Modal -->
-    <div id="alertModal" class="custom-modal" style="display: none;">
-        <div class="custom-modal-overlay"></div>
-        <div class="custom-modal-content">
-            <div class="custom-modal-header">
-                <h3 id="alertModalTitle">Notice</h3>
-                <button class="custom-modal-close" id="alertModalClose">&times;</button>
-            </div>
-            <div class="custom-modal-body">
-                <p id="alertModalMessage"></p>
-            </div>
-            <div class="custom-modal-footer">
-                <button class="custom-modal-btn custom-modal-btn-primary" id="alertModalOk">OK</button>
-            </div>
-        </div>
-    </div>
+					// Events data (you can populate this from your API)
+					events: [],
 
-    <script src="/js/lucide.min.js"></script>
-    <!-- FullCalendar removed - using custom calendar -->
-    <script src="/js/custom-calendar.js"></script>
-    <script src="/js/calendar-custom.js"></script>
-    <script>lucide.createIcons();</script>
+					// Day headers for mini calendar
+					dayHeaders: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
 
+					// Refresh interval for real-time updates
+					refreshInterval: null
+				}
+			},
+			computed: {
+				userDisplayName() {
+					if (this.user.firstName && this.user.lastName) {
+						return this.user.firstName + ' ' + this.user.lastName;
+					}
+					return this.user.name || 'User';
+				},
+
+				miniCalendarTitle() {
+					return this.currentMiniDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+				}
+			},
+			created() {
+				// Calendar is already initialized in data(), but regenerate to ensure consistency
+				// and update hasEvents after events are loaded
+				this.generateMiniCalendar();
+			},
+			mounted() {
+				// Initialize async operations after DOM is ready
+				this.initializeCalendar();
+				this.refreshLucideIcons();
+
+				// Set up real-time refresh for events (every 30 seconds)
+				this.refreshInterval = setInterval(() => {
+					this.fetchEvents();
+					// Also refresh main calendar if available
+					if (window.customCalendar && typeof window.customCalendar.loadEvents === 'function') {
+						window.customCalendar.loadEvents();
+					}
+				}, 30000); // Refresh every 30 seconds
+			},
+
+			beforeUnmount() {
+				// Clean up interval when component is destroyed
+				if (this.refreshInterval) {
+					clearInterval(this.refreshInterval);
+				}
+			},
+			methods: {
+				async initializeCalendar() {
+					// Initialize with server-side data
+					if (window.currentUser) {
+						this.user = { ...this.user, ...window.currentUser };
+					}
+
+					// Fetch events from backend API for mini calendar indicators
+					await this.fetchEvents();
+
+					// Your existing calendar initialization code can go here
+					// The main calendar will be handled by your existing custom-calendar.js
+				},
+
+				async fetchEvents() {
+					try {
+						// Get wider date range to include adjacent months (for mini calendar display)
+						// Mini calendar shows dates from previous and next months, so we need to fetch those too
+						const year = this.currentMiniDate.getFullYear();
+						const month = this.currentMiniDate.getMonth();
+
+						// Start from first day of previous month, end at last day of next month
+						const start = new Date(year, month - 1, 1);
+						const end = new Date(year, month + 2, 0); // Last day of next month
+
+						const response = await fetch(`/api/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`, {
+							credentials: 'same-origin'
+						});
+
+						if (response.ok) {
+							const data = await response.json();
+							// API returns array directly, not wrapped in events property
+							this.events = Array.isArray(data) ? data : (data.events || []);
+							console.log(`📅 Fetched ${this.events.length} events for mini calendar`);
+						} else {
+							console.warn('Failed to fetch events, using empty array');
+							this.events = [];
+						}
+					} catch (error) {
+						console.error('Error fetching calendar events:', error);
+						this.events = [];
+					}
+					// Regenerate mini calendar to update hasEvents indicators
+					this.generateMiniCalendar();
+				},
+
+				refreshLucideIcons() {
+					if (typeof lucide !== 'undefined') {
+						lucide.createIcons();
+					}
+				},
+
+				// Helper function to format date as YYYY-MM-DD in local time (not UTC)
+				formatDateLocal(date) {
+					const year = date.getFullYear();
+					const month = String(date.getMonth() + 1).padStart(2, '0');
+					const day = String(date.getDate()).padStart(2, '0');
+					return `${year}-${month}-${day}`;
+				},
+
+				generateMiniCalendar() {
+					const year = this.currentMiniDate.getFullYear();
+					const month = this.currentMiniDate.getMonth();
+					const today = new Date();
+					today.setHours(0, 0, 0, 0);
+
+					// Preserve the currently selected date before regenerating
+					const previouslySelected = this.miniCalendarDays.find(d => d.isSelected);
+					const selectedDateStr = previouslySelected ? previouslySelected.date : null;
+
+					// First day of the month
+					const firstDay = new Date(year, month, 1);
+					// Last day of the month
+					const lastDay = new Date(year, month + 1, 0);
+					// First day of the calendar grid (might be from previous month)
+					const startDay = new Date(firstDay);
+					startDay.setDate(startDay.getDate() - firstDay.getDay());
+
+					this.miniCalendarDays = [];
+
+					// Generate 42 days (6 weeks)
+					for (let i = 0; i < 42; i++) {
+						const currentDate = new Date(startDay);
+						currentDate.setDate(startDay.getDate() + i);
+						currentDate.setHours(0, 0, 0, 0); // Ensure midnight local time
+
+						// Use local date formatting instead of toISOString() to avoid timezone issues
+						const dateStr = this.formatDateLocal(currentDate);
+						const todayStr = this.formatDateLocal(today);
+
+						this.miniCalendarDays.push({
+							date: dateStr,
+							day: currentDate.getDate(),
+							isCurrentMonth: currentDate.getMonth() === month,
+							isToday: dateStr === todayStr,
+							isSelected: dateStr === selectedDateStr, // Preserve selection if date is still visible
+							hasEvents: this.hasEventsOnDate(currentDate)
+						});
+					}
+
+					// Only select today if no date was previously selected and today is in the current view
+					if (!selectedDateStr) {
+						const todayDay = this.miniCalendarDays.find(d => d.isToday);
+						if (todayDay) {
+							todayDay.isSelected = true;
+						}
+					}
+				},
+
+				async prevMiniMonth() {
+					// Create new Date object - JavaScript automatically handles year transitions
+					// e.g., if month is 0 (January) and we subtract 1, it becomes December of previous year
+					const newDate = new Date(
+						this.currentMiniDate.getFullYear(),
+						this.currentMiniDate.getMonth() - 1,
+						1
+					);
+					this.currentMiniDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+					this.generateMiniCalendar();
+					// Refetch events for the new month
+					await this.fetchEvents();
+					
+					// Sync main calendar to the same month
+					this.syncMainCalendar();
+				},
+
+				async nextMiniMonth() {
+					// Create new Date object - JavaScript automatically handles year transitions
+					// e.g., if month is 11 (December) and we add 1, it becomes January of next year
+					const newDate = new Date(
+						this.currentMiniDate.getFullYear(),
+						this.currentMiniDate.getMonth() + 1,
+						1
+					);
+					this.currentMiniDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+					this.generateMiniCalendar();
+					// Refetch events for the new month
+					await this.fetchEvents();
+					
+					// Sync main calendar to the same month
+					this.syncMainCalendar();
+				},
+
+				syncMainCalendar() {
+					// Sync main calendar to the same month as mini calendar
+					if (window.customCalendar) {
+						const targetYear = this.currentMiniDate.getFullYear();
+						const targetMonth = this.currentMiniDate.getMonth();
+						const firstDayOfMonth = new Date(targetYear, targetMonth, 1);
+						
+						// Update main calendar's selected date
+						if (typeof window.customCalendar.gotoDate === 'function') {
+							window.customCalendar.gotoDate(firstDayOfMonth);
+						}
+						
+						// If main calendar is in month view, ensure it shows the correct month
+						if (window.customCalendar.currentView === 'dayGridMonth') {
+							// Update the calendar's internal date for month view
+							window.customCalendar.selectedDate = new Date(targetYear, targetMonth, 1);
+							window.customCalendar.currentDate = new Date(targetYear, targetMonth, 1);
+							// Update title to reflect the new month/year
+							const titleElement = document.getElementById('calendarTitle');
+							if (titleElement && typeof window.customCalendar.updateTitle === 'function') {
+								window.customCalendar.updateTitle(titleElement);
+							}
+							window.customCalendar.render();
+						}
+						
+						// Load events for the new month
+						if (typeof window.loadEvents === 'function') {
+							window.loadEvents(firstDayOfMonth);
+						}
+					}
+				},
+
+				selectMiniCalendarDay(day) {
+					// Reset all selections
+					this.miniCalendarDays.forEach(d => d.isSelected = false);
+					day.isSelected = true;
+
+					// Parse date string as local date to avoid timezone issues
+					// day.date is in format "YYYY-MM-DD", parse it as local date
+					const dateParts = day.date.split('-');
+					// Create date with explicit year, month, day, and set to midnight
+					// This ensures no timezone shifting occurs (same as admin calendar)
+					const localDate = new Date(
+						parseInt(dateParts[0]),
+						parseInt(dateParts[1]) - 1, // Month is 0-indexed
+						parseInt(dateParts[2]),
+						0, // hours
+						0, // minutes
+						0, // seconds
+						0  // milliseconds
+					);
+
+					// If the selected date is from a different month, update the mini calendar
+					if (!day.isCurrentMonth) {
+						this.currentMiniDate = new Date(
+							localDate.getFullYear(),
+							localDate.getMonth(),
+							1
+						);
+						this.generateMiniCalendar();
+						// Restore selection after regenerating
+						const selectedDay = this.miniCalendarDays.find(d => d.date === day.date);
+						if (selectedDay) {
+							selectedDay.isSelected = true;
+						}
+						this.fetchEvents(); // Fetch events for the new month
+					}
+
+					// Update main calendar view if custom calendar is available
+					// Use navigateToDate for consistency and proper event loading (same as admin calendar)
+					if (window.customCalendar && typeof window.customCalendar.navigateToDate === 'function') {
+						window.customCalendar.navigateToDate(localDate);
+					} else if (window.customCalendar) {
+						// Fallback handling (same as admin calendar)
+						window.customCalendar.gotoDate(localDate);
+						window.customCalendar.changeView('timeGridDay');
+						if (typeof window.loadEvents === 'function') {
+							window.loadEvents(localDate);
+						}
+					}
+				},
+
+				hasEventsOnDate(date) {
+					if (!this.events || this.events.length === 0) return false;
+
+					// Use local date formatting to avoid timezone issues
+					const dateStr = this.formatDateLocal(date);
+					return this.events.some(event => {
+						if (!event.start) return false;
+						const eventDate = new Date(event.start);
+						eventDate.setHours(0, 0, 0, 0); // Normalize to midnight local time
+						const eventDateStr = this.formatDateLocal(eventDate);
+
+					// Check if event is on this date or spans multiple days
+					const eventEnd = event.end ? new Date(event.end) : eventDate;
+					eventEnd.setHours(0, 0, 0, 0); // Normalize to midnight local time
+					const eventEndStr = this.formatDateLocal(eventEnd);
+
+					// Event is on this date if it starts on this date, ends on this date, or spans this date
+					return eventDateStr === dateStr || eventEndStr === dateStr ||
+					       (eventDateStr <= dateStr && eventEndStr >= dateStr);
+					});
+				},
+
+				updateCalendarFilters() {
+					// Update the main calendar filters
+					if (window.customCalendar && typeof window.customCalendar.updateFilters === 'function') {
+						window.customCalendar.updateFilters(this.calendarFilters);
+					}
+				},
+
+				showAlert(title, message) {
+					if (window.showAlertModal) {
+						window.showAlertModal(message, title);
+					} else if (window.Swal) {
+						Swal.fire({
+							icon: 'info',
+							title: title || 'Notice',
+							text: message || ''
+						});
+					} else {
+						alert((title ? title + ': ' : '') + (message || ''));
+					}
+				},
+
+				// Method to add events (for view-only mode, this might just show an alert)
+				addEvent(date = null) {
+					if (window.calendarViewOnly) {
+						this.showAlert('View Only Mode', 'Faculty members have view-only access to the calendar. Please contact an administrator to make changes.');
+						return;
+					}
+					// Open event creation modal using calendar-custom.js function
+					if (window.openEventModal && typeof window.openEventModal === 'function') {
+						window.openEventModal(date);
+					} else if (window.openModal && typeof window.openModal === 'function') {
+						window.openModal(date);
+					} else {
+						console.warn('Event creation modal function not available');
+						this.showAlert('Error', 'Event creation is not available at this time.');
+					}
+				},
+
+				// Method to edit events (for view-only mode)
+				editEvent(event) {
+					if (window.calendarViewOnly) {
+						this.showAlert('View Only Mode', 'Faculty members have view-only access to the calendar. Please contact an administrator to make changes.');
+						return;
+					}
+					// Open event editing modal using calendar-custom.js function
+					if (!event || !event._id) {
+						console.warn('Cannot edit event: event or event ID missing');
+						this.showAlert('Error', 'Cannot edit event: Invalid event data.');
+						return;
+					}
+					if (window.openEventModalForEdit && typeof window.openEventModalForEdit === 'function') {
+						window.openEventModalForEdit(event._id);
+					} else {
+						console.warn('Event editing modal function not available');
+						this.showAlert('Error', 'Event editing is not available at this time.');
+					}
+				}
+			}
+		}).mount('#app');
+	</script>
 </body>
-
 </html>
