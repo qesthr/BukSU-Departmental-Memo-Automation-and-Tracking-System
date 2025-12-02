@@ -1867,7 +1867,16 @@
     }
 
     if (deleteBtn) {
-      deleteBtn.onclick = handleDeleteEvent;
+      // In admin calendar, this button now functions as an extra "Update" action
+      // instead of permanently deleting the event.
+      deleteBtn.onclick = (e) => {
+        e.preventDefault();
+        if (form) {
+          // Trigger the same submit handler used by the main Save/Update button
+          const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+          form.dispatchEvent(submitEvent);
+        }
+      };
     }
 
     if (archiveBtn) {
@@ -2087,6 +2096,9 @@
           saveBtn.style.background = '#10b981';
           saveBtn.style.color = '#ffffff';
         }
+
+        // Show SweetAlert-style success message for update
+        await showAlertModal('Event updated successfully.', 'Success');
       } else {
         const createData = { title, start: startISO, end: endISO, category, description: description || '', participants: participantsObj };
         console.log('📝 Creating event with data:', createData);
@@ -2121,6 +2133,9 @@
           saveBtn.style.background = '#10b981';
           saveBtn.style.color = '#ffffff';
         }
+
+        // Show SweetAlert-style success message for create
+        await showAlertModal('Event created successfully.', 'Success');
 
         // Try to sync to Google Calendar
         if (window.calendarConnected) {
