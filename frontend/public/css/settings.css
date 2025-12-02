@@ -246,9 +246,3 @@ input:checked + .slider:before {
     opacity: 0.6;
     cursor: not-allowed;
 }
-
-.dark-mode {
-    /* Add your dark mode styles here */
-    background-color: #1f2937;
-    color: #f9fafb;
-}
