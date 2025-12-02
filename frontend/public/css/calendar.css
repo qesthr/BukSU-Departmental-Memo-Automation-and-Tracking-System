@@ -166,8 +166,10 @@
     border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
-    background: #fff;
+    background: #5917ff;
     z-index: 1;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
 }
 
 .modal-body {
