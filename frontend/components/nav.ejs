@@ -182,7 +182,6 @@
 <div id="logoutModal" class="modal">
     <div class="modal-content" style="max-width: 400px; text-align: center;">
         <div class="modal-header" style="border: none; padding-bottom: 0;">
-            
         </div>
         <div class="modal-body" style="padding: 2rem;">
             <!-- Memofy Logo -->
@@ -208,45 +207,6 @@
         </div>
     </div>
 </div>
-
-<style>
-    /* Global modal backdrop (also used by JS-created overlay) */
-    #globalModalOverlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        z-index: 9999998;
-        transition: opacity .18s ease;
-    }
-
-    /* Base modal container styling - in case JS moves it to body */
-    #logoutModal.modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000000;
-        padding: 1rem;
-    }
-
-    /* Ensure modal content pops out visually */
-    #logoutModal.modal .modal-content {
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 25px 45px rgba(0,0,0,0.12), 0 8px 20px rgba(0,0,0,0.06);
-        transform: translateY(-2px);
-        transition: transform .18s ease, opacity .18s ease;
-        z-index: 10000001;
-    }
-
-    /* Slightly larger for dark mode to keep contrast */
-    body.dark-mode #logoutModal.modal .modal-content {
-        background: #0f172a;
-        color: #e2e8f0;
-        box-shadow: 0 25px 45px rgba(0,0,0,0.33), 0 8px 20px rgba(0,0,0,0.18);
-    }
-</style>
 
 <% if (typeof skipScripts === 'undefined' || !skipScripts) { %>
 <script src="/js/sidebar-hover.js"></script>
