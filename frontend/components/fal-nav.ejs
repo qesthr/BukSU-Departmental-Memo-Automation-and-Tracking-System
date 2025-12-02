@@ -27,12 +27,14 @@
 					</a>
 				</li>
 				<li class="<%= path === '/faculty/archive' ? 'active' : '' %>">
-					<a href="/faculty/archive">
-						<i data-lucide="archive"
-							class="nav-archive-icon <%= path === '/faculty/archive' ? 'active' : '' %>"></i>
-						<span>Archive</span>
-					</a>
-				</li>
+                    <a href="/faculty/archive">
+                        <img 
+                            src="<%= path === '/faculty/archive' ? '/images/archive.png' : '/images/archive-in.png' %>" 
+                            alt="Archive" 
+                            class="nav-icon <%= path === '/faculty/archive' ? 'active' : '' %>">
+                        <span>Archive</span>
+                    </a>
+                </li>
 				<li class="<%= path === '/faculty/calendar' ? 'active' : '' %>">
 					<a href="/faculty/calendar">
 						<img src="<%= path === '/faculty/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>" alt="Calendar" class="nav-icon">
@@ -85,7 +87,6 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Edit Profile</h2>
-            <button class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
             <form id="profileEditForm">
@@ -93,7 +94,6 @@
 
                 <!-- Profile Picture Upload -->
                 <div class="form-group">
-                    <label>Profile Picture</label>
                     <div style="text-align: center; margin-bottom: 1rem;">
                         <img id="profilePreviewImg" src="<%= user.profilePicture || '/images/memofy-logo.png' %>"
                              alt="Profile Preview"

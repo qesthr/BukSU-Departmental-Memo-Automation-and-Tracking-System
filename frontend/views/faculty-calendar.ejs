@@ -331,25 +331,69 @@
 				},
 
 				async prevMiniMonth() {
-					this.currentMiniDate = new Date(
+					// Create new Date object - JavaScript automatically handles year transitions
+					// e.g., if month is 0 (January) and we subtract 1, it becomes December of previous year
+					const newDate = new Date(
 						this.currentMiniDate.getFullYear(),
 						this.currentMiniDate.getMonth() - 1,
 						1
 					);
+					this.currentMiniDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
 					this.generateMiniCalendar();
 					// Refetch events for the new month
 					await this.fetchEvents();
+					
+					// Sync main calendar to the same month
+					this.syncMainCalendar();
 				},
 
 				async nextMiniMonth() {
-					this.currentMiniDate = new Date(
+					// Create new Date object - JavaScript automatically handles year transitions
+					// e.g., if month is 11 (December) and we add 1, it becomes January of next year
+					const newDate = new Date(
 						this.currentMiniDate.getFullYear(),
 						this.currentMiniDate.getMonth() + 1,
 						1
 					);
+					this.currentMiniDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
 					this.generateMiniCalendar();
 					// Refetch events for the new month
 					await this.fetchEvents();
+					
+					// Sync main calendar to the same month
+					this.syncMainCalendar();
+				},
+
+				syncMainCalendar() {
+					// Sync main calendar to the same month as mini calendar
+					if (window.customCalendar) {
+						const targetYear = this.currentMiniDate.getFullYear();
+						const targetMonth = this.currentMiniDate.getMonth();
+						const firstDayOfMonth = new Date(targetYear, targetMonth, 1);
+						
+						// Update main calendar's selected date
+						if (typeof window.customCalendar.gotoDate === 'function') {
+							window.customCalendar.gotoDate(firstDayOfMonth);
+						}
+						
+						// If main calendar is in month view, ensure it shows the correct month
+						if (window.customCalendar.currentView === 'dayGridMonth') {
+							// Update the calendar's internal date for month view
+							window.customCalendar.selectedDate = new Date(targetYear, targetMonth, 1);
+							window.customCalendar.currentDate = new Date(targetYear, targetMonth, 1);
+							// Update title to reflect the new month/year
+							const titleElement = document.getElementById('calendarTitle');
+							if (titleElement && typeof window.customCalendar.updateTitle === 'function') {
+								window.customCalendar.updateTitle(titleElement);
+							}
+							window.customCalendar.render();
+						}
+						
+						// Load events for the new month
+						if (typeof window.loadEvents === 'function') {
+							window.loadEvents(firstDayOfMonth);
+						}
+					}
 				},
 
 				selectMiniCalendarDay(day) {

@@ -67,5 +67,13 @@ router.post('/upload-file', [isAuthenticated, upload.single('file')], logControl
 // Upload image for inline embedding (before sending memo)
 router.post('/upload-image', [isAuthenticated, upload.single('image')], logController.uploadImage);
 
+// Client-side Vue warnings (for debugging frontend issues)
+router.post('/vue-warning', [isAuthenticated], (req, res) => {
+  const { message, trace, route, role } = req.body || {};
+  // eslint-disable-next-line no-console
+  console.warn('⚠️ Vue warning from client:', { message, trace, route, role });
+  res.sendStatus(204);
+});
+
 module.exports = router;
 

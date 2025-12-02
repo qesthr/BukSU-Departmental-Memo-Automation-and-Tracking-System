@@ -28,11 +28,14 @@
 				</li>
 				<li class="<%= path === '/secretary/archive' ? 'active' : '' %>">
 					<a href="/secretary/archive">
-						<i data-lucide="archive"
-						   class="nav-archive-icon <%= path === '/secretary/archive' ? 'active' : '' %>"></i>
+						<img 
+							src="<%= path === '/secretary/archive' ? '/images/archive.png' : '/images/archive-in.png' %>" 
+							alt="Archive" 
+							class="nav-icon <%= path === '/secretary/archive' ? 'active' : '' %>">
 						<span>Archive</span>
 					</a>
 				</li>
+
 				<li class="<%= path === '/calendar' ? 'active' : '' %>">
 					<a href="/secretary/calendar">
 						<img src="<%= path === '/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>" alt="Calendar" class="nav-icon">
@@ -85,13 +88,11 @@
 	<div class="modal-content">
 		<div class="modal-header">
 			<h2>Edit Profile</h2>
-			<button class="close-modal">&times;</button>
 		</div>
 		<div class="modal-body">
 			<form id="profileEditForm">
 				<input type="hidden" id="profileUserId" value="<%= user._id %>">
 				<div class="form-group">
-					<label>Profile Picture</label>
 					<div style="text-align: center; margin-bottom: 1rem;">
 						<img id="profilePreviewImg" src="<%= user.profilePicture || '/images/memofy-logo.png' %>"
 							 alt="Profile Preview"

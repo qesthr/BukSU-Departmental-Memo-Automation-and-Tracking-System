@@ -273,6 +273,19 @@
   const departmentList = document.getElementById('departmentList');
   const closeDepartmentDropdown = document.getElementById('closeDepartmentDropdown');
   const participantsHiddenInput = document.getElementById('memoParticipants');
+
+  function triggerOpenCalendarModal(payload) {
+    const handler = window.openSecretaryCalendarModal || window.openModal;
+    if (typeof handler === 'function') {
+      console.log('[Calendar] triggerOpenCalendarModal -> calling handler with payload:', payload);
+      handler(payload);
+      return true;
+    }
+    console.warn('[Calendar] triggerOpenCalendarModal: no calendar modal handler available.');
+    return false;
+  }
+
+  window.triggerOpenCalendarModal = triggerOpenCalendarModal;
   const closeModalBtn = document.getElementById('closeMemoModal');
   const cancelBtn = document.getElementById('cancelMemo');
   const saveBtn = document.getElementById('saveMemoBtn') || (form ? form.querySelector('button[type="submit"]') : null);
@@ -380,8 +393,9 @@
   }
 
   function init() {
-    // Check if view-only mode (for faculty)
+    // Check if view-only mode (for faculty only, not secretary)
     const isViewOnly = window.calendarViewOnly === true || (window.currentUser && window.currentUser.role === 'faculty');
+    // Secretary should be able to create events, so don't set viewOnly for secretary
 
     // Initialize custom calendar
     const today = getTodayInManila();
@@ -398,8 +412,8 @@
       viewOnly: isViewOnly // Pass view-only flag to calendar
     });
 
-    // Hide Add Event button if view-only
-    if (isViewOnly) {
+    // Hide Add Event button if view-only (faculty), but NOT on secretary calendar
+    if (isViewOnly && !window.isSecretaryCalendar) {
       setTimeout(() => {
         const addEventBtn = document.querySelector('.btn-primary');
         if (addEventBtn && addEventBtn.textContent.includes('Add Event')) {
@@ -828,57 +842,33 @@
         allEvents = [...allEvents, ...dbEvents];
       }
 
-      if (window.calendarConnected) {
-        try {
-          const formatForGoogleAPI = (dateStr) => {
-            if (!dateStr) {return dateStr;}
-            if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {return dateStr;}
-            if (dateStr.includes('T')) {return `${dateStr}+08:00`;}
-            return `${dateStr}T00:00:00+08:00`;
-          };
+      // Fetch Google Calendar events and public holidays
+      // Note: /calendar/events returns public holidays even without Google Calendar connection
+      try {
+        const formatForGoogleAPI = (dateStr) => {
+          if (!dateStr) {return dateStr;}
+          if (/[+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith('Z')) {return dateStr;}
+          if (dateStr.includes('T')) {return `${dateStr}+08:00`;}
+          return `${dateStr}T00:00:00+08:00`;
+        };
 
-          const timeMin = formatForGoogleAPI(startStr);
-          const timeMax = formatForGoogleAPI(endStr);
+        const timeMin = formatForGoogleAPI(startStr);
+        const timeMax = formatForGoogleAPI(endStr);
 
-          const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
-          if (r2.ok) {
-            const gItems = await r2.json();
-            const googleEvents = gItems.map(ev => {
-              const isGoogleAllDay = ev.start.date ? true : false;
-              const isHoliday = ev.isHoliday === true;
-              const eventStart = isGoogleAllDay ? ev.start.date : ev.start.dateTime;
-              let eventEnd = isGoogleAllDay ? ev.end.date : ev.end.dateTime;
-
-              if (isGoogleAllDay && eventEnd) {
-                const endDate = new Date(eventEnd);
-                endDate.setDate(endDate.getDate() - 1);
-                eventEnd = endDate.toISOString().split('T')[0];
-              }
-
-              return {
-                id: 'gcal_' + ev.id,
-                start: eventStart,
-                end: eventEnd,
-                category: isHoliday ? 'holiday' : 'standard',
-                extendedProps: {
-                  category: isHoliday ? 'holiday' : 'standard',
-                  isHoliday: isHoliday,
-                  source: 'google'
-                }
-              };
-            });
-            allEvents = [...allEvents, ...googleEvents];
-          }
-        } catch (err) {
-          console.warn('Error fetching Google Calendar events for mini calendar:', err);
+        const r2 = await fetch(`/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, { credentials: 'same-origin' });
+        if (r2.ok) {
+          const gItems = await r2.json();
+          // Use the same formatting function as main calendar for consistency
+          const googleEvents = gItems.map(ev => formatGoogleEventForCalendar(ev));
+          allEvents = [...allEvents, ...googleEvents];
         }
+      } catch (err) {
+        console.warn('Error fetching Google Calendar events and holidays for mini calendar:', err);
       }
 
-      const now = new Date();
-      miniCalendarEvents = allEvents.filter(e => {
-        const eventEnd = new Date(e.end);
-        return eventEnd >= now;
-      });
+      // Don't filter past events - show all events for the month (including holidays)
+      // This ensures holidays are visible even if they've passed
+      miniCalendarEvents = allEvents;
 
       renderMiniCalendar();
     } catch (err) {
@@ -966,9 +956,7 @@
         dot.title = `${dayEvents.length} event(s)`;
         indicatorContainer.appendChild(dot);
         el.appendChild(indicatorContainer);
-      }
-
-      // Click handler - use navigateToDate for consistency and proper event loading
+      }// Click handler - use navigateToDate for consistency and proper event loading
       el.addEventListener('click', () => {
         const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
         clickedDate.setHours(0, 0, 0, 0);
@@ -999,13 +987,50 @@
    */
   function getEventsForDate(date) {
     if (!miniCalendarEvents || miniCalendarEvents.length === 0) {return [];}
-    const now = new Date();
     const dateStr = formatDateManila(date);
     return miniCalendarEvents.filter(event => {
-      const eventEnd = new Date(event.end);
-      if (eventEnd < now) {return false;}
-      const eventDateStr = formatDateManila(new Date(event.start));
-      return eventDateStr === dateStr;
+      // Handle both Date objects and date strings (for all-day events like holidays)
+      let eventStart, eventEnd;
+
+      if (typeof event.start === 'string') {
+        // Date string format (e.g., "2025-12-25" for all-day events)
+        if (event.start.includes('T')) {
+          eventStart = new Date(event.start);
+        } else {
+          // Date-only string, parse as local date
+          const [year, month, day] = event.start.split('-').map(Number);
+          eventStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+        }
+      } else {
+        eventStart = new Date(event.start);
+      }
+      
+      if (typeof event.end === 'string') {
+        if (event.end.includes('T')) {
+          eventEnd = new Date(event.end);
+        } else {
+          // Date-only string, parse as local date
+          const [year, month, day] = event.end.split('-').map(Number);
+          eventEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+        }
+      } else {
+        eventEnd = new Date(event.end);
+      }
+
+      const eventStartStr = formatDateManila(eventStart);
+      const eventEndStr = formatDateManila(eventEnd);
+
+      // Check if date matches event start date, or if it's an all-day event that spans multiple days
+      if (eventStartStr === dateStr) {
+        return true;
+      }
+
+      // For multi-day events, check if date is within the range
+      if (dateStr >= eventStartStr && dateStr <= eventEndStr) {
+        return true;
+      }
+
+      return false;
     });
   }
 
@@ -1157,8 +1182,60 @@
         }
       }
 
+<<<<<<< HEAD
+      console.log('   Final Mode:', isCreator ? 'CREATOR MODE (Editable)' : 'RECIPIENT MODE (Read Only)');
+=======
+      // Role-based override: admins and secretaries can edit events even if they weren't the original creator
+      const currentRole = window.currentUser?.role || '';
+      if (!isCreator && (currentRole === 'admin' || currentRole === 'secretary')) {
+        isCreator = true;
+        console.log('   ✅ Role override: allowing edit mode for role', currentRole);
+      }
+>>>>>>> 05181fe36694c07050f5240a11bc315bbf10e2f2
+
       console.log('   Final Mode:', isCreator ? 'CREATOR MODE (Editable)' : 'RECIPIENT MODE (Read Only)');
 
+      // If we're on a Vue-based calendar page (secretary/faculty),
+      // delegate to the Vue modal via window.openModal instead of using
+      // the admin DOM-based modal structure.
+      const hasVueModal = typeof window.openModal === 'function' &&
+        !document.getElementById('readOnlyEventView'); // admin page has this element
+
+      if (hasVueModal) {
+        // Normalize event data for Vue modal
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+        const startTimeStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+        const endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+
+        const participants = Array.isArray(event.participants) ? event.participants.map(p => ({
+          id: p.id || p._id || '',
+          email: p.email || '',
+          name: p.name || '',
+          type: p.type || 'user'
+        })) : [];
+
+        const vueEvent = {
+          id: event._id || event.id || '',
+          source: 'backend',
+          title: event.title || '',
+          date: dateStr,
+          category: event.category || 'standard',
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          description: event.description || '',
+          participants,
+          __readOnly: !isCreator
+        };
+
+        triggerOpenCalendarModal(vueEvent);
+        return;
+      }
+
+      // Fallback: use admin DOM-based modal
       if (isCreator) {
         // CREATOR MODE: Show editable form
         openEventModalCreatorMode(event);

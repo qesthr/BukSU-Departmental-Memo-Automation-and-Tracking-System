@@ -167,7 +167,11 @@
     border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
+<<<<<<< HEAD
     background: inherit;
+=======
+    background: #5917ff;
+>>>>>>> 05181fe36694c07050f5240a11bc315bbf10e2f2
     z-index: 1;
 
 }
