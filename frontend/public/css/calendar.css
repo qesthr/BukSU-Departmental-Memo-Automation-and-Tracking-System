@@ -742,6 +742,7 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: .25rem;
+    padding-top: 10px;
 }
 
 .mini-cal-day {
