@@ -2069,8 +2069,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // eslint-disable-next-line no-console
-                console.error('Error:', error);
-                showNotification(`Error sending memo: ${error.message}`, 'error');
+                console.error('Error sending memo:', error);
+                // eslint-disable-next-line no-console
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
+                
+                // Provide more helpful error message
+                let errorMessage = error.message || 'Failed to send memo';
+                if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+                    errorMessage = 'Failed to connect to server. Please check your internet connection and try again.';
+                }
+                
+                showNotification(`Error sending memo: ${errorMessage}`, 'error');
                 if (sendBtn) {
                     sendBtn.disabled = false;
                     if (btnText) {btnText.style.display = 'inline';}

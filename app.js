@@ -466,14 +466,23 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
         const User = require('./backend/models/User');
         // OPTIMIZED: Parallelize queries and use batch fetch instead of populate
         const [archivedMemosRaw, archivedEventsRaw] = await Promise.all([
-            // Get archived memos (limit to 100 for performance, add pagination later if needed)
+            // Get archived memos - include both sent AND received memos that are archived
+            // (limit to 100 for performance, add pagination later if needed)
             Memo.find({
-                sender: req.user._id,
-                recipient: { $ne: req.user._id },
-                status: { $in: ['archived', 'sent', 'approved'] },
-                activityType: { $ne: 'system_notification' }
+                $and: [
+                    {
+                        $or: [
+                            { sender: req.user._id }, // Memos sent by secretary
+                            { recipient: req.user._id } // Memos received by secretary
+                        ]
+                    },
+                    {
+                        status: { $in: ['archived', 'approved'] }, // Only archived or approved (not just 'sent')
+                        activityType: { $ne: 'system_notification' }
+                    }
+                ]
             })
-                .select('subject status priority createdAt department recipient')
+                .select('subject status priority createdAt department recipient sender')
                 .sort({ createdAt: -1 })
                 .limit(100)
                 .lean(),
@@ -489,9 +498,11 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
         ]);
 
         // Batch fetch users (much faster than populate)
+        // Include both recipient and sender IDs since we now show both sent and received memos
         const recipientIds = [...new Set(archivedMemosRaw.map(m => m.recipient).filter(Boolean))];
+        const senderIds = [...new Set(archivedMemosRaw.map(m => m.sender).filter(Boolean))];
         const eventCreatorIds = [...new Set(archivedEventsRaw.map(e => e.createdBy).filter(Boolean))];
-        const allUserIds = [...new Set([...recipientIds, ...eventCreatorIds])];
+        const allUserIds = [...new Set([...recipientIds, ...senderIds, ...eventCreatorIds])];
 
         const users = allUserIds.length > 0 ? await User.find({ _id: { $in: allUserIds } })
             .select('firstName lastName email profilePicture department')
@@ -502,7 +513,8 @@ app.get('/secretary/archive', isAuthenticated, validateUserRole, requireRole('se
         // Map users to memos and events
         const archivedMemos = archivedMemosRaw.map(memo => ({
             ...memo,
-            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null
+            recipient: memo.recipient ? userMap.get(memo.recipient.toString()) : null,
+            sender: memo.sender ? userMap.get(memo.sender.toString()) : null
         }));
 
         const archivedEvents = archivedEventsRaw.map(event => ({
