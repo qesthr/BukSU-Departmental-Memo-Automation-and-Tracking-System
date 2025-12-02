@@ -28,8 +28,10 @@
 				</li>
 				<li class="<%= path === '/secretary/archive' ? 'active' : '' %>">
 					<a href="/secretary/archive">
-						<i data-lucide="archive"
-						   class="nav-archive-icon <%= path === '/secretary/archive' ? 'active' : '' %>"></i>
+						<img 
+							src="<%= path === '/secretary/archive' ? '/images/archive.png' : '/images/archive-in.png' %>" 
+							alt="Archive" 
+							class="nav-icon <%= path === '/secretary/archive' ? 'active' : '' %>">
 						<span>Archive</span>
 					</a>
 				</li>
