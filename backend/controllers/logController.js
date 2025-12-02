@@ -401,6 +401,11 @@ exports.getMemo = async (req, res) => {
             memoObj.acknowledgments = [];
         }
 
+        // Ensure attachments array is included (even if empty)
+        if (!memoObj.attachments) {
+            memoObj.attachments = [];
+        }
+
         // If this is the original memo (sender is viewing), also aggregate acknowledgments from recipient copies
         // This ensures backward compatibility and handles cases where acknowledgments might be in recipient copies
         if (isSender && !memo.metadata?.originalMemoId) {
