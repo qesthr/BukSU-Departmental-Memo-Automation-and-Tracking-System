@@ -27,12 +27,14 @@
 					</a>
 				</li>
 				<li class="<%= path === '/faculty/archive' ? 'active' : '' %>">
-					<a href="/faculty/archive">
-						<i data-lucide="archive"
-							class="nav-archive-icon <%= path === '/faculty/archive' ? 'active' : '' %>"></i>
-						<span>Archive</span>
-					</a>
-				</li>
+                    <a href="/faculty/archive">
+                        <img 
+                            src="<%= path === '/faculty/archive' ? '/images/archive.png' : '/images/archive-in.png' %>" 
+                            alt="Archive" 
+                            class="nav-icon <%= path === '/faculty/archive' ? 'active' : '' %>">
+                        <span>Archive</span>
+                    </a>
+                </li>
 				<li class="<%= path === '/faculty/calendar' ? 'active' : '' %>">
 					<a href="/faculty/calendar">
 						<img src="<%= path === '/faculty/calendar' ? '/images/calendar.png' : '/images/calendar-in.png' %>" alt="Calendar" class="nav-icon">
