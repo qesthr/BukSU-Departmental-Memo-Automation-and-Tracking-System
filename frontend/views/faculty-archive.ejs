@@ -9,14 +9,17 @@
     <link rel="stylesheet" href="/css/log.css">
     <link rel="stylesheet" href="/css/fal-topbar.css">
     <link rel="stylesheet" href="/css/fal-nav.css">
+    <!-- Preconnect to Google Fonts for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !=='undefined' ? gaPropertyId : null }); %>
 
-    <script src="/js/lucide.min.js"></script>
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Vue 3 CDN - defer to not block rendering -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js" defer></script>
+    <script src="/js/lucide.min.js" defer></script>
 </head>
 
 <body
@@ -37,17 +40,19 @@
             <div class="dashboard-content">
                 <div class="log-layout">
                     <!-- Archive Memo List Area -->
-                    <section class="memo-list-area" style="flex:1 1 auto;">
+                    <section class="memo-list-area" style="flex:1 1 auto;" :style="{ flex: viewerVisible ? '0 0 45%' : '1 1 auto' }">
                         <div class="memo-container">
                             <div class="memo-list-header">
-                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                    <i data-lucide="archive" style="width: 24px; height: 24px; color: #6366f1;"></i>
-                                    <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Received Memos</h2>
-                                </div>
-                                <div class="header-controls">
-                                    <button @click="refreshArchive" class="icon-btn-sm" title="Refresh">
-                                        <i data-lucide="rotate-cw"></i>
-                                    </button>
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <i data-lucide="archive" style="width: 24px; height: 24px; color: #6366f1;"></i>
+                                        <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1f2937;">Archived Received Memos</h2>
+                                    </div>
+                                    <div class="header-controls">
+                                        <button @click="refreshArchive" class="icon-btn-sm" title="Refresh">
+                                            <i data-lucide="rotate-cw"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="department-filters">
                                     <div class="priority-dropdown-wrapper">
@@ -96,12 +101,12 @@
                                             <div class="memo-sender-name">From: {{ getSenderName(memo.sender) }}</div>
                                             <div class="memo-sender-email">{{ memo.sender?.email || '' }}</div>
                                         </div>
+                                        <div class="memo-subject">{{ memo.subject || '(No subject)' }}</div>
                                         <div class="memo-item-actions">
                                             <span :class="getPriorityClass(memo.priority)" :title="memo.priority">
                                                 {{ getPriorityBadge(memo.priority) }}
                                             </span>
                                         </div>
-                                        <div class="memo-subject">{{ memo.subject || '' }}</div>
                                         <div class="memo-date">{{ formatDate(memo.createdAt) }}</div>
                                     </div>
                                 </div>
@@ -109,69 +114,72 @@
                         </div>
                     </section>
 
-                    <!-- Memo Viewer Modal -->
-                    <div id="memoViewerModal" class="modal memo-viewer-modal" :style="{ display: viewerVisible ? 'block' : 'none' }" @click.self="closeViewer">
-                        <div class="modal-content memo-viewer-modal-content">
-                            <div id="memoViewer" class="memo-viewer" v-if="currentMemo">
-                                <div class="viewer-header">
-                                    <button @click="closeViewer" class="icon-btn" title="Close">
-                                        <i data-lucide="x"></i>
+                    <!-- Inline Memo Viewer -->
+                    <section class="memo-viewer-area" :class="{ active: viewerVisible }" :style="{ display: viewerVisible ? 'flex' : 'none', flex: viewerVisible ? '0 0 55%' : 'none' }">
+                        <div v-if="!viewerVisible || !currentMemo" class="empty-state-view">
+                            <i data-lucide="archive"></i>
+                            <p>Select a memo to view</p>
+                        </div>
+
+                        <div v-else class="memo-viewer">
+                            <div class="viewer-header">
+                                <button @click="closeViewer" class="icon-btn" title="Close">
+                                    <i data-lucide="arrow-left"></i>
+                                </button>
+                                <div class="nav-buttons">
+                                    <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0" title="Previous Memo">
+                                        <i data-lucide="chevron-left"></i>
                                     </button>
-                                    <div class="nav-buttons">
-                                        <button @click="prevMemo" class="icon-btn" :disabled="currentMemoIndex === 0" title="Previous Memo">
-                                            <i data-lucide="chevron-left"></i>
-                                        </button>
-                                        <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
-                                        <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1" title="Next Memo">
-                                            <i data-lucide="chevron-right"></i>
-                                        </button>
+                                    <span class="memo-counter">{{ currentMemoIndex + 1 }} of {{ filteredMemos.length }}</span>
+                                    <button @click="nextMemo" class="icon-btn" :disabled="currentMemoIndex === filteredMemos.length - 1" title="Next Memo">
+                                        <i data-lucide="chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div class="viewer-actions">
+                                    <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
+                                        <i data-lucide="bookmark"></i>
+                                    </button>
+                                    <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
+                                        <i data-lucide="archive-restore"></i>
+                                    </button>
+                                    <button @click="downloadMemo" class="icon-btn" title="Download Memo">
+                                        <i data-lucide="download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="memo-content">
+                                <div class="memo-gmail-header">
+                                    <h2 class="memo-subject-title">{{ currentMemo.subject || '(No subject)' }}</h2>
+                                    <div class="memo-sender-header">
+                                        <img :src="getAvatar(currentMemo.sender)" :alt="getSenderName(currentMemo.sender)"
+                                            class="memo-sender-avatar-img" @error="handleAvatarError">
+                                        <div class="memo-sender-info-header">
+                                            <div class="memo-sender-name-header">{{ getSenderName(currentMemo.sender) }}</div>
+                                            <div class="memo-sender-email-header">{{ currentMemo.sender?.email || '' }}</div>
+                                        </div>
                                     </div>
-                                    <div class="viewer-actions">
-                                        <button @click="toggleFavorite" class="icon-btn" title="Toggle Favorite">
-                                            <i data-lucide="bookmark"></i>
-                                        </button>
-                                        <button @click="unarchiveCurrentMemo" class="icon-btn" title="Unarchive Memo">
-                                            <i data-lucide="archive-restore"></i>
-                                        </button>
-                                        <button @click="downloadMemo" class="icon-btn" title="Download Memo">
-                                            <i data-lucide="download"></i>
-                                        </button>
+                                    <div class="memo-to-dropdown-header" style="cursor: pointer; padding: 8px 0; color: #6b7280; font-size: 13px;">
+                                        <span style="text-decoration: underline;">to me</span>
+                                        <i data-lucide="chevron-down" style="width: 16px; height: 16px; margin-left: 4px;"></i>
                                     </div>
                                 </div>
-                                <div class="memo-content">
-                                    <div class="memo-gmail-header">
-                                        <h2 class="memo-subject-title">{{ currentMemo.subject || '(No subject)' }}</h2>
-                                        <div class="memo-sender-header">
-                                            <img :src="getAvatar(currentMemo.sender)" :alt="getSenderName(currentMemo.sender)"
-                                                class="memo-sender-avatar-img" @error="handleAvatarError">
-                                            <div class="memo-sender-info-header">
-                                                <div class="memo-sender-name-header">{{ getSenderName(currentMemo.sender) }}</div>
-                                                <div class="memo-sender-email-header">{{ currentMemo.sender?.email || '' }}</div>
-                                            </div>
-                                        </div>
-                                        <div class="memo-to-dropdown-header" style="cursor: pointer; padding: 8px 0; color: #6b7280; font-size: 13px;">
-                                            <span style="text-decoration: underline;">to me</span>
-                                            <i data-lucide="chevron-down" style="width: 16px; height: 16px; margin-left: 4px;"></i>
-                                        </div>
-                                    </div>
-                                    <div class="memo-body">
-                                        <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
-                                    </div>
-                                    <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="memo-attachments">
-                                        <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
-                                        <div v-for="(attachment, attIndex) in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
-                                            <a href="#"
-                                               @click.prevent="openAttachmentModal(currentMemo.attachments, attIndex)"
-                                               style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                                <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
-                                                <span>{{ attachment.filename || 'Attachment' }}</span>
-                                            </a>
-                                        </div>
+                                <div class="memo-body">
+                                    <div class="memo-body-content" v-html="getMemoContent(currentMemo)"></div>
+                                </div>
+                                <div v-if="currentMemo.attachments && currentMemo.attachments.length > 0" class="memo-attachments">
+                                    <h3 style="margin: 20px 0 10px; font-size: 16px; font-weight: 600;">Attachments:</h3>
+                                    <div v-for="(attachment, attIndex) in currentMemo.attachments" :key="attachment.filename" style="margin: 8px 0;">
+                                        <a href="#"
+                                           @click.prevent="openAttachmentModal(currentMemo.attachments, attIndex)"
+                                           style="color: #1C89E3; text-decoration: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                                            <span>{{ attachment.filename || 'Attachment' }}</span>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- Attachment Viewer Modal -->
                     <div id="attachmentViewerModal" class="modal" :style="{ display: attachmentModalVisible ? 'block' : 'none' }" @click.self="closeAttachmentModal" style="position: fixed; z-index: 100002; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;">
@@ -351,7 +359,6 @@
 
                     this.currentMemoIndex = this.filteredMemos.findIndex(m => m._id === memo._id);
                     this.viewerVisible = true;
-                    document.body.style.overflow = 'hidden';
                     this.$nextTick(() => this.refreshLucideIcons());
                 },
 
@@ -359,7 +366,6 @@
                     this.currentMemo = null;
                     this.currentMemoIndex = -1;
                     this.viewerVisible = false;
-                    document.body.style.overflow = '';
                 },
 
                 async prevMemo() {
@@ -615,28 +621,23 @@
             }
         }).mount('#app');
 
-        // Close modal with Escape key
+        // Close viewer with Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('memoViewerModal');
-                if (modal && modal.style.display === 'block') {
-                    const app = document.querySelector('#app').__vue_app__;
-                    if (app && app._instance) {
-                        // Try to access the closeViewer method from Vue instance
-                        const instance = app._instance;
-                        if (instance.exposed && instance.exposed.closeViewer) {
-                            instance.exposed.closeViewer();
-                        } else if (instance.setupState && instance.setupState.closeViewer) {
-                            instance.setupState.closeViewer();
-                        } else {
-                            // Fallback: directly hide modal
-                            modal.style.display = 'none';
-                            document.body.style.overflow = '';
-                        }
-                    } else {
-                        // Fallback: directly hide modal
-                        modal.style.display = 'none';
-                        document.body.style.overflow = '';
+                const app = document.querySelector('#app').__vue_app__;
+                if (app && app._instance) {
+                    const instance = app._instance;
+                    const proxy = instance.proxy || instance.ctx || instance;
+                    const closeViewerFn =
+                        (instance.exposed && instance.exposed.closeViewer) ||
+                        (instance.setupState && instance.setupState.closeViewer) ||
+                        (proxy && proxy.closeViewer);
+                    const viewerVisible =
+                        (proxy && typeof proxy.viewerVisible !== 'undefined' && proxy.viewerVisible) ||
+                        (instance.setupState && instance.setupState.viewerVisible);
+
+                    if (viewerVisible && typeof closeViewerFn === 'function') {
+                        closeViewerFn.call(proxy);
                     }
                 }
             }

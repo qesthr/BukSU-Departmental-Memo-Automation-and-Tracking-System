@@ -17,7 +17,7 @@
         if (!Number.isNaN(Number(trimmed))) { return Number(trimmed); }
         try {
             return JSON.parse(trimmed);
-        } catch (err) {
+        } catch {
             return value;
         }
     }

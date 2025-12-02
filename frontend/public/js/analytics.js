@@ -2,6 +2,8 @@
  * Google Analytics Integration
  * Handles connection, data fetching, and visualization
  */
+/* global google, Swal */
+/* eslint-disable no-console */
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -277,25 +279,25 @@ async function loadAnalyticsData() {
         if (analyticsData.isConnected) {
             try {
                 await loadRealtimeData();
-            } catch (error) {
+            } catch {
                 console.log('Google Analytics realtime data not available');
             }
 
             try {
                 await loadActivityChart(startDate, endDate);
-            } catch (error) {
+            } catch {
                 console.log('Google Analytics activity chart not available');
             }
 
             try {
                 await loadTopPages(startDate, endDate);
-            } catch (error) {
+            } catch {
                 console.log('Google Analytics top pages not available');
             }
 
             try {
                 await loadStats(startDate, endDate);
-            } catch (error) {
+            } catch {
                 console.log('Google Analytics stats not available');
             }
         }
@@ -640,6 +642,7 @@ async function loadDatabaseStats() {
         // Get DOM elements first
         const totalUsersEl = document.getElementById('totalUsers');
         const totalMemosEl = document.getElementById('totalMemos');
+        const totalEventsEl = document.getElementById('totalEvents');
 
         // Load overall stats
         const statsResponse = await fetch('/api/analytics/db/stats', {
@@ -654,7 +657,10 @@ async function loadDatabaseStats() {
                 totalUsersEl.textContent = stats.totalUsers || 0;
             }
             if (totalMemosEl) {
-                totalMemosEl.textContent = stats.totalMemos || 0;
+                totalMemosEl.textContent = (stats.totalMemos || 0).toLocaleString();
+            }
+            if (totalEventsEl) {
+                totalEventsEl.textContent = (stats.totalEvents || 0).toLocaleString();
             }
         }
 
@@ -666,12 +672,12 @@ async function loadDatabaseStats() {
         );
 
         if (memosResponse.ok) {
-            const memoStats = await memosResponse.json();
-
-            // Update memo-related stats (use the date range specific count)
-            if (totalMemosEl && memoStats.total !== undefined) {
-                totalMemosEl.textContent = memoStats.total.toLocaleString();
-            }
+            // We intentionally do NOT overwrite the "Total Memos" card here.
+            // The card should always show the all‑time total from /db/stats
+            // (for all admin/secretary created memos), regardless of the
+            // selected time period. The date‑range totals are reflected in
+            // the charts below instead.
+            await memosResponse.json(); // consume body to avoid unused variable
         }
 
     } catch (error) {
@@ -692,6 +698,9 @@ async function loadDatabaseCharts(startDate, endDate) {
 
         // Load memo statistics chart
         await loadMemoStatsChart(startDate, endDate);
+
+        // Load calendar events over time
+        await loadCalendarEventsChart(startDate, endDate);
 
     } catch (error) {
         console.error('Error loading database charts:', error);
@@ -828,12 +837,72 @@ async function loadMemoStatsChart(startDate, endDate) {
         );
 
         if (response.ok) {
-            const data = await response.json();
+            await response.json();
             // Update any additional stats displays if needed
         }
     } catch (error) {
         console.error('Error loading memo stats chart:', error);
     }
+}
+
+/**
+ * Load calendar events over time chart
+ */
+async function loadCalendarEventsChart(startDate, endDate) {
+    try {
+        const response = await fetch(
+            `/api/analytics/db/events-over-time?startDate=${startDate}&endDate=${endDate}`,
+            { credentials: 'include' }
+        );
+
+        if (!response.ok) {
+            throw new Error('Failed to load calendar events over time');
+        }
+
+        const data = await response.json();
+        drawCalendarEventsChart(data);
+
+    } catch (error) {
+        console.error('Error loading calendar events over time:', error);
+        showChartError('calendarEventsChart', 'Failed to load calendar events data');
+    }
+}
+
+/**
+ * Draw calendar events over time chart
+ */
+function drawCalendarEventsChart(data) {
+    if (!google || !google.charts) {
+        console.error('Google Charts not loaded');
+        return;
+    }
+
+    google.charts.setOnLoadCallback(() => {
+        const chartData = new google.visualization.DataTable();
+        chartData.addColumn('date', 'Date');
+        chartData.addColumn('number', 'Events');
+
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                const date = new Date(item._id);
+                const count = item.count || 0;
+                chartData.addRow([date, count]);
+            });
+        }
+
+        const options = {
+            title: 'Calendar Events Over Time',
+            hAxis: { title: 'Date' },
+            vAxis: { title: 'Number of Events' },
+            legend: { position: 'none' },
+            chartArea: { width: '80%', height: '70%' }
+        };
+
+        const chart = new google.visualization.LineChart(
+            document.getElementById('calendarEventsChart')
+        );
+        chart.draw(chartData, options);
+    });
 }
 
 /**

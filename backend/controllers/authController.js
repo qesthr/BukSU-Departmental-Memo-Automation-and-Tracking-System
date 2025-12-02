@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { audit } = require('../middleware/auditLogger');
+const activityLogger = require('../services/activityLogger');
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
 
@@ -105,11 +106,11 @@ const googleTokenLogin = async (req, res, next) => {
                 return next(err);
             }
 
-            // Audit login success (non-blocking)
-            audit(user, 'login_success', 'User Login', `User ${user.email} logged in via Google`, {
-                method: 'google',
-                timestamp: new Date()
-            });
+            // Log to ActivityLog (non-blocking)
+            activityLogger.logAuthAction(user, 'user_login', `User ${user.email} logged in via Google`, {
+                ...activityLogger.extractRequestInfo(req),
+                metadata: { method: 'google' }
+            }).catch(() => {}); // Ignore errors - logging should never break login
 
             console.log(`✅ Google Account ${verifiedEmail} successfully authenticated and logged in`);
             res.json({
@@ -175,13 +176,15 @@ const login = async (req, res, next) => {
                 });
             }
             try {
+                // OPTIMIZED: Add timeout to prevent hanging (reCAPTCHA tokens expire after ~2 minutes)
                 const response = await axios({
                     method: 'POST',
                     url: 'https://www.google.com/recaptcha/api/siteverify',
                     params: {
                         secret: process.env.RECAPTCHA_SECRET,
                         response: token
-                    }
+                    },
+                    timeout: 5000 // 5 second timeout to prevent hanging
                 });
 
                 if (!response.data.success) {
@@ -191,6 +194,13 @@ const login = async (req, res, next) => {
                     });
                 }
             } catch (error) {
+                // Handle timeout or network errors
+                if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                    return res.status(408).json({
+                        success: false,
+                        message: 'reCAPTCHA verification timed out. Please check the checkbox again and try again.'
+                    });
+                }
                 return res.status(500).json({
                     success: false,
                     message: 'Error verifying reCAPTCHA. Please try again.'
@@ -198,13 +208,13 @@ const login = async (req, res, next) => {
             }
         }
 
-        // First check if user exists at all (regardless of active status)
-        const userExists = await User.findOne({
+        // OPTIMIZED: Single query to check user existence and active status
+        const user = await User.findOne({
             email: email.toLowerCase().trim()
         });
 
         // If user doesn't exist, they haven't been invited/added by admin
-        if (!userExists) {
+        if (!user) {
             return res.status(401).json({
                 success: false,
                 message: 'This account has not been added by an administrator. Please contact the administrator to create your account.',
@@ -212,14 +222,8 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Now check if user is active
-        const user = await User.findOne({
-            email: email.toLowerCase().trim(),
-            isActive: true
-        });
-
         // If user exists but is inactive
-        if (!user && userExists) {
+        if (!user.isActive) {
             return res.status(401).json({
                 success: false,
                 message: 'Your account has been deactivated. Please contact the administrator.',
@@ -304,52 +308,51 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Reset login attempts on successful login
+        // OPTIMIZED: Update last login and reset attempts in a single query
+        const updateData = {
+            $set: { lastLogin: new Date() }
+        };
+
+        // Reset login attempts if needed
         if (user.loginAttempts > 0 || user.lockUntil) {
-            await user.updateOne({
-                $unset: { loginAttempts: 1, lockUntil: 1 }
-            });
+            updateData.$unset = { loginAttempts: 1, lockUntil: 1 };
         }
 
-        // Update last login
-        await User.findByIdAndUpdate(user._id, {
-            lastLogin: new Date()
-        });
+        // Update user in database (single query instead of multiple)
+        await User.findByIdAndUpdate(user._id, updateData);
 
-        // Refresh user data to ensure we have the latest profilePicture and other fields
-        const refreshedUser = await User.findById(user._id);
-        if (!refreshedUser) {
-            return res.status(500).json({
-                success: false,
-                message: 'Error retrieving user data'
-            });
+        // Update user object for session (Passport will serialize this)
+        user.lastLogin = updateData.$set.lastLogin;
+        if (user.loginAttempts > 0 || user.lockUntil) {
+            user.loginAttempts = undefined;
+            user.lockUntil = undefined;
         }
 
-        // Log user in with Passport (use refreshed user for session)
-        req.login(refreshedUser, (err) => {
+        // Log user in with Passport (user object is already up-to-date)
+        req.login(user, (err) => {
             if (err) {
                 return next(err);
             }
 
-            // Audit login success (non-blocking)
-            audit(refreshedUser, 'login_success', 'User Login', `User ${refreshedUser.email} logged in`, {
-                method: 'local',
-                timestamp: new Date()
-            });
+            // Log to ActivityLog (non-blocking)
+            activityLogger.logAuthAction(user, 'user_login', `User ${user.email} logged in`, {
+                ...activityLogger.extractRequestInfo(req),
+                metadata: { method: 'local' }
+            }).catch(() => {}); // Ignore errors - logging should never break login
 
             res.json({
                 success: true,
                 message: 'Login successful',
                 user: {
-                    id: refreshedUser._id,
-                    email: refreshedUser.email,
-                    firstName: refreshedUser.firstName,
-                    lastName: refreshedUser.lastName,
-                    fullName: refreshedUser.fullName,
-                    role: refreshedUser.role,
-                    department: refreshedUser.department,
-                    employeeId: refreshedUser.employeeId,
-                    profilePicture: refreshedUser.profilePicture || '/images/memofy-logo.png'
+                    id: user._id,
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    fullName: user.fullName,
+                    role: user.role,
+                    department: user.department,
+                    employeeId: user.employeeId,
+                    profilePicture: user.profilePicture || '/images/memofy-logo.png'
                 }
             });
         });
@@ -364,8 +367,13 @@ const login = async (req, res, next) => {
 const logout = (req, res) => {
     // Capture user before logout clears req.user
     const userBeforeLogout = req.user ? { _id: req.user._id, email: req.user.email, department: req.user.department } : null;
+    const isGetRequest = req.method === 'GET';
+    
     req.logout((err) => {
         if (err) {
+            if (isGetRequest) {
+                return res.redirect('/');
+            }
             return res.status(500).json({
                 success: false,
                 message: 'Error during logout'
@@ -374,6 +382,9 @@ const logout = (req, res) => {
 
         req.session.destroy((err) => {
             if (err) {
+                if (isGetRequest) {
+                    return res.redirect('/');
+                }
                 return res.status(500).json({
                     success: false,
                     message: 'Error destroying session'
@@ -381,16 +392,29 @@ const logout = (req, res) => {
             }
 
             res.clearCookie('connect.sid');
-            // Audit logout using captured user (best-effort)
+            // Log logout to ActivityLog (non-blocking) - fetch full user object for proper logging
             try {
                 if (userBeforeLogout && userBeforeLogout._id) {
-                    audit(userBeforeLogout, 'logout', 'User Logout', `User ${userBeforeLogout.email} logged out`, { timestamp: new Date() });
+                    User.findById(userBeforeLogout._id).lean().then(fullUser => {
+                        if (fullUser) {
+                            activityLogger.logAuthAction(fullUser, 'user_logout', `User ${fullUser.email} logged out`, {
+                                ...activityLogger.extractRequestInfo(req),
+                                metadata: { timestamp: new Date() }
+                            }).catch(() => {}); // Ignore errors - logging should never break logout
+                        }
+                    }).catch(() => {}); // Ignore errors if user fetch fails
                 }
             } catch (_) { }
-            res.json({
-                success: true,
-                message: 'Logout successful'
-            });
+            
+            // Handle response based on request type
+            if (isGetRequest) {
+                res.redirect('/');
+            } else {
+                res.json({
+                    success: true,
+                    message: 'Logout successful'
+                });
+            }
         });
     });
 };
@@ -504,11 +528,38 @@ module.exports.updateMe = async (req, res) => {
         if (!req.isAuthenticated()) {
             return res.status(401).json({ success: false, message: 'Not authenticated' });
         }
+
         const updates = {};
         const allowed = ['firstName', 'lastName', 'email'];
         allowed.forEach(k => { if (req.body[k] !== undefined) {updates[k] = req.body[k];} });
+
         const User = require('../models/User');
         const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+
+        // Audit log: self profile update (non-blocking)
+        try {
+            await audit(req.user, 'user_profile_updated', 'Profile Updated', 'User updated their own profile', {
+                targetUserId: req.user._id,
+                fields: Object.keys(updates)
+            });
+        } catch (e) {
+            // Do not break main flow
+            console.error('audit user_profile_updated error:', e);
+        }
+
+        // Activity log: self profile update (visible in Admin Activity Logs)
+        try {
+            const activityLogger = require('../services/activityLogger');
+            const requestInfo = activityLogger.extractRequestInfo(req);
+            await activityLogger.logUserAction(req.user, 'user_profile_updated', user, {
+                description: 'Updated own profile',
+                metadata: { fields: Object.keys(updates) },
+                ...requestInfo
+            });
+        } catch (e) {
+            console.error('activityLogger user_profile_updated error:', e);
+        }
+
         return res.json({ success: true, message: 'Profile updated successfully', user });
     } catch (e) {
         console.error('updateMe error:', e);

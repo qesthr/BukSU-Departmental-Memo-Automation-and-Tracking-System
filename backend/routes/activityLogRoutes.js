@@ -20,5 +20,8 @@ router.get('/logs/export/csv', activityLogController.exportActivityLogs);
 // Get activity log statistics
 router.get('/stats', activityLogController.getActivityLogStats);
 
+// Get search autocomplete suggestions
+router.get('/suggestions', activityLogController.getSearchSuggestions);
+
 module.exports = router;
 

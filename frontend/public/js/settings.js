@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const state = window.__initialUserSettings = window.__initialUserSettings || {};
     state.notifications = state.notifications || { memoEmails: true, profileUpdates: true };
+    // Current user role is exposed globally if needed by templates
+    // eslint-disable-next-line no-unused-vars
     const role = window.__currentUserRole || '';
 
     const passwordForm = document.getElementById('passwordForm');
@@ -63,15 +65,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.message || 'Failed to update setting');
             }
             Object.assign(state, data.settings);
-            if (payload.hasOwnProperty('darkMode')) {
+            if (Object.prototype.hasOwnProperty.call(payload, 'darkMode')) {
                 applyDarkMode(!!payload.darkMode);
             }
-            if (payload.hasOwnProperty('sessionTimeoutMinutes') && typeof window.__applySessionTimeout === 'function') {
+            if (Object.prototype.hasOwnProperty.call(payload, 'sessionTimeoutMinutes') && typeof window.__applySessionTimeout === 'function') {
                 window.__applySessionTimeout(payload.sessionTimeoutMinutes);
             }
             setFeedback(feedbackEl, 'Saved successfully', 'success');
         } catch (error) {
-            console.error(error);
             setFeedback(feedbackEl, error.message || 'Failed to update setting', 'error');
         }
     }
@@ -104,8 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             Object.assign(state, data.settings || {});
             applySettingsToUI();
-        } catch (error) {
-            console.warn('Unable to refresh settings:', error.message);
+        } catch {
             applySettingsToUI();
         }
     }

@@ -1,6 +1,7 @@
 // Lightweight notification helpers using Memo model (non-breaking)
 
 const Memo = require('../models/Memo');
+const activityLogger = require('./activityLogger');
 
 async function notifyAdmin({ memo, actor }) {
   // Send a system notification to all admins that a memo is pending review
@@ -123,8 +124,8 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
     const adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'An admin';
     const editedUserName = `${editedUser.firstName || ''} ${editedUser.lastName || ''}`.trim() || editedUser.email || 'User';
 
-    // Notify the user being edited
-    await new Memo({
+    // Create both memos and save them in parallel for better performance
+    const userMemo = new Memo({
       sender: adminUser._id,
       recipient: editedUser._id,
       subject: 'Your profile has been updated',
@@ -135,12 +136,14 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
       metadata: {
         eventType: 'user_profile_edited',
         editedBy: adminUser._id?.toString?.() || String(adminUser._id || ''),
-        editedByEmail: adminUser.email || ''
+        editedByEmail: adminUser.email || '',
+        targetResource: 'user',
+        targetId: editedUser._id?.toString?.() || String(editedUser._id || ''),
+        targetName: editedUserName // Set target name to the edited user's name
       }
-    }).save();
+    });
 
-    // Notify the admin who made the edit
-    await new Memo({
+    const adminMemo = new Memo({
       sender: adminUser._id,
       recipient: adminUser._id,
       subject: `User profile updated: ${editedUserName}`,
@@ -151,33 +154,51 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
       metadata: {
         eventType: 'user_profile_edited',
         editedUserId: editedUser._id?.toString?.() || String(editedUser._id || ''),
-        editedUserEmail: editedUser.email || ''
+        editedUserEmail: editedUser.email || '',
+        targetResource: 'user',
+        targetId: editedUser._id?.toString?.() || String(editedUser._id || ''),
+        targetName: editedUserName // Set target name to the edited user's name
       }
-    }).save();
+    });
+
+    // Save both memos in parallel instead of sequentially
+    await Promise.all([userMemo.save(), adminMemo.save()]);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('notifyUserProfileEdited error:', e?.message || e);
   }
 }
 
-async function notifyCalendarConnected({ user }) {
-  // Notify the user that they successfully connected their Google Calendar
+async function notifyCalendarConnected({ user, req }) {
+  // Log Google Calendar connection as an activity log ONLY (no memo/inbox entry)
   try {
-    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+    if (!user || !user._id) {
+      return;
+    }
 
-    await new Memo({
-      sender: user._id,
-      recipient: user._id,
-      subject: 'Google Calendar Connected',
-      content: `You have successfully connected your Google Calendar account (${user.email || 'N/A'}) to Memofy. Your calendar events will now sync automatically.`,
-      activityType: 'calendar_connected',
-      priority: 'medium',
-      status: 'sent',
-      metadata: {
-        eventType: 'calendar_connected',
-        userEmail: user.email || ''
+    const userName =
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+      user.email ||
+      'User';
+
+    // Extract request info if available (for IP / User-Agent)
+    const requestInfo = req
+      ? activityLogger.extractRequestInfo(req)
+      : {};
+
+    await activityLogger.log(
+      user,
+      'google_calendar_connected',
+      `${userName} connected Google Calendar`,
+      {
+        targetResource: 'system',
+        metadata: {
+          userEmail: user.email || '',
+          source: 'google_calendar_oauth'
+        },
+        ...requestInfo
       }
-    }).save();
+    );
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('notifyCalendarConnected error:', e?.message || e);

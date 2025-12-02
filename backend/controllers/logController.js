@@ -21,7 +21,8 @@ exports.getAllMemos = async (req, res) => {
             'user_deleted',
             'password_reset',
             'welcome_email',
-            'user_profile_edited' // User profile updates - only in Activity Logs
+            'user_profile_edited', // User profile updates - only in Activity Logs
+            'calendar_connected'   // Google Calendar connection confirmation - activity log only
         ];
 
         if (folder === 'inbox') {
@@ -103,10 +104,12 @@ exports.getAllMemos = async (req, res) => {
                         {
                             $or: [
                                 {
+                                    // Memos received by secretary (from any sender - admin, secretary, faculty)
                                     recipient: userId,
                                     status: { $in: ['sent', 'approved', 'rejected'] }
                                 },
                                 {
+                                    // Memos sent by secretary
                                     sender: userId,
                                     status: { $nin: ['deleted'] }
                                 }
@@ -193,14 +196,33 @@ exports.getAllMemos = async (req, res) => {
                     ]
                 };
             } else {
-                // Regular users: show archived memos sent by user
+                // Regular users (including secretaries): show archived memos sent by user OR received by user
                 // Note: 'sent' status memos should appear in inbox, not archive
-                query = {
-                    sender: userId,
-                    recipient: { $ne: userId }, // Exclude memos sent to the user themselves
-                    status: { $in: ['archived', 'approved'] },
-                    activityType: { $ne: 'system_notification' }
-                };
+                // For secretaries, include both sent and received archived memos
+                if (user.role === 'secretary') {
+                    query = {
+                        $and: [
+                            {
+                                $or: [
+                                    { sender: userId }, // Memos sent by secretary
+                                    { recipient: userId } // Memos received by secretary
+                                ]
+                            },
+                            {
+                                status: { $in: ['archived', 'approved'] },
+                                activityType: { $ne: 'system_notification' }
+                            }
+                        ]
+                    };
+                } else {
+                    // For faculty: only show archived memos sent by user
+                    query = {
+                        sender: userId,
+                        recipient: { $ne: userId }, // Exclude memos sent to the user themselves
+                        status: { $in: ['archived', 'approved'] },
+                        activityType: { $ne: 'system_notification' }
+                    };
+                }
             }
         } else if (folder === 'deleted') {
             // For deleted folder, show only memos that were manually deleted from Inbox/Sent
@@ -279,6 +301,25 @@ exports.getAllMemos = async (req, res) => {
                     // This is a regular secretary/faculty memo that doesn't need admin attention
                     // Exclude it from admin inbox
                     return false;
+                }
+            }
+
+            // For secretaries: Ensure admin-sent memos are included
+            // The query already includes memos where secretary is recipient with status 'sent', 'approved', 'rejected'
+            // This filter just ensures we don't accidentally exclude them
+            if (user.role === 'secretary' && folder === 'inbox') {
+                const recipientId = memoObj.recipient?._id?.toString() || memoObj.recipient?.toString();
+                const currentUserId = userId.toString();
+                const senderRole = memoObj.sender?.role;
+                const memoStatus = memoObj.status;
+
+                // If secretary is recipient and memo status is valid, include it regardless of sender role
+                // This ensures admin-sent memos appear in secretary inbox
+                if (recipientId === currentUserId &&
+                    (memoStatus === 'sent' || memoStatus === 'approved' || memoStatus === 'rejected')) {
+                    // Include all memos where secretary is recipient with valid status
+                    // This includes admin-sent memos, secretary-sent memos, and any other sender
+                    return true;
                 }
             }
 
@@ -1139,150 +1180,166 @@ exports.createMemo = async (req, res) => {
 
         populatedMemo.attachments = createdMemos[0].attachments;
 
-        // Create calendar event if date/time is provided
+        // Send response immediately (non-blocking) - before any async operations
+        res.status(201).json({
+            success: true,
+            memo: populatedMemo,
+            count: createdMemos.length,
+            message: isScheduled
+                ? `Memo scheduled successfully. It will be sent on ${scheduledSendDate.toLocaleDateString()} at ${scheduledSendDate.toLocaleTimeString()}.`
+                : isSecretary
+                    ? 'Your memo is pending for admin approval. It will be sent once approved.'
+                    : `Memo sent successfully to ${createdMemos.length} recipient(s).`
+        });
+
+        // Create calendar event if date/time is provided (non-blocking, after response is sent)
         // IMPORTANT: For secretaries, skip calendar event creation here - it will be created after admin approval
         // Only create calendar events immediately for admins (non-secretary users)
         if (eventDate && createdMemos.length > 0 && !isSecretary) {
-            try {
-                const CalendarEvent = require('../models/CalendarEvent');
-
-                // Parse date and time (Start and End)
-                const isAllDay = allDay === 'true' || allDay === true;
-                let startDate, endDate;
-
-                if (isAllDay) {
-                    // All-day event: start at 00:00, end at 23:59:59
-                    startDate = new Date(eventDate);
-                    startDate.setHours(0, 0, 0, 0);
-                    // Use End date if provided, otherwise use Start date
-                    const endDateValue = eventEndDate || eventDate;
-                    endDate = new Date(endDateValue);
-                    endDate.setHours(23, 59, 59, 999);
-                } else if (eventTime) {
-                    // Timed event: combine Start date and time
-                    const [hours, minutes] = eventTime.split(':');
-                    startDate = new Date(eventDate);
-                    startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-
-                    // Use End date/time if provided, otherwise default to 1 hour after Start
-                    if (eventEndDate && eventEndTime) {
-                        const [endHours, endMinutes] = eventEndTime.split(':');
-                        endDate = new Date(eventEndDate);
-                        endDate.setHours(parseInt(endHours, 10), parseInt(endMinutes, 10), 0, 0);
-                    } else if (eventEndDate) {
-                        // End date provided but no time - use end of day
-                        endDate = new Date(eventEndDate);
-                        endDate.setHours(23, 59, 59, 999);
-                    } else {
-                        // Default duration: 1 hour after Start
-                        endDate = new Date(startDate);
-                        endDate.setHours(endDate.getHours() + 1);
-                    }
-                } else {
-                    // Date only: treat as all-day
-                    startDate = new Date(eventDate);
-                    startDate.setHours(0, 0, 0, 0);
-                    const endDateValue = eventEndDate || eventDate;
-                    endDate = new Date(endDateValue);
-                    endDate.setHours(23, 59, 59, 999);
-                }
-
-                // Get all recipient emails and departments for participants
-                const recipientEmails = [];
-                const recipientDepartments = new Set();
-
-                // Add individual recipient emails
-                if (recipientEmail) {
-                    const emails = recipientEmail.split(',').map(e => e.trim().toLowerCase());
-                    recipientEmails.push(...emails);
-                }
-
-                // Add departments
-                const departmentsArray = Array.isArray(departments) ? departments : (departments ? [departments] : []);
-                departmentsArray.forEach(dept => {
-                    if (dept) {recipientDepartments.add(dept);}
-                });
-
-                // Get emails from recipient IDs
-                const recipientUsers = await User.find({ _id: { $in: recipientIds } }).select('email department').lean();
-                recipientUsers.forEach(ru => {
-                    if (ru.email) {recipientEmails.push(ru.email.toLowerCase());}
-                    if (ru.department) {recipientDepartments.add(ru.department);}
-                });
-
-                // Add creator's email to participants so it appears in their calendar
-                if (user && user.email) {
-                    recipientEmails.push(user.email.toLowerCase());
-                }
-
-                // Map priority to calendar category
-                const categoryMap = {
-                    'urgent': 'urgent',
-                    'high': 'high',
-                    'medium': 'standard',
-                    'low': 'low'
-                };
-                const category = categoryMap[priority] || 'standard';
-
-                // Create calendar event (appears immediately in calendars, even for scheduled memos)
-                const calendarEvent = new CalendarEvent({
-                    title: subject.trim(),
-                    start: startDate,
-                    end: endDate,
-                    allDay: isAllDay,
-                    category: category,
-                    description: content || '',
-                    participants: {
-                        emails: [...new Set(recipientEmails)], // Remove duplicates, includes creator
-                        departments: Array.from(recipientDepartments)
-                    },
-                    memoId: createdMemos[0]._id,
-                    createdBy: userId,
-                    status: isScheduled ? 'scheduled' : 'confirmed'
-                });
-
-                await calendarEvent.save();
-
-                // Sync event to participants' Google Calendars (async, don't wait)
+            // Run calendar event creation in background (fire and forget)
+            (async () => {
                 try {
-                    const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
-                    syncEventToParticipantsGoogleCalendars(calendarEvent, { isUpdate: false })
-                        .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
-                } catch (syncError) {
-                    console.error('Error initiating Google Calendar sync for memo:', syncError);
-                    // Don't fail if sync fails
+                    const CalendarEvent = require('../models/CalendarEvent');
+
+                    // Parse date and time (Start and End)
+                    const isAllDay = allDay === 'true' || allDay === true;
+                    let startDate, endDate;
+
+                    if (isAllDay) {
+                        // All-day event: start at 00:00, end at 23:59:59
+                        startDate = new Date(eventDate);
+                        startDate.setHours(0, 0, 0, 0);
+                        // Use End date if provided, otherwise use Start date
+                        const endDateValue = eventEndDate || eventDate;
+                        endDate = new Date(endDateValue);
+                        endDate.setHours(23, 59, 59, 999);
+                    } else if (eventTime) {
+                        // Timed event: combine Start date and time
+                        const [hours, minutes] = eventTime.split(':');
+                        startDate = new Date(eventDate);
+                        startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+
+                        // Use End date/time if provided, otherwise default to 1 hour after Start
+                        if (eventEndDate && eventEndTime) {
+                            const [endHours, endMinutes] = eventEndTime.split(':');
+                            endDate = new Date(eventEndDate);
+                            endDate.setHours(parseInt(endHours, 10), parseInt(endMinutes, 10), 0, 0);
+                        } else if (eventEndDate) {
+                            // End date provided but no time - use end of day
+                            endDate = new Date(eventEndDate);
+                            endDate.setHours(23, 59, 59, 999);
+                        } else {
+                            // Default duration: 1 hour after Start
+                            endDate = new Date(startDate);
+                            endDate.setHours(endDate.getHours() + 1);
+                        }
+                    } else {
+                        // Date only: treat as all-day
+                        startDate = new Date(eventDate);
+                        startDate.setHours(0, 0, 0, 0);
+                        const endDateValue = eventEndDate || eventDate;
+                        endDate = new Date(endDateValue);
+                        endDate.setHours(23, 59, 59, 999);
+                    }
+
+                    // Get all recipient emails and departments for participants
+                    const recipientEmails = [];
+                    const recipientDepartments = new Set();
+
+                    // Add individual recipient emails
+                    if (recipientEmail) {
+                        const emails = recipientEmail.split(',').map(e => e.trim().toLowerCase());
+                        recipientEmails.push(...emails);
+                    }
+
+                    // Add departments
+                    const departmentsArray = Array.isArray(departments) ? departments : (departments ? [departments] : []);
+                    departmentsArray.forEach(dept => {
+                        if (dept) {recipientDepartments.add(dept);}
+                    });
+
+                    // Get emails from recipient IDs
+                    const recipientUsers = await User.find({ _id: { $in: recipientIds } }).select('email department').lean();
+                    recipientUsers.forEach(ru => {
+                        if (ru.email) {recipientEmails.push(ru.email.toLowerCase());}
+                        if (ru.department) {recipientDepartments.add(ru.department);}
+                    });
+
+                    // Add creator's email to participants so it appears in their calendar
+                    if (user && user.email) {
+                        recipientEmails.push(user.email.toLowerCase());
+                    }
+
+                    // Map priority to calendar category
+                    const categoryMap = {
+                        'urgent': 'urgent',
+                        'high': 'high',
+                        'medium': 'standard',
+                        'low': 'low'
+                    };
+                    const category = categoryMap[priority] || 'standard';
+
+                    // Create calendar event (appears immediately in calendars, even for scheduled memos)
+                    const calendarEvent = new CalendarEvent({
+                        title: subject.trim(),
+                        start: startDate,
+                        end: endDate,
+                        allDay: isAllDay,
+                        category: category,
+                        description: content || '',
+                        participants: {
+                            emails: [...new Set(recipientEmails)], // Remove duplicates, includes creator
+                            departments: Array.from(recipientDepartments)
+                        },
+                        memoId: createdMemos[0]._id,
+                        createdBy: userId,
+                        status: isScheduled ? 'scheduled' : 'confirmed'
+                    });
+
+                    // Save calendar event
+                    const savedEvent = await calendarEvent.save();
+
+                    // Sync event to participants' Google Calendars (async, don't wait)
+                    try {
+                        const { syncEventToParticipantsGoogleCalendars } = require('../services/calendarService');
+                        syncEventToParticipantsGoogleCalendars(savedEvent, { isUpdate: false })
+                            .catch(err => console.error('Error syncing memo calendar event to Google Calendars:', err));
+                    } catch (syncError) {
+                        console.error('Error initiating Google Calendar sync for memo:', syncError);
+                        // Don't fail if sync fails
+                    }
+
+                    // Update memo with calendar event reference
+                    await Memo.findByIdAndUpdate(createdMemos[0]._id, {
+                        'metadata.calendarEventId': savedEvent._id,
+                        'metadata.hasCalendarEvent': true
+                    });
+
+                    console.log(`✅ Calendar event created for memo: ${subject} (Event ID: ${savedEvent._id})`);
+                } catch (calendarError) {
+                    // Log error but don't fail memo creation
+                    console.error('⚠️ Failed to create calendar event (memo still saved):', calendarError.message);
                 }
-
-                // Update memo with calendar event reference
-                await Memo.findByIdAndUpdate(createdMemos[0]._id, {
-                    'metadata.calendarEventId': calendarEvent._id,
-                    'metadata.hasCalendarEvent': true
-                });
-
-                console.log(`✅ Calendar event created for memo: ${subject} (Event ID: ${calendarEvent._id})`);
-            } catch (calendarError) {
-                // Log error but don't fail memo creation
-                console.error('⚠️ Failed to create calendar event (memo still saved):', calendarError.message);
-            }
-        }
-
-        // Log activity - memo created
-        try {
-            const activityLogger = require('../services/activityLogger');
-            const requestInfo = activityLogger.extractRequestInfo(req);
-            await activityLogger.logMemoAction(req.user, 'memo_created', populatedMemo, {
-                description: `Created memo "${populatedMemo.subject}"`,
-                ...requestInfo,
-                metadata: {
-                    isScheduled: !!scheduledSendDate,
-                    hasAttachments: populatedMemo.attachments?.length > 0,
-                    recipientCount: createdMemos.length,
-                    isPendingApproval: isSecretary
-                }
+            })().catch(err => {
+                console.error('Error in calendar event creation background task:', err);
             });
-        } catch (logError) {
-            console.error('Error logging memo creation:', logError);
         }
+
+        // Log activity - memo created (non-blocking, fire and forget)
+        const activityLogger = require('../services/activityLogger');
+        const requestInfo = activityLogger.extractRequestInfo(req);
+        activityLogger.logMemoAction(req.user, 'memo_created', populatedMemo, {
+            description: `Created memo "${populatedMemo.subject}"`,
+            ...requestInfo,
+            metadata: {
+                isScheduled: !!scheduledSendDate,
+                hasAttachments: populatedMemo.attachments?.length > 0,
+                recipientCount: createdMemos.length,
+                isPendingApproval: isSecretary
+            }
+        }).catch(logError => {
+            console.error('Error logging memo creation (non-blocking):', logError);
+        });
 
         // Trigger Google Drive backup asynchronously (non-blocking)
         // IMPORTANT: For secretaries, skip Google Drive backup here - it will be backed up after admin approval
@@ -1315,21 +1372,20 @@ exports.createMemo = async (req, res) => {
                     });
                 });
         }
-
-        res.status(201).json({
-            success: true,
-            memo: populatedMemo,
-            count: createdMemos.length,
-            message: isScheduled
-                ? `Memo scheduled successfully. It will be sent on ${scheduledSendDate.toLocaleDateString()} at ${scheduledSendDate.toLocaleTimeString()}.`
-                : isSecretary
-                    ? 'Your memo is pending for admin approval. It will be sent once approved.'
-                    : `Memo sent successfully to ${createdMemos.length} recipient(s).`
-        });
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error creating memo:', error);
-        res.status(500).json({ success: false, message: 'Error creating memo' });
+        // eslint-disable-next-line no-console
+        console.error('Error stack:', error.stack);
+        // eslint-disable-next-line no-console
+        console.error('Request body:', req.body);
+        // eslint-disable-next-line no-console
+        console.error('Request user:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+        res.status(500).json({ 
+            success: false, 
+            message: error.message || 'Error creating memo',
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 

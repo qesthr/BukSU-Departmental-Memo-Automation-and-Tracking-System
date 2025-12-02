@@ -31,6 +31,7 @@ exports.getNotifications = async (req, res) => {
             'pending_memo',
             'memo_approved',
             'memo_rejected',
+            'user_profile_edited', // User profile update notifications
             'system_notification' // Calendar events use this type
         ];
 
@@ -40,6 +41,14 @@ exports.getNotifications = async (req, res) => {
                 if (memo.metadata?.notificationType === 'acknowledgment' ||
                     (memo.subject && /^Memo Acknowledged:/i.test(memo.subject))) {
                     return false;
+                }
+
+                // Special handling for user_profile_edited: show to the recipient (edited user)
+                if (memo.activityType === 'user_profile_edited') {
+                    const recipientId = memo.recipient?._id?.toString() || memo.recipient?.toString();
+                    const userIdStr = userId.toString();
+                    // Show if user is the recipient (the person whose profile was edited)
+                    return recipientId === userIdStr;
                 }
 
                 // Exclude memos created by the user (they are the sender)
@@ -139,8 +148,13 @@ exports.getNotifications = async (req, res) => {
                 },
                 // Memo/calendar activity types (where user is NOT the sender)
                 {
-                    activityType: { $in: memoAndCalendarActivityTypes },
+                    activityType: { $in: memoAndCalendarActivityTypes.filter(t => t !== 'user_profile_edited') },
                     sender: { $ne: userId }
+                },
+                // User profile edited notifications (show to the edited user, regardless of sender)
+                {
+                    activityType: 'user_profile_edited',
+                    recipient: userId
                 },
                 // Calendar events (where user is NOT the sender)
                 {

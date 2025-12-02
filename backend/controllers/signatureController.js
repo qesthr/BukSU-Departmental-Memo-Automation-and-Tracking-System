@@ -140,9 +140,9 @@ exports.updateSignature = async (req, res) => {
             signature.roleTitle = roleTitle.trim();
         }
 
-        if (displayName) signature.displayName = displayName.trim();
-        if (typeof isActive === 'boolean') signature.isActive = isActive;
-        if (typeof order === 'number') signature.order = order;
+        if (displayName) {signature.displayName = displayName.trim();}
+        if (typeof isActive === 'boolean') {signature.isActive = isActive;}
+        if (typeof order === 'number') {signature.order = order;}
 
         // Handle image update if new file uploaded - convert to base64 data URL (same as profile pictures)
         if (req.file) {

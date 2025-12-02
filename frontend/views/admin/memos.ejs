@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log | Memofy</title>
+    <title>Admin Memos | Memofy</title>
     <link rel="icon" type="image/png" href="/images/memofy-logo.png">
     <link rel="stylesheet" href="/css/admin-dash.css">
     <link rel="stylesheet" href="/css/log.css">
@@ -47,11 +47,11 @@
             <!-- Main Content -->
             <main class="main-content">
                 <%- include('../../components/admintopbar') %>
-                    <div class="log-layout" style="margin-top: 10px; border: none;">
+                    <div class="log-layout" style="margin-top: 10px;">
                         <!-- Memo List Area -->
-                        <section class="memo-list-area" style="height: 700px; border: none;">
-                            <div class="memo-container" style="height: 619px;">
-                                <div class="memo-list-header" style="height: 600px; border: none;">
+                        <section class="memo-list-area" style="height: 700px;">
+                            <div class="memo-container" style="height: 700px;">
+                                <div class="memo-list-header" style="height: 600px;">
                                     <div class="header-controls">
                                         <div class="checkbox-control"
                                             style="display: flex; align-items: center; gap: 8px;">
@@ -307,11 +307,11 @@
                                 </div>
                             </div>
                             <div class="compose-field-wrapper compose-field-inline">
+                                <label class="compose-field-label">Category</label>
                                 <select id="prioritySelect" name="priority"
                                     class="compose-field compose-priority-select">
-                                    <option value="medium">🟡 Medium</option>
                                     <option value="urgent">🔴 Urgent</option>
-                                    <option value="high">🟠 High</option>
+                                    <option value="medium" selected>🟡 Medium</option>
                                     <option value="low">🔵 Low</option>
                                 </select>
                             </div>
@@ -885,3 +885,5 @@
 </body>
 
 </html>
+
+

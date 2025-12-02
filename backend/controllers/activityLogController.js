@@ -77,7 +77,7 @@ exports.getActivityLogs = async (req, res) => {
 
         // 2. Query AuditLog collection (existing audit logs)
         // If filtering by actorRole, filter by user IDs at database level
-        let auditLogFilter = {};
+        const auditLogFilter = {};
         if (userIdsWithRole !== null) {
             if (userIdsWithRole.length > 0) {
                 auditLogFilter.user = { $in: userIdsWithRole };
@@ -112,7 +112,7 @@ exports.getActivityLogs = async (req, res) => {
         ];
 
         // If filtering by actorRole, filter memos by sender IDs at database level
-        let memoLogFilter = {
+        const memoLogFilter = {
             activityType: { $in: systemActivityTypes }
         };
         if (userIdsWithRole !== null) {
@@ -141,9 +141,10 @@ exports.getActivityLogs = async (req, res) => {
             const actionMap = {
                 'login_success': 'user_login',
                 'login_failed': 'user_login', // Could be separate, but keeping as login for now
-                'user_lock_acquired': 'user_lock_acquired',
-                'user_lock_refreshed': 'user_lock_acquired', // Treat refresh as acquire
-                'user_lock_released': 'user_lock_released',
+                // Exclude lock operations from Activity Logs (user requested)
+                // 'user_lock_acquired': 'user_lock_acquired',
+                // 'user_lock_refreshed': 'user_lock_acquired',
+                // 'user_lock_released': 'user_lock_released',
                 'user_updated': 'user_updated',
                 'user_deleted': 'user_archived', // Map old delete to archive for existing data
                 'user_created': 'user_created'
@@ -152,27 +153,74 @@ exports.getActivityLogs = async (req, res) => {
         };
 
         // Convert AuditLog entries to ActivityLog format
-        const formattedAuditLogs = auditLogs.map(log => {
-            const mappedActionType = mapAuditActionToActivityType(log.action);
-            return {
-                id: log._id,
-                actor: {
-                    id: log.user?._id || log.user,
-                    name: log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.email : log.email,
-                    email: log.email,
-                    role: log.user?.role || 'faculty',
-                    profilePicture: log.user?.profilePicture || null
-                },
-                actionType: mappedActionType,
-                description: log.message || log.subject || `User ${log.action || 'activity'}`,
-                targetResource: log.metadata?.targetResource || (mappedActionType.startsWith('user_') ? 'user' : null),
-                targetId: log.metadata?.targetId || null,
-                targetName: log.metadata?.targetName || '',
-                metadata: { ...log.metadata, originalAction: log.action },
-                ipAddress: log.metadata?.ipAddress || '',
-                timestamp: log.createdAt
-            };
+        // Filter out lock operations (user requested to exclude them from Activity Logs)
+        // Also batch fetch user names for user_updated actions that don't have targetName
+        const userUpdateLogs = auditLogs.filter(log => {
+            const lockActions = ['user_lock_acquired', 'user_lock_refreshed', 'user_lock_released'];
+            return !lockActions.includes(log.action) && mapAuditActionToActivityType(log.action) === 'user_updated' && !log.metadata?.targetName && log.metadata?.targetUserId;
         });
+        
+        // Batch fetch user names for logs missing targetName
+        const userIdsToFetch = [...new Set(userUpdateLogs.map(log => log.metadata?.targetUserId).filter(Boolean))];
+        let userNamesMap = new Map();
+        if (userIdsToFetch.length > 0) {
+            try {
+                const User = require('../models/User');
+                const users = await User.find({ _id: { $in: userIdsToFetch } }).select('firstName lastName email').lean();
+                users.forEach(user => {
+                    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || '';
+                    userNamesMap.set(user._id.toString(), name);
+                });
+            } catch (e) {
+                console.error('Error fetching user names for activity logs:', e);
+            }
+        }
+        
+        const formattedAuditLogs = auditLogs
+            .filter(log => {
+                // Exclude lock operations from Activity Logs
+                const lockActions = ['user_lock_acquired', 'user_lock_refreshed', 'user_lock_released'];
+                return !lockActions.includes(log.action);
+            })
+            .map(log => {
+                const mappedActionType = mapAuditActionToActivityType(log.action);
+                
+                // Extract target name - prioritize metadata.targetName (now set in audit call)
+                let targetName = log.metadata?.targetName || '';
+                
+                // For user_updated actions, if targetName is still not set, fetch from map or extract from description
+                if (!targetName && mappedActionType === 'user_updated' && log.metadata?.targetUserId) {
+                    const userIdStr = log.metadata.targetUserId.toString();
+                    targetName = userNamesMap.get(userIdStr) || log.metadata?.targetUserEmail || '';
+                    
+                    // Last resort: try to extract email from description
+                    if (!targetName) {
+                        const emailMatch = log.message?.match(/Updated user (.+)/);
+                        if (emailMatch) {
+                            targetName = emailMatch[1].trim();
+                        }
+                    }
+                }
+                
+                return {
+                    id: log._id,
+                    actor: {
+                        id: log.user?._id || log.user,
+                        name: log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.email : log.email,
+                        email: log.email,
+                        role: log.user?.role || 'faculty',
+                        profilePicture: log.user?.profilePicture || null
+                    },
+                    actionType: mappedActionType,
+                    description: log.message || log.subject || `User ${log.action || 'activity'}`,
+                    targetResource: log.metadata?.targetResource || (mappedActionType.startsWith('user_') ? 'user' : null),
+                    targetId: log.metadata?.targetId || log.metadata?.targetUserId || null,
+                    targetName: targetName,
+                    metadata: { ...log.metadata, originalAction: log.action },
+                    ipAddress: log.metadata?.ipAddress || '',
+                    timestamp: log.createdAt
+                };
+            });
 
         // Map Memo activityTypes to ActivityLog actionTypes
         const mapMemoActivityTypeToActivityType = (activityType) => {
@@ -201,7 +249,31 @@ exports.getActivityLogs = async (req, res) => {
             .map(memo => {
                 const mappedActionType = mapMemoActivityTypeToActivityType(memo.activityType);
                 // Skip system_notification memos (they're notifications, not activity logs)
-                if (mappedActionType === null) return null;
+                if (mappedActionType === null) {return null;}
+
+                // Extract target name for user-related actions
+                let targetName = memo.metadata?.targetName || '';
+                
+                // For user_profile_edited memos, extract the edited user's name
+                if (mappedActionType === 'user_profile_updated') {
+                    // Priority: metadata.targetName > extract from subject > metadata.editedUserEmail
+                    if (!targetName) {
+                        // Try to extract name from subject like "User profile updated: Clarisse Ramos"
+                        const subjectMatch = memo.subject?.match(/User profile updated: (.+)/);
+                        if (subjectMatch) {
+                            targetName = subjectMatch[1].trim();
+                        } else if (memo.metadata?.editedUserEmail) {
+                            // Fallback to email if name not available
+                            targetName = memo.metadata.editedUserEmail;
+                        } else {
+                            // Last fallback: use subject (but this should rarely happen now)
+                            targetName = memo.subject || '';
+                        }
+                    }
+                } else if (!targetName) {
+                    // For other memos, use subject as fallback
+                    targetName = memo.subject || '';
+                }
 
                 return {
                     id: memo._id,
@@ -217,8 +289,8 @@ exports.getActivityLogs = async (req, res) => {
                     targetResource: memo.metadata?.targetResource ||
                                    (mappedActionType.startsWith('memo_') ? 'memo' :
                                     mappedActionType.startsWith('user_') ? 'user' : null),
-                    targetId: memo.metadata?.targetId || memo.metadata?.memoId || null,
-                    targetName: memo.metadata?.targetName || memo.subject || '',
+                    targetId: memo.metadata?.targetId || memo.metadata?.editedUserId || memo.metadata?.memoId || null,
+                    targetName: targetName,
                     metadata: memo.metadata || {},
                     ipAddress: memo.metadata?.ipAddress || '',
                     timestamp: memo.createdAt
@@ -266,8 +338,8 @@ exports.getActivityLogs = async (req, res) => {
             const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
             allLogs = allLogs.filter(log => {
                 const logDate = new Date(log.timestamp);
-                if (startDate && logDate < startDate) return false;
-                if (endDate && logDate > endDate) return false;
+                if (startDate && logDate < startDate) {return false;}
+                if (endDate && logDate > endDate) {return false;}
                 return true;
             });
         }
@@ -365,6 +437,16 @@ exports.exportActivityLogs = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
         }
 
+        // Helper to convert internal actionType (e.g. "google_calendar_connected")
+        // into a more readable label (e.g. "Google Calendar Connected")
+        const formatActionLabel = (actionType) => {
+            if (!actionType || typeof actionType !== 'string') {return '';}
+            return actionType
+                .split('_')
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(' ');
+        };
+
         // Build filter (same as getActivityLogs)
         const filter = {};
         if (req.query.actorRole && ['admin', 'secretary', 'faculty'].includes(req.query.actorRole)) {
@@ -392,18 +474,30 @@ exports.exportActivityLogs = async (req, res) => {
             .populate('actorUserId', 'firstName lastName email')
             .lean();
 
-        // Generate CSV
+        // Generate CSV (human–readable headers + friendly action label)
         const csvRows = [];
-        csvRows.push(['Timestamp', 'Actor Name', 'Actor Email', 'Actor Role', 'Action Type', 'Description', 'Target Resource', 'Target Name', 'IP Address'].join(','));
+        // Column order is optimized for readability in Excel:
+        // Actor Name, Actor Email, Actor Role, Action Type, Action Label, Description, Target Resource, Target Name, IP Address
+        csvRows.push([
+            'Actor Name',
+            'Actor Email',
+            'Actor Role',
+            'Action Type',
+            'Action Label',
+            'Description',
+            'Target Resource',
+            'Target Name',
+            'IP Address'
+        ].join(','));
 
         logs.forEach(log => {
             const actorName = log.actorName || (log.actorUserId ? `${log.actorUserId.firstName || ''} ${log.actorUserId.lastName || ''}`.trim() : '');
             const row = [
-                new Date(log.timestamp).toISOString(),
                 `"${actorName.replace(/"/g, '""')}"`,
                 `"${log.actorEmail.replace(/"/g, '""')}"`,
                 log.actorRole,
                 log.actionType,
+                `"${formatActionLabel(log.actionType).replace(/"/g, '""')}"`,
                 `"${log.description.replace(/"/g, '""')}"`,
                 log.targetResource || '',
                 `"${(log.targetName || '').replace(/"/g, '""')}"`,
@@ -486,6 +580,121 @@ exports.getActivityLogStats = async (req, res) => {
     } catch (error) {
         console.error('Error fetching activity log stats:', error);
         res.status(500).json({ success: false, message: 'Error fetching activity log statistics' });
+    }
+};
+
+/**
+ * Get autocomplete suggestions for search
+ * Returns unique values from descriptions, actor names, and target names
+ * Admin only
+ */
+exports.getSearchSuggestions = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
+        }
+
+        const query = req.query.q || '';
+        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit || '10', 10)));
+
+        if (!query || query.length < 2) {
+            return res.json({ success: true, suggestions: [] });
+        }
+
+        const searchRegex = { $regex: query, $options: 'i' };
+
+        // Get suggestions from ActivityLog
+        const [activityLogs, auditLogs] = await Promise.all([
+            ActivityLog.find({
+                $or: [
+                    { description: searchRegex },
+                    { actorName: searchRegex },
+                    { targetName: searchRegex }
+                ]
+            })
+                .select('description actorName targetName')
+                .limit(100)
+                .lean(),
+            AuditLog.find({
+                $or: [
+                    { action: searchRegex },
+                    { details: searchRegex }
+                ]
+            })
+                .select('action details')
+                .limit(100)
+                .lean()
+        ]);
+
+        // Extract unique suggestions
+        const suggestionsSet = new Set();
+
+        // From ActivityLog
+        activityLogs.forEach(log => {
+            if (log.description && log.description.toLowerCase().includes(query.toLowerCase())) {
+                // Extract relevant phrases from description
+                const words = log.description.split(/\s+/);
+                words.forEach((word, index) => {
+                    if (word.toLowerCase().includes(query.toLowerCase()) && word.length >= 3) {
+                        // Include the word and surrounding context
+                        const start = Math.max(0, index - 1);
+                        const end = Math.min(words.length, index + 2);
+                        const phrase = words.slice(start, end).join(' ');
+                        if (phrase.length <= 60) {
+                            suggestionsSet.add(phrase);
+                        }
+                    }
+                });
+            }
+            if (log.actorName && log.actorName.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.actorName);
+            }
+            if (log.targetName && log.targetName.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.targetName);
+            }
+        });
+
+        // From AuditLog
+        auditLogs.forEach(log => {
+            if (log.action && log.action.toLowerCase().includes(query.toLowerCase())) {
+                suggestionsSet.add(log.action);
+            }
+            if (log.details && typeof log.details === 'string' && log.details.toLowerCase().includes(query.toLowerCase())) {
+                const words = log.details.split(/\s+/);
+                words.forEach((word, index) => {
+                    if (word.toLowerCase().includes(query.toLowerCase()) && word.length >= 3) {
+                        const start = Math.max(0, index - 1);
+                        const end = Math.min(words.length, index + 2);
+                        const phrase = words.slice(start, end).join(' ');
+                        if (phrase.length <= 60) {
+                            suggestionsSet.add(phrase);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Convert to array, sort by relevance (exact matches first, then by length)
+        const suggestions = Array.from(suggestionsSet)
+            .filter(s => s && s.trim().length > 0)
+            .sort((a, b) => {
+                const aLower = a.toLowerCase();
+                const bLower = b.toLowerCase();
+                const queryLower = query.toLowerCase();
+
+                // Exact match at start gets priority
+                if (aLower.startsWith(queryLower) && !bLower.startsWith(queryLower)) {return -1;}
+                if (!aLower.startsWith(queryLower) && bLower.startsWith(queryLower)) {return 1;}
+
+                // Then by length (shorter is better)
+                return a.length - b.length;
+            })
+            .slice(0, limit);
+
+        res.json({ success: true, suggestions });
+    } catch (error) {
+        console.error('Error fetching search suggestions:', error);
+        res.status(500).json({ success: false, message: 'Error fetching search suggestions' });
     }
 };
 

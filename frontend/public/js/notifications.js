@@ -1158,7 +1158,7 @@
                 htmlContent += '</div></div>';
             }
 
-            bodyContentEl.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+            bodyContentEl.innerHTML = htmlContent || '';
 
             // Footer actions for admin approval workflow and recipient acknowledgment
             const footer = modal.querySelector('#notificationMemoFooter');
@@ -1584,7 +1584,7 @@
                             setTimeout(() => {
                                 footer.style.display = 'none';
                                 const overlay = modal.querySelector('#notificationActionOverlay');
-                                if (overlay) overlay.style.display = 'none';
+                                if (overlay) {overlay.style.display = 'none';}
                             }, 700);
 
                             // Refresh notifications
@@ -1594,7 +1594,7 @@
                         } catch (err) {
                             acknowledgeBtn.disabled = false;
                             const overlay = modal.querySelector('#notificationActionOverlay');
-                            if (overlay) overlay.style.display = 'none';
+                            if (overlay) {overlay.style.display = 'none';}
 
                             Swal.fire({
                                 icon: 'error',

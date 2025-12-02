@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectDropdownBtn = document.getElementById('selectDropdownBtn');
     const selectDropdownMenu = document.getElementById('selectDropdownMenu');
     const selectDropdownWrapper = document.querySelector('.select-dropdown-wrapper');
+    const memoSelectionEnabled = window.memoSelectionEnabled !== false;
     const deptFilterDropdown = document.getElementById('deptFilterDropdown');
     const priorityFilterDropdown = document.getElementById('priorityFilterDropdown');
     const sortDropdown = document.getElementById('sortDropdown');
@@ -979,48 +980,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Select dropdown functionality - initialize after a short delay to ensure DOM is ready
-    setTimeout(() => {
-        const selectBtn = document.getElementById('selectDropdownBtn');
-        const selectMenu = document.getElementById('selectDropdownMenu');
-        const selectWrapper = document.querySelector('.select-dropdown-wrapper');
+    if (memoSelectionEnabled) {
+        setTimeout(() => {
+            const selectBtn = document.getElementById('selectDropdownBtn');
+            const selectMenu = document.getElementById('selectDropdownMenu');
+            const selectWrapper = document.querySelector('.select-dropdown-wrapper');
 
-        if (selectBtn && selectMenu && selectWrapper) {
-            // Toggle dropdown on button click
-            selectBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-
-                // Position dropdown relative to button
-                const rect = selectBtn.getBoundingClientRect();
-                selectMenu.style.top = (rect.bottom + 4) + 'px';
-                selectMenu.style.left = rect.left + 'px';
-
-                selectWrapper.classList.toggle('open');
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (selectWrapper && !selectWrapper.contains(e.target)) {
-                    selectWrapper.classList.remove('open');
-                }
-            });
-
-            // Handle dropdown item clicks
-            selectMenu.querySelectorAll('.select-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => {
+            if (selectBtn && selectMenu && selectWrapper) {
+                // Toggle dropdown on button click
+                selectBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    const action = item.dataset.action;
-                    handleSelectAction(action);
-                    if (selectWrapper) {
+
+                    // Position dropdown relative to button
+                    const rect = selectBtn.getBoundingClientRect();
+                    selectMenu.style.top = (rect.bottom + 4) + 'px';
+                    selectMenu.style.left = rect.left + 'px';
+
+                    selectWrapper.classList.toggle('open');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (selectWrapper && !selectWrapper.contains(e.target)) {
                         selectWrapper.classList.remove('open');
                     }
                 });
-            });
-        }
-    }, 100);
+
+                // Handle dropdown item clicks
+                selectMenu.querySelectorAll('.select-dropdown-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const action = item.dataset.action;
+                        handleSelectAction(action);
+                        if (selectWrapper) {
+                            selectWrapper.classList.remove('open');
+                        }
+                    });
+                });
+            }
+        }, 100);
+    } else if (selectDropdownWrapper) {
+        selectDropdownWrapper.style.display = 'none';
+    }
 
     function handleSelectAction(action) {
+        if (!memoSelectionEnabled) {
+            return;
+        }
         const memoItems = document.querySelectorAll('.memo-item');
         const visibleItems = Array.from(memoItems).filter(item => item.style.display !== 'none');
 
@@ -1124,6 +1132,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update selection UI (archive button visibility, selectDropdown icon state)
     function updateSelectionUI() {
+        if (!memoSelectionEnabled) {
+            const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+            if (bulkArchiveBtn) {
+                bulkArchiveBtn.style.display = 'none';
+            }
+            if (selectDropdownWrapper) {
+                selectDropdownWrapper.style.display = 'none';
+            }
+            return;
+        }
+
         const checkboxes = document.querySelectorAll('.memo-checkbox');
         const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
         const hasSelection = checkedBoxes.length > 0;
@@ -1785,15 +1804,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Validate subject and content
-            const subject = document.getElementById('subject').value.trim();
+            // Validate subject (always required) and content (optional with confirmation if empty)
+            const subjectInput = document.getElementById('subject');
+            const subject = subjectInput ? subjectInput.value.trim() : '';
+
             if (!subject) {
-                showNotification('Subject is required', 'error');
+                // Let browser required attribute show tooltip, but also show our own message
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Subject required',
+                        text: 'Please enter a clear subject for this memo before sending.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#2563EB'
+                    });
+                } else {
+                    showNotification('Subject is required.', 'error');
+                }
+                if (subjectInput) {
+                    subjectInput.focus();
+                }
                 return;
             }
 
             // Get content from textarea (optional)
             const content = contentTextarea ? contentTextarea.value.trim() : '';
+
+            // If content is empty, ask for confirmation
+            if (!content) {
+                if (typeof Swal !== 'undefined') {
+                    const { isConfirmed } = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Send without content?',
+                        html: 'You are about to send this memo <strong>without any body content</strong>.<br><br><span style="font-size:13px;color:#6b7280;">The subject and attachments will still be sent. Click <strong>Cancel</strong> to go back and add details, or <strong>Send Memo</strong> to continue.</span>',
+                        confirmButtonText: 'Send Memo',
+                        cancelButtonText: 'Cancel',
+                        showCancelButton: true,
+                        focusCancel: true,
+                        confirmButtonColor: '#2563EB',
+                        cancelButtonColor: '#6b7280'
+                    });
+
+                    if (!isConfirmed) {
+                        return;
+                    }
+                } else {
+                    const proceed = window.confirm('Send this memo without body content?');
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            }
 
             // Create FormData
             const formData = new FormData();
@@ -2008,8 +2069,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // eslint-disable-next-line no-console
-                console.error('Error:', error);
-                showNotification(`Error sending memo: ${error.message}`, 'error');
+                console.error('Error sending memo:', error);
+                // eslint-disable-next-line no-console
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
+                
+                // Provide more helpful error message
+                let errorMessage = error.message || 'Failed to send memo';
+                if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+                    errorMessage = 'Failed to connect to server. Please check your internet connection and try again.';
+                }
+                
+                showNotification(`Error sending memo: ${errorMessage}`, 'error');
                 if (sendBtn) {
                     sendBtn.disabled = false;
                     if (btnText) {btnText.style.display = 'inline';}
@@ -2701,7 +2775,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bulk archive button
     const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
     if (bulkArchiveBtn) {
-        bulkArchiveBtn.addEventListener('click', async () => {
+        if (!memoSelectionEnabled) {
+            bulkArchiveBtn.style.display = 'none';
+        } else {
+            bulkArchiveBtn.addEventListener('click', async () => {
             const checkedBoxes = Array.from(document.querySelectorAll('.memo-checkbox')).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
             if (checkedBoxes.length === 0) {
                 Swal.fire({
@@ -2784,7 +2861,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     position: 'top-end'
                 });
             }
-        });
+            });
+        }
     }
 
     // Archive button (single memo)
@@ -3224,12 +3302,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 priorityBadge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
             }
 
+            const selectionMarkup = memoSelectionEnabled
+                ? `<input type="checkbox" class="memo-checkbox" data-memo-id="${memo._id}" data-index="${index}" style="margin: 12px 12px 0 12px; cursor: pointer; flex-shrink: 0;">`
+                : '';
+
             return `
             <div class="memo-item ${index === currentMemoIndex ? 'active' : ''}"
                  data-id="${memo._id}"
                  data-index="${index}"
                  style="display: flex; align-items: flex-start; gap: 0;">
-                <input type="checkbox" class="memo-checkbox" data-memo-id="${memo._id}" data-index="${index}" style="margin: 12px 12px 0 12px; cursor: pointer; flex-shrink: 0;">
+                ${selectionMarkup}
                 <div style="flex: 1; min-width: 0;">
                     <div class="memo-item-header">
                         <img src="${avatarSrc}"
@@ -3750,7 +3832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const isCurrentUserRecipient = (recip) => {
-            if (!recip || !currentUserIdForRecipients) return false;
+            if (!recip || !currentUserIdForRecipients) {return false;}
             const recipId = recip._id?.toString() || recip.toString();
             return recipId === (currentUserIdForRecipients.toString ? currentUserIdForRecipients.toString() : currentUserIdForRecipients);
         };
@@ -3950,8 +4032,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 htmlContent += '</div></div>';
             }
 
-            // Always set innerHTML, even if empty, to ensure display
-            memoBodyContent.innerHTML = htmlContent || '<div style="color: #9ca3af;">No content available</div>';
+            // Only show placeholder when attachments/signatures are truly missing
+            memoBodyContent.innerHTML = htmlContent || '';
 
             // Reinitialize icons for attachment links
             if (typeof lucide !== 'undefined') {
@@ -4239,7 +4321,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update acknowledgment UI based on memo and current user
     function updateAcknowledgmentUI(memo) {
-        if (!memo || !window.currentUser) return;
+        if (!memo || !window.currentUser) {return;}
 
         const currentUserId = window.currentUser._id || window.currentUser.id;
         const isRecipient = memo.recipient && (memo.recipient._id?.toString() === currentUserId.toString() || memo.recipient.toString() === currentUserId.toString());
@@ -4283,7 +4365,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display recipient avatars with acknowledged status inline in the "To:" field
     function displayRecipientAvatarsInline(memo, allRecipients) {
         const avatarsDiv = document.getElementById('recipientAvatarsInline');
-        if (!avatarsDiv) return;
+        if (!avatarsDiv) {return;}
 
         const acknowledgments = memo.acknowledgments || [];
         const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
@@ -4329,7 +4411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avatarsDiv = document.getElementById('acknowledgmentAvatars');
         const reminderBtnCompact = document.getElementById('reminderBtnCompact');
 
-        if (!statusDiv || !avatarsDiv) return;
+        if (!statusDiv || !avatarsDiv) {return;}
 
         const acknowledgments = memo.acknowledgments || [];
         const acknowledgedUserIds = acknowledgments.map(ack => ack.userId?._id?.toString() || ack.userId?.toString()).filter(Boolean);
@@ -4433,7 +4515,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle acknowledge button click
     if (acknowledgeBtn) {
         acknowledgeBtn.addEventListener('click', async () => {
-            if (!currentMemoId) return;
+            if (!currentMemoId) {return;}
 
             try {
                 acknowledgeBtn.disabled = true;
@@ -4528,12 +4610,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleReminderClick = async () => {
-            if (!currentMemoId) return;
+            if (!currentMemoId) {return;}
 
             const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
             try {
-                if (reminderBtn) reminderBtn.disabled = true;
-                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = true;
+                if (reminderBtn) {reminderBtn.disabled = true;}
+                if (reminderBtnCompactEl) {reminderBtnCompactEl.disabled = true;}
                 const response = await fetch(`/api/log/memos/${currentMemoId}/reminder`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4568,9 +4650,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error sending reminder:', error);
                 showReminderAlert('error', error.message || 'Failed to send reminder');
             } finally {
-                if (reminderBtn) reminderBtn.disabled = false;
+                if (reminderBtn) {reminderBtn.disabled = false;}
                 const reminderBtnCompactEl = document.getElementById('reminderBtnCompact');
-                if (reminderBtnCompactEl) reminderBtnCompactEl.disabled = false;
+                if (reminderBtnCompactEl) {reminderBtnCompactEl.disabled = false;}
             }
         };
 

@@ -7,7 +7,7 @@
     'use strict';
 
     // Wait for DOM to be ready
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', () => {
         const mobileMenuToggle = document.getElementById('mobileMenuToggle');
         const sidebar = document.querySelector('.sidebar');
         const sidebarOverlay = document.querySelector('.sidebar-overlay');
@@ -61,7 +61,7 @@
             // Reinitialize all Lucide icons in the sidebar (for archive, settings, logout icons)
             if (typeof lucide !== 'undefined') {
                 // Small delay to ensure sidebar is visible
-                setTimeout(function() {
+                setTimeout(() => {
                     lucide.createIcons();
                 }, 50);
             }
@@ -88,23 +88,23 @@
         }
 
         // Event listeners
-        mobileMenuToggle.addEventListener('click', function(e) {
+        mobileMenuToggle.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             toggleSidebar();
         });
 
         // Close sidebar when clicking overlay
-        overlay.addEventListener('click', function() {
+        overlay.addEventListener('click', () => {
             closeSidebar();
         });
 
         // Close sidebar when clicking a link inside sidebar
         const sidebarLinks = sidebar.querySelectorAll('a');
-        sidebarLinks.forEach(function(link) {
-            link.addEventListener('click', function() {
+        sidebarLinks.forEach((link) => {
+            link.addEventListener('click', () => {
                 // Small delay to allow navigation
-                setTimeout(function() {
+                setTimeout(() => {
                     closeSidebar();
                 }, 100);
             });
@@ -112,9 +112,9 @@
 
         // Close sidebar on window resize if it becomes desktop size
         let resizeTimer;
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function() {
+            resizeTimer = setTimeout(() => {
                 if (window.innerWidth >= 577) {
                     closeSidebar();
                 }

@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+// OPTIMIZED: Use requestIdleCallback or setTimeout to avoid blocking DOMContentLoaded
+function initUserManagement() {
     // DOM Elements
     const usersList = document.getElementById('usersList');
     const addUserModal = document.getElementById('addUserModal');
@@ -850,23 +851,57 @@ function normalizeDepartment(dept) {
 
     async function closeEditModal({ release = true } = {}) {
         cleanupEditLockState();
-        const id = currentEditingUserId || document.getElementById('editUserId').value;
+        const id = currentEditingUserId || document.getElementById('editUserId')?.value;
         currentEditingUserId = null;
-        if (release && id) {
-            await releaseEditLock(id);
-        }
-        if (id) {
-            userLocks[id] = { locked: false };
-            renderUsers();
-        }
+        
+        // Close modal IMMEDIATELY for instant user feedback (< 100ms)
         setFormDisabled(editUserForm, false);
         closeModal(editUserModal);
+        
+        // Update UI state asynchronously (non-blocking)
+        if (id) {
+            userLocks[id] = { locked: false };
+            // Defer renderUsers to next frame so modal closes instantly
+            // Vue handles the main rendering, so this is just for vanilla JS compatibility
+            if (typeof renderUsers === 'function') {
+                setTimeout(() => {
+                    try {
+                        renderUsers();
+                    } catch (e) {
+                        // Ignore errors - Vue might be handling rendering
+                    }
+                }, 0);
+            }
+        }
+        
+        // Release lock in background (fire-and-forget, don't wait for it)
+        // This API call should not block the UI
+        if (release && id) {
+            // Use fetch with AbortController for timeout, but don't await
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
+            
+            fetch(`/api/users/unlock-user/${id}`, { 
+                method: 'POST',
+                signal: controller.signal
+            })
+            .catch(() => {
+                // Silently fail - lock will expire anyway after 30 seconds
+            })
+            .finally(() => {
+                clearTimeout(timeoutId);
+            });
+        }
     }
 
     // Close modals when clicking outside or on close button
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target.classList.contains('close-modal')) {
+            // Check if clicked element or its parent has the close-modal class
+            const closeButton = e.target.closest('.close-modal');
+            if (e.target === modal || closeButton) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (modal === editUserModal) {
                     closeEditModal();
                 } else {
@@ -874,6 +909,39 @@ function normalizeDepartment(dept) {
                 }
             }
         });
+    });
+
+    // Direct event listeners for close-modal buttons (backup)
+    document.querySelectorAll('.close-modal').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const modal = button.closest('.modal');
+            if (modal) {
+                if (modal === editUserModal) {
+                    closeEditModal();
+                } else {
+                    closeModal(modal);
+                }
+            }
+        });
+    });
+
+    // Event delegation for close-modal buttons (handles dynamically added elements)
+    document.addEventListener('click', (e) => {
+        const closeButton = e.target.closest('.close-modal');
+        if (closeButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const modal = closeButton.closest('.modal');
+            if (modal) {
+                if (modal === editUserModal) {
+                    closeEditModal();
+                } else {
+                    closeModal(modal);
+                }
+            }
+        }
     });
 
     // Close all menus
@@ -919,7 +987,8 @@ function normalizeDepartment(dept) {
             if (secondsRemaining <= 0) {
                 clearInterval(editCountdownTimer);
                 // Only expire if user actually interacted
-                if (window.__editArmed) { autoCloseEdit(userId, 'Session expired — no activity detected.'); }
+                // Close silently when countdown expires naturally (no toast message)
+                if (window.__editArmed) { autoCloseEdit(userId, ''); }
                 else { secondsRemaining = 30; }
             } else {
                 badge.textContent = `Editing lock: ${secondsRemaining}s`;
@@ -965,7 +1034,10 @@ function normalizeDepartment(dept) {
     async function autoCloseEdit(userId, message) {
         await releaseEditLock(userId);
         await closeEditModal({ release: false });
-        showToast(message || 'Session ended');
+        // Only show toast if message is provided and not empty
+        if (message && message.trim()) {
+            showToast(message);
+        }
     }
 
     function showLockBusyModal(seconds, userId) {
@@ -1206,6 +1278,27 @@ function normalizeDepartment(dept) {
         console.log(`${type}: ${message}`);
     }
 
-    // Initial load
-    fetchUsers();
-});
+    // NOTE: fetchUsers() is now handled by Vue.js, so we don't call it here
+    // This prevents duplicate API calls and improves performance
+}
+
+// OPTIMIZED: Initialize without blocking DOMContentLoaded
+if (document.readyState === 'loading') {
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if (window.requestIdleCallback) {
+        document.addEventListener('DOMContentLoaded', () => {
+            requestIdleCallback(initUserManagement, { timeout: 1000 });
+        });
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initUserManagement, 0);
+        });
+    }
+} else {
+    // DOM already loaded, initialize immediately but non-blocking
+    if (window.requestIdleCallback) {
+        requestIdleCallback(initUserManagement, { timeout: 1000 });
+    } else {
+        setTimeout(initUserManagement, 0);
+    }
+}

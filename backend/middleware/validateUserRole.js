@@ -17,7 +17,7 @@ async function validateUserRole(req, res, next) {
 
         if (!currentUser) {
             req.logout((err) => {
-                if (err) console.error('Logout error:', err);
+                if (err) {console.error('Logout error:', err);}
             });
             if (req.accepts('html')) {
                 return res.redirect('/?error=user_not_found');
@@ -31,7 +31,7 @@ async function validateUserRole(req, res, next) {
         // Check if account is deactivated
         if (!currentUser.isActive) {
             req.logout((err) => {
-                if (err) console.error('Logout error:', err);
+                if (err) {console.error('Logout error:', err);}
             });
             if (req.accepts('html')) {
                 return res.redirect('/?error=account_deactivated');

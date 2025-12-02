@@ -30,12 +30,11 @@ const isAdmin = (req, res, next) => {
 
         // Check if user is admin
         if (!rbacService.isAdmin(req.user)) {
-            // Log unauthorized access attempt
-            console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin route: ${req.path}`);
-
             // For API requests ONLY, return JSON error instead of redirect
             // HTML page requests should always redirect, not return JSON
             if (req.path.startsWith('/api/') && !req.accepts('html')) {
+                // Log unauthorized API access attempt
+                console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin API route: ${req.path}`);
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access. Admin access required.'
@@ -56,23 +55,54 @@ const isAdmin = (req, res, next) => {
             const currentPath = req.path;
             const isAdminDashboard = currentPath === '/admin-dashboard' || currentPath.startsWith('/admin/');
 
-            // Check if redirecting to user's own dashboard
-            const redirectingToOwnDashboard =
-                (role === 'admin' && redirectUrl === '/admin-dashboard') ||
-                (role === 'secretary' && redirectUrl === '/secretary-dashboard') ||
-                (role === 'faculty' && redirectUrl === '/faculty-dashboard');
+            // Check if user is trying to access their OWN dashboard (not an admin route)
+            // This is normal behavior during login and navigation, not a security issue
+            const accessingOwnDashboard =
+                (role === 'admin' && currentPath === '/admin-dashboard') ||
+                (role === 'secretary' && currentPath === '/secretary-dashboard') ||
+                (role === 'faculty' && currentPath === '/faculty-dashboard');
 
-            // If redirecting to user's own dashboard, NEVER add error parameters
-            // This prevents false positives during login and normal navigation
-            if (redirectingToOwnDashboard) {
+            // If accessing their own dashboard, silently allow (this shouldn't happen here, but just in case)
+            if (accessingOwnDashboard) {
                 return res.redirect(redirectUrl);
             }
 
-            // Only add error if they actually tried to access an admin route AND not redirecting to own dashboard
+            // If they tried to access an admin route, check if it's from login flow
             if (isAdminDashboard) {
-                return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+                // Check if request is coming from login/auth flow or if user just logged in
+                const referer = req.get('referer') || '';
+                const isFromLoginFlow = referer.includes('/login') ||
+                                       referer.includes('/auth/') ||
+                                       referer.includes('/google-callback') ||
+                                       referer.includes('/auth-success');
+
+                // Check if user just logged in (lastLogin was very recent - within last 10 seconds)
+                // This helps detect login flows even if referer is missing
+                const justLoggedIn = req.user?.lastLogin &&
+                                    (Date.now() - new Date(req.user.lastLogin).getTime()) < 10000; // 10 seconds
+
+                // Check if user is navigating from their own dashboard (intentional access attempt)
+                const isFromOwnDashboard = referer.includes('/faculty-dashboard') ||
+                                          referer.includes('/secretary-dashboard') ||
+                                          referer.includes('/admin-dashboard');
+
+                // Only log if:
+                // 1. NOT from login flow AND
+                // 2. NOT just logged in AND
+                // 3. Either no referer (direct URL typing) OR coming from their own dashboard (intentional navigation)
+                const shouldLog = !isFromLoginFlow &&
+                                 !justLoggedIn &&
+                                 (!referer || isFromOwnDashboard);
+
+                if (shouldLog) {
+                    console.warn(`Unauthorized access attempt: User ${req.user?.email} (${req.user?.role}) tried to access admin route: ${req.path}`);
+                    return res.redirect(`${redirectUrl}?error=unauthorized_access&message=${encodeURIComponent('Unauthorized access. Admin access required.')}`);
+                } else {
+                    // Part of login flow or just logged in - silently redirect without warning
+                    return res.redirect(redirectUrl);
+                }
             } else {
-                // Not an admin route - redirect without error
+                // Not an admin route - redirect without error or warning (normal redirect)
                 return res.redirect(redirectUrl);
             }
         }

@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navLinks.forEach(link => {
         const img = link.querySelector('img');
-        if (!img) return;
+        if (!img) {return;}
 
         // determine active/inactive versions
         const normalSrc = img.src.includes('-in.')

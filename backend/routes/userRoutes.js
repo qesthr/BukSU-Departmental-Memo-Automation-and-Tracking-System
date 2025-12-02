@@ -42,6 +42,7 @@ router.post('/lock-user/:id/refresh', userController.refreshUserLock);
 router.post('/unlock-user/:id', userController.releaseUserLock);
 router.get('/lock-status/:id', userController.lockStatus);
 router.get('/locks/:id/state', userController.lockStatus);
+router.post('/locks/batch', userController.getBatchLockStates);
 
 // Invitations
 router.post('/invite', inviteController.inviteUser);

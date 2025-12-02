@@ -57,16 +57,16 @@ router.get('/auth/callback', isAuthenticated, async (req, res) => {
         if (tokens.refresh_token) { updates.calendarRefreshToken = tokens.refresh_token; }
         await User.findByIdAndUpdate(req.user._id, updates);
 
-        // Notify user about successful calendar connection
+        // Log successful calendar connection to Activity Logs (no memo/inbox entry)
         try {
             const updatedUser = await User.findById(req.user._id);
             if (updatedUser) {
                 const notificationService = require('../services/notificationService');
-                await notificationService.notifyCalendarConnected({ user: updatedUser });
+                await notificationService.notifyCalendarConnected({ user: updatedUser, req });
             }
         } catch (e) {
             // eslint-disable-next-line no-console
-            console.error('Error sending calendar connection notification:', e?.message || e);
+            console.error('Error logging calendar connection activity:', e?.message || e);
         }
 
         // Redirect based on user role

@@ -286,8 +286,13 @@ exports.getOne = async (req, res, next) => {
         const userId = req.user._id.toString();
         let creatorId = null;
 
+        // Get the raw document to check unpopulated createdBy field
+        const eventDoc = event.toObject();
+        
+        // First, try to get creatorId from populated createdBy
         if (event.createdBy) {
             if (event.createdBy._id) {
+                // Populated user object
                 creatorId = event.createdBy._id.toString();
             } else if (typeof event.createdBy === 'object' && event.createdBy.toString) {
                 creatorId = event.createdBy.toString();
@@ -295,21 +300,58 @@ exports.getOne = async (req, res, next) => {
                 creatorId = String(event.createdBy);
             }
         }
-
-        const isCreator = creatorId && creatorId === userId;
-
-        // Return event with creator info and permission flag
-        const eventObj = event.toObject();
-        eventObj.isCreator = isCreator;
-
-        // Also include createdBy._id as a string for easy frontend comparison
-        if (event.createdBy) {
-            eventObj.createdById = event.createdBy._id ? event.createdBy._id.toString() : creatorId;
-        } else {
-            eventObj.createdById = creatorId;
+        
+        // Fallback: if creatorId is still null, check the raw createdBy field from the document
+        if (!creatorId && eventDoc.createdBy) {
+            if (eventDoc.createdBy._id) {
+                creatorId = eventDoc.createdBy._id.toString();
+            } else {
+                creatorId = String(eventDoc.createdBy);
+            }
         }
 
-        res.json(eventObj);
+        // Compare using ObjectId for reliability
+        let isCreator = false;
+        if (creatorId && userId) {
+            try {
+                // Try ObjectId comparison first (most reliable)
+                if (creatorId.length === 24 && userId.length === 24) {
+                    const creatorObjId = new mongoose.Types.ObjectId(creatorId);
+                    const userObjId = new mongoose.Types.ObjectId(userId);
+                    isCreator = creatorObjId.equals(userObjId);
+                }
+                // Fallback to string comparison
+                if (!isCreator) {
+                    isCreator = creatorId === userId;
+                }
+            } catch (e) {
+                // Final fallback to string comparison
+                isCreator = creatorId === userId;
+            }
+        }
+
+        console.log('🔍 getOne - Creator check:', {
+            eventId: req.params.id,
+            creatorId,
+            userId,
+            isCreator,
+            createdByType: typeof event.createdBy,
+            createdByHasId: !!event.createdBy?._id
+        });
+
+        // Return event with creator info and permission flag
+        eventDoc.isCreator = isCreator;
+
+        // Also include createdBy._id as a string for easy frontend comparison
+        if (creatorId) {
+            eventDoc.createdById = creatorId;
+        } else if (event.createdBy?._id) {
+            eventDoc.createdById = event.createdBy._id.toString();
+        } else {
+            eventDoc.createdById = null;
+        }
+
+        res.json(eventDoc);
     } catch (err) {
         next(err);
     }
@@ -432,13 +474,41 @@ exports.update = async (req, res, next) => {
         const originalEvent = await CalendarEvent.findById(req.params.id);
         if (!originalEvent) {return res.status(404).json({ message: 'Event not found' });}
 
-        // Check if user is the creator
+        // Check if user is the creator - use reliable ObjectId comparison
         const userId = req.user._id.toString();
-        const creatorId = originalEvent.createdBy ?
-            (originalEvent.createdBy._id ? originalEvent.createdBy._id.toString() : originalEvent.createdBy.toString()) :
-            originalEvent.createdBy.toString();
+        let creatorId = null;
 
-        if (creatorId !== userId) {
+        if (originalEvent.createdBy) {
+            if (originalEvent.createdBy._id) {
+                creatorId = originalEvent.createdBy._id.toString();
+            } else if (typeof originalEvent.createdBy === 'object' && originalEvent.createdBy.toString) {
+                creatorId = originalEvent.createdBy.toString();
+            } else {
+                creatorId = String(originalEvent.createdBy);
+            }
+        }
+
+        // Compare using ObjectId for reliability
+        let isCreator = false;
+        if (creatorId && userId) {
+            try {
+                // Try ObjectId comparison first (most reliable)
+                if (creatorId.length === 24 && userId.length === 24) {
+                    const creatorObjId = new mongoose.Types.ObjectId(creatorId);
+                    const userObjId = new mongoose.Types.ObjectId(userId);
+                    isCreator = creatorObjId.equals(userObjId);
+                }
+                // Fallback to string comparison
+                if (!isCreator) {
+                    isCreator = creatorId === userId;
+                }
+            } catch (e) {
+                // Final fallback to string comparison
+                isCreator = creatorId === userId;
+            }
+        }
+
+        if (!isCreator) {
             return res.status(403).json({ message: 'Only the event creator can edit this event' });
         }
 
