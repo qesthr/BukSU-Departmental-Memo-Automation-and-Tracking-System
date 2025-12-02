@@ -124,7 +124,16 @@ class CustomCalendar {
       addEventBtn.className = 'btn btn-primary';
       addEventBtn.textContent = 'Add Event';
       addEventBtn.onclick = () => {
-        if (window.openModal) {window.openModal();}
+        console.log('[Calendar] Add Event button clicked (secretary/faculty toolbar)');
+        if (window.triggerOpenCalendarModal) {
+          console.log('[Calendar] Using window.triggerOpenCalendarModal(null)');
+          window.triggerOpenCalendarModal(null);
+        } else if (window.openModal) {
+          console.log('[Calendar] Fallback to window.openModal()');
+          window.openModal();
+        } else {
+          console.warn('[Calendar] No modal handler found for Add Event click');
+        }
       };
       leftSection.appendChild(addEventBtn);
     }
@@ -809,11 +818,13 @@ class CustomCalendar {
       }
       return;
     }
-    if (window.openModal) {
-      // Open modal with pre-filled date and time
-      const [hours, minutes] = time.split(':').map(Number);
-      const eventDate = new Date(date);
-      eventDate.setHours(hours, minutes, 0, 0);
+    // Open modal with pre-filled date and time
+    const [hours, minutes] = time.split(':').map(Number);
+    const eventDate = new Date(date);
+    eventDate.setHours(hours, minutes, 0, 0);
+    if (window.triggerOpenCalendarModal) {
+      window.triggerOpenCalendarModal(eventDate);
+    } else if (window.openModal) {
       window.openModal(eventDate);
     }
   }

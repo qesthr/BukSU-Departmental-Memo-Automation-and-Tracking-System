@@ -273,6 +273,19 @@
   const departmentList = document.getElementById('departmentList');
   const closeDepartmentDropdown = document.getElementById('closeDepartmentDropdown');
   const participantsHiddenInput = document.getElementById('memoParticipants');
+
+  function triggerOpenCalendarModal(payload) {
+    const handler = window.openSecretaryCalendarModal || window.openModal;
+    if (typeof handler === 'function') {
+      console.log('[Calendar] triggerOpenCalendarModal -> calling handler with payload:', payload);
+      handler(payload);
+      return true;
+    }
+    console.warn('[Calendar] triggerOpenCalendarModal: no calendar modal handler available.');
+    return false;
+  }
+
+  window.triggerOpenCalendarModal = triggerOpenCalendarModal;
   const closeModalBtn = document.getElementById('closeMemoModal');
   const cancelBtn = document.getElementById('cancelMemo');
   const saveBtn = document.getElementById('saveMemoBtn') || (form ? form.querySelector('button[type="submit"]') : null);
@@ -399,8 +412,8 @@
       viewOnly: isViewOnly // Pass view-only flag to calendar
     });
 
-    // Hide Add Event button if view-only
-    if (isViewOnly) {
+    // Hide Add Event button if view-only (faculty), but NOT on secretary calendar
+    if (isViewOnly && !window.isSecretaryCalendar) {
       setTimeout(() => {
         const addEventBtn = document.querySelector('.btn-primary');
         if (addEventBtn && addEventBtn.textContent.includes('Add Event')) {
@@ -1214,7 +1227,7 @@
           __readOnly: !isCreator
         };
 
-        window.openModal(vueEvent);
+        triggerOpenCalendarModal(vueEvent);
         return;
       }
 
