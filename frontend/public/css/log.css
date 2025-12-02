@@ -1383,9 +1383,7 @@
 
 .recipient-input-wrapper {
     flex: 1; /* keeps it flexible */
-    min-width: 250px; /* prevents it from shrinking too small */
-    max-width: 600px; /* prevents it from growing too large */
-    width: 100%; /* fills parent container */
+    width: 100%;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
