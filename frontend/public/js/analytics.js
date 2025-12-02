@@ -116,12 +116,6 @@ function setupEventListeners() {
         applyDateRange.addEventListener('click', handleApplyDateRange);
     }
 
-    // Refresh button
-    const refreshBtn = document.getElementById('refreshDataBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => loadAnalyticsData());
-    }
-
     // Export button
     const exportBtn = document.getElementById('exportReportBtn');
     if (exportBtn) {
