@@ -1121,13 +1121,43 @@
       console.log('   isCreator flag:', event.isCreator);
       console.log('   createdById:', event.createdById);
       console.log('   currentUser.id:', window.currentUser?.id);
+      console.log('   createdBy (raw):', event.createdBy);
 
       // Determine mode: CREATOR MODE vs RECIPIENT MODE
-      const isCreator = event.isCreator === true ||
-                       (event.createdById && window.currentUser?.id &&
-                        String(event.createdById) === String(window.currentUser.id));
+      // Check multiple ways to determine if user is creator
+      let isCreator = false;
+      
+      // Method 1: Check isCreator flag from backend
+      if (event.isCreator === true) {
+        isCreator = true;
+        console.log('   ✅ Creator check: isCreator flag is true');
+      } 
+      // Method 2: Compare createdById with current user id
+      else if (event.createdById && window.currentUser?.id) {
+        const createdByIdStr = String(event.createdById).trim();
+        const currentUserIdStr = String(window.currentUser.id).trim();
+        if (createdByIdStr === currentUserIdStr) {
+          isCreator = true;
+          console.log('   ✅ Creator check: createdById matches currentUser.id');
+        } else {
+          console.log('   ❌ Creator check: IDs do not match', {
+            createdById: createdByIdStr,
+            currentUserId: currentUserIdStr,
+            match: createdByIdStr === currentUserIdStr
+          });
+        }
+      }
+      // Method 3: Check createdBy._id if available
+      else if (event.createdBy && window.currentUser?.id) {
+        const createdById = event.createdBy._id ? String(event.createdBy._id) : String(event.createdBy);
+        const currentUserIdStr = String(window.currentUser.id).trim();
+        if (createdById === currentUserIdStr) {
+          isCreator = true;
+          console.log('   ✅ Creator check: createdBy._id matches currentUser.id');
+        }
+      }
 
-      console.log('   Mode:', isCreator ? 'CREATOR MODE' : 'RECIPIENT MODE');
+      console.log('   Final Mode:', isCreator ? 'CREATOR MODE (Editable)' : 'RECIPIENT MODE (Read Only)');
 
       if (isCreator) {
         // CREATOR MODE: Show editable form
@@ -1237,7 +1267,9 @@
     // Format dates for inputs
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);
+    const endDateInput = document.getElementById('memoEndDate');
     if (dateInput) {dateInput.value = formatDateForInput(startDate);}
+    if (endDateInput) {endDateInput.value = formatDateForInput(endDate);}
     if (startInput) {startInput.value = formatTimeForInput(startDate);}
     if (endInput) {endInput.value = formatTimeForInput(endDate);}
 
@@ -1907,8 +1939,12 @@
       return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00+08:00`;
     };
 
+    // Get end date if provided, otherwise use start date
+    const endDateInput = document.getElementById('memoEndDate');
+    const endDate = endDateInput && endDateInput.value ? endDateInput.value : date;
+    
     const startISO = formatDateTime(date, start);
-    const endISO = end ? formatDateTime(date, end) : formatDateTime(date, start.split(':').map((v, i) => i === 0 ? String((parseInt(v) + 1) % 24).padStart(2, '0') : v).join(':'));
+    const endISO = end ? formatDateTime(endDate, end) : formatDateTime(endDate, start.split(':').map((v, i) => i === 0 ? String((parseInt(v) + 1) % 24).padStart(2, '0') : v).join(':'));
 
     const participants = participantsHiddenInput ? participantsHiddenInput.value : JSON.stringify(participantsData);
 
