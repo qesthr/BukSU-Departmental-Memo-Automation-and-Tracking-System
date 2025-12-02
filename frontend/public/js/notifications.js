@@ -54,6 +54,9 @@
             return fetch(url, options);
         };
 
+        // Determine current user role (used to tailor UI)
+        const currentRole = (window.currentUser && window.currentUser.role) || '';
+
         // Check if notification button exists
         if (!notificationBtn) {
             // eslint-disable-next-line no-console
@@ -83,6 +86,14 @@
                 z-index: 200000; /* ensure above any page UI */
                 margin-top: 0.5rem;
             `;
+            const footerHtml = (currentRole === 'admin' || currentRole === 'secretary')
+                ? `
+                <div class="notification-footer">
+                    <a href="/admin/activity-logs" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View Activity Logs</a>
+                </div>
+                `
+                : '';
+
             dropdown.innerHTML = `
                 <div class="notification-header" style="padding: 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                     <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: #1e293b;">Notifications</h3>
@@ -92,9 +103,7 @@
                     </button>
                 </div>
                 <div class="notification-list" id="notificationList" style="max-height: 450px; overflow-y: auto;"></div>
-                <div class="notification-footer">
-                    <a href="/admin/activity-logs" style="display: block; padding: 1rem; text-align: center; color: #1C89E3; text-decoration: none; border-top: 1px solid #e2e8f0; font-weight: 500;">View Activity Logs</a>
-                </div>
+                ${footerHtml}
             `;
 
             // Always append to body to escape local stacking contexts
