@@ -311,11 +311,28 @@
                     return;
                 }
 
-                // If user is on their correct dashboard, NEVER show errors - just clean up URL silently
-                // This prevents annoying error popups during normal login
+                // If user is on their correct dashboard WITH error params, they tried to access unauthorized route
+                // Show SweetAlert to inform them
                 if (currentUserRole === 'faculty' && window.location.pathname === '/faculty-dashboard') {
-                    // Faculty on their own dashboard - clean up URL silently, no error
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    // Faculty tried to access unauthorized route - show SweetAlert
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Unauthorized Access',
+                            text: decodedMessage || 'You do not have permission to access that page.',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#1C89E3',
+                            allowOutsideClick: false,
+                            allowEscapeKey: true
+                        }).then(() => {
+                            // Clean up URL after user clicks OK
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        });
+                    } else {
+                        // Fallback if SweetAlert not available
+                        alert(decodedMessage || 'You do not have permission to access that page.');
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
                     return;
                 }
 

@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectDropdownBtn = document.getElementById('selectDropdownBtn');
     const selectDropdownMenu = document.getElementById('selectDropdownMenu');
     const selectDropdownWrapper = document.querySelector('.select-dropdown-wrapper');
+    const memoSelectionEnabled = window.memoSelectionEnabled !== false;
     const deptFilterDropdown = document.getElementById('deptFilterDropdown');
     const priorityFilterDropdown = document.getElementById('priorityFilterDropdown');
     const sortDropdown = document.getElementById('sortDropdown');
@@ -979,48 +980,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Select dropdown functionality - initialize after a short delay to ensure DOM is ready
-    setTimeout(() => {
-        const selectBtn = document.getElementById('selectDropdownBtn');
-        const selectMenu = document.getElementById('selectDropdownMenu');
-        const selectWrapper = document.querySelector('.select-dropdown-wrapper');
+    if (memoSelectionEnabled) {
+        setTimeout(() => {
+            const selectBtn = document.getElementById('selectDropdownBtn');
+            const selectMenu = document.getElementById('selectDropdownMenu');
+            const selectWrapper = document.querySelector('.select-dropdown-wrapper');
 
-        if (selectBtn && selectMenu && selectWrapper) {
-            // Toggle dropdown on button click
-            selectBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-
-                // Position dropdown relative to button
-                const rect = selectBtn.getBoundingClientRect();
-                selectMenu.style.top = (rect.bottom + 4) + 'px';
-                selectMenu.style.left = rect.left + 'px';
-
-                selectWrapper.classList.toggle('open');
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (selectWrapper && !selectWrapper.contains(e.target)) {
-                    selectWrapper.classList.remove('open');
-                }
-            });
-
-            // Handle dropdown item clicks
-            selectMenu.querySelectorAll('.select-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => {
+            if (selectBtn && selectMenu && selectWrapper) {
+                // Toggle dropdown on button click
+                selectBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    const action = item.dataset.action;
-                    handleSelectAction(action);
-                    if (selectWrapper) {
+
+                    // Position dropdown relative to button
+                    const rect = selectBtn.getBoundingClientRect();
+                    selectMenu.style.top = (rect.bottom + 4) + 'px';
+                    selectMenu.style.left = rect.left + 'px';
+
+                    selectWrapper.classList.toggle('open');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (selectWrapper && !selectWrapper.contains(e.target)) {
                         selectWrapper.classList.remove('open');
                     }
                 });
-            });
-        }
-    }, 100);
+
+                // Handle dropdown item clicks
+                selectMenu.querySelectorAll('.select-dropdown-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const action = item.dataset.action;
+                        handleSelectAction(action);
+                        if (selectWrapper) {
+                            selectWrapper.classList.remove('open');
+                        }
+                    });
+                });
+            }
+        }, 100);
+    } else if (selectDropdownWrapper) {
+        selectDropdownWrapper.style.display = 'none';
+    }
 
     function handleSelectAction(action) {
+        if (!memoSelectionEnabled) {
+            return;
+        }
         const memoItems = document.querySelectorAll('.memo-item');
         const visibleItems = Array.from(memoItems).filter(item => item.style.display !== 'none');
 
@@ -1124,6 +1132,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update selection UI (archive button visibility, selectDropdown icon state)
     function updateSelectionUI() {
+        if (!memoSelectionEnabled) {
+            const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+            if (bulkArchiveBtn) {
+                bulkArchiveBtn.style.display = 'none';
+            }
+            if (selectDropdownWrapper) {
+                selectDropdownWrapper.style.display = 'none';
+            }
+            return;
+        }
+
         const checkboxes = document.querySelectorAll('.memo-checkbox');
         const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
         const hasSelection = checkedBoxes.length > 0;
@@ -2743,7 +2762,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bulk archive button
     const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
     if (bulkArchiveBtn) {
-        bulkArchiveBtn.addEventListener('click', async () => {
+        if (!memoSelectionEnabled) {
+            bulkArchiveBtn.style.display = 'none';
+        } else {
+            bulkArchiveBtn.addEventListener('click', async () => {
             const checkedBoxes = Array.from(document.querySelectorAll('.memo-checkbox')).filter(cb => cb.checked && cb.closest('.memo-item')?.style.display !== 'none');
             if (checkedBoxes.length === 0) {
                 Swal.fire({
@@ -2826,7 +2848,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     position: 'top-end'
                 });
             }
-        });
+            });
+        }
     }
 
     // Archive button (single memo)
@@ -3266,12 +3289,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 priorityBadge = '<span class="priority-badge priority-low" title="Low">🔵 LOW</span>';
             }
 
+            const selectionMarkup = memoSelectionEnabled
+                ? `<input type="checkbox" class="memo-checkbox" data-memo-id="${memo._id}" data-index="${index}" style="margin: 12px 12px 0 12px; cursor: pointer; flex-shrink: 0;">`
+                : '';
+
             return `
             <div class="memo-item ${index === currentMemoIndex ? 'active' : ''}"
                  data-id="${memo._id}"
                  data-index="${index}"
                  style="display: flex; align-items: flex-start; gap: 0;">
-                <input type="checkbox" class="memo-checkbox" data-memo-id="${memo._id}" data-index="${index}" style="margin: 12px 12px 0 12px; cursor: pointer; flex-shrink: 0;">
+                ${selectionMarkup}
                 <div style="flex: 1; min-width: 0;">
                     <div class="memo-item-header">
                         <img src="${avatarSrc}"

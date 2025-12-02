@@ -293,6 +293,7 @@
   };
   let categoryFilter = null; // null = all categories, or 'urgent', 'today', etc.
   let allEventsCache = []; // Cache all events for client-side filtering
+  window.allEventsCache = allEventsCache; // Expose globally for search functionality
   let isInitialLoad = true; // Track if this is the first load
 
   // Modal functions (from original calendar.js)
@@ -604,6 +605,7 @@
 
       // Cache all active events for filtering
       allEventsCache = activeEvents;
+      window.allEventsCache = allEventsCache; // Update global reference for search
 
       // Apply filters and update calendar
       applyFilters();

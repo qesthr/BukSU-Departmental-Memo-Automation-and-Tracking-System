@@ -224,12 +224,21 @@
                 return bDate - aDate; // Newest first
             });
 
+            // Expose allArchivedItems globally for search functionality
+            window.allArchivedItems = allArchivedItems;
+
             let filteredMemos = [...allArchivedItems];
+            
+            // Expose filteredMemos globally for search functionality
+            window.filteredMemos = filteredMemos;
+            
             let currentMemoIndex = -1;
             let currentMemoId = null;
 
             // Render archived memos and events
             function renderArchiveList() {
+                // Update global filteredMemos reference
+                window.filteredMemos = filteredMemos;
                 if (!archiveList) return;
 
                 if (filteredMemos.length === 0) {
@@ -664,64 +673,106 @@
                 });
             }
 
-            // Apply filters
+            // Apply filters (including search term from topbar)
             if (priorityFilter) {
                 priorityFilter.addEventListener('change', () => {
-                    const priority = priorityFilter.value;
-                    if (priority === 'all') {
-                        filteredMemos = [...allArchivedItems];
-                    } else {
-                        filteredMemos = allArchivedItems.filter(item => {
-                            if (item.type === 'event') {
-                                const category = (item.category || '').toLowerCase();
-                                // Map event categories to priority filter
-                                if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
-                                if (priority === 'high') return category === 'high' || category === 'meeting';
-                                if (priority === 'medium') return category === 'standard' || category === 'reminder';
-                                if (priority === 'low') return category === 'low';
-                                return false;
-                            } else {
-                                return (item.priority || '').toLowerCase() === priority;
-                            }
-                        });
-                    }
-                    renderArchiveList();
+                    applyArchiveFilters();
                 });
             }
-
-            if (sortDropdown) {
-                sortDropdown.addEventListener('change', () => {
+            
+            // Function to apply all filters including search
+            function applyArchiveFilters() {
+                const priority = priorityFilter ? priorityFilter.value : 'all';
+                const searchTerm = (window.archiveSearchTerm || '').trim().toLowerCase();
+                
+                // Start with all items
+                let items = [...allArchivedItems];
+                
+                // Apply priority filter
+                if (priority !== 'all') {
+                    items = items.filter(item => {
+                        if (item.type === 'event') {
+                            const category = (item.category || '').toLowerCase();
+                            // Map event categories to priority filter
+                            if (priority === 'urgent') return category === 'urgent' || category === 'deadline';
+                            if (priority === 'high') return category === 'high' || category === 'meeting';
+                            if (priority === 'medium') return category === 'standard' || category === 'reminder';
+                            if (priority === 'low') return category === 'low';
+                            return false;
+                        } else {
+                            return (item.priority || '').toLowerCase() === priority;
+                        }
+                    });
+                }
+                
+                // Apply search filter
+                if (searchTerm) {
+                    items = items.filter(item => {
+                        const subject = (item.subject || item.title || '').toLowerCase();
+                        const content = (item.content || item.description || '').toLowerCase();
+                        const department = (item.department || '').toLowerCase();
+                        const priority = (item.priority || item.category || '').toLowerCase();
+                        
+                        if (subject.includes(searchTerm) || content.includes(searchTerm) || 
+                            department.includes(searchTerm) || priority.includes(searchTerm)) {
+                            return true;
+                        }
+                        
+                        if (item.sender) {
+                            const senderName = `${item.sender.firstName || ''} ${item.sender.lastName || ''}`.toLowerCase();
+                            if (senderName.includes(searchTerm)) return true;
+                        }
+                        
+                        return false;
+                    });
+                }
+                
+                filteredMemos = items;
+                window.filteredMemos = filteredMemos;
+                
+                // Apply sorting
+                if (sortDropdown) {
                     const sort = sortDropdown.value;
                     filteredMemos.sort((a, b) => {
                         if (sort === 'newest') {
-                            // Use updatedAt (when archived) or createdAt as fallback
                             const aDate = new Date(a.updatedAt || a.createdAt || 0);
                             const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                            return bDate - aDate; // Newest first
-                        }
-                        if (sort === 'oldest') {
-                            // Use updatedAt (when archived) or createdAt as fallback
+                            return bDate - aDate;
+                        } else if (sort === 'oldest') {
                             const aDate = new Date(a.updatedAt || a.createdAt || 0);
                             const bDate = new Date(b.updatedAt || b.createdAt || 0);
-                            return aDate - bDate; // Oldest first
-                        }
-                        if (sort === 'priority') {
+                            return aDate - bDate;
+                        } else if (sort === 'priority') {
                             const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
                             const aPriority = a.type === 'event' ? (a.category === 'urgent' || a.category === 'deadline' ? 'urgent' : a.category === 'high' || a.category === 'meeting' ? 'high' : a.category === 'low' ? 'low' : 'medium') : (a.priority || 'medium');
                             const bPriority = b.type === 'event' ? (b.category === 'urgent' || b.category === 'deadline' ? 'urgent' : b.category === 'high' || b.category === 'meeting' ? 'high' : b.category === 'low' ? 'low' : 'medium') : (b.priority || 'medium');
                             return (priorityOrder[bPriority] || 0) - (priorityOrder[aPriority] || 0);
-                        }
-                        if (sort === 'subject') {
+                        } else if (sort === 'subject') {
                             const aTitle = a.type === 'event' ? (a.title || '') : (a.subject || '');
                             const bTitle = b.type === 'event' ? (b.title || '') : (b.subject || '');
                             return aTitle.localeCompare(bTitle);
                         }
                         return 0;
                     });
-                    renderArchiveList();
-                });
+                }
+                
+                renderArchiveList();
             }
 
+            if (sortDropdown) {
+                sortDropdown.addEventListener('change', () => {
+                    applyArchiveFilters();
+                });
+            }
+            
+            // Listen for search updates from topbar
+            window.addEventListener('archiveSearchUpdate', () => {
+                applyArchiveFilters();
+            });
+
+            // Expose renderArchiveList globally for search functionality
+            window.renderArchiveList = renderArchiveList;
+            
             // Initial render
             renderArchiveList();
         });

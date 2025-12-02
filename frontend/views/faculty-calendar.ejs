@@ -72,15 +72,13 @@
 						</div>
 						<div class="sidebar-section">
 							<h3>My Calendars</h3>
-							<label><input type="checkbox" v-model="calendarFilters.all" @change="updateCalendarFilters"> All</label><br/>
-							<label><input type="checkbox" v-model="calendarFilters.mine" @change="updateCalendarFilters"> My Events</label><br/>
+							<label><input type="checkbox" v-model="calendarFilters.mine" @change="updateCalendarFilters"> My Events</label><br />
 							<label><input type="checkbox" v-model="calendarFilters.department" @change="updateCalendarFilters"> Department</label>
 						</div>
 						<div class="sidebar-section">
 							<h3>Categories</h3>
 							<div><span class="category-dot cat-today"></span>Today</div>
 							<div><span class="category-dot cat-urgent"></span>Urgent</div>
-							<div><span class="category-dot cat-standard"></span>Standard</div>
 						</div>
 					</aside>
 
@@ -171,7 +169,6 @@
 
 					// Calendar filters
 					calendarFilters: {
-						all: true,
 						mine: true,
 						department: true
 					},
@@ -276,6 +273,14 @@
 					}
 				},
 
+				// Helper function to format date as YYYY-MM-DD in local time (not UTC)
+				formatDateLocal(date) {
+					const year = date.getFullYear();
+					const month = String(date.getMonth() + 1).padStart(2, '0');
+					const day = String(date.getDate()).padStart(2, '0');
+					return `${year}-${month}-${day}`;
+				},
+
 				generateMiniCalendar() {
 					const year = this.currentMiniDate.getFullYear();
 					const month = this.currentMiniDate.getMonth();
@@ -300,9 +305,11 @@
 					for (let i = 0; i < 42; i++) {
 						const currentDate = new Date(startDay);
 						currentDate.setDate(startDay.getDate() + i);
+						currentDate.setHours(0, 0, 0, 0); // Ensure midnight local time
 
-						const dateStr = currentDate.toISOString().split('T')[0];
-						const todayStr = today.toISOString().split('T')[0];
+						// Use local date formatting instead of toISOString() to avoid timezone issues
+						const dateStr = this.formatDateLocal(currentDate);
+						const todayStr = this.formatDateLocal(today);
 
 						this.miniCalendarDays.push({
 							date: dateStr,
@@ -398,19 +405,22 @@
 				hasEventsOnDate(date) {
 					if (!this.events || this.events.length === 0) return false;
 
-					const dateStr = date.toISOString().split('T')[0];
+					// Use local date formatting to avoid timezone issues
+					const dateStr = this.formatDateLocal(date);
 					return this.events.some(event => {
 						if (!event.start) return false;
 						const eventDate = new Date(event.start);
-						const eventDateStr = eventDate.toISOString().split('T')[0];
+						eventDate.setHours(0, 0, 0, 0); // Normalize to midnight local time
+						const eventDateStr = this.formatDateLocal(eventDate);
 
-						// Check if event is on this date or spans multiple days
-						const eventEnd = event.end ? new Date(event.end) : eventDate;
-						const eventEndStr = eventEnd.toISOString().split('T')[0];
+					// Check if event is on this date or spans multiple days
+					const eventEnd = event.end ? new Date(event.end) : eventDate;
+					eventEnd.setHours(0, 0, 0, 0); // Normalize to midnight local time
+					const eventEndStr = this.formatDateLocal(eventEnd);
 
-						// Event is on this date if it starts on this date, ends on this date, or spans this date
-						return eventDateStr === dateStr || eventEndStr === dateStr ||
-						       (eventDateStr <= dateStr && eventEndStr >= dateStr);
+					// Event is on this date if it starts on this date, ends on this date, or spans this date
+					return eventDateStr === dateStr || eventEndStr === dateStr ||
+					       (eventDateStr <= dateStr && eventEndStr >= dateStr);
 					});
 				},
 

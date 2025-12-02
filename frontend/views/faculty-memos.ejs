@@ -17,7 +17,7 @@
 	<script src="/js/lucide.min.js"></script>
 </head>
 
-<body>
+<body class="faculty-readonly">
 	<div class="dashboard-container">
 		<%- include('../components/fal-nav'); %>
 
@@ -31,25 +31,11 @@
                     <section class="memo-list-area" style="flex:1 1 auto;">
                         <div class="memo-container">
                             <div class="memo-list-header">
-                                <div class="header-controls">
-                                    <div class="checkbox-control" style="display: flex; align-items: center; gap: 8px;">
-                                        <div class="select-dropdown-wrapper">
-                                            <button id="selectDropdownBtn" class="select-dropdown-btn" type="button">
-                                                <i data-lucide="square" class="select-icon"></i>
-                                                <i data-lucide="chevron-down" class="dropdown-arrow"></i>
-                                            </button>
-                                            <div id="selectDropdownMenu" class="select-dropdown-menu">
-                                                <button type="button" class="select-dropdown-item" data-action="all">All</button>
-                                                <button type="button" class="select-dropdown-item" data-action="none">None</button>
-                                                <button type="button" class="select-dropdown-item" data-action="read">Read</button>
-                                                <button type="button" class="select-dropdown-item" data-action="unread">Unread</button>
-                                                <button type="button" class="select-dropdown-item" data-action="starred">Starred</button>
-                                                <button type="button" class="select-dropdown-item" data-action="unstarred">Unstarred</button>
-                                            </div>
-                                        </div>
-                                        <button id="bulkArchiveBtn" class="icon-btn-sm" title="Archive Selected" style="display: none;">
-                                            <i data-lucide="archive"></i>
-                                        </button>
+                                <div class="memo-list-title">
+                                    <i data-lucide="inbox" style="width: 24px; height: 24px; color: #6366f1;"></i>
+                                    <div>
+                                        <h2>Received Memos</h2>
+                                        <p>Browse and view memos sent to you</p>
                                     </div>
                                 </div>
                                 <div class="department-filters">
@@ -187,6 +173,7 @@
             role: '<%= user.role %>',
             department: '<%= user.department || "" %>'
         };
+        window.memoSelectionEnabled = false;
         window.receivedMemos = <%- JSON.stringify(received || []) %>;
     </script>
     <script src="/js/log.js"></script>
