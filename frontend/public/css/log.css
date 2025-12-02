@@ -1076,6 +1076,7 @@
 #composeModal .modal-header {
     padding: 14px 36px;
     flex-shrink: 0;
+    border-radius: 10px 10px 0px 0px;
 }
 
 .modal-header h2 {
