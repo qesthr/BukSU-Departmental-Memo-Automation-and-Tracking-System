@@ -26,6 +26,7 @@ const validateUserRole = require('../../backend/middleware/validateUserRole');
 // User management routes
 router.get('/users', [isAuthenticated, validateUserRole, isAdmin], (req, res) => {
     res.render('admin/users', {
+        pageTitle: 'Admin Users | Memofy',
         user: req.user,
         path: '/admin/users'
     });
