@@ -19,6 +19,15 @@
     <%- include('../../components/sweetalert2'); %>
 
     <script src="/js/lucide.min.js"></script>
+    <script>
+        // Immediate check on page load - redirect if password was changed
+        (function() {
+            if (sessionStorage.getItem('passwordChanged') === 'true') {
+                sessionStorage.removeItem('passwordChanged');
+                window.location.href = '/auth/logout';
+            }
+        })();
+    </script>
 </head>
 
 <body data-current-user='<%- JSON.stringify({
@@ -338,23 +347,39 @@
                             const isPassword = type === 'password';
                             const icon = feedbackType === 'success' ? 'success' : (feedbackType === 'error' ? 'error' : 'info');
                             if (typeof Swal !== 'undefined') {
-                                Swal.fire({
+                                const swalConfig = {
                                     icon,
                                     title: feedbackType === 'success'
                                         ? (isPassword ? 'Password Updated' : 'Session Timeout Updated')
                                         : (isPassword ? 'Password Update' : 'Session Timeout'),
                                     text: message,
                                     confirmButtonText: isPassword && feedbackType === 'success' ? 'Re‑login' : 'OK',
-                                    confirmButtonColor: feedbackType === 'success' ? '#2563EB' : undefined
-                                }).then((result) => {
+                                    confirmButtonColor: feedbackType === 'success' ? '#2563EB' : undefined,
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false,
+                                    showCancelButton: false
+                                };
+
+                                // For password success, make it non-dismissible
+                                if (isPassword && feedbackType === 'success') {
+                                    swalConfig.allowOutsideClick = false;
+                                    swalConfig.allowEscapeKey = false;
+                                    swalConfig.showCancelButton = false;
+                                    // Mark that password was changed - user must re-login
+                                    sessionStorage.setItem('passwordChanged', 'true');
+                                }
+
+                                Swal.fire(swalConfig).then((result) => {
                                     if (isPassword && feedbackType === 'success' && result.isConfirmed) {
-                                        // For security, force re-login after password change
+                                        // Clear the flag and force re-login after password change
+                                        sessionStorage.removeItem('passwordChanged');
                                         window.location.href = '/auth/logout';
                                     }
                                 });
                             } else {
                                 alert(message);
                                 if (isPassword && feedbackType === 'success') {
+                                    sessionStorage.setItem('passwordChanged', 'true');
                                     window.location.href = '/auth/logout';
                                 }
                             }
@@ -387,6 +412,13 @@
 
                     // Lifecycle
                     onMounted(async () => {
+                        // Check if password was changed - redirect to login if so
+                        if (sessionStorage.getItem('passwordChanged') === 'true') {
+                            sessionStorage.removeItem('passwordChanged');
+                            window.location.href = '/auth/logout';
+                            return;
+                        }
+
                         lucide.createIcons();
                         // Hydrate settings (darkMode, notifications, session timeout) from backend
                         try {

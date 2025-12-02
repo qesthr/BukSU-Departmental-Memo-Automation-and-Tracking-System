@@ -141,9 +141,10 @@ exports.getActivityLogs = async (req, res) => {
             const actionMap = {
                 'login_success': 'user_login',
                 'login_failed': 'user_login', // Could be separate, but keeping as login for now
-                'user_lock_acquired': 'user_lock_acquired',
-                'user_lock_refreshed': 'user_lock_acquired', // Treat refresh as acquire
-                'user_lock_released': 'user_lock_released',
+                // Exclude lock operations from Activity Logs (user requested)
+                // 'user_lock_acquired': 'user_lock_acquired',
+                // 'user_lock_refreshed': 'user_lock_acquired',
+                // 'user_lock_released': 'user_lock_released',
                 'user_updated': 'user_updated',
                 'user_deleted': 'user_archived', // Map old delete to archive for existing data
                 'user_created': 'user_created'
@@ -152,27 +153,74 @@ exports.getActivityLogs = async (req, res) => {
         };
 
         // Convert AuditLog entries to ActivityLog format
-        const formattedAuditLogs = auditLogs.map(log => {
-            const mappedActionType = mapAuditActionToActivityType(log.action);
-            return {
-                id: log._id,
-                actor: {
-                    id: log.user?._id || log.user,
-                    name: log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.email : log.email,
-                    email: log.email,
-                    role: log.user?.role || 'faculty',
-                    profilePicture: log.user?.profilePicture || null
-                },
-                actionType: mappedActionType,
-                description: log.message || log.subject || `User ${log.action || 'activity'}`,
-                targetResource: log.metadata?.targetResource || (mappedActionType.startsWith('user_') ? 'user' : null),
-                targetId: log.metadata?.targetId || null,
-                targetName: log.metadata?.targetName || '',
-                metadata: { ...log.metadata, originalAction: log.action },
-                ipAddress: log.metadata?.ipAddress || '',
-                timestamp: log.createdAt
-            };
+        // Filter out lock operations (user requested to exclude them from Activity Logs)
+        // Also batch fetch user names for user_updated actions that don't have targetName
+        const userUpdateLogs = auditLogs.filter(log => {
+            const lockActions = ['user_lock_acquired', 'user_lock_refreshed', 'user_lock_released'];
+            return !lockActions.includes(log.action) && mapAuditActionToActivityType(log.action) === 'user_updated' && !log.metadata?.targetName && log.metadata?.targetUserId;
         });
+        
+        // Batch fetch user names for logs missing targetName
+        const userIdsToFetch = [...new Set(userUpdateLogs.map(log => log.metadata?.targetUserId).filter(Boolean))];
+        let userNamesMap = new Map();
+        if (userIdsToFetch.length > 0) {
+            try {
+                const User = require('../models/User');
+                const users = await User.find({ _id: { $in: userIdsToFetch } }).select('firstName lastName email').lean();
+                users.forEach(user => {
+                    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || '';
+                    userNamesMap.set(user._id.toString(), name);
+                });
+            } catch (e) {
+                console.error('Error fetching user names for activity logs:', e);
+            }
+        }
+        
+        const formattedAuditLogs = auditLogs
+            .filter(log => {
+                // Exclude lock operations from Activity Logs
+                const lockActions = ['user_lock_acquired', 'user_lock_refreshed', 'user_lock_released'];
+                return !lockActions.includes(log.action);
+            })
+            .map(log => {
+                const mappedActionType = mapAuditActionToActivityType(log.action);
+                
+                // Extract target name - prioritize metadata.targetName (now set in audit call)
+                let targetName = log.metadata?.targetName || '';
+                
+                // For user_updated actions, if targetName is still not set, fetch from map or extract from description
+                if (!targetName && mappedActionType === 'user_updated' && log.metadata?.targetUserId) {
+                    const userIdStr = log.metadata.targetUserId.toString();
+                    targetName = userNamesMap.get(userIdStr) || log.metadata?.targetUserEmail || '';
+                    
+                    // Last resort: try to extract email from description
+                    if (!targetName) {
+                        const emailMatch = log.message?.match(/Updated user (.+)/);
+                        if (emailMatch) {
+                            targetName = emailMatch[1].trim();
+                        }
+                    }
+                }
+                
+                return {
+                    id: log._id,
+                    actor: {
+                        id: log.user?._id || log.user,
+                        name: log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() || log.email : log.email,
+                        email: log.email,
+                        role: log.user?.role || 'faculty',
+                        profilePicture: log.user?.profilePicture || null
+                    },
+                    actionType: mappedActionType,
+                    description: log.message || log.subject || `User ${log.action || 'activity'}`,
+                    targetResource: log.metadata?.targetResource || (mappedActionType.startsWith('user_') ? 'user' : null),
+                    targetId: log.metadata?.targetId || log.metadata?.targetUserId || null,
+                    targetName: targetName,
+                    metadata: { ...log.metadata, originalAction: log.action },
+                    ipAddress: log.metadata?.ipAddress || '',
+                    timestamp: log.createdAt
+                };
+            });
 
         // Map Memo activityTypes to ActivityLog actionTypes
         const mapMemoActivityTypeToActivityType = (activityType) => {
@@ -203,6 +251,30 @@ exports.getActivityLogs = async (req, res) => {
                 // Skip system_notification memos (they're notifications, not activity logs)
                 if (mappedActionType === null) {return null;}
 
+                // Extract target name for user-related actions
+                let targetName = memo.metadata?.targetName || '';
+                
+                // For user_profile_edited memos, extract the edited user's name
+                if (mappedActionType === 'user_profile_updated') {
+                    // Priority: metadata.targetName > extract from subject > metadata.editedUserEmail
+                    if (!targetName) {
+                        // Try to extract name from subject like "User profile updated: Clarisse Ramos"
+                        const subjectMatch = memo.subject?.match(/User profile updated: (.+)/);
+                        if (subjectMatch) {
+                            targetName = subjectMatch[1].trim();
+                        } else if (memo.metadata?.editedUserEmail) {
+                            // Fallback to email if name not available
+                            targetName = memo.metadata.editedUserEmail;
+                        } else {
+                            // Last fallback: use subject (but this should rarely happen now)
+                            targetName = memo.subject || '';
+                        }
+                    }
+                } else if (!targetName) {
+                    // For other memos, use subject as fallback
+                    targetName = memo.subject || '';
+                }
+
                 return {
                     id: memo._id,
                     actor: {
@@ -217,8 +289,8 @@ exports.getActivityLogs = async (req, res) => {
                     targetResource: memo.metadata?.targetResource ||
                                    (mappedActionType.startsWith('memo_') ? 'memo' :
                                     mappedActionType.startsWith('user_') ? 'user' : null),
-                    targetId: memo.metadata?.targetId || memo.metadata?.memoId || null,
-                    targetName: memo.metadata?.targetName || memo.subject || '',
+                    targetId: memo.metadata?.targetId || memo.metadata?.editedUserId || memo.metadata?.memoId || null,
+                    targetName: targetName,
                     metadata: memo.metadata || {},
                     ipAddress: memo.metadata?.ipAddress || '',
                     timestamp: memo.createdAt

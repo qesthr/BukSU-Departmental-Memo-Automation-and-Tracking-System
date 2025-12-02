@@ -124,8 +124,8 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
     const adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'An admin';
     const editedUserName = `${editedUser.firstName || ''} ${editedUser.lastName || ''}`.trim() || editedUser.email || 'User';
 
-    // Notify the user being edited
-    await new Memo({
+    // Create both memos and save them in parallel for better performance
+    const userMemo = new Memo({
       sender: adminUser._id,
       recipient: editedUser._id,
       subject: 'Your profile has been updated',
@@ -136,12 +136,14 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
       metadata: {
         eventType: 'user_profile_edited',
         editedBy: adminUser._id?.toString?.() || String(adminUser._id || ''),
-        editedByEmail: adminUser.email || ''
+        editedByEmail: adminUser.email || '',
+        targetResource: 'user',
+        targetId: editedUser._id?.toString?.() || String(editedUser._id || ''),
+        targetName: editedUserName // Set target name to the edited user's name
       }
-    }).save();
+    });
 
-    // Notify the admin who made the edit
-    await new Memo({
+    const adminMemo = new Memo({
       sender: adminUser._id,
       recipient: adminUser._id,
       subject: `User profile updated: ${editedUserName}`,
@@ -152,9 +154,15 @@ async function notifyUserProfileEdited({ editedUser, adminUser }) {
       metadata: {
         eventType: 'user_profile_edited',
         editedUserId: editedUser._id?.toString?.() || String(editedUser._id || ''),
-        editedUserEmail: editedUser.email || ''
+        editedUserEmail: editedUser.email || '',
+        targetResource: 'user',
+        targetId: editedUser._id?.toString?.() || String(editedUser._id || ''),
+        targetName: editedUserName // Set target name to the edited user's name
       }
-    }).save();
+    });
+
+    // Save both memos in parallel instead of sequentially
+    await Promise.all([userMemo.save(), adminMemo.save()]);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('notifyUserProfileEdited error:', e?.message || e);

@@ -13,9 +13,21 @@
     <!-- Google Analytics Tracking -->
     <%- include('google-analytics', { propertyId: typeof gaPropertyId !== 'undefined' ? gaPropertyId : null }); %>
 
+    <!-- SweetAlert2 -->
+    <%- include('../components/sweetalert2'); %>
+
     <!-- Vue.js CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="/js/lucide.min.js"></script>
+    <script>
+        // Immediate check on page load - redirect if password was changed
+        (function() {
+            if (sessionStorage.getItem('passwordChanged') === 'true') {
+                sessionStorage.removeItem('passwordChanged');
+                window.location.href = '/auth/logout';
+            }
+        })();
+    </script>
 </head>
 <body>
     <div id="app" class="dashboard-container">
@@ -42,18 +54,19 @@
                             <div>
                                 <label for="newPassword">New Password</label>
                                 <input type="password" id="newPassword" v-model="passwordForm.newPassword" autocomplete="new-password" required>
+                                <password-strength :password="passwordForm.newPassword"></password-strength>
                             </div>
                             <div>
                                 <label for="confirmPassword">Confirm New Password</label>
                                 <input type="password" id="confirmPassword" v-model="passwordForm.confirmPassword" autocomplete="new-password" required>
+                                <div v-if="passwordForm.confirmPassword && !passwordsMatch" class="password-mismatch">
+                                    Passwords do not match
+                                </div>
                             </div>
                             <div class="settings-actions">
-                                <button type="submit" class="settings-btn primary" :disabled="passwordLoading">
+                                <button type="submit" class="settings-btn primary" :disabled="passwordLoading || !isPasswordValid">
                                     {{ passwordLoading ? 'Updating...' : 'Update Password' }}
                                 </button>
-                            </div>
-                            <div class="settings-feedback" :class="passwordFeedback.type" role="status">
-                                {{ passwordFeedback.message }}
                             </div>
                         </form>
                     </div>
@@ -91,11 +104,50 @@
     </div>
 
     <script>
+        /* global Swal */
         lucide.createIcons();
 
         const { createApp } = Vue;
 
+        // Password Strength Indicator Component
+        const PasswordStrength = {
+            props: {
+                password: String
+            },
+            computed: {
+                strength() {
+                    if (!this.password) return { level: 0, text: '' };
+
+                    let score = 0;
+                    const password = this.password;
+
+                    if (password.length >= 8) score++;
+                    if (password.length >= 12) score++;
+                    if (/[a-z]/.test(password)) score++;
+                    if (/[A-Z]/.test(password)) score++;
+                    if (/[0-9]/.test(password)) score++;
+                    if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+                    if (score <= 2) return { level: 1, text: 'Weak', class: 'weak' };
+                    if (score <= 4) return { level: 2, text: 'Fair', class: 'fair' };
+                    if (score <= 5) return { level: 3, text: 'Good', class: 'good' };
+                    return { level: 4, text: 'Strong', class: 'strong' };
+                }
+            },
+            template: `
+                <div v-if="password" class="password-strength">
+                    <div class="strength-bar">
+                        <div :class="['strength-fill', strength.class]" :style="{ width: (strength.level * 25) + '%' }"></div>
+                    </div>
+                    <span :class="['strength-text', strength.class]">{{ strength.text }}</span>
+                </div>
+            `
+        };
+
         createApp({
+            components: {
+                PasswordStrength
+            },
             data() {
                 return {
                     passwordForm: {
@@ -118,7 +170,22 @@
                     }
                 }
             },
+            computed: {
+                passwordsMatch() {
+                    return this.passwordForm.newPassword === this.passwordForm.confirmPassword || !this.passwordForm.confirmPassword;
+                },
+                isPasswordValid() {
+                    return this.passwordForm.newPassword.length >= 8 && this.passwordsMatch;
+                }
+            },
             mounted() {
+                // Check if password was changed - redirect to login if so
+                if (sessionStorage.getItem('passwordChanged') === 'true') {
+                    sessionStorage.removeItem('passwordChanged');
+                    window.location.href = '/auth/logout';
+                    return;
+                }
+
                 // Load saved settings from localStorage or API
                 this.loadSettings();
             },
@@ -128,68 +195,85 @@
                     this.passwordFeedback = { type: '', message: '' };
 
                     // Validate passwords
-                    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-                        this.passwordFeedback = {
-                            type: 'error',
-                            message: 'New passwords do not match.'
-                        };
-                        return;
-                    }
-
-                    if (this.passwordForm.newPassword.length < 8) {
-                        this.passwordFeedback = {
-                            type: 'error',
-                            message: 'Password must be at least 8 characters long.'
-                        };
+                    if (!this.isPasswordValid) {
+                        this.showPasswordFeedback('Please ensure passwords match and are at least 8 characters long.', 'error');
                         return;
                     }
 
                     this.passwordLoading = true;
 
                     try {
-                        // Simulate API call
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const response = await fetch('/api/password/change', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                currentPassword: this.passwordForm.currentPassword,
+                                newPassword: this.passwordForm.newPassword,
+                                confirmPassword: this.passwordForm.confirmPassword
+                            })
+                        });
 
-                        // In a real app, you would make an API call here
-                        // const response = await fetch('/api/update-password', {
-                        //     method: 'POST',
-                        //     headers: {
-                        //         'Content-Type': 'application/json',
-                        //     },
-                        //     body: JSON.stringify(this.passwordForm)
-                        // });
+                        const data = await response.json();
 
-                        // if (response.ok) {
-                        //     this.passwordFeedback = {
-                        //         type: 'success',
-                        //         message: 'Password updated successfully!'
-                        //     };
-                        //     this.passwordForm = {
-                        //         currentPassword: '',
-                        //         newPassword: '',
-                        //         confirmPassword: ''
-                        //     };
-                        // } else {
-                        //     throw new Error('Failed to update password');
-                        // }
-
-                        // Simulate successful password update
-                        this.passwordFeedback = {
-                            type: 'success',
-                            message: 'Password updated successfully!'
-                        };
-                        this.passwordForm = {
-                            currentPassword: '',
-                            newPassword: '',
-                            confirmPassword: ''
-                        };
+                        if (data.success) {
+                            // Clear form first
+                            this.passwordForm = {
+                                currentPassword: '',
+                                newPassword: '',
+                                confirmPassword: ''
+                            };
+                            // Show SweetAlert with re-login info and then force logout on confirm
+                            const msg = data.message || 'Your password has been updated successfully.';
+                            this.showPasswordFeedback(`${msg} Please log in again with your new password.`, 'success');
+                        } else {
+                            this.showPasswordFeedback(data.message || 'Failed to update password', 'error');
+                        }
                     } catch (error) {
-                        this.passwordFeedback = {
-                            type: 'error',
-                            message: 'Failed to update password. Please try again.'
-                        };
+                        console.error('Error updating password:', error);
+                        this.showPasswordFeedback('Failed to update password. Please try again.', 'error');
                     } finally {
                         this.passwordLoading = false;
+                    }
+                },
+                showPasswordFeedback(message, feedbackType = 'info') {
+                    const icon = feedbackType === 'success' ? 'success' : (feedbackType === 'error' ? 'error' : 'info');
+                    if (typeof Swal !== 'undefined') {
+                        const swalConfig = {
+                            icon,
+                            title: feedbackType === 'success' ? 'Password Updated' : 'Password Update',
+                            text: message,
+                            confirmButtonText: feedbackType === 'success' ? 'Re‑login' : 'OK',
+                            confirmButtonColor: feedbackType === 'success' ? '#2563EB' : undefined,
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showCancelButton: false
+                        };
+
+                        // For password success, make it non-dismissible
+                        if (feedbackType === 'success') {
+                            swalConfig.allowOutsideClick = false;
+                            swalConfig.allowEscapeKey = false;
+                            swalConfig.showCancelButton = false;
+                            // Mark that password was changed - user must re-login
+                            sessionStorage.setItem('passwordChanged', 'true');
+                        }
+
+                        Swal.fire(swalConfig).then((result) => {
+                            if (feedbackType === 'success' && result.isConfirmed) {
+                                // Clear the flag and force re-login after password change
+                                sessionStorage.removeItem('passwordChanged');
+                                window.location.href = '/auth/logout';
+                            }
+                        });
+                    } else {
+                        alert(message);
+                        if (feedbackType === 'success') {
+                            sessionStorage.setItem('passwordChanged', 'true');
+                            window.location.href = '/auth/logout';
+                        }
                     }
                 },
                 async updateSetting(setting, value) {
@@ -261,5 +345,48 @@
             }
         }).mount('#app');
     </script>
+
+    <style>
+        .password-strength {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .strength-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 0.25rem;
+        }
+
+        .strength-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .strength-fill.weak { background: #f59e0b; }
+        .strength-fill.fair { background: #eab308; }
+        .strength-fill.good { background: #84cc16; }
+        .strength-fill.strong { background: #22c55e; }
+
+        .strength-text {
+            color: #6b7280;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .strength-text.weak { color: #f59e0b; }
+        .strength-text.fair { color: #eab308; }
+        .strength-text.good { color: #84cc16; }
+        .strength-text.strong { color: #22c55e; }
+
+        .password-mismatch {
+            color: #ef4444;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+    </style>
 </body>
 </html>

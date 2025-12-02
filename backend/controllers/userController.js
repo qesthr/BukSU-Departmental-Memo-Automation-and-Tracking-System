@@ -438,74 +438,75 @@ exports.updateUser = async (req, res) => {
             return res.status(403).json({ message: 'You cannot change your own role or permissions.' });
         }
 
-        // Prevent changing role of last admin
-        if (user.role === 'admin' && role && role !== 'admin') {
-            const adminCount = await User.countDocuments({ role: 'admin' });
-            if (adminCount <= 1) {
-                return res.status(400).json({ message: 'Cannot change role of the last admin' });
-            }
-        }
-
         // Prevent deactivating yourself
         if (String(req.user._id) === String(id) && (isActive === false)) {
             return res.status(400).json({ message: 'You cannot deactivate your own account.' });
         }
 
-        // Prevent deactivating last admin
-        if ((isActive === false) && user.role === 'admin') {
-            const adminCount = await User.countDocuments({ role: 'admin', isActive: true });
-            if (adminCount <= 1) {
+        // Optimize: Check admin counts in parallel only if needed (faster than sequential)
+        // Use findOne with limit(2) instead of countDocuments - much faster when we only need to know if count > 1
+        const needsRoleCheck = user.role === 'admin' && role && role !== 'admin';
+        const needsDeactivateCheck = (isActive === false) && user.role === 'admin';
+        
+        if (needsRoleCheck || needsDeactivateCheck) {
+            // Run checks in parallel for better performance
+            const checks = await Promise.all([
+                needsRoleCheck 
+                    ? User.findOne({ role: 'admin', _id: { $ne: id } }).select('_id').lean().limit(1)
+                    : Promise.resolve(null),
+                needsDeactivateCheck
+                    ? User.findOne({ role: 'admin', isActive: true, _id: { $ne: id } }).select('_id').lean().limit(1)
+                    : Promise.resolve(null)
+            ]);
+            
+            // Prevent changing role of last admin
+            if (needsRoleCheck && !checks[0]) {
+                return res.status(400).json({ message: 'Cannot change role of the last admin' });
+            }
+            
+            // Prevent deactivating last admin
+            if (needsDeactivateCheck && !checks[1]) {
                 return res.status(400).json({ message: 'Cannot deactivate the last active admin' });
             }
         }
 
+        // Optimize: Build update object directly and use updateOne (faster than save())
+        const targetRole = role !== undefined ? role : user.role;
+        const updateData = {};
+        
         // Update fields if provided
-        if (firstName !== undefined) {user.firstName = firstName;}
-        if (lastName !== undefined) {user.lastName = lastName;}
-        if (role !== undefined) {user.role = role;}
-        if (department !== undefined) {user.department = department;}
-        if (email !== undefined) {user.email = email;}
-        if (profilePicture !== undefined) {user.profilePicture = profilePicture;}
-        if (isActive !== undefined) { user.isActive = !!isActive; user.status = isActive ? 'active' : 'disabled'; }
+        if (firstName !== undefined) updateData.firstName = firstName;
+        if (lastName !== undefined) updateData.lastName = lastName;
+        if (role !== undefined) updateData.role = role;
+        if (department !== undefined) updateData.department = department;
+        if (email !== undefined) updateData.email = email;
+        if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+        if (isActive !== undefined) {
+            updateData.isActive = !!isActive;
+            updateData.status = isActive ? 'active' : 'disabled';
+        }
 
         // Handle secretary-specific permissions
-        const targetRole = role !== undefined ? role : user.role;
         if (targetRole === 'secretary') {
-            if (canCrossSend !== undefined) {
-                user.canCrossSend = !!canCrossSend;
-            }
-            if (canAddSignature !== undefined) {
-                user.canAddSignature = !!canAddSignature;
-            }
+            if (canCrossSend !== undefined) updateData.canCrossSend = !!canCrossSend;
+            if (canAddSignature !== undefined) updateData.canAddSignature = !!canAddSignature;
         } else {
-            // Non-secretaries shouldn't keep secretary-only flags
-            user.canCrossSend = false;
-            user.canAddSignature = false;
+            updateData.canCrossSend = false;
+            updateData.canAddSignature = false;
         }
 
         // Enforce: Admins are not assigned to any department
         if (targetRole === 'admin') {
-            user.department = '';
+            updateData.department = '';
         }
 
-        await user.save();
-        // Audit update
-        try { await audit(req.user, 'user_updated', 'User Updated', `Updated user ${user.email}`, { targetUserId: user._id, fields: Object.keys(req.body || {}) }); } catch (e) {}
-
-        // Notify user and admin about profile edit (only if admin is editing another user's profile)
-        if (String(req.user._id) !== String(id) && req.user.role === 'admin') {
-            try {
-                const notificationService = require('../services/notificationService');
-                await notificationService.notifyUserProfileEdited({
-                    editedUser: user,
-                    adminUser: req.user
-                });
-            } catch (e) {
-                // eslint-disable-next-line no-console
-                console.error('Error sending profile edit notification:', e?.message || e);
-            }
-        }
-
+        // Use updateOne which is faster than save() for simple updates
+        await User.updateOne({ _id: id }, { $set: updateData });
+        
+        // Update local user object for response
+        Object.assign(user, updateData);
+        
+        // Send response immediately (non-blocking)
         res.json({
             success: true,
             message: 'User updated successfully',
@@ -522,6 +523,45 @@ exports.updateUser = async (req, res) => {
                 profilePicture: user.profilePicture
             }
         });
+
+        // Non-blocking operations after response is sent
+        // Audit update (fire and forget)
+        const targetUserName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User';
+        audit(req.user, 'user_updated', 'User Updated', `Updated user ${user.email}`, { 
+            targetUserId: user._id, 
+            targetName: targetUserName,
+            targetUserEmail: user.email,
+            fields: Object.keys(req.body || {}) 
+        }).catch(e => {
+            console.error('Audit error (non-blocking):', e?.message || e);
+        });
+
+        // Log to Activity Logs (fire and forget) - visible in Admin Activity Logs
+        const activityLogger = require('../services/activityLogger');
+        const updatedFields = Object.keys(req.body || {}).filter(k => 
+            ['firstName', 'lastName', 'role', 'department', 'email', 'isActive', 'canCrossSend', 'canAddSignature'].includes(k)
+        );
+        activityLogger.logUserAction(req.user, 'user_updated', user, {
+            description: `Updated user ${user.email}`,
+            metadata: {
+                updatedFields: updatedFields,
+                updatedBy: req.user.email,
+                targetUserEmail: user.email
+            }
+        }).catch(e => {
+            console.error('ActivityLog error (non-blocking):', e?.message || e);
+        });
+
+        // Notify user and admin about profile edit (only if admin is editing another user's profile) - fire and forget
+        if (String(req.user._id) !== String(id) && req.user.role === 'admin') {
+            const notificationService = require('../services/notificationService');
+            notificationService.notifyUserProfileEdited({
+                editedUser: user,
+                adminUser: req.user
+            }).catch(e => {
+                console.error('Error sending profile edit notification (non-blocking):', e?.message || e);
+            });
+        }
     } catch (error) {
         console.error('Error updating user:', error);
         res.status(500).json({ message: 'Error updating user' });

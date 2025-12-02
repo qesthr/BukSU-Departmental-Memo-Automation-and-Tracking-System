@@ -813,7 +813,8 @@
                         if (secondsRemaining.value <= 0) {
                             clearInterval(editCountdownTimer.value);
                             if (window.__editArmed) {
-                                autoCloseEdit(userId, 'Session expired — no activity detected.');
+                                // Close silently when countdown expires naturally (no toast message)
+                                autoCloseEdit(userId, '');
                             } else {
                                 secondsRemaining.value = 30;
                             }
@@ -870,7 +871,10 @@
                 const autoCloseEdit = async (userId, message) => {
                     await releaseEditLock(userId);
                     await closeEditModal({ release: false });
-                    showToast(message || 'Session ended');
+                    // Only show toast if message is provided and not empty
+                    if (message && message.trim()) {
+                        showToast(message);
+                    }
                 };
 
                 const showLockBusyModal = (seconds, userId) => {
@@ -1064,6 +1068,7 @@
                 };
 
                 const closeEditModal = async ({ release = true } = {}) => {
+                    // Cleanup timers immediately
                     if (editCountdownTimer.value) {
                         clearInterval(editCountdownTimer.value);
                         editCountdownTimer.value = null;
@@ -1076,18 +1081,37 @@
                     window.__editArmed = false;
                     const id = currentEditingUserId.value || document.getElementById('editUserId')?.value;
                     currentEditingUserId.value = null;
-                    if (release && id) {
-                        await releaseEditLock(id);
-                    }
-                    if (id) {
-                        userLocks.value[id] = { locked: false };
-                    }
+                    
+                    // Close modal IMMEDIATELY for instant user feedback (< 100ms)
                     const editModal = document.getElementById('editUserModal');
                     if (editModal) {
                         editModal.classList.remove('open');
                         setTimeout(() => {
                             editModal.style.display = 'none';
                         }, 200);
+                    }
+                    
+                    // Update UI state asynchronously (non-blocking)
+                    if (id) {
+                        userLocks.value[id] = { locked: false };
+                    }
+                    
+                    // Release lock in background (fire-and-forget, don't wait for it)
+                    if (release && id) {
+                        // Use fetch with timeout, but don't await
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
+                        
+                        fetch(`/api/users/unlock-user/${id}`, { 
+                            method: 'POST',
+                            signal: controller.signal
+                        })
+                        .catch(() => {
+                            // Silently fail - lock will expire anyway after 30 seconds
+                        })
+                        .finally(() => {
+                            clearTimeout(timeoutId);
+                        });
                     }
                 };
 
