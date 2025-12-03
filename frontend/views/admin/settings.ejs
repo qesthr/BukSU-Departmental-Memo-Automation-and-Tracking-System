@@ -644,6 +644,28 @@
                 background: #fef2f2;
                 border: 1px solid #fecaca;
             }
+
+            /* Improved override for success ring - keep it perfectly circular without layout distortion */
+            div:where(.swal2-icon).swal2-success .swal2-success-ring {
+                /* Remove border (which changes box size) and use a shadow-based ring instead */
+                border: 0 !important;
+                /* Ring with box-shadow (doesn't change element metrics) + soft outer glow */
+                box-shadow: 0 0 0 3px rgba(16,185,129, 0.28), 0 10px 30px rgba(16,185,129, 0.12);
+                /* Keep the element perfectly circular */
+                border-radius: 50% !important;
+                /* Disable any transform/animation that could scale or distort visuals */
+                transform: none !important;
+                animation: none !important;
+                /* Ensure the ring is drawn within the circle and doesn't hide overflowing parts */
+                box-sizing: border-box;
+                overflow: visible;
+                pointer-events: none; /* avoid accidental interactions */
+            }
+
+            /* Optional: slightly different ring in dark mode */
+            body.dark-mode div:where(.swal2-icon).swal2-success .swal2-success-ring {
+                box-shadow: 0 0 0 3px rgba(52,211,153, 0.26), 0 10px 30px rgba(16,24,40, 0.12);
+            }
         `;
         document.head.appendChild(style);
     </script>

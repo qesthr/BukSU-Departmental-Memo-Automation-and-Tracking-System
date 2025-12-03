@@ -162,11 +162,17 @@
     top: 0;
     background: #5917ff;
     z-index: 1;
+<<<<<<< HEAD
 
 }
 
 .modal-header h2 {
     color: black;
+=======
+    border-radius: 10px;
+    height: 31px;
+    overflow: hidden;
+>>>>>>> 81f0919e8ee0382dd71fb31c23cea896898baa73
 }
 
 .modal-body {

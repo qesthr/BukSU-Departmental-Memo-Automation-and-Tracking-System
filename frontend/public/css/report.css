@@ -11,8 +11,12 @@
 .content-wrapper {
     min-height: 100%;
     padding-bottom: 2rem;
+<<<<<<< HEAD
     margin-top: 15px;
     padding: 10px;
+=======
+    margin: 16px;
+>>>>>>> 81f0919e8ee0382dd71fb31c23cea896898baa73
 }
 
 .content-header {

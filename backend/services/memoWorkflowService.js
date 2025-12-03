@@ -51,6 +51,17 @@ async function createBySecretary({ user, payload }) {
 async function approve({ memoId, adminUser }) {
   const memo = await Memo.findById(memoId);
   if (!memo) {throw new Error('Memo not found');}
+  
+  // Ensure attachments are accessible (convert to plain object if needed)
+  if (!memo.attachments || !Array.isArray(memo.attachments)) {
+    // If attachments are missing, try to reload the memo
+    const memoWithAttachments = await Memo.findById(memoId).lean();
+    if (memoWithAttachments && memoWithAttachments.attachments) {
+      memo.attachments = memoWithAttachments.attachments;
+    } else {
+      memo.attachments = [];
+    }
+  }
 
   // Check if memo has already been approved or rejected by another admin
   if (memo.status === 'approved' || memo.status === 'rejected') {
@@ -293,6 +304,17 @@ async function deliver({ memo, actor }) {
   // Create recipient memos - one memo per faculty recipient
   // This is necessary for individual inbox tracking
   // These memos serve as notifications to recipients
+  // Deep copy attachments to ensure they are properly included
+  const attachmentsCopy = Array.isArray(memo.attachments) && memo.attachments.length > 0
+    ? memo.attachments.map(att => ({
+        filename: att.filename || '',
+        path: att.path || '',
+        url: att.url || '',
+        size: att.size || 0,
+        mimetype: att.mimetype || ''
+      }))
+    : [];
+  
   const createOps = recipientsToCreate.map(r => new Memo({
     sender: memo.sender,
     recipient: r,
@@ -304,7 +326,7 @@ async function deliver({ memo, actor }) {
     recipients: uniqueRecipients, // All recipients list
     priority: memo.priority || 'medium',
     createdBy: memo.createdBy || memo.sender,
-    attachments: memo.attachments || [],
+    attachments: attachmentsCopy, // Use deep-copied attachments
     signatures: memo.signatures || [],
     template: memo.template || 'none',
     status: MEMO_STATUS.SENT,
@@ -641,6 +663,17 @@ async function deliverWithRollback({ memo, actor, session }) {
     return { createdMemos: [], calendarEvents: [] };
   }
 
+  // Deep copy attachments to ensure they are properly included
+  const attachmentsCopy = Array.isArray(memo.attachments) && memo.attachments.length > 0
+    ? memo.attachments.map(att => ({
+        filename: att.filename || '',
+        path: att.path || '',
+        url: att.url || '',
+        size: att.size || 0,
+        mimetype: att.mimetype || ''
+      }))
+    : [];
+
   // Create recipient memos within transaction
   const createOps = recipientsToCreate.map(r => new Memo({
     sender: memo.sender,
@@ -653,7 +686,7 @@ async function deliverWithRollback({ memo, actor, session }) {
     recipients: uniqueRecipients,
     priority: memo.priority || 'medium',
     createdBy: memo.createdBy || memo.sender,
-    attachments: memo.attachments || [],
+    attachments: attachmentsCopy, // Use deep-copied attachments
     signatures: memo.signatures || [],
     template: memo.template || 'none',
     status: MEMO_STATUS.SENT,

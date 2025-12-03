@@ -248,6 +248,7 @@ input:checked + .slider:before {
     opacity: 0.6;
     cursor: not-allowed;
 }
+<<<<<<< HEAD
 
 .dark-mode {
     /* Add your dark mode styles here */
@@ -317,3 +318,5 @@ div:where(.swal2-icon).swal2-success svg {
 div:where(.swal2-icon).swal2-success .swal2-success-ring {
     /* stroke: #10b981 !important; */
 }
+=======
+>>>>>>> 81f0919e8ee0382dd71fb31c23cea896898baa73

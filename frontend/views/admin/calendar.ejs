@@ -116,6 +116,7 @@
 	<script>
 		const { createApp } = Vue;
 
+<<<<<<< HEAD
 		createApp({
 			data() {
 				return {
@@ -133,6 +134,40 @@
 						email: '',
 						name: ''
 					},
+=======
+                    <div class="form-actions" style="display:flex; align-items:center; justify-content:space-between; gap:.75rem;">
+                        <div style="display:flex; align-items:center; gap:.5rem;">
+                            <label for="memoCategory" style="font-size:0.9rem; color:#4b5563;">Category</label>
+                            <select id="memoCategory" style="min-width: 180px;">
+                                <option value="standard">🟢 Standard</option>
+                                <option value="urgent">🔴 Urgent</option>
+                                <option value="high">🟠 High Priority</option>
+                                <option value="meeting">🟣 Meeting</option>
+                                <option value="deadline">⏰ Deadline</option>
+                                <option value="reminder">🔔 Reminder</option>
+                                <option value="low">🔵 Low Priority</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:.5rem;">
+                            <button type="button" class="btn btn-secondary" id="cancelMemo">Cancel</button>
+                            <!-- Archive button - shown only in edit mode -->
+                            <button type="button" class="btn btn-secondary" id="archiveMemo" style="display:none;">Archive</button>
+                            <!-- Update button (replaces old Delete button) - shown only in edit mode -->
+                            <button type="button" class="btn btn-secondary" id="deleteMemo" style="display:none;">Update</button>
+                            <!-- Submit button - text changes between "Add" and "Update" based on mode -->
+                            <button type="submit" class="btn btn-primary" id="saveMemoBtn">
+                                <span class="btn-text">Add</span>
+                                <span class="btn-loading" style="display: none;">
+                                    <span class="spinner"></span> Updating...
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+>>>>>>> 81f0919e8ee0382dd71fb31c23cea896898baa73
 
 					// Mini calendar
 					currentMiniDate: new Date(),
